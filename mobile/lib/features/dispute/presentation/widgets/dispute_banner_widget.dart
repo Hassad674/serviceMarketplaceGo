@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dispute_entity.dart';
+import 'dispute_banner_action_buttons.dart';
+import 'dispute_banner_blocks.dart';
+import 'dispute_format.dart';
 
 /// Banner displayed on the project detail screen when a dispute is active.
 ///
@@ -37,19 +39,20 @@ class DisputeBannerWidget extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
 
-    final isOpen = dispute.status == 'open' || dispute.status == 'negotiation';
+    final isOpen =
+        dispute.status == 'open' || dispute.status == 'negotiation';
     final isEscalated = dispute.status == 'escalated';
     final isResolved = dispute.status == 'resolved';
     // The full negotiation surface (action buttons, cancellation request,
     // refused-feedback) stays available all the way through admin mediation.
     final canStillNegotiate = isOpen || isEscalated;
 
-    final color = _statusColor(dispute.status);
+    final color = disputeStatusColor(dispute.status);
     final bgColor = color.withValues(alpha: 0.08);
     final borderColor = color.withValues(alpha: 0.3);
 
-    final daysSinceCreation = _daysSinceCreation(dispute.createdAt);
-    final daysLeft = (7 - daysSinceCreation).clamp(0, 7);
+    final daysUsed = daysSinceCreation(dispute.createdAt);
+    final daysLeft = (7 - daysUsed).clamp(0, 7);
 
     final lastPendingCp = _lastPendingCounterProposal();
     final canRespond =
@@ -68,8 +71,8 @@ class DisputeBannerWidget extends StatelessWidget {
         latestCp.proposerId == currentUserId;
 
     final hasCancellationRequest = dispute.cancellationRequestedBy != null;
-    final isCancellationRequester =
-        hasCancellationRequest && dispute.cancellationRequestedBy == currentUserId;
+    final isCancellationRequester = hasCancellationRequest &&
+        dispute.cancellationRequestedBy == currentUserId;
     final canRespondToCancellation =
         hasCancellationRequest && !isCancellationRequester;
 
@@ -84,66 +87,38 @@ class DisputeBannerWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(_statusIcon(dispute.status), color: color, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _statusLabel(l10n, dispute.status),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _StatusHeader(status: dispute.status, color: color),
           const SizedBox(height: 6),
           Text(
-            '${_reasonLabel(l10n, dispute.reason)} — ${_formatEur(dispute.requestedAmount)} ${l10n.disputeRequestedAmount}',
+            '${disputeReasonLabel(l10n, dispute.reason)} — ${formatEur(dispute.requestedAmount)} ${l10n.disputeRequestedAmount}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: appColors?.mutedForeground,
             ),
           ),
           if (isOpen) ...[
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.access_time,
-                    size: 14, color: appColors?.mutedForeground),
-                const SizedBox(width: 4),
-                Text(
-                  daysLeft > 0
-                      ? l10n.disputeDaysLeft(daysLeft)
-                      : l10n.disputeEscalationSoon,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: appColors?.mutedForeground,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+            _CountdownRow(daysLeft: daysLeft),
           ],
           if (isEscalated) ...[
             const SizedBox(height: 10),
-            const _EscalatedNegotiationStillOpenBlock(),
+            const DisputeEscalatedNegotiationOpenBlock(),
           ],
           if (lastPendingCp != null) ...[
             const SizedBox(height: 12),
-            _ProposalSummary(
+            DisputeProposalSummary(
               proposal: lastPendingCp,
               proposalAmount: dispute.proposalAmount,
               borderColor: borderColor,
             ),
           ],
-          if (showRefusedFeedback && latestCp != null) ...[
+          if (showRefusedFeedback) ...[
             const SizedBox(height: 12),
-            _RefusedProposalBlock(proposal: latestCp),
+            // showRefusedFeedback implies latestCp != null.
+            DisputeRefusedProposalBlock(proposal: latestCp),
           ],
           if (hasCancellationRequest && canStillNegotiate) ...[
             const SizedBox(height: 12),
-            _CancellationRequestBlock(
+            DisputeCancellationRequestBlock(
               isRequester: isCancellationRequester,
             ),
           ],
@@ -151,59 +126,26 @@ class DisputeBannerWidget extends StatelessWidget {
               dispute.resolutionAmountClient != null &&
               dispute.resolutionAmountProvider != null) ...[
             const SizedBox(height: 12),
-            _ResolutionSummary(dispute: dispute, borderColor: borderColor),
+            DisputeResolutionSummary(
+              dispute: dispute,
+              borderColor: borderColor,
+            ),
           ],
           if (canStillNegotiate) ...[
             const SizedBox(height: 14),
-            if (canRespondToCancellation &&
-                onAcceptCancellation != null &&
-                onRefuseCancellation != null)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _AcceptButton(
-                    onPressed: onAcceptCancellation!,
-                    label: l10n.disputeAcceptCancellation,
-                  ),
-                  _RejectButton(
-                    onPressed: onRefuseCancellation!,
-                    label: l10n.disputeRefuseCancellation,
-                  ),
-                ],
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (canRespond && onAcceptProposal != null)
-                    _AcceptButton(
-                      onPressed: () => onAcceptProposal!(lastPendingCp.id),
-                      label: l10n.disputeAccept,
-                    ),
-                  if (canRespond && onRejectProposal != null)
-                    _RejectButton(
-                      onPressed: () => onRejectProposal!(lastPendingCp.id),
-                      label: l10n.disputeReject,
-                    ),
-                  if (onCounterPropose != null)
-                    _CounterButton(
-                      onPressed: onCounterPropose!,
-                      label: l10n.disputeCounterPropose,
-                    ),
-                  // Cancel button: visible to BOTH participants. The backend
-                  // decides between direct cancel (initiator + no reply) and
-                  // a cancellation request that requires the other party's
-                  // consent (every other case). Hidden when a request is
-                  // already pending — that party is waiting for an answer.
-                  if (onCancel != null && !hasCancellationRequest)
-                    _CancelButton(
-                      onPressed: onCancel!,
-                      label: l10n.disputeCancelBtn,
-                    ),
-                ],
-              ),
+            _ActionRow(
+              l10n: l10n,
+              canRespondToCancellation: canRespondToCancellation,
+              canRespond: canRespond,
+              hasCancellationRequest: hasCancellationRequest,
+              lastPendingCp: lastPendingCp,
+              onAcceptCancellation: onAcceptCancellation,
+              onRefuseCancellation: onRefuseCancellation,
+              onAcceptProposal: onAcceptProposal,
+              onRejectProposal: onRejectProposal,
+              onCounterPropose: onCounterPropose,
+              onCancel: onCancel,
+            ),
           ],
         ],
       ),
@@ -216,444 +158,141 @@ class DisputeBannerWidget extends StatelessWidget {
     }
     return null;
   }
+}
 
-  int _daysSinceCreation(String createdAt) {
-    try {
-      final dt = DateTime.parse(createdAt);
-      return DateTime.now().difference(dt).inDays;
-    } catch (_) {
-      return 0;
-    }
-  }
+class _StatusHeader extends StatelessWidget {
+  const _StatusHeader({required this.status, required this.color});
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'open':
-      case 'negotiation':
-        return const Color(0xFFEA580C); // orange-600
-      case 'escalated':
-        return const Color(0xFFDC2626); // red-600
-      case 'resolved':
-        return const Color(0xFF16A34A); // green-600
-      case 'cancelled':
-        return const Color(0xFF64748B); // slate-500
-      default:
-        return const Color(0xFFEA580C);
-    }
-  }
+  final String status;
+  final Color color;
 
-  IconData _statusIcon(String status) {
-    switch (status) {
-      case 'resolved':
-        return Icons.check_circle_outline;
-      case 'cancelled':
-        return Icons.cancel_outlined;
-      case 'escalated':
-        return Icons.shield_outlined;
-      default:
-        return Icons.warning_amber_rounded;
-    }
-  }
-
-  String _statusLabel(AppLocalizations l10n, String status) {
-    switch (status) {
-      case 'open':
-        return l10n.disputeStatusOpen;
-      case 'negotiation':
-        return l10n.disputeStatusNegotiation;
-      case 'escalated':
-        return l10n.disputeStatusEscalated;
-      case 'resolved':
-        return l10n.disputeStatusResolved;
-      case 'cancelled':
-        return l10n.disputeStatusCancelled;
-      default:
-        return status;
-    }
-  }
-
-  String _reasonLabel(AppLocalizations l10n, String reason) {
-    switch (reason) {
-      case 'work_not_conforming':
-        return l10n.disputeReasonWorkNotConforming;
-      case 'non_delivery':
-        return l10n.disputeReasonNonDelivery;
-      case 'insufficient_quality':
-        return l10n.disputeReasonInsufficientQuality;
-      case 'client_ghosting':
-        return l10n.disputeReasonClientGhosting;
-      case 'scope_creep':
-        return l10n.disputeReasonScopeCreep;
-      case 'refusal_to_validate':
-        return l10n.disputeReasonRefusalToValidate;
-      case 'harassment':
-        return l10n.disputeReasonHarassment;
-      default:
-        return l10n.disputeReasonOther;
-    }
-  }
-
-  String _formatEur(int centimes) {
-    return NumberFormat.currency(locale: 'fr_FR', symbol: '€', decimalDigits: 2)
-        .format(centimes / 100);
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(disputeStatusIcon(status), color: color, size: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            disputeStatusLabel(l10n, status),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sub-widgets to keep the build tree shallow
-// ---------------------------------------------------------------------------
+class _CountdownRow extends StatelessWidget {
+  const _CountdownRow({required this.daysLeft});
 
-class _ProposalSummary extends StatelessWidget {
-  const _ProposalSummary({
-    required this.proposal,
-    required this.proposalAmount,
-    required this.borderColor,
+  final int daysLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Row(
+      children: [
+        Icon(Icons.access_time, size: 14, color: appColors?.mutedForeground),
+        const SizedBox(width: 4),
+        Text(
+          daysLeft > 0
+              ? l10n.disputeDaysLeft(daysLeft)
+              : l10n.disputeEscalationSoon,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: appColors?.mutedForeground,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.l10n,
+    required this.canRespondToCancellation,
+    required this.canRespond,
+    required this.hasCancellationRequest,
+    required this.lastPendingCp,
+    required this.onAcceptCancellation,
+    required this.onRefuseCancellation,
+    required this.onAcceptProposal,
+    required this.onRejectProposal,
+    required this.onCounterPropose,
+    required this.onCancel,
   });
 
-  final CounterProposal proposal;
-  final int proposalAmount;
-  final Color borderColor;
+  final AppLocalizations l10n;
+  final bool canRespondToCancellation;
+  final bool canRespond;
+  final bool hasCancellationRequest;
+  final CounterProposal? lastPendingCp;
+  final VoidCallback? onAcceptCancellation;
+  final VoidCallback? onRefuseCancellation;
+  final ValueChanged<String>? onAcceptProposal;
+  final ValueChanged<String>? onRejectProposal;
+  final VoidCallback? onCounterPropose;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-    final clientStr = NumberFormat.currency(
-      locale: 'fr_FR',
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(proposal.amountClient / 100);
-    final providerStr = NumberFormat.currency(
-      locale: 'fr_FR',
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(proposal.amountProvider / 100);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    if (canRespondToCancellation &&
+        onAcceptCancellation != null &&
+        onRefuseCancellation != null) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Text(
-            l10n.disputeLastProposal,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+          DisputeAcceptButton(
+            onPressed: onAcceptCancellation!,
+            label: l10n.disputeAcceptCancellation,
           ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.disputeSplit(clientStr, providerStr),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: appColors?.mutedForeground,
-            ),
-          ),
-          if (proposal.message.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              '"${proposal.message}"',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontStyle: FontStyle.italic,
-                color: appColors?.mutedForeground,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ResolutionSummary extends StatelessWidget {
-  const _ResolutionSummary({required this.dispute, required this.borderColor});
-
-  final Dispute dispute;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-    final fmt = NumberFormat.currency(
-      locale: 'fr_FR',
-      symbol: '€',
-      decimalDigits: 2,
-    );
-    final clientStr = fmt.format((dispute.resolutionAmountClient ?? 0) / 100);
-    final providerStr = fmt.format((dispute.resolutionAmountProvider ?? 0) / 100);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.disputeResolution,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.disputeSplit(clientStr, providerStr),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: appColors?.mutedForeground,
-            ),
-          ),
-          if (dispute.resolutionNote != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              dispute.resolutionNote!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontStyle: FontStyle.italic,
-                color: appColors?.mutedForeground,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AcceptButton extends StatelessWidget {
-  const _AcceptButton({required this.onPressed, required this.label});
-  final VoidCallback onPressed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.check_circle, size: 16),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF16A34A),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-      ),
-    );
-  }
-}
-
-class _RejectButton extends StatelessWidget {
-  const _RejectButton({required this.onPressed, required this.label});
-  final VoidCallback onPressed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.cancel, size: 16),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFDC2626),
-        side: const BorderSide(color: Color(0xFFFCA5A5)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-      ),
-    );
-  }
-}
-
-class _CounterButton extends StatelessWidget {
-  const _CounterButton({required this.onPressed, required this.label});
-  final VoidCallback onPressed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.swap_horiz, size: 16),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFD97706),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-      ),
-    );
-  }
-}
-
-class _CancelButton extends StatelessWidget {
-  const _CancelButton({required this.onPressed, required this.label});
-  final VoidCallback onPressed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      child: Text(label),
-    );
-  }
-}
-
-class _EscalatedNegotiationStillOpenBlock extends StatelessWidget {
-  const _EscalatedNegotiationStillOpenBlock();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    const orangeBorder = Color(0xFFFED7AA); // orange-200
-    const orangeBg = Color(0xFFFFF7ED); // orange-50
-    const orangeFg = Color(0xFF9A3412); // orange-800
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: orangeBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: orangeBorder),
-      ),
-      child: Text(
-        l10n.disputeEscalatedNegotiationStillOpen,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: orangeFg,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-class _RefusedProposalBlock extends StatelessWidget {
-  const _RefusedProposalBlock({required this.proposal});
-
-  final CounterProposal proposal;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    const redBorder = Color(0xFFFCA5A5); // red-300
-    const redBg = Color(0xFFFEF2F2); // red-50
-    const redFg = Color(0xFFB91C1C); // red-700
-
-    final clientStr = NumberFormat.currency(
-      locale: 'fr_FR',
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(proposal.amountClient / 100);
-    final providerStr = NumberFormat.currency(
-      locale: 'fr_FR',
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(proposal.amountProvider / 100);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: redBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: redBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.cancel_outlined, size: 16, color: redFg),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  l10n.disputeYourLastProposalRefused,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: redFg,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.disputeSplit(clientStr, providerStr),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: redFg.withValues(alpha: 0.85),
-              fontSize: 12,
-            ),
+          DisputeRejectButton(
+            onPressed: onRefuseCancellation!,
+            label: l10n.disputeRefuseCancellation,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CancellationRequestBlock extends StatelessWidget {
-  const _CancellationRequestBlock({required this.isRequester});
-
-  final bool isRequester;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    const amberBorder = Color(0xFFFCD34D); // amber-300
-    const amberBg = Color(0xFFFFFBEB); // amber-50
-    const amberFg = Color(0xFF92400E); // amber-800
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: amberBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: amberBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.block_outlined, size: 16, color: amberFg),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  l10n.disputeCancellationRequestPending,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: amberFg,
-                  ),
-                ),
-              ),
-            ],
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (canRespond && onAcceptProposal != null && lastPendingCp != null)
+          DisputeAcceptButton(
+            onPressed: () => onAcceptProposal!(lastPendingCp!.id),
+            label: l10n.disputeAccept,
           ),
-          const SizedBox(height: 4),
-          Text(
-            isRequester
-                ? l10n.disputeCancellationRequestWaiting
-                : l10n.disputeCancellationRequestConsent,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: amberFg.withValues(alpha: 0.85),
-              fontSize: 12,
-            ),
+        if (canRespond && onRejectProposal != null && lastPendingCp != null)
+          DisputeRejectButton(
+            onPressed: () => onRejectProposal!(lastPendingCp!.id),
+            label: l10n.disputeReject,
           ),
-        ],
-      ),
+        if (onCounterPropose != null)
+          DisputeCounterButton(
+            onPressed: onCounterPropose!,
+            label: l10n.disputeCounterPropose,
+          ),
+        // Cancel button: visible to BOTH participants. The backend
+        // decides between direct cancel (initiator + no reply) and
+        // a cancellation request that requires the other party's
+        // consent (every other case). Hidden when a request is
+        // already pending — that party is waiting for an answer.
+        if (onCancel != null && !hasCancellationRequest)
+          DisputeCancelButton(
+            onPressed: onCancel!,
+            label: l10n.disputeCancelBtn,
+          ),
+      ],
     );
   }
 }

@@ -1,13 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 
-import '../../../../core/utils/mime_type_helper.dart';
 import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -15,23 +10,19 @@ import '../../data/messaging_repository_impl.dart';
 import '../../domain/entities/message_entity.dart';
 import '../providers/conversations_provider.dart';
 import '../providers/messages_provider.dart';
-import 'package:go_router/go_router.dart';
-
-import '../../../../core/router/app_router.dart';
-import '../../../call/domain/entities/call_entity.dart';
-import '../../../call/presentation/providers/call_provider.dart';
-import '../../../call/presentation/screens/call_screen.dart';
-import '../../../proposal/domain/entities/proposal_entity.dart';
-import '../../../proposal/presentation/providers/proposal_provider.dart';
+import '../utils/visible_message_filter.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
+import '../widgets/chat/dialogs/delete_message_dialog.dart';
+import '../widgets/chat/dialogs/edit_message_dialog.dart';
 import '../widgets/chat/empty_chat_state.dart';
-import '../../../review/presentation/utils/derive_side.dart';
-import '../../../review/presentation/widgets/review_bottom_sheet.dart';
-import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
+import '../widgets/chat/handlers/chat_call_handlers.dart';
+import '../widgets/chat/handlers/chat_proposal_handlers.dart';
 import '../widgets/chat/message_bubble.dart';
 import '../widgets/chat/message_input_bar.dart';
 import '../widgets/chat/typing_indicator_widget.dart';
+import '../widgets/chat/upload/chat_file_uploader.dart';
+import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Chat screen -- messages view for a single conversation
@@ -53,7 +44,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   Timer? _typingInterval;
   MessageEntity? _replyToMessage;
-
   bool _hasScrolledToBottom = false;
 
   @override
@@ -62,7 +52,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollController.addListener(_onScroll);
     _controller.addListener(_onInputChanged);
 
-    // Mark this conversation as active so incoming messages don't increment unread
+    // Mark this conversation as active so incoming messages don't
+    // increment unread.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref
           .read(conversationsProvider.notifier)
@@ -106,7 +97,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onScroll() {
-    // Load older messages when scrolled near the top
     if (_scrollController.position.pixels <=
         _scrollController.position.minScrollExtent + 100) {
       ref
@@ -156,9 +146,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .read(messagesProvider(widget.conversationId).notifier)
         .sendTextMessage(text, replyToId: replyId, replyToInfo: replyInfo);
 
-    if (sent != null) {
-      _scrollToBottom();
-    }
+    if (sent != null) _scrollToBottom();
   }
 
   void _handleReply(MessageEntity message) {
@@ -171,64 +159,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _pickAndSendFile() async {
     final l10n = AppLocalizations.of(context)!;
-
-    final result = await FilePicker.platform.pickFiles(withData: true);
-    if (result == null || result.files.isEmpty) return;
-
-    final file = result.files.first;
-    if (file.name.isEmpty) return;
-
-    final contentType = guessContentType(file.name);
+    final uploader = ChatFileUploader(ref.read(messagingRepositoryProvider));
 
     try {
-      final repo = ref.read(messagingRepositoryProvider);
-      final uploadInfo = await repo.getUploadUrl(
-        filename: file.name,
-        contentType: contentType,
-      );
-
-      Uint8List fileBytes;
-      if (file.bytes != null && file.bytes!.isNotEmpty) {
-        fileBytes = file.bytes!;
-      } else if (file.path != null) {
-        fileBytes = await File(file.path!).readAsBytes();
-      } else {
-        throw Exception('Cannot read file: no bytes and no path');
-      }
-
-      final uploadDio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 120),
-          receiveTimeout: const Duration(seconds: 30),
-        ),
-      );
-
-      await uploadDio.put<void>(
-        uploadInfo.uploadUrl,
-        data: Stream.fromIterable([fileBytes]),
-        options: Options(
-          contentType: contentType,
-          headers: {
-            Headers.contentLengthHeader: fileBytes.length,
-          },
-        ),
-      );
-
-      final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
-          ? uploadInfo.publicUrl
-          : uploadInfo.uploadUrl.split('?').first;
+      final result = await uploader.pickAndUploadFile();
+      if (result == null) return;
 
       await ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendFileMessage(
-            filename: file.name,
-            contentType: contentType,
-            fileKey: uploadInfo.fileKey,
-            fileUrl: resolvedUrl,
-            fileSize: file.size,
+            filename: result.filename,
+            contentType: result.contentType,
+            fileKey: result.fileKey,
+            fileUrl: result.fileUrl,
+            fileSize: result.fileSize,
           );
-
       _scrollToBottom();
     } catch (e) {
       debugPrint('[FileUpload] $e');
@@ -242,56 +187,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendVoiceMessage(String path, int durationSeconds) async {
     final l10n = AppLocalizations.of(context)!;
+    final uploader = ChatFileUploader(ref.read(messagingRepositoryProvider));
 
     try {
-      final file = File(path);
-      if (!file.existsSync()) return;
-      final fileBytes = await file.readAsBytes();
-      final fileSize = fileBytes.length;
-      // Determine content type from actual file extension
-      final ext = path.split('.').last.toLowerCase();
-      final contentType = ext == 'm4a' ? 'audio/mp4' : 'audio/$ext';
-      final filename = 'voice-${DateTime.now().millisecondsSinceEpoch}.$ext';
-
-      final repo = ref.read(messagingRepositoryProvider);
-      final uploadInfo = await repo.getUploadUrl(
-        filename: filename,
-        contentType: contentType,
-      );
-
-      final uploadDio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 60),
-          receiveTimeout: const Duration(seconds: 30),
-        ),
-      );
-
-      await uploadDio.put<void>(
-        uploadInfo.uploadUrl,
-        data: Stream.fromIterable([fileBytes]),
-        options: Options(
-          contentType: contentType,
-          headers: {Headers.contentLengthHeader: fileSize},
-        ),
-      );
-
-      final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
-          ? uploadInfo.publicUrl
-          : uploadInfo.uploadUrl.split('?').first;
-
+      final result = await uploader.uploadVoiceFile(path, durationSeconds);
+      if (result == null) return;
       await ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendVoiceMessage(
-            voiceUrl: resolvedUrl,
-            duration: durationSeconds.toDouble(),
-            size: fileSize,
-            mimeType: contentType,
+            voiceUrl: result.voiceUrl,
+            duration: result.durationSeconds,
+            size: result.size,
+            mimeType: result.mimeType,
           );
-
-      // Clean up temporary recording file
-      file.delete().catchError((_) => file);
-
       _scrollToBottom();
     } catch (e) {
       debugPrint('[VoiceUpload] ERROR: $e');
@@ -300,58 +208,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SnackBar(content: Text('${l10n.uploadError}: $e')),
         );
       }
-    }
-  }
-
-  Future<void> _startCall(dynamic conversation) async {
-    await _initiateCallOfType(conversation, CallType.audio);
-  }
-
-  Future<void> _startVideoCall(dynamic conversation) async {
-    await _initiateCallOfType(conversation, CallType.video);
-  }
-
-  Future<void> _initiateCallOfType(
-    dynamic conversation,
-    CallType callType,
-  ) async {
-    if (conversation == null) return;
-    final callNotifier = ref.read(callProvider.notifier);
-    await callNotifier.initiateCall(
-      conversationId: widget.conversationId,
-      recipientId: conversation.otherUserId,
-      callType: callType,
-    );
-    if (!mounted) return;
-
-    final callState = ref.read(callProvider);
-    if (callState.status == CallStatus.ringingOutgoing) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CallScreen(
-            recipientName: conversation.otherOrgName ?? '',
-            callType: callType,
-          ),
-        ),
-      );
-    } else if (callState.errorMessage != null) {
-      final l10n = AppLocalizations.of(context)!;
-      final msg = _callErrorToMessage(l10n, callState.errorMessage!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
-      callNotifier.clearError();
-    }
-  }
-
-  String _callErrorToMessage(AppLocalizations l10n, String code) {
-    switch (code) {
-      case 'recipient_offline':
-        return l10n.callRecipientOffline;
-      case 'user_busy':
-        return l10n.callUserBusy;
-      default:
-        return l10n.callFailed;
     }
   }
 
@@ -367,178 +223,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  Future<void> _openProposalScreen({ProposalEntity? existingProposal}) async {
-    final convState = ref.read(conversationsProvider);
-    final conversation = convState.conversations
-        .where((c) => c.id == widget.conversationId)
-        .firstOrNull;
-
-    final result = await GoRouter.of(context).push<dynamic>(
-      RoutePaths.projectsNew,
-      extra: {
-        // Proposals still anchor on user ids — pass the other
-        // participant's user id, not the org id.
-        'recipientId': conversation?.otherUserId ?? '',
-        'conversationId': widget.conversationId,
-        'recipientName': conversation?.otherOrgName ?? '',
-        'existingProposal': existingProposal,
-      },
-    );
-
-    // The create/modify screen now returns a ProposalEntity from the backend.
-    // The backend also broadcasts a WS message, so we just need to scroll.
-    if (result != null && mounted) {
-      _scrollToBottom();
-    }
-  }
-
-  Future<void> _handleAcceptProposal(String proposalId) async {
-    final repo = ref.read(proposalRepositoryProvider);
-    try {
-      await repo.acceptProposal(proposalId);
-      // Backend broadcasts WS message; UI will update reactively.
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _handleDeclineProposal(String proposalId) async {
-    final repo = ref.read(proposalRepositoryProvider);
-    try {
-      await repo.declineProposal(proposalId);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _handleModifyProposal(String proposalId) async {
-    try {
-      final repo = ref.read(proposalRepositoryProvider);
-      final proposal = await repo.getProposal(proposalId);
-      if (mounted) {
-        _openProposalScreen(existingProposal: proposal);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
-        );
-      }
-    }
-  }
-
-  void _handlePayProposal(String proposalId) {
-    GoRouter.of(context).push('/projects/pay/$proposalId');
-  }
-
-  Future<void> _handleReviewProposal(
-    String proposalId,
-    String proposalTitle,
-    String clientOrganizationId,
-    String providerOrganizationId,
-  ) async {
-    // Derive the review direction directly from the system message
-    // metadata (client/provider organization ids enriched by the
-    // backend) vs the operator's current organization. No proposal
-    // refetch needed — and crucially, we compare ORG ids to the
-    // viewer's ORG id, which works for any operator on the team.
-    final authState = ref.read(authProvider);
-    final userOrgId = authState.organization?['id'] as String? ?? '';
-
-    final side = deriveReviewSide(
-      userOrganizationId: userOrgId,
-      proposalClientOrgId: clientOrganizationId,
-      proposalProviderOrgId: providerOrganizationId,
-    );
-    if (side == null) {
-      // The viewer is neither the client nor the provider org. This
-      // should only happen for admin / debug sessions — drop silently.
-      return;
-    }
-
-    if (!mounted) return;
-    await ReviewBottomSheet.show(
-      context,
-      proposalId: proposalId,
-      proposalTitle: proposalTitle,
-      side: side,
-    );
-  }
-
-  void _handleViewProposalDetail(String proposalId) {
-    GoRouter.of(context).push('/projects/detail/$proposalId');
-  }
-
   void _showEditDialog(MessageEntity message) {
-    final editController = TextEditingController(text: message.content);
-    final l10n = AppLocalizations.of(context)!;
-
-    showDialog(
+    showEditMessageDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.messagingEditMessage),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          maxLines: null,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref
-                  .read(messagesProvider(widget.conversationId).notifier)
-                  .editMessage(
-                    messageId: message.id,
-                    content: editController.text.trim(),
-                  );
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
+      message: message,
+      onConfirm: (content) async {
+        await ref
+            .read(messagesProvider(widget.conversationId).notifier)
+            .editMessage(messageId: message.id, content: content);
+      },
     );
   }
 
   void _showDeleteConfirm(MessageEntity message) {
-    final l10n = AppLocalizations.of(context)!;
-
-    showDialog(
+    showDeleteMessageDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.messagingDeleteMessage),
-        content: Text(l10n.messagingDeleteConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref
-                  .read(messagesProvider(widget.conversationId).notifier)
-                  .deleteMessage(message.id);
-            },
-            child: Text(l10n.remove),
-          ),
-        ],
-      ),
+      onConfirm: () async {
+        await ref
+            .read(messagesProvider(widget.conversationId).notifier)
+            .deleteMessage(message.id);
+      },
     );
   }
 
@@ -548,7 +252,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final convState = ref.watch(conversationsProvider);
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?['id'] as String? ?? '';
-    final canSend = ref.watch(hasPermissionProvider(OrgPermission.messagingSend));
+    final canSend =
+        ref.watch(hasPermissionProvider(OrgPermission.messagingSend));
     final canCreateProposal = ref.watch(
       hasPermissionProvider(OrgPermission.proposalsCreate),
     );
@@ -558,13 +263,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .firstOrNull;
 
     // Hide stale "proposal_completion_requested" system cards once a
-    // later message resolves them (proposal_completed, rejected,
-    // milestone_released, etc.). Keeps the conversation timeline
-    // readable during multi-milestone flows — mirrors the web
-    // MessageArea filter.
-    final visibleMessages = _filterVisibleMessages(msgState.messages);
+    // later message resolves them.
+    final visibleMessages = filterVisibleChatMessages(msgState.messages);
 
-    // Auto-scroll when new messages are appended (not older-page prepends).
+    // Auto-scroll when new messages are appended.
     ref.listen<MessagesState>(
       messagesProvider(widget.conversationId),
       (prev, next) {
@@ -577,7 +279,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       },
     );
 
-    // Scroll to bottom once after initial load (messages are ASC).
     if (!_hasScrolledToBottom && msgState.messages.isNotEmpty) {
       _hasScrolledToBottom = true;
       _scrollToBottom();
@@ -595,20 +296,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? (conversation?.otherOrgName ?? '')
         : null;
 
+    final callHandlers = ChatCallHandlers(
+      ref: ref,
+      context: context,
+      conversationId: widget.conversationId,
+    );
+    final proposalHandlers = ChatProposalHandlers(
+      ref: ref,
+      context: context,
+      conversationId: widget.conversationId,
+      onAfterAction: _scrollToBottom,
+    );
+
     return Scaffold(
       appBar: ChatAppBar(
         conversation: conversation,
         currentOrgType: authState.organization?['type'] as String?,
         typingUserName: typingDisplayName,
-        onStartCall: () => _startCall(conversation),
-        onStartVideoCall: () => _startVideoCall(conversation),
+        onStartCall: () => callHandlers.startAudioCall(conversation),
+        onStartVideoCall: () => callHandlers.startVideoCall(conversation),
         onReportUser: conversation != null
             ? () => showReportBottomSheet(
                   context,
                   ref,
-                  // Reporting flows still expose a user-id target for
-                  // now; the conversation surfaces the other
-                  // participant user for exactly this reason.
                   targetType: 'user',
                   targetId: conversation.otherUserId,
                   conversationId: widget.conversationId,
@@ -626,62 +336,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-
           Expanded(
             child: visibleMessages.isEmpty
                 ? const EmptyChatState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    itemCount: visibleMessages.length,
-                    itemBuilder: (context, index) {
-                      final message = visibleMessages[index];
-                      final isOwn = message.senderId == currentUserId;
-                      return MessageBubble(
-                        message: message,
-                        isOwn: isOwn,
-                        currentUserId: currentUserId,
-                        onReply: !message.isDeleted
-                            ? () => _handleReply(message)
-                            : null,
-                        onEdit: isOwn && !message.isDeleted
-                            ? () => _showEditDialog(message)
-                            : null,
-                        onDelete: isOwn && !message.isDeleted
-                            ? () => _showDeleteConfirm(message)
-                            : null,
-                        onReport: !isOwn && !message.isDeleted
-                            ? () => showReportBottomSheet(
-                                  context,
-                                  ref,
-                                  targetType: 'message',
-                                  targetId: message.id,
-                                  conversationId: widget.conversationId,
-                                )
-                            : null,
-                        onAcceptProposal: _handleAcceptProposal,
-                        onDeclineProposal: _handleDeclineProposal,
-                        onModifyProposal: _handleModifyProposal,
-                        onPayProposal: _handlePayProposal,
-                        onReview: _handleReviewProposal,
-                        onViewProposalDetail: _handleViewProposalDetail,
-                      );
-                    },
+                : _MessagesListView(
+                    scrollController: _scrollController,
+                    messages: visibleMessages,
+                    currentUserId: currentUserId,
+                    conversationId: widget.conversationId,
+                    onReply: _handleReply,
+                    onEdit: _showEditDialog,
+                    onDelete: _showDeleteConfirm,
+                    proposalHandlers: proposalHandlers,
                   ),
           ),
-
           if (typingDisplayName != null)
             TypingIndicatorWidget(userName: typingDisplayName),
-
           MessageInputBar(
             controller: _controller,
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
             onProposal: canSend && canCreateProposal
-                ? _openProposalScreen
+                ? () => proposalHandlers.openProposalScreen()
                 : null,
             onVoiceRecorded: canSend ? _sendVoiceMessage : null,
             sendDisabled: !canSend,
@@ -697,46 +373,71 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
+}
 
-  // Filters out stale "proposal_completion_requested" cards whose
-  // proposal has already moved past that state. A completion request
-  // is resolved by any of: proposal_completed, proposal_completion_rejected,
-  // milestone_released, milestone_auto_approved, proposal_cancelled,
-  // proposal_auto_closed. Once any of those is in the conversation for
-  // a given proposal_id, the earlier yellow "Completion requested"
-  // card becomes noise and is hidden.
-  //
-  // Multi-milestone proposals emit a fresh completion_requested card
-  // for each milestone, so hiding is keyed on the proposal id AND the
-  // relative order — we compute the set of resolved proposal ids once
-  // per render and drop any completion_requested that belongs to them.
-  List<MessageEntity> _filterVisibleMessages(List<MessageEntity> messages) {
-    final resolved = <String>{};
-    const resolverTypes = <String>{
-      'proposal_completed',
-      'proposal_completion_rejected',
-      'milestone_released',
-      'milestone_auto_approved',
-      'proposal_cancelled',
-      'proposal_auto_closed',
-    };
-    for (final m in messages) {
-      if (!resolverTypes.contains(m.type)) continue;
-      final meta = m.metadata;
-      if (meta is Map<String, dynamic>) {
-        final pid = meta['proposal_id'];
-        if (pid is String) resolved.add(pid);
-      }
-    }
-    if (resolved.isEmpty) return messages;
-    return messages.where((m) {
-      if (m.type != 'proposal_completion_requested') return true;
-      final meta = m.metadata;
-      if (meta is Map<String, dynamic>) {
-        final pid = meta['proposal_id'];
-        if (pid is String) return !resolved.contains(pid);
-      }
-      return true;
-    }).toList();
+/// Renders the scrollable list of message bubbles in the chat thread.
+class _MessagesListView extends ConsumerWidget {
+  const _MessagesListView({
+    required this.scrollController,
+    required this.messages,
+    required this.currentUserId,
+    required this.conversationId,
+    required this.onReply,
+    required this.onEdit,
+    required this.onDelete,
+    required this.proposalHandlers,
+  });
+
+  final ScrollController scrollController;
+  final List<MessageEntity> messages;
+  final String currentUserId;
+  final String conversationId;
+  final void Function(MessageEntity) onReply;
+  final void Function(MessageEntity) onEdit;
+  final void Function(MessageEntity) onDelete;
+  final ChatProposalHandlers proposalHandlers;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isOwn = message.senderId == currentUserId;
+        return MessageBubble(
+          message: message,
+          isOwn: isOwn,
+          currentUserId: currentUserId,
+          onReply: !message.isDeleted ? () => onReply(message) : null,
+          onEdit:
+              isOwn && !message.isDeleted ? () => onEdit(message) : null,
+          onDelete:
+              isOwn && !message.isDeleted ? () => onDelete(message) : null,
+          onReport: !isOwn && !message.isDeleted
+              ? () => showReportBottomSheet(
+                    context,
+                    ref,
+                    targetType: 'message',
+                    targetId: message.id,
+                    conversationId: conversationId,
+                  )
+              : null,
+          onAcceptProposal: proposalHandlers.handleAccept,
+          onDeclineProposal: proposalHandlers.handleDecline,
+          onModifyProposal: proposalHandlers.handleModify,
+          onPayProposal: proposalHandlers.handlePay,
+          onReview: (id, title, clientOrgId, providerOrgId) =>
+              proposalHandlers.handleReview(
+            proposalId: id,
+            proposalTitle: title,
+            clientOrganizationId: clientOrgId,
+            providerOrganizationId: providerOrgId,
+          ),
+          onViewProposalDetail: proposalHandlers.handleViewDetail,
+        );
+      },
+    );
   }
 }
