@@ -145,7 +145,11 @@ func (h *AdminHandler) SuspendUser(w http.ResponseWriter, r *http.Request) {
 		expiresAt = &t
 	}
 
-	if err := h.svc.SuspendUser(r.Context(), id, body.Reason, expiresAt); err != nil {
+	// BUG-NEW-09 — pass the AUTHENTICATED admin's user id from JWT
+	// context as the audit actor; the URL-derived `id` is the target
+	// being suspended.
+	adminID, _ := middleware.GetUserID(r.Context())
+	if err := h.svc.SuspendUser(r.Context(), adminID, id, body.Reason, expiresAt); err != nil {
 		handleAdminError(w, err)
 		return
 	}
@@ -161,7 +165,8 @@ func (h *AdminHandler) UnsuspendUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.UnsuspendUser(r.Context(), id); err != nil {
+	adminID, _ := middleware.GetUserID(r.Context())
+	if err := h.svc.UnsuspendUser(r.Context(), adminID, id); err != nil {
 		handleAdminError(w, err)
 		return
 	}
@@ -189,7 +194,9 @@ func (h *AdminHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.BanUser(r.Context(), id, body.Reason); err != nil {
+	// BUG-NEW-09 — actor=admin (from JWT), resource=URL id.
+	adminID, _ := middleware.GetUserID(r.Context())
+	if err := h.svc.BanUser(r.Context(), adminID, id, body.Reason); err != nil {
 		handleAdminError(w, err)
 		return
 	}
@@ -205,7 +212,8 @@ func (h *AdminHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.UnbanUser(r.Context(), id); err != nil {
+	adminID, _ := middleware.GetUserID(r.Context())
+	if err := h.svc.UnbanUser(r.Context(), adminID, id); err != nil {
 		handleAdminError(w, err)
 		return
 	}
