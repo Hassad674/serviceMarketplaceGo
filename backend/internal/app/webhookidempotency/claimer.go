@@ -47,6 +47,12 @@ type CacheStore interface {
 
 	// MarkSeen seeds the cache after Postgres has decided.
 	MarkSeen(ctx context.Context, eventID string) error
+
+	// Forget deletes the cache entry for an event id. Used by Release
+	// to ensure a subsequent Stripe retry is not short-circuited on
+	// the fast path. Errors are returned as *CacheError so the caller
+	// can downgrade to log-and-continue.
+	Forget(ctx context.Context, eventID string) error
 }
 
 // DurableStore is the Postgres-backed source of truth.
@@ -56,6 +62,13 @@ type DurableStore interface {
 	//   (false, nil) → ON CONFLICT path; this is a replay, skip it
 	//   (_, err)     → SQL exec failed; caller must NOT process
 	TryClaim(ctx context.Context, eventID, eventType string) (bool, error)
+
+	// Release reverses a prior TryClaim by deleting the row. Idempotent:
+	// returns nil even if the row is absent (a concurrent process may
+	// have removed it). Used by the composite claimer's Release path
+	// so a downstream handler error makes Stripe's next retry process
+	// the event for real instead of seeing a duplicate.
+	Release(ctx context.Context, eventID string) error
 }
 
 // Claimer composes a cache fast-path and a durable source of truth.
@@ -146,4 +159,39 @@ func (c *Claimer) populateCacheBestEffort(ctx context.Context, eventID string) {
 		slog.Debug("webhook idempotency: cache populate failed (non-fatal)",
 			"event_id", eventID, "error", err)
 	}
+}
+
+// Release reverses a successful TryClaim. Used by the Stripe webhook
+// dispatcher when a downstream handler fails AFTER the claim succeeded
+// — without releasing, the durable claim would be permanent and
+// Stripe's next retry would be silently deduped, leaving the state
+// change un-applied forever.
+//
+// Two layers, both best-effort:
+//   1. DELETE from the durable store so the next retry's INSERT ON
+//      CONFLICT DO NOTHING succeeds (claim flow returns "first").
+//   2. Forget the Redis fast-path entry so the claim flow even
+//      reaches the durable store on the next retry.
+//
+// A failure to delete the durable row is fatal: the next retry would
+// still be deduped, the state change still lost. Surface the error so
+// the dispatcher can log it next to the original handler failure.
+// Cache failures degrade gracefully — the cache will TTL out within
+// 5 minutes, well within Stripe's retry horizon.
+func (c *Claimer) Release(ctx context.Context, eventID string) error {
+	if eventID == "" {
+		return fmt.Errorf("webhook idempotency: empty event_id on release")
+	}
+	if err := c.durable.Release(ctx, eventID); err != nil {
+		return fmt.Errorf("webhook idempotency: durable release failed: %w", err)
+	}
+	if c.cache == nil {
+		return nil
+	}
+	if err := c.cache.Forget(ctx, eventID); err != nil {
+		// Non-fatal: TTL covers us within Stripe's retry window.
+		slog.Warn("webhook idempotency: cache forget failed (non-fatal, TTL will cover)",
+			"event_id", eventID, "error", err)
+	}
+	return nil
 }
