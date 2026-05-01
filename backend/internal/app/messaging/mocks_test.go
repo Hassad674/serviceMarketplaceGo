@@ -16,12 +16,12 @@ import (
 // --- mockMessageRepository ---
 
 type mockMessageRepo struct {
-	findOrCreateConversationFn     func(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error)
+	findOrCreateConversationFn     func(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error)
 	getConversationFn              func(ctx context.Context, id uuid.UUID) (*message.Conversation, error)
 	listConversationsFn            func(ctx context.Context, params repository.ListConversationsParams) ([]repository.ConversationSummary, string, error)
 	isParticipantFn                func(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
 	isOrgAuthorizedFn              func(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error)
-	createMessageFn                func(ctx context.Context, msg *message.Message) error
+	createMessageFn                func(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error
 	getMessageFn                   func(ctx context.Context, id uuid.UUID) (*message.Message, error)
 	listMessagesFn                 func(ctx context.Context, params repository.ListMessagesParams) ([]*message.Message, string, error)
 	getMessagesSinceSeqFn          func(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
@@ -37,9 +37,9 @@ type mockMessageRepo struct {
 	getContactIDsFn                func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
-func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
+func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error) {
 	if m.findOrCreateConversationFn != nil {
-		return m.findOrCreateConversationFn(ctx, userA, userB)
+		return m.findOrCreateConversationFn(ctx, userA, userB, senderOrgID, senderUserID)
 	}
 	return uuid.New(), true, nil
 }
@@ -72,9 +72,9 @@ func (m *mockMessageRepo) IsOrgAuthorizedForConversation(ctx context.Context, co
 	return true, nil
 }
 
-func (m *mockMessageRepo) CreateMessage(ctx context.Context, msg *message.Message) error {
+func (m *mockMessageRepo) CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error {
 	if m.createMessageFn != nil {
-		return m.createMessageFn(ctx, msg)
+		return m.createMessageFn(ctx, msg, senderOrgID, senderUserID)
 	}
 	return nil
 }

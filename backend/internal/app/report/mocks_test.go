@@ -139,7 +139,7 @@ type mockMessageRepo struct {
 	getMessageFn func(ctx context.Context, id uuid.UUID) (*messagedomain.Message, error)
 }
 
-func (m *mockMessageRepo) FindOrCreateConversation(_ context.Context, _, _ uuid.UUID) (uuid.UUID, bool, error) {
+func (m *mockMessageRepo) FindOrCreateConversation(_ context.Context, _, _, _, _ uuid.UUID) (uuid.UUID, bool, error) {
 	return uuid.Nil, false, nil
 }
 func (m *mockMessageRepo) GetConversation(_ context.Context, _ uuid.UUID) (*messagedomain.Conversation, error) {
@@ -154,7 +154,7 @@ func (m *mockMessageRepo) IsParticipant(_ context.Context, _, _ uuid.UUID) (bool
 func (m *mockMessageRepo) IsOrgAuthorizedForConversation(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
 }
-func (m *mockMessageRepo) CreateMessage(_ context.Context, _ *messagedomain.Message) error {
+func (m *mockMessageRepo) CreateMessage(_ context.Context, _ *messagedomain.Message, _, _ uuid.UUID) error {
 	return nil
 }
 func (m *mockMessageRepo) GetMessage(ctx context.Context, id uuid.UUID) (*messagedomain.Message, error) {

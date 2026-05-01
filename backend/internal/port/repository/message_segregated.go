@@ -43,9 +43,16 @@ type MessageReader interface {
 
 // MessageWriter exposes mutation paths: conversation creation, message
 // CRUD, read-marker updates, and the moderation/history audit trail.
+//
+// FindOrCreateConversation and CreateMessage take the sender's org +
+// user ids so the postgres adapter can install the RLS tenant context
+// (app.current_org_id + app.current_user_id) on the underlying tx.
+// This is mandatory once the production DB role is non-superuser —
+// see backend/docs/rls.md — otherwise the INSERTs are rejected by the
+// conversations / messages isolation policies.
 type MessageWriter interface {
-	FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error)
-	CreateMessage(ctx context.Context, msg *message.Message) error
+	FindOrCreateConversation(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error)
+	CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error
 	UpdateMessage(ctx context.Context, msg *message.Message) error
 	MarkAsRead(ctx context.Context, conversationID, userID uuid.UUID, seq int) error
 	UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error

@@ -23,7 +23,7 @@ func TestSendSystemMessage_Success(t *testing.T) {
 	var createdMsg *message.Message
 	var broadcastCalled bool
 	msgRepo := &mockMessageRepo{
-		createMessageFn: func(_ context.Context, msg *message.Message) error {
+		createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 			createdMsg = msg
 			return nil
 		},
@@ -74,7 +74,7 @@ func TestSendSystemMessage_InvalidType(t *testing.T) {
 
 func TestSendSystemMessage_CreateError(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		createMessageFn: func(_ context.Context, _ *message.Message) error {
+		createMessageFn: func(_ context.Context, _ *message.Message, _, _ uuid.UUID) error {
 			return fmt.Errorf("database write failed")
 		},
 	}
@@ -133,7 +133,7 @@ func TestSendSystemMessage_NilSender(t *testing.T) {
 	var observedSenderUserID, observedSenderOrgID uuid.UUID
 
 	msgRepo := &mockMessageRepo{
-		createMessageFn: func(_ context.Context, msg *message.Message) error {
+		createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 			createdMsg = msg
 			return nil
 		},
@@ -189,7 +189,7 @@ func TestSendSystemMessage_ProposalTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var savedType message.MessageType
 			msgRepo := &mockMessageRepo{
-				createMessageFn: func(_ context.Context, msg *message.Message) error {
+				createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 					savedType = msg.Type
 					return nil
 				},
