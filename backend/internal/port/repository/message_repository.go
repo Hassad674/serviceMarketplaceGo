@@ -53,7 +53,19 @@ type ConversationSummary struct {
 }
 
 type MessageRepository interface {
-	FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error)
+	// FindOrCreateConversation finds (or creates) the 1:1 conversation
+	// between userA and userB. The caller passes their own
+	// senderOrgID + senderUserID so the repository can install the RLS
+	// tenant context (app.current_org_id / app.current_user_id) on the
+	// transaction that performs the INSERT. This is mandatory once the
+	// production DB role is non-superuser (see backend/docs/rls.md);
+	// without it the INSERT into `conversations` is rejected by the
+	// `conversations_isolation` policy.
+	//
+	// senderOrgID may be uuid.Nil for solo-provider senders that don't
+	// belong to any org — the repo falls back to the participant
+	// escape hatch on the policy by also setting app.current_user_id.
+	FindOrCreateConversation(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (*message.Conversation, error)
 	ListConversations(ctx context.Context, params ListConversationsParams) ([]ConversationSummary, string, error)
 	// IsParticipant checks the direct-participant table — used by narrow
@@ -69,7 +81,14 @@ type MessageRepository interface {
 	// of the team to read, write, mark-read, etc. in a conversation
 	// that was originally opened by a colleague.
 	IsOrgAuthorizedForConversation(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error)
-	CreateMessage(ctx context.Context, msg *message.Message) error
+	// CreateMessage inserts the given message into its conversation. As
+	// with FindOrCreateConversation, the caller passes senderOrgID +
+	// senderUserID so the repo can wrap the read-modify-write tx in
+	// RunInTxWithTenant — the FOR UPDATE on conversations and the
+	// MAX(seq) read on messages are both RLS-protected and would
+	// otherwise be silently filtered to zero rows when the prod DB
+	// role lacks BYPASSRLS.
+	CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error
 	GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error)
 	ListMessages(ctx context.Context, params ListMessagesParams) ([]*message.Message, string, error)
 	GetMessagesSinceSeq(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)

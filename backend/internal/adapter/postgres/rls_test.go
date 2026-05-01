@@ -344,3 +344,68 @@ func TestRunInTxWithTenant_PropagatesContextError(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, called, "fn must not be invoked when SetTenantContext fails")
 }
+
+// ---------------------------------------------------------------------------
+// RunInTxWithTenantSerializable — added by the prod messaging RLS fix.
+// FindOrCreateConversation needs both the tenant context AND
+// serializable isolation (to dedup concurrent first-message races).
+// ---------------------------------------------------------------------------
+
+func TestRunInTxWithTenantSerializable_NilFn_ReturnsError(t *testing.T) {
+	r := postgres.NewTxRunner(nil)
+	err := r.RunInTxWithTenantSerializable(context.Background(), uuid.New(), uuid.New(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fn is required")
+}
+
+func TestRunInTxWithTenantSerializable_HappyPath_SetsContext(t *testing.T) {
+	db := testDB(t)
+	runner := postgres.NewTxRunner(db)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	userID := uuid.New()
+
+	var seenOrg, seenUser, seenIso string
+	err := runner.RunInTxWithTenantSerializable(ctx, orgID, userID, func(tx *sql.Tx) error {
+		seenOrg = readSetting(t, ctx, tx, "app.current_org_id")
+		seenUser = readSetting(t, ctx, tx, "app.current_user_id")
+		require.NoError(t, tx.QueryRowContext(ctx, "SHOW transaction_isolation").Scan(&seenIso))
+		return nil
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, orgID.String(), seenOrg, "org context must be set inside the serializable tx")
+	assert.Equal(t, userID.String(), seenUser, "user context must be set inside the serializable tx")
+	assert.Equal(t, "serializable", seenIso, "isolation level must be SERIALIZABLE")
+}
+
+func TestRunInTxWithTenantSerializable_PropagatesFnError(t *testing.T) {
+	db := testDB(t)
+	runner := postgres.NewTxRunner(db)
+
+	sentinel := errors.New("boom-serial")
+	err := runner.RunInTxWithTenantSerializable(context.Background(), uuid.New(), uuid.New(), func(tx *sql.Tx) error {
+		return sentinel
+	})
+	assert.ErrorIs(t, err, sentinel)
+}
+
+func TestRunInTxWithTenantSerializable_NilOrgID_StillRunsCallback(t *testing.T) {
+	db := testDB(t)
+	runner := postgres.NewTxRunner(db)
+	ctx := context.Background()
+
+	var seenOrg, seenUser string
+	called := false
+	err := runner.RunInTxWithTenantSerializable(ctx, uuid.Nil, uuid.Nil, func(tx *sql.Tx) error {
+		called = true
+		seenOrg = readSetting(t, ctx, tx, "app.current_org_id")
+		seenUser = readSetting(t, ctx, tx, "app.current_user_id")
+		return nil
+	})
+	require.NoError(t, err)
+	assert.True(t, called)
+	assert.Equal(t, "", seenOrg, "nil org must leave app.current_org_id unset")
+	assert.Equal(t, "", seenUser, "nil user must leave app.current_user_id unset")
+}

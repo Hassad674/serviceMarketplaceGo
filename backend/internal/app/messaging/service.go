@@ -123,7 +123,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 		return nil, uuid.UUID{}, message.ErrRateLimitExceeded
 	}
 
-	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.SenderID, recipientUserID)
+	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.SenderID, recipientUserID, senderOrgID, input.SenderID)
 	if err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("find or create conversation: %w", err)
 	}
@@ -139,7 +139,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 		return nil, uuid.UUID{}, err
 	}
 
-	if err := s.messages.CreateMessage(ctx, msg); err != nil {
+	if err := s.messages.CreateMessage(ctx, msg, senderOrgID, input.SenderID); err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("create message: %w", err)
 	}
 
@@ -207,7 +207,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 		return nil, err
 	}
 
-	if err := s.messages.CreateMessage(ctx, msg); err != nil {
+	if err := s.messages.CreateMessage(ctx, msg, senderOrgID, input.SenderID); err != nil {
 		return nil, fmt.Errorf("create message: %w", err)
 	}
 

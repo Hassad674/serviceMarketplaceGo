@@ -18,38 +18,131 @@ import (
 
 type ConversationRepository struct {
 	db *sql.DB
+	// txRunner is the tenant-aware transaction wrapper used by the
+	// RLS-protected write paths (FindOrCreateConversation, CreateMessage).
+	// It is OPTIONAL: when nil the repository falls back to plain
+	// db.BeginTx — useful for unit tests that build the repo with only
+	// a *sql.DB. In production main.go always wires a non-nil runner so
+	// the SET LOCAL app.current_org_id / app.current_user_id calls fire
+	// before any insert, satisfying the policies installed by mig 125.
+	txRunner *TxRunner
 }
 
 func NewConversationRepository(db *sql.DB) *ConversationRepository {
 	return &ConversationRepository{db: db}
 }
 
-func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
+// WithTxRunner attaches the tenant-aware transaction wrapper. Wired
+// from cmd/api/main.go alongside the rest of the repository graph.
+// Returning the same pointer lets the wiring chain stay terse:
+//
+//	postgres.NewConversationRepository(db).WithTxRunner(txRunner)
+func (r *ConversationRepository) WithTxRunner(runner *TxRunner) *ConversationRepository {
+	r.txRunner = runner
+	return r
+}
+
+// FindOrCreateConversation finds the 1:1 conversation between userA and
+// userB or creates it. senderOrgID + senderUserID are the tenant context
+// of the CALLER (not necessarily either of userA / userB — system paths
+// pass uuid.Nil for both). When a TxRunner is wired, the function runs
+// inside RunInTxWithTenant so app.current_org_id / app.current_user_id
+// are set before the INSERT into `conversations` (RLS-protected by mig
+// 125). Without this, production deploys with a non-superuser DB role
+// reject the INSERT with "new row violates row-level security policy".
+func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	// Use SERIALIZABLE transaction to prevent race conditions where two concurrent
-	// requests both see "no conversation" and create duplicates.
+	if r.txRunner != nil {
+		return r.findOrCreateConversationWithRunner(ctx, userA, userB, senderOrgID, senderUserID)
+	}
+	return r.findOrCreateConversationLegacy(ctx, userA, userB, senderOrgID)
+}
+
+// findOrCreateConversationWithRunner is the production path: opens a
+// SERIALIZABLE transaction with the tenant context already set, then
+// runs the find / insert pipeline against RLS-active tables.
+func (r *ConversationRepository) findOrCreateConversationWithRunner(ctx context.Context, userA, userB, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error) {
+	var convID uuid.UUID
+	var created bool
+
+	err := r.txRunner.RunInTxWithTenantSerializable(ctx, senderOrgID, senderUserID, func(tx *sql.Tx) error {
+		id, isNew, err := findOrCreateConversationInTx(ctx, tx, userA, userB, senderOrgID)
+		if err != nil {
+			return err
+		}
+		convID = id
+		created = isNew
+		return nil
+	})
+	if err != nil {
+		if isSerializationError(err) {
+			return r.retryFindConversation(ctx, userA, userB)
+		}
+		return uuid.UUID{}, false, err
+	}
+	return convID, created, nil
+}
+
+// findOrCreateConversationLegacy preserves the pre-RLS behavior for
+// unit tests that build the repository without a TxRunner. Production
+// callers MUST go through WithTxRunner so the tenant context is set.
+func (r *ConversationRepository) findOrCreateConversationLegacy(ctx context.Context, userA, userB, senderOrgID uuid.UUID) (uuid.UUID, bool, error) {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Check for existing conversation inside the transaction
+	convID, created, err := findOrCreateConversationInTx(ctx, tx, userA, userB, senderOrgID)
+	if err != nil {
+		return uuid.UUID{}, false, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		if isSerializationError(err) {
+			return r.retryFindConversation(ctx, userA, userB)
+		}
+		return uuid.UUID{}, false, fmt.Errorf("commit: %w", err)
+	}
+
+	return convID, created, nil
+}
+
+// findOrCreateConversationInTx runs the find / insert pipeline inside an
+// already-open transaction. Shared between the legacy and tenant-aware
+// entry points so the SQL logic lives in a single place.
+//
+// The conversation row is inserted with organization_id ALREADY SET to
+// the sender's org. This avoids the chicken-and-egg of the previous
+// design where the row was inserted with NULL and backfilled in the
+// same tx — under RLS the NULL row is rejected by the policy because
+// `NULL = current_setting(...)` is NULL, not true.
+func findOrCreateConversationInTx(ctx context.Context, tx *sql.Tx, userA, userB, senderOrgID uuid.UUID) (uuid.UUID, bool, error) {
 	var convID uuid.UUID
-	err = tx.QueryRowContext(ctx, queryFindExistingConversation, userA, userB).Scan(&convID)
+	err := tx.QueryRowContext(ctx, queryFindExistingConversation, userA, userB).Scan(&convID)
 	if err == nil {
-		_ = tx.Commit()
 		return convID, false, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return uuid.UUID{}, false, fmt.Errorf("find conversation: %w", err)
 	}
 
-	// Create new conversation
 	conv := message.NewConversation()
-	if _, err := tx.ExecContext(ctx, queryInsertConversation, conv.ID, conv.CreatedAt, conv.UpdatedAt); err != nil {
+
+	// Insert the conversation with its organization_id already set
+	// when the sender belongs to one. NULL is preserved for solo-
+	// provider senders so the participant escape hatch on the RLS
+	// policy still admits the row through app.current_user_id.
+	var orgArg interface{}
+	if senderOrgID != uuid.Nil {
+		orgArg = senderOrgID
+	} else {
+		orgArg = nil
+	}
+
+	if _, err := tx.ExecContext(ctx, queryInsertConversationWithOrg, conv.ID, orgArg, conv.CreatedAt, conv.UpdatedAt); err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("insert conversation: %w", err)
 	}
 
@@ -61,16 +154,15 @@ func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, u
 		return uuid.UUID{}, false, fmt.Errorf("insert participant B: %w", err)
 	}
 
-	if _, err := tx.ExecContext(ctx, queryBackfillConversationOrg, conv.ID); err != nil {
-		return uuid.UUID{}, false, fmt.Errorf("backfill conversation org: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		// On serialization failure, retry once: the other transaction likely created it
-		if isSerializationError(err) {
-			return r.retryFindConversation(ctx, userA, userB)
+	// Backfill organization_id from the participant set when the
+	// caller did not supply one (system actor / solo provider). The
+	// UPDATE is admitted by the participant escape hatch because we
+	// just inserted both participants, and we set app.current_user_id
+	// on the tx.
+	if senderOrgID == uuid.Nil {
+		if _, err := tx.ExecContext(ctx, queryBackfillConversationOrg, conv.ID); err != nil {
+			return uuid.UUID{}, false, fmt.Errorf("backfill conversation org: %w", err)
 		}
-		return uuid.UUID{}, false, fmt.Errorf("commit: %w", err)
 	}
 
 	return conv.ID, true, nil
@@ -229,16 +321,51 @@ func (r *ConversationRepository) IsOrgAuthorizedForConversation(ctx context.Cont
 	return exists, nil
 }
 
-func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message.Message) error {
+// CreateMessage inserts a message row, advances the conversation's
+// sequence under FOR UPDATE, and bumps the conversation's updated_at.
+//
+// senderOrgID + senderUserID are the tenant context of the caller —
+// not of the message itself. They are used to install
+// app.current_org_id / app.current_user_id on the transaction so the
+// FOR UPDATE on `conversations`, the MAX(seq) read on `messages`, the
+// INSERT into `messages`, and the UPDATE on `conversations` all pass
+// the RLS isolation policies installed by mig 125.
+//
+// uuid.Nil is acceptable for both arguments — system-actor paths
+// (scheduler, end-of-project effects) have no caller. In that case
+// the txRunner falls through to the legacy non-tenant path so
+// nothing breaks in deployments where RLS is not yet active or the
+// DB role still bypasses RLS.
+func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	if r.txRunner != nil {
+		return r.txRunner.RunInTxWithTenant(ctx, senderOrgID, senderUserID, func(tx *sql.Tx) error {
+			return createMessageInTx(ctx, tx, msg)
+		})
+	}
+	return r.createMessageLegacy(ctx, msg)
+}
+
+// createMessageLegacy preserves the pre-RLS code path so unit tests
+// that build the repo without a TxRunner keep working unchanged.
+func (r *ConversationRepository) createMessageLegacy(ctx context.Context, msg *message.Message) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
+	if err := createMessageInTx(ctx, tx, msg); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// createMessageInTx is the SQL-only core of CreateMessage. Shared
+// between the tenant-aware and legacy entry points.
+func createMessageInTx(ctx context.Context, tx *sql.Tx, msg *message.Message) error {
 	// Lock conversation row to prevent concurrent seq conflicts
 	if _, err := tx.ExecContext(ctx, queryLockConversation, msg.ConversationID); err != nil {
 		return fmt.Errorf("lock conversation: %w", err)
@@ -273,7 +400,7 @@ func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message
 		return fmt.Errorf("update conversation: %w", err)
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func (r *ConversationRepository) GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error) {
