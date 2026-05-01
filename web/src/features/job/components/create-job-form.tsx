@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ChevronDown, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
@@ -24,13 +24,18 @@ export function CreateJobForm() {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["details"]))
   const [error, setError] = useState<string | null>(null)
 
-  // Agency role: force applicantType to "freelancers"
+  // Agency role: force applicantType to "freelancers". Mirroring the
+  // server role into local form state happens in render via the
+  // "set state during render" pattern so we avoid setState-in-effect
+  // and the matching cascading-render warning.
   const isAgency = user?.role === "agency"
-  useEffect(() => {
+  const [lastIsAgency, setLastIsAgency] = useState(isAgency)
+  if (lastIsAgency !== isAgency) {
+    setLastIsAgency(isAgency)
     if (isAgency) {
       setFormData((prev) => ({ ...prev, applicantType: "freelancers" }))
     }
-  }, [isAgency])
+  }
 
   function updateField<K extends keyof JobFormData>(
     field: K,

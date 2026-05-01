@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { AlertTriangle, ChevronDown, Lock, Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -78,21 +78,26 @@ export function RolePermissionsEditor({
   // Whenever the Owner switches roles, drop any pending changes from
   // the previous role — the save is per-role, not a global staged
   // batch, and mixing two roles in one save bar would be confusing.
-  useEffect(() => {
+  // Render-time tracking avoids the setState-in-effect cascade.
+  const [lastSelectedRole, setLastSelectedRole] = useState(selectedRole)
+  if (lastSelectedRole !== selectedRole) {
+    setLastSelectedRole(selectedRole)
     setPendingChanges({})
-  }, [selectedRole])
+  }
 
   // Read-only mode must never leak pending state into the UI. If the
   // caller flips `readOnly` mid-session (e.g. ownership transfer
   // accepted while the Owner is staring at the editor), drop any
   // in-flight changes so the save bar and confirm modal can never
   // reappear.
-  useEffect(() => {
+  const [lastReadOnly, setLastReadOnly] = useState(readOnly)
+  if (lastReadOnly !== readOnly) {
+    setLastReadOnly(readOnly)
     if (readOnly) {
       setPendingChanges({})
       setShowConfirm(false)
     }
-  }, [readOnly])
+  }
 
   const currentRoleRow = useMemo<RolePermissionsRow | undefined>(
     () => data?.roles.find((r) => r.role === selectedRole),

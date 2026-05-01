@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
 const COOKIE_NAME = "workspace"
@@ -56,6 +56,25 @@ function getLastPath(workspace: string): string {
   return match ? decodeURIComponent(match.split("=")[1]) : DEFAULT_PATH
 }
 
+// Set of subscribers that should be notified when the workspace cookie
+// changes. We notify them via setWorkspaceCookie (the only mutation
+// path we control); cross-tab cookie changes are not covered, which
+// matches the previous behaviour.
+const cookieSubscribers = new Set<() => void>()
+
+function notifyCookieChange(): void {
+  for (const listener of cookieSubscribers) {
+    listener()
+  }
+}
+
+function subscribeToWorkspaceCookie(onStoreChange: () => void): () => void {
+  cookieSubscribers.add(onStoreChange)
+  return () => {
+    cookieSubscribers.delete(onStoreChange)
+  }
+}
+
 /**
  * Hook to manage the referrer workspace mode via a cookie.
  *
@@ -63,17 +82,19 @@ function getLastPath(workspace: string): string {
  * that save/restore the last visited path per workspace.
  */
 export function useWorkspace() {
-  // Initialize as false to match server render (no document on server)
-  // Then sync with cookie in useEffect to avoid hydration mismatch
-  const [isReferrerMode, setIsReferrerMode] = useState(false)
-
-  useEffect(() => {
-    setIsReferrerMode(readWorkspaceCookie())
-  }, [])
+  // Source of truth is the cookie. useSyncExternalStore reads it on
+  // every render that follows a notification, so we never need to mirror
+  // it into local React state (which would require a setState-in-effect
+  // bootstrap).
+  const isReferrerMode = useSyncExternalStore(
+    subscribeToWorkspaceCookie,
+    readWorkspaceCookie,
+    () => false, // SSR fallback — document is unavailable on the server
+  )
 
   const setReferrerMode = useCallback((enabled: boolean) => {
     setWorkspaceCookie(enabled)
-    setIsReferrerMode(enabled)
+    notifyCookieChange()
   }, [])
 
   const toggleMode = useCallback(() => {
@@ -84,7 +105,7 @@ export function useWorkspace() {
     const currentPath = window.location.pathname
     saveLastPath("freelance", currentPath)
     setWorkspaceCookie(true)
-    setIsReferrerMode(true)
+    notifyCookieChange()
 
     // Sync referrer_enabled=true to the backend (once set, stays true permanently)
     fetch(`${API_BASE_URL}/api/v1/auth/referrer-enable`, {
@@ -101,7 +122,7 @@ export function useWorkspace() {
     const currentPath = window.location.pathname
     saveLastPath("referrer", currentPath)
     setWorkspaceCookie(false)
-    setIsReferrerMode(false)
+    notifyCookieChange()
     return getLastPath("freelance")
   }, [])
 

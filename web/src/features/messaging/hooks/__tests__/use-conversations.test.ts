@@ -24,8 +24,10 @@ function createWrapper() {
       },
     },
   })
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
+  Wrapper.displayName = "TestWrapper"
+  return Wrapper
 }
 
 describe("useConversations", () => {

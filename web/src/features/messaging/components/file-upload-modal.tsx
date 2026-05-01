@@ -116,8 +116,13 @@ export function FileUploadModal({
   const t = useTranslations("messaging")
   const tCommon = useTranslations("common")
 
-  // Reset on open/close
-  useEffect(() => {
+  // Reset on open/close. We track the previous `open` value in render
+  // state so the reset (including revoking object URLs) happens during
+  // the render that observes the close, not in an effect — this avoids
+  // setState-in-effect cascades while preserving the cleanup behaviour.
+  const [lastOpen, setLastOpen] = useState(open)
+  if (lastOpen !== open) {
+    setLastOpen(open)
     if (!open) {
       selectedFiles.forEach((sf) => {
         if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl)
@@ -126,8 +131,7 @@ export function FileUploadModal({
       setError(null)
       setIsDragOver(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }
 
   // Close on Escape + focus trap (Tab cycles within the modal)
   useEffect(() => {

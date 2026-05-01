@@ -21,7 +21,7 @@ export default function BillingCancelPage() {
 					Paiement annulé
 				</h1>
 				<p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-					Aucun prélèvement n'a été effectué. Tu peux réessayer à tout moment
+					Aucun prélèvement n&apos;a été effectué. Tu peux réessayer à tout moment
 					depuis le badge Premium en haut de page.
 				</p>
 				<Link

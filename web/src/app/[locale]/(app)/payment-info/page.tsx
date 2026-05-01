@@ -232,8 +232,15 @@ export default function PaymentInfoV2Page() {
   }
 
   /* ---------- Ensure connectInstance for existing account mode ---------- */
+  // The setState happens through initializeConnect() but is gated by
+  // `!connectInstance` so the effect runs at most once per status change
+  // — no cascading renders. The Stripe Connect SDK must be initialised
+  // synchronously after the account status arrives, which is an
+  // external-system bootstrap; useState lazy init can't help because
+  // we don't have the data on first render.
   useEffect(() => {
     if ((mode === "onboarding" || mode === "dashboard") && !connectInstance && status) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- gated by !connectInstance above, runs at most once per status change
       initializeConnect()
     }
   }, [mode, connectInstance, status, initializeConnect])

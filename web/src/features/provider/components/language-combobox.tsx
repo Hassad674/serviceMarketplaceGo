@@ -37,9 +37,17 @@ export function LanguageCombobox({
     [query, selectedSet, locale],
   )
 
-  useEffect(() => {
+  // Reset the active highlight when the search input or selected
+  // language list changes. Tracking these inputs in render state lets
+  // us reset without setState-in-effect.
+  const queryAndSelection = `${query}|${selectedCodes.join(",")}`
+  const [lastQueryAndSelection, setLastQueryAndSelection] = useState(
+    queryAndSelection,
+  )
+  if (queryAndSelection !== lastQueryAndSelection) {
+    setLastQueryAndSelection(queryAndSelection)
     setActiveIndex(0)
-  }, [query, selectedCodes])
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

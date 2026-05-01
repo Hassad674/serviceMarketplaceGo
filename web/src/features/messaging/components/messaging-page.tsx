@@ -31,14 +31,19 @@ export function MessagingPage() {
   const router = useRouter()
   const { data: user } = useUser()
   const { data: org } = useOrganization()
-  const initializedFromUrl = useRef(false)
 
   const [activeId, setActiveId] = useState<string | null>(
     searchParams.get("id"),
   )
   const [orgTypeFilter, setOrgTypeFilter] = useState<"all" | string>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [mobileView, setMobileView] = useState<"list" | "chat">("list")
+  // Mobile view defaults to "chat" when we deep-linked into a specific
+  // conversation (so the user sees the chat, not the list, on small
+  // screens). Computing this in the lazy initializer keeps the original
+  // intent without a setState-in-effect bootstrap.
+  const [mobileView, setMobileView] = useState<"list" | "chat">(() =>
+    searchParams.get("id") ? "chat" : "list",
+  )
   const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
   const [reviewTarget, setReviewTarget] = useState<{
     proposalId: string
@@ -78,20 +83,10 @@ export function MessagingPage() {
     ? [...messagesQuery.data.pages].reverse().flatMap((page) => [...page.data].reverse())
     : []
 
-  // Deep-link from query param — only on initial mount.
-  // Subsequent conversation switches are handled by handleSelect
-  // which updates both activeId and the URL.
-  useEffect(() => {
-    if (initializedFromUrl.current) return
-    initializedFromUrl.current = true
-
-    const paramId = searchParams.get("id")
-    if (paramId && paramId !== activeId) {
-      setActiveId(paramId)
-      setMobileView("chat")
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Deep-link from query param is now handled entirely via lazy state
+  // initializers above (activeId + mobileView read searchParams.get("id")
+  // on mount). Subsequent conversation switches go through handleSelect,
+  // which updates both activeId and the URL — no effect needed.
 
   // Track the latest message seq in the active conversation for read receipts
   const latestSeq = useMemo(() => {

@@ -52,18 +52,24 @@ export function SkillsEditorModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  // Re-seed the draft whenever the modal opens so the user always
-  // starts from the latest persisted value.
-  useEffect(() => {
-    if (!open) return
-    setErrorMessage(null)
-    setDraft(
-      (persisted ?? []).map((entry) => ({
-        skill_text: entry.skill_text,
-        display_text: entry.display_text,
-      })),
-    )
-  }, [open, persisted])
+  // Re-seed the draft whenever the modal opens (or the persisted list
+  // identity changes) so the user always starts from the latest value.
+  // Render-time tracking avoids a setState-in-effect cascade.
+  const [lastOpen, setLastOpen] = useState(open)
+  const [lastPersisted, setLastPersisted] = useState(persisted)
+  if (open !== lastOpen || persisted !== lastPersisted) {
+    setLastOpen(open)
+    setLastPersisted(persisted)
+    if (open) {
+      setErrorMessage(null)
+      setDraft(
+        (persisted ?? []).map((entry) => ({
+          skill_text: entry.skill_text,
+          display_text: entry.display_text,
+        })),
+      )
+    }
+  }
 
   // ESC closes the modal, matching the project-wide dialog contract.
   useEffect(() => {

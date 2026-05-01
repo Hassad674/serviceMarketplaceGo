@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import dynamic from "next/dynamic"
 import { Sidebar, SIDEBAR_STORAGE_KEY } from "./sidebar"
 import { Header } from "./header"
@@ -33,7 +33,14 @@ const ChatWidget = dynamic(
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  // Initial collapsed state is derived from localStorage at mount time
+  // via a lazy initializer that bails out on the server (no
+  // localStorage). This keeps the dashboard hydration-safe without a
+  // setState-in-effect bootstrap.
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true"
+  })
   const { data: user } = useUser()
 
   // Maintain a global WS connection so the sidebar unread badge updates
@@ -44,13 +51,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // (memoised via useCallback inside useGlobalWS), so passing it
   // directly to CallSlot is safe.
   const { registerCallEventHandler } = useGlobalWS(user?.id)
-
-  useEffect(() => {
-    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
-    if (stored === "true") {
-      setCollapsed(true)
-    }
-  }, [])
 
   function toggleCollapse() {
     const next = !collapsed

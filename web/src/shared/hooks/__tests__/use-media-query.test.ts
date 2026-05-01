@@ -6,10 +6,13 @@ type ChangeListener = (e: MediaQueryListEvent) => void
 
 let listeners: Map<string, ChangeListener[]>
 let matchesMap: Map<string, boolean>
+let mqlCache: Map<string, MediaQueryList>
 
 function createMockMQL(query: string): MediaQueryList {
-  return {
-    matches: matchesMap.get(query) ?? false,
+  const mql = {
+    get matches() {
+      return matchesMap.get(query) ?? false
+    },
     media: query,
     onchange: null,
     addEventListener: vi.fn(((event: string, cb: EventListenerOrEventListenerObject) => {
@@ -28,7 +31,8 @@ function createMockMQL(query: string): MediaQueryList {
     addListener: vi.fn(),
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
-  }
+  } as unknown as MediaQueryList
+  return mql
 }
 
 function fireMediaChange(query: string, newMatches: boolean) {
@@ -42,7 +46,17 @@ function fireMediaChange(query: string, newMatches: boolean) {
 beforeEach(() => {
   listeners = new Map()
   matchesMap = new Map()
-  vi.stubGlobal("matchMedia", vi.fn((query: string) => createMockMQL(query)))
+  mqlCache = new Map()
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => {
+      const cached = mqlCache.get(query)
+      if (cached) return cached
+      const mql = createMockMQL(query)
+      mqlCache.set(query, mql)
+      return mql
+    }),
+  )
 })
 
 afterEach(() => {

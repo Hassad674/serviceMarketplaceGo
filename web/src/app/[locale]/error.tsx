@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useTranslations } from "next-intl"
+import { Link } from "@i18n/navigation"
 
 // Locale-scoped error boundary (PERF-W-03 + QUAL-W-01). Catches any
 // rendering or data-fetching error that escapes a route's own
@@ -48,12 +49,12 @@ export default function LocaleError({
         >
           {t("errorRetry")}
         </button>
-        <a
+        <Link
           href="/"
           className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
         >
           {t("errorHome")}
-        </a>
+        </Link>
       </div>
     </div>
   )

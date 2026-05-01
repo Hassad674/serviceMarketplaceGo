@@ -76,16 +76,22 @@ export function CreateProposalPage() {
     })
   }, [modifyId, t])
 
-  // Sync query params into form data when they change
-  useEffect(() => {
+  // Sync query params into form data when they change. Tracking the
+  // previous recipient/conversation pair in render-time state lets us
+  // mirror the URL into form state without a setState-in-effect cascade.
+  const [lastQueryKey, setLastQueryKey] = useState(
+    `${recipientId}|${conversationId}`,
+  )
+  const queryKey = `${recipientId}|${conversationId}`
+  if (queryKey !== lastQueryKey) {
+    setLastQueryKey(queryKey)
     setFormData((prev) => ({ ...prev, recipientId, conversationId }))
-  }, [recipientId, conversationId])
-
-  // Mock recipient fetch
-  useEffect(() => {
-    if (!recipientId) return
-    setRecipientName(`User ${recipientId.slice(0, 8)}`)
-  }, [recipientId])
+    // Mock recipient name derived synchronously from the new id so it
+    // stays in sync with the form's recipientId.
+    if (recipientId) {
+      setRecipientName(`User ${recipientId.slice(0, 8)}`)
+    }
+  }
 
   const updateField = useCallback(<K extends keyof ProposalFormData>(
     field: K,

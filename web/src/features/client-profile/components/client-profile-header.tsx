@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Briefcase, Camera, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
@@ -114,12 +114,14 @@ function Avatar({ avatarUrl, initials, name, editable }: AvatarProps) {
   const tUpload = useTranslations("upload")
   const [open, setOpen] = useState(false)
   const [photoError, setPhotoError] = useState(false)
-
   // Reset the broken-image flag when the URL changes — typical on a
-  // fresh upload returning a new signed URL.
-  useEffect(() => {
+  // fresh upload returning a new signed URL. Tracking the previous URL
+  // in render-time state lets us reset without setState-in-effect.
+  const [trackedAvatarUrl, setTrackedAvatarUrl] = useState(avatarUrl)
+  if (trackedAvatarUrl !== avatarUrl) {
+    setTrackedAvatarUrl(avatarUrl)
     setPhotoError(false)
-  }, [avatarUrl])
+  }
 
   async function handleUpload(file: File) {
     if (!editable) return

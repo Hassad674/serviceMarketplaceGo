@@ -13,8 +13,6 @@ import nextTs from "eslint-config-next/typescript";
 // fails the build.
 const phase5LegacyOverrides = {
   rules: {
-    // Apostrophes in JSX text. Legacy fr text. Will fix in a sweep.
-    "react/no-unescaped-entities": "warn",
     // setState inside useEffect — legacy patterns predating the React
     // Compiler. Will be migrated to derived state in a sweep PR.
     "react-hooks/set-state-in-effect": "warn",
@@ -28,13 +26,6 @@ const phase5LegacyOverrides = {
     "react/jsx-key": "warn",
     // any escapes in legacy types — typed in sweep.
     "@typescript-eslint/no-explicit-any": "warn",
-    // displayName missing on inline factories (mostly test wrappers)
-    "react/display-name": "warn",
-    // Tests/fixtures use plain <a> for static assertions; will move
-    // to next/link in a sweep.
-    "@next/next/no-html-link-for-pages": "warn",
-    // Conditional hooks inside legacy components (rules-of-hooks).
-    "react-hooks/rules-of-hooks": "warn",
     // Unused variables flagged by typescript-eslint — plenty in legacy.
     "@typescript-eslint/no-unused-vars": "warn",
     // React Compiler-flagged hoisting issues in legacy WebSocket

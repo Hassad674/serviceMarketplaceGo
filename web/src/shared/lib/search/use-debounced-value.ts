@@ -21,13 +21,14 @@ export function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value)
 
   useEffect(() => {
-    if (delayMs <= 0) {
-      setDebounced(value)
-      return
-    }
+    // delayMs <= 0 disables debouncing entirely. Returning the current
+    // `value` directly (below) means we don't need to update state in
+    // the effect at all when debouncing is off, which keeps React happy
+    // and avoids an extra render.
+    if (delayMs <= 0) return
     const handle = window.setTimeout(() => setDebounced(value), delayMs)
     return () => window.clearTimeout(handle)
   }, [value, delayMs])
 
-  return debounced
+  return delayMs <= 0 ? value : debounced
 }

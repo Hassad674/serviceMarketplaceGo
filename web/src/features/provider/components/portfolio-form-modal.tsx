@@ -81,8 +81,13 @@ export function PortfolioFormModal({
 
   const saving = createItem.isPending || updateItem.isPending
 
-  // Reset form when item changes (edit different items)
-  useEffect(() => {
+  // Reset form when item changes (edit different items). We seed the
+  // editor inputs in render via the "set state during render" pattern,
+  // tracked by the (item, open) tuple to avoid setState-in-effect.
+  const formKey = `${item?.id ?? ""}|${open}`
+  const [lastFormKey, setLastFormKey] = useState(formKey)
+  if (formKey !== lastFormKey) {
+    setLastFormKey(formKey)
     if (open) {
       setTitle(item?.title ?? "")
       setDescription(item?.description ?? "")
@@ -96,7 +101,7 @@ export function PortfolioFormModal({
         })) ?? [],
       )
     }
-  }, [item, open])
+  }
 
   // Escape key closes modal
   useEffect(() => {

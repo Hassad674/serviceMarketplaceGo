@@ -19,10 +19,13 @@ export function PortfolioDetailModal({
   const [currentIndex, setCurrentIndex] = useState(0)
   const t = useTranslations("portfolio")
 
-  // Reset index when item changes
-  useEffect(() => {
+  // Reset the carousel index when the displayed item changes. Render-time
+  // tracking avoids the setState-in-effect cascade.
+  const [lastItemId, setLastItemId] = useState(item?.id)
+  if (lastItemId !== item?.id) {
+    setLastItemId(item?.id)
     setCurrentIndex(0)
-  }, [item?.id])
+  }
 
   const media = item ? [...item.media].sort((a, b) => a.position - b.position) : []
   const current = media[currentIndex]
