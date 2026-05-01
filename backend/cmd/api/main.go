@@ -20,12 +20,10 @@ import (
 	jobapp "marketplace-backend/internal/app/job"
 	"marketplace-backend/internal/app/messaging"
 	appmoderation "marketplace-backend/internal/app/moderation"
-	milestoneapp "marketplace-backend/internal/app/milestone"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
 	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
-	proposalapp "marketplace-backend/internal/app/proposal"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
@@ -128,30 +126,23 @@ func main() {
 		// MediaRecorder is set below after mediaSvc is created.
 	})
 
-	// Proposal
-	// BUG-NEW-04 path 4/8: proposals is RLS-protected by migration 125
-	// (USING client_organization_id = current_org OR provider_organization_id
-	// = current_org). The txRunner wrap makes Create / Update /
-	// GetByIDForOrg / List* pass under prod NOSUPERUSER NOBYPASSRLS.
-	// Legacy GetByID stays for system-actor scheduler paths that run
-	// with a privileged DB connection.
-	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-
-	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
-	// The proposal app service consumes milestoneSvc to delegate the
-	// Fund/Submit/Approve/Release transitions, and the dispute service
-	// (phase 8) delegates OpenDispute/RestoreFromDispute to it as well.
-	// BUG-NEW-04 path 5/8: proposal_milestones is RLS-protected by
-	// migration 125 — milestones inherit security from the parent
-	// proposal via a JOIN on the policy. The txRunner wrap makes
-	// CreateBatch / Update / GetByIDForOrg / ListByProposalForOrg pass
-	// under prod NOSUPERUSER NOBYPASSRLS. Each operation resolves the
-	// parent proposal's stakeholder org via a defensive lookup before
-	// opening the tenant tx.
-	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
-		Milestones: milestoneRepo,
+	// Proposal feature (early-stage repos + searchPublisher + txRunner).
+	// See wire_proposal.go. The matching app service + handler are
+	// wired below by wireProposalService once notification / messaging /
+	// payment have been built.
+	proposalRepos := wireProposalRepos(proposalReposDeps{
+		Cfg: cfg,
+		DB:  db,
 	})
+	proposalRepo := proposalRepos.ProposalRepo
+	milestoneRepo := proposalRepos.MilestoneRepo
+	milestoneSvc := proposalRepos.MilestoneSvc
+	paymentRecordRepo := proposalRepos.PaymentRecordRepo
+	bonusLogRepo := proposalRepos.BonusLogRepo
+	pendingEventsRepo := proposalRepos.PendingEventsRepo
+	milestoneTransitionsRepo := proposalRepos.MilestoneTransitionsRepo
+	searchPublisher := proposalRepos.SearchPublisher
+	txRunner := proposalRepos.TxRunner
 	_ = milestoneSvc // wired into proposal service deps below
 
 	// Job feature
@@ -224,16 +215,6 @@ func main() {
 	stripeReversalSvc := stripe.Reversals
 	stripeKYCReader := stripe.KYCReader
 
-	// Payment records (custom KYC repos removed — see migration 040/041)
-	// BUG-NEW-04 path 7/8: payment_records is RLS-protected by migration
-	// 125 (USING organization_id = current_setting('app.current_org_id',
-	// true)). The txRunner wrap makes Create / Update / GetByIDForOrg /
-	// ListByOrganization pass under prod NOSUPERUSER NOBYPASSRLS. The
-	// client's org (resolved from organization_members at INSERT time)
-	// is the access boundary; provider-side reads of money received go
-	// through the tenant-isolated proposal path instead.
-	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-
 	// Notification feature (push + email + WS) — see wire_notification.go.
 	notifWorkerCtx, notifWorkerCancel := context.WithCancel(context.Background())
 	defer notifWorkerCancel()
@@ -302,72 +283,33 @@ func main() {
 		FrontendURL:   cfg.FrontendURL,
 	})
 
-	// Credit bonus fraud log
-	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
-
-	// Pending events queue (phase 6 — unified scheduler + Stripe outbox).
-	// The proposal service writes events here when a milestone is
-	// submitted (auto-approve), released (fund-reminder + auto-close),
-	// or released into the Stripe outbox (phase 7).
-	pendingEventsRepo := postgres.NewPendingEventRepository(db)
-
-	// Search engine publisher — built once so every service that
-	// mutates actor signals (freelance profile, referrer profile,
-	// pricing, skills, etc.) can emit a `search.reindex` event on
-	// the outbox without re-wiring the whole chain. See wire_search.go.
-	searchPublisher := wireSearchPublisher(cfg, pendingEventsRepo)
-
-	// Outbox transaction runner (BUG-05). Used by the freelance and
-	// legacy profile services to commit a profile mutation and the
-	// matching `search.reindex` pending event in a single atomic
-	// transaction — preventing permanent Postgres / Typesense drift
-	// when the publisher Schedule path would otherwise fail after
-	// the profile UPDATE has already committed. Cheap to construct:
-	// holds only a *sql.DB pointer.
-	txRunner := postgres.NewTxRunner(db)
-
-	// Milestone audit trail (phase 9 — append-only). Every successful
-	// withMilestoneLock writes one row recording from→to status pair,
-	// actor id + org, and an optional reason string. The DB user
-	// holds INSERT/SELECT only on this table (Update/Delete are
-	// forbidden so the timeline cannot be rewritten).
-	milestoneTransitionsRepo := postgres.NewMilestoneTransitionRepository(db)
-
-	// Wire services that depend on notifications
-	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
-		Proposals:            proposalRepo,
-		Milestones:           milestoneRepo,
-		MilestoneTransitions: milestoneTransitionsRepo,
-		PendingEvents:        pendingEventsRepo,
-		Users:                userRepo,
-		// Same concrete *postgres.UserRepository — it satisfies both
-		// the wide UserRepository contract and the segregated
-		// UserBatchReader (GetByIDs). The duplicate field exists so
-		// the service can declare the segregated dep without forcing
-		// every other caller to bring it in.
-		UsersBatch:           userRepo,
-		Organizations:        organizationRepo,
-		Messages:             messagingSvc,
-		Storage:              storageSvc,
-		Notifications:        notifSvc,
-		Payments:             paymentProcessor(paymentInfoSvc, cfg),
-		Credits:              jobCreditRepo,
-		BonusLog:             bonusLogRepo,
-		// Phase 6 timer defaults (override via env in production):
-		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
+	// Proposal service + worker + handler (late-stage). See
+	// wire_proposal.go. Runs AFTER notification / messaging / payment
+	// because the service deps reach into all three.
+	proposalWire := wireProposalService(proposalServiceDeps{
+		Cfg:                      cfg,
+		ProposalRepo:             proposalRepo,
+		MilestoneRepo:            milestoneRepo,
+		MilestoneTransitionsRepo: milestoneTransitionsRepo,
+		PendingEventsRepo:        pendingEventsRepo,
+		BonusLogRepo:             bonusLogRepo,
+		UserRepo:                 userRepo,
+		UserBatch:                userRepo,
+		OrganizationRepo:         organizationRepo,
+		JobCreditRepo:            jobCreditRepo,
+		StorageSvc:               storageSvc,
+		MessagingSvc:             messagingSvc,
+		NotifSvc:                 notifSvc,
+		PaymentInfoSvc:           paymentInfoSvc,
 	})
+	proposalSvc := proposalWire.ProposalSvc
+	pendingEventsWorker := proposalWire.PendingEventsWorker
 
 	// Wire proposal → payment status lookup so RequestPayout only
 	// releases escrow funds for missions whose proposal has reached
 	// "completed". Setter pattern because the dependency runs the wrong
 	// way for constructor injection (payment is built before proposal).
 	paymentInfoSvc.SetProposalStatusReader(newProposalStatusAdapter(proposalSvc))
-
-	// Phase 6: pending_events worker — see wire_pending_events.go.
-	// The worker handles milestone auto-approve, fund reminders, and
-	// proposal auto-close; search reindex/delete handlers are added
-	// later by wireSearchIndexer when Typesense is configured.
-	pendingEventsWorker := newPendingEventsWorker(pendingEventsRepo, proposalSvc)
 
 	// Search engine — Typesense indexer + query service + analytics.
 	// See wire_search.go: wireSearchIndexer brings up the Typesense
@@ -676,7 +618,7 @@ func main() {
 		healthHandler = healthHandler.WithSearchPinger(typesenseClient, true)
 	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
-	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
+	proposalHandler := proposalWire.ProposalHandler
 	jobHandler := handler.NewJobHandler(jobSvc)
 	jobAppHandler := handler.NewJobApplicationHandler(jobSvc)
 	reviewHandler := handler.NewReviewHandler(reviewSvc)
