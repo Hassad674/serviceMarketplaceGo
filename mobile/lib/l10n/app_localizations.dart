@@ -5557,6 +5557,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Provider profile'**
   String get navProviderProfile;
+
+  /// No description provided for @gdprDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get gdprDeleteTitle;
+
+  /// No description provided for @gdprDeleteIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting your account triggers a 30-day cooldown. During this period your account is locked and your data is preserved. After 30 days, your data is permanently erased.'**
+  String get gdprDeleteIntro;
+
+  /// No description provided for @gdprDeleteBullet1.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data will be deleted in 30 days unless you cancel.'**
+  String get gdprDeleteBullet1;
+
+  /// No description provided for @gdprDeleteBullet2.
+  ///
+  /// In en, this message translates to:
+  /// **'You will not be able to log in during this period.'**
+  String get gdprDeleteBullet2;
+
+  /// No description provided for @gdprDeleteBullet3.
+  ///
+  /// In en, this message translates to:
+  /// **'We will send you a confirmation email to validate this request.'**
+  String get gdprDeleteBullet3;
+
+  /// No description provided for @gdprDeletePasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your current password'**
+  String get gdprDeletePasswordLabel;
+
+  /// No description provided for @gdprDeleteConfirmCheckbox.
+  ///
+  /// In en, this message translates to:
+  /// **'I understand my data will be deleted in 30 days unless I cancel.'**
+  String get gdprDeleteConfirmCheckbox;
+
+  /// No description provided for @gdprDeleteSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Request deletion'**
+  String get gdprDeleteSubmit;
+
+  /// No description provided for @gdprDeleteGenericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again in a moment.'**
+  String get gdprDeleteGenericError;
+
+  /// No description provided for @gdprDeleteSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your inbox'**
+  String get gdprDeleteSuccessTitle;
+
+  /// No description provided for @gdprDeleteSuccessIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a confirmation link to:'**
+  String get gdprDeleteSuccessIntro;
+
+  /// No description provided for @gdprDeleteSuccessTtl.
+  ///
+  /// In en, this message translates to:
+  /// **'The link expires in 24 hours.'**
+  String get gdprDeleteSuccessTtl;
+
+  /// No description provided for @gdprDeleteBlockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Action required before deletion'**
+  String get gdprDeleteBlockedTitle;
+
+  /// No description provided for @gdprDeleteBlockedIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'You own one or more organizations with active members. Transfer ownership or dissolve them before deleting your account.'**
+  String get gdprDeleteBlockedIntro;
+
+  /// No description provided for @gdprDeleteBlockedMemberCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} active members'**
+  String gdprDeleteBlockedMemberCount(int count);
+
+  /// No description provided for @gdprCancelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel deletion'**
+  String get gdprCancelTitle;
+
+  /// No description provided for @gdprCancelBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel your account deletion request. Your account will be active again immediately.'**
+  String get gdprCancelBody;
+
+  /// No description provided for @gdprCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel deletion'**
+  String get gdprCancelButton;
+
+  /// No description provided for @gdprCancelDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation confirmed'**
+  String get gdprCancelDoneTitle;
+
+  /// No description provided for @gdprCancelDoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is active again. Welcome back!'**
+  String get gdprCancelDoneBody;
+
+  /// No description provided for @gdprCancelGenericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel the deletion. Try again in a moment.'**
+  String get gdprCancelGenericError;
+
+  /// No description provided for @gdprBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account scheduled for deletion'**
+  String get gdprBannerTitle;
+
+  /// No description provided for @gdprBannerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account will be permanently deleted on {date}. Tap to cancel.'**
+  String gdprBannerBody(String date);
+
+  /// No description provided for @gdprBannerBodyNoDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is scheduled for deletion. Tap to cancel.'**
+  String get gdprBannerBodyNoDate;
 }
 
 class _AppLocalizationsDelegate

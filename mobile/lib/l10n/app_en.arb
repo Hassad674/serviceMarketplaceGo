@@ -1174,5 +1174,35 @@
   "clientProfileNotAvailable": "Client profile is not available for this account.",
   "clientProfileNotFound": "This client profile does not exist.",
   "navClientProfile": "Client profile",
-  "navProviderProfile": "Provider profile"
+  "navProviderProfile": "Provider profile",
+  "gdprDeleteTitle": "Delete account",
+  "gdprDeleteIntro": "Deleting your account triggers a 30-day cooldown. During this period your account is locked and your data is preserved. After 30 days, your data is permanently erased.",
+  "gdprDeleteBullet1": "Your data will be deleted in 30 days unless you cancel.",
+  "gdprDeleteBullet2": "You will not be able to log in during this period.",
+  "gdprDeleteBullet3": "We will send you a confirmation email to validate this request.",
+  "gdprDeletePasswordLabel": "Your current password",
+  "gdprDeleteConfirmCheckbox": "I understand my data will be deleted in 30 days unless I cancel.",
+  "gdprDeleteSubmit": "Request deletion",
+  "gdprDeleteGenericError": "Something went wrong. Try again in a moment.",
+  "gdprDeleteSuccessTitle": "Check your inbox",
+  "gdprDeleteSuccessIntro": "We sent a confirmation link to:",
+  "gdprDeleteSuccessTtl": "The link expires in 24 hours.",
+  "gdprDeleteBlockedTitle": "Action required before deletion",
+  "gdprDeleteBlockedIntro": "You own one or more organizations with active members. Transfer ownership or dissolve them before deleting your account.",
+  "gdprDeleteBlockedMemberCount": "{count} active members",
+  "@gdprDeleteBlockedMemberCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "gdprCancelTitle": "Cancel deletion",
+  "gdprCancelBody": "Cancel your account deletion request. Your account will be active again immediately.",
+  "gdprCancelButton": "Cancel deletion",
+  "gdprCancelDoneTitle": "Cancellation confirmed",
+  "gdprCancelDoneBody": "Your account is active again. Welcome back!",
+  "gdprCancelGenericError": "Could not cancel the deletion. Try again in a moment.",
+  "gdprBannerTitle": "Account scheduled for deletion",
+  "gdprBannerBody": "Your account will be permanently deleted on {date}. Tap to cancel.",
+  "@gdprBannerBody": {
+    "placeholders": {"date": {"type": "String"}}
+  },
+  "gdprBannerBodyNoDate": "Your account is scheduled for deletion. Tap to cancel."
 }

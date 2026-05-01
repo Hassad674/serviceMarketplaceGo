@@ -2955,4 +2955,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navProviderProfile => 'Provider profile';
+
+  @override
+  String get gdprDeleteTitle => 'Delete account';
+
+  @override
+  String get gdprDeleteIntro =>
+      'Deleting your account triggers a 30-day cooldown. During this period your account is locked and your data is preserved. After 30 days, your data is permanently erased.';
+
+  @override
+  String get gdprDeleteBullet1 =>
+      'Your data will be deleted in 30 days unless you cancel.';
+
+  @override
+  String get gdprDeleteBullet2 =>
+      'You will not be able to log in during this period.';
+
+  @override
+  String get gdprDeleteBullet3 =>
+      'We will send you a confirmation email to validate this request.';
+
+  @override
+  String get gdprDeletePasswordLabel => 'Your current password';
+
+  @override
+  String get gdprDeleteConfirmCheckbox =>
+      'I understand my data will be deleted in 30 days unless I cancel.';
+
+  @override
+  String get gdprDeleteSubmit => 'Request deletion';
+
+  @override
+  String get gdprDeleteGenericError =>
+      'Something went wrong. Try again in a moment.';
+
+  @override
+  String get gdprDeleteSuccessTitle => 'Check your inbox';
+
+  @override
+  String get gdprDeleteSuccessIntro => 'We sent a confirmation link to:';
+
+  @override
+  String get gdprDeleteSuccessTtl => 'The link expires in 24 hours.';
+
+  @override
+  String get gdprDeleteBlockedTitle => 'Action required before deletion';
+
+  @override
+  String get gdprDeleteBlockedIntro =>
+      'You own one or more organizations with active members. Transfer ownership or dissolve them before deleting your account.';
+
+  @override
+  String gdprDeleteBlockedMemberCount(int count) {
+    return '$count active members';
+  }
+
+  @override
+  String get gdprCancelTitle => 'Cancel deletion';
+
+  @override
+  String get gdprCancelBody =>
+      'Cancel your account deletion request. Your account will be active again immediately.';
+
+  @override
+  String get gdprCancelButton => 'Cancel deletion';
+
+  @override
+  String get gdprCancelDoneTitle => 'Cancellation confirmed';
+
+  @override
+  String get gdprCancelDoneBody =>
+      'Your account is active again. Welcome back!';
+
+  @override
+  String get gdprCancelGenericError =>
+      'Could not cancel the deletion. Try again in a moment.';
+
+  @override
+  String get gdprBannerTitle => 'Account scheduled for deletion';
+
+  @override
+  String gdprBannerBody(String date) {
+    return 'Your account will be permanently deleted on $date. Tap to cancel.';
+  }
+
+  @override
+  String get gdprBannerBodyNoDate =>
+      'Your account is scheduled for deletion. Tap to cancel.';
 }
