@@ -48,12 +48,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ReferrerProfilePage({ params }: Props) {
-  const { id } = await params
+  const { id, locale } = await params
+  const t = await getTranslations({ locale, namespace: "profile.referrer" })
   const profile = await fetchReferrerProfileForMetadata(id)
+  // Localized fallback for the schema.org "name" field — same rationale
+  // as the on-page header: the raw organization UUID is unfit for any
+  // public surface, including SEO payloads consumed by crawlers.
+  const fallbackName = t("displayNameFallback")
   return (
     <div className="space-y-6">
       <ReferrerPublicProfileLoader orgId={id} />
-      {profile ? <JsonLd profileId={id} profile={profile} /> : null}
+      {profile ? (
+        <JsonLd
+          profileId={id}
+          profile={profile}
+          fallbackName={fallbackName}
+        />
+      ) : null}
       <div className="flex justify-center">
         <SendMessageButton targetOrgId={id} />
       </div>
@@ -64,9 +75,10 @@ export default async function ReferrerProfilePage({ params }: Props) {
 interface JsonLdProps {
   profileId: string
   profile: NonNullable<Awaited<ReturnType<typeof fetchReferrerProfileForMetadata>>>
+  fallbackName: string
 }
 
-function JsonLd({ profileId, profile }: JsonLdProps) {
+function JsonLd({ profileId, profile, fallbackName }: JsonLdProps) {
   // Referrer schema uses Person with jobTitle hinting the "business
   // referrer" role. Skills are intentionally omitted — they live on
   // the freelance persona of the same org, not here.
@@ -74,8 +86,8 @@ function JsonLd({ profileId, profile }: JsonLdProps) {
     "@context": "https://schema.org",
     "@type": "Person",
     "@id": `/referrers/${profileId}`,
-    name: profile.title || profileId,
-    jobTitle: profile.title || "Business referrer",
+    name: profile.title || fallbackName,
+    jobTitle: profile.title || fallbackName,
     description: profile.about || undefined,
     image: profile.photo_url || undefined,
     address: profile.city

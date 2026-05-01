@@ -647,6 +647,7 @@
       "loadError": "Impossible de charger ce profil d'apporteur d'affaires. Réessaie dans un instant.",
       "notFoundTitle": "Profil d'apporteur introuvable",
       "notFoundDescription": "Ce profil n'existe plus ou son propriétaire l'a supprimé.",
+      "displayNameFallback": "Apporteur d'affaires",
       "historyEmptyTitle": "Aucun deal apporté enregistré pour l'instant",
       "historyEmptyDescription": "Les deals que tu apportes apparaîtront ici une fois conclus.",
       "providerOnly": "Cette page est réservée aux comptes prestataires.",
