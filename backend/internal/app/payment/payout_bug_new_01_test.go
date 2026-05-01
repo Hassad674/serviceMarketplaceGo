@@ -262,6 +262,13 @@ func (r *retryDBBlipRecords) GetByID(_ context.Context, id uuid.UUID) (*domain.P
 	return &cp, nil
 }
 
+// GetByIDForOrg delegates to GetByID — the dispute-style
+// "either-side-of-the-record" semantics are out of scope for
+// this DB-blip regression test.
+func (r *retryDBBlipRecords) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	return r.GetByID(ctx, id)
+}
+
 func (r *retryDBBlipRecords) GetByMilestoneID(_ context.Context, _ uuid.UUID) (*domain.PaymentRecord, error) {
 	cp := *r.record
 	return &cp, nil

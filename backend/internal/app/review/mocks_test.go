@@ -10,9 +10,22 @@ import (
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
 	userdomain "marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
+
+// orgCtx returns a base context tagged with a synthetic org id —
+// CreateReview / CanReview gate on middleware.MustGetOrgID and
+// the test must mirror that contract. Stable id so assertions
+// can pin against it if needed.
+func orgCtx() context.Context {
+	return context.WithValue(context.Background(),
+		middleware.ContextKeyOrganizationID, reviewFixtureOrg)
+}
+
+// reviewFixtureOrg is the synthetic org id used by orgCtx().
+var reviewFixtureOrg = uuid.MustParse("22222222-2222-2222-2222-222222222222")
 
 // mockProposal is a test helper to build proposals with minimal fields.
 type mockProposal = proposaldomain.Proposal

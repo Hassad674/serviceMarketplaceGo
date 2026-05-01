@@ -103,6 +103,14 @@ func (p *payoutStubRecords) GetByID(_ context.Context, id uuid.UUID) (*domain.Pa
 	return &cp, nil
 }
 
+// GetByIDForOrg delegates to GetByID — the payout test fixtures
+// don't model the per-org RLS gate, the production adapter does.
+// The migration of loadRetryRecord to the org-aware repo method
+// stays a drop-in replacement at the test fixture level.
+func (p *payoutStubRecords) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	return p.GetByID(ctx, id)
+}
+
 func (p *payoutStubRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
