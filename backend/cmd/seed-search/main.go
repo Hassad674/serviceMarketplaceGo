@@ -120,7 +120,11 @@ func run(counts personaCounts, seedVal int64, noReindex bool) error {
 		return fmt.Errorf("ping postgres: %w", err)
 	}
 
-	r := rand.New(rand.NewSource(seedVal))
+	// gosec G404: math/rand is acceptable here — this is a CLI seeder used
+	// in dev/staging only. Determinism (same seed -> same fixture) is the
+	// goal so reproducing a flaky search test is straightforward. See
+	// .gosec.yml for the project-wide policy.
+	r := rand.New(rand.NewSource(seedVal)) // #nosec G404 -- dev seeder, determinism wanted, not crypto
 
 	slog.Info("seed-search starting",
 		"freelance", counts.freelance, "agency", counts.agency,
