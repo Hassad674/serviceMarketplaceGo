@@ -94,6 +94,22 @@ func (s *WebhookIdempotencyStore) MarkSeen(ctx context.Context, eventID string) 
 	return nil
 }
 
+// Forget deletes the cache entry for eventID. BUG-NEW-06 — used by the
+// composite claimer's Release path so a subsequent Stripe retry is not
+// short-circuited on the cache after a downstream handler error
+// triggered a release. Errors are returned as *CacheError so the
+// caller can downgrade to log-and-continue (the cache TTLs out within
+// 5 minutes, comfortably inside Stripe's retry window).
+func (s *WebhookIdempotencyStore) Forget(ctx context.Context, eventID string) error {
+	if eventID == "" {
+		return nil
+	}
+	if err := s.client.Del(ctx, "stripe:event:"+eventID).Err(); err != nil {
+		return &CacheError{Err: err}
+	}
+	return nil
+}
+
 // TryClaim is the legacy single-store dedup probe used by features
 // OTHER than the Stripe webhook handler (invoicing module's
 // application-level idempotency for IssueFromSubscription /

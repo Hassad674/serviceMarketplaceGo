@@ -48,6 +48,12 @@ type fakeCache struct {
 	// seenIDs records which IDs had MarkSeen called so a test can
 	// assert the cache was correctly populated AFTER Postgres returned.
 	seenIDs []string
+
+	// forgets / forgetIDs / forgetErr drive the BUG-NEW-06 Release
+	// flow's cache-side cleanup.
+	forgets   int
+	forgetIDs []string
+	forgetErr error
 }
 
 func (f *fakeCache) TryCacheClaim(_ context.Context, _ string) (bool, error) {
@@ -65,12 +71,30 @@ func (f *fakeCache) MarkSeen(_ context.Context, eventID string) error {
 	return f.markSeenErr
 }
 
+// Forget removes the cache entry for eventID. forgetErr drives the
+// stub so a test can simulate a Redis outage during release; the
+// surrounding code must downgrade to log-and-continue.
+func (f *fakeCache) Forget(_ context.Context, eventID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.forgets++
+	f.forgetIDs = append(f.forgetIDs, eventID)
+	return f.forgetErr
+}
+
 // fakeDurable stubs the Postgres source of truth.
 type fakeDurable struct {
 	mu     sync.Mutex
 	calls  int
 	seen   map[string]struct{} // event_ids already inserted
 	err    error               // when non-nil, every call returns it
+
+	// releaseErr drives the BUG-NEW-06 Release flow. When non-nil the
+	// composite claimer's Release returns the wrapped error; the
+	// dispatcher MUST log it and still respond 5xx so Stripe retries.
+	releaseErr error
+	releases   int
+	releaseIDs []string
 }
 
 func newFakeDurable() *fakeDurable {
@@ -89,6 +113,21 @@ func (f *fakeDurable) TryClaim(_ context.Context, eventID, _ string) (bool, erro
 	}
 	f.seen[eventID] = struct{}{}
 	return true, nil
+}
+
+// Release reverses a prior TryClaim. The fake mirrors the postgres
+// adapter behaviour: removing the seen entry so a subsequent TryClaim
+// for the same id returns "first" again. Idempotent.
+func (f *fakeDurable) Release(_ context.Context, eventID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.releases++
+	f.releaseIDs = append(f.releaseIDs, eventID)
+	if f.releaseErr != nil {
+		return f.releaseErr
+	}
+	delete(f.seen, eventID)
+	return nil
 }
 
 // ---------------------------------------------------------------------------

@@ -465,7 +465,21 @@ func (p *PayoutService) RequestPayout(ctx context.Context, userID, orgID uuid.UU
 		if tErr != nil {
 			slog.Error("payout transfer failed", "proposal_id", r.ProposalID, "error", tErr)
 			r.MarkTransferFailed()
-			_ = p.records.Update(ctx, r)
+			// BUG-NEW-01: previously `_ = p.records.Update(ctx, r)`
+			// silently swallowed DB errors, leaving the record stuck
+			// as Succeeded+TransferPending after a Stripe failure.
+			// The wallet then showed it ready to retry but the Stripe
+			// transfer was permanently failed. Surface the desync so
+			// ops can see the gap in a structured log line.
+			if uErr := p.records.Update(ctx, r); uErr != nil {
+				slog.Error("payout: failed to persist MarkTransferFailed — record desynced from Stripe",
+					"record_id", r.ID,
+					"proposal_id", r.ProposalID,
+					"milestone_id", r.MilestoneID,
+					"stripe_error", tErr,
+					"db_error", uErr,
+				)
+			}
 			continue
 		}
 
@@ -473,7 +487,22 @@ func (p *PayoutService) RequestPayout(ctx context.Context, userID, orgID uuid.UU
 			slog.Error("mark transferred", "error", err)
 			continue
 		}
-		_ = p.records.Update(ctx, r)
+		// BUG-NEW-01: previously `_ = p.records.Update(ctx, r)` — a
+		// DB failure here lost the MarkTransferred state (transferID +
+		// TransferCompleted). The wallet then re-listed the record as
+		// pending and a future RequestPayout would double-transfer
+		// (Stripe idempotency-key dedupes, but we'd still record a
+		// second success on the same row). Surface the desync.
+		if uErr := p.records.Update(ctx, r); uErr != nil {
+			slog.Error("payout: failed to persist MarkTransferred — record desynced from Stripe",
+				"record_id", r.ID,
+				"proposal_id", r.ProposalID,
+				"milestone_id", r.MilestoneID,
+				"transfer_id", transferID,
+				"db_error", uErr,
+			)
+			continue
+		}
 		transferred += r.ProviderPayout
 	}
 
@@ -644,7 +673,23 @@ func (p *PayoutService) RetryFailedTransfer(ctx context.Context, userID, orgID, 
 	if tErr != nil {
 		slog.Error("retry transfer failed", "record_id", record.ID, "proposal_id", record.ProposalID, "error", tErr)
 		record.MarkTransferFailed()
-		_ = p.records.Update(ctx, record)
+		// BUG-NEW-01: previously `_ = p.records.Update(ctx, record)`
+		// silently swallowed DB failures. The record was reset to
+		// Pending earlier in this method (line ~631). If Stripe fails
+		// AND the Update to mark it Failed fails, the record stays
+		// stuck at Pending — meaning subsequent reads can't tell
+		// whether the retry actually completed. Surface the desync so
+		// ops can see both errors and reconcile manually.
+		if uErr := p.records.Update(ctx, record); uErr != nil {
+			slog.Error("retry: failed to persist MarkTransferFailed — record desynced from Stripe",
+				"record_id", record.ID,
+				"proposal_id", record.ProposalID,
+				"milestone_id", record.MilestoneID,
+				"stripe_error", tErr,
+				"db_error", uErr,
+			)
+			return nil, fmt.Errorf("retry stripe transfer: %w (mark failed save also failed: %v)", tErr, uErr)
+		}
 		return nil, fmt.Errorf("retry stripe transfer: %w", tErr)
 	}
 

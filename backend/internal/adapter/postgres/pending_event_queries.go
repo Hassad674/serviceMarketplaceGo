@@ -24,13 +24,28 @@ INSERT INTO pending_events (
 // stops bumping fires_at forward, but fires_at is still in the past
 // — without this filter the worker would re-pop the row every tick
 // in an infinite loop. The literal mirrors pendingevent.MaxAttempts.
+//
+// BUG-NEW-03 — stale-processing recovery. The CTE ALSO picks up rows
+// stuck in 'processing' whose updated_at is older than $2 (a stale
+// threshold expressed in seconds). This handles the case where a
+// worker crashed between claiming the row and calling MarkDone /
+// MarkFailed. The threshold MUST be wider than any reasonable
+// handler runtime ("5 minutes" is the published default) so we do
+// not kick a still-running handler off mid-flight. Concurrent
+// workers cannot fight over the same stale row — SKIP LOCKED on the
+// CTE serialises the claim, and the UPDATE refreshes updated_at,
+// so a second worker arriving immediately after sees a fresh row
+// and moves on.
 const queryPopDuePendingEvents = `
 WITH due AS (
     SELECT id
     FROM pending_events
-    WHERE status IN ('pending', 'failed')
-      AND attempts < 5
-      AND fires_at <= now()
+    WHERE attempts < 5
+      AND (
+          (status IN ('pending', 'failed') AND fires_at <= now())
+          OR
+          (status = 'processing' AND updated_at < now() - make_interval(secs => $2))
+      )
     ORDER BY fires_at ASC
     LIMIT $1
     FOR UPDATE SKIP LOCKED
