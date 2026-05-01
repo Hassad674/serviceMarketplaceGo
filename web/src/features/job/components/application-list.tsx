@@ -3,7 +3,6 @@
 import { FileText, Trash2, Briefcase, Calendar, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
-import { cn } from "@/shared/lib/utils"
 import { useMyApplications, useWithdrawApplication } from "../hooks/use-job-applications"
 
 export function ApplicationList() {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Loader2, MailX, Mail } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
@@ -127,13 +127,20 @@ export function NotificationSettings() {
   const bulkEmailMutation = useBulkEmailPreferences()
   const [localPrefs, setLocalPrefs] = useState<NotificationPreference[]>([])
   const [emailEnabled, setEmailEnabled] = useState(true)
-
-  useEffect(() => {
-    if (prefsResponse) {
-      setLocalPrefs(prefsResponse.data)
-      setEmailEnabled(prefsResponse.email_notifications_enabled)
-    }
-  }, [prefsResponse])
+  // Track which prefsResponse identity we have already mirrored into
+  // local state. Comparing identity inside render lets us call setState
+  // *during* render — React's "set state during render" pattern — which
+  // is the recommended replacement for setState-in-effect when the only
+  // job is to keep local optimistic state in sync with server data.
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const [syncedPrefs, setSyncedPrefs] = useState<typeof prefsResponse | null>(
+    null,
+  )
+  if (prefsResponse && prefsResponse !== syncedPrefs) {
+    setSyncedPrefs(prefsResponse)
+    setLocalPrefs(prefsResponse.data)
+    setEmailEnabled(prefsResponse.email_notifications_enabled)
+  }
 
   const allEmailsDisabled = !emailEnabled
 

@@ -47,15 +47,18 @@ export function UploadModal({
   const isImage = accept.startsWith("image")
   const maxSizeLabel = formatFileSize(maxSize)
 
-  // Reset state when modal opens/closes
-  useEffect(() => {
+  // Reset state when modal opens/closes. Render-time tracking of `open`
+  // avoids the setState-in-effect cascade.
+  const [lastOpen, setLastOpen] = useState(open)
+  if (lastOpen !== open) {
+    setLastOpen(open)
     if (!open) {
       setSelectedFile(null)
       setPreviewUrl(null)
       setError(null)
       setIsDragOver(false)
     }
-  }, [open])
+  }
 
   // Clean up preview URL on unmount or change
   useEffect(() => {
@@ -256,6 +259,7 @@ export function UploadModal({
           <div className="border border-border rounded-lg p-4">
             {isImage && previewUrl ? (
               <div className="relative mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- previewUrl is a blob: URL */}
                 <img
                   src={previewUrl}
                   alt={tCommon("previewFile")}

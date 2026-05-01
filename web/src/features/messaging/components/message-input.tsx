@@ -397,7 +397,10 @@ function PrimaryActionButton({
   canVoice,
   isDisabled,
   isSending,
-  onSend,
+  // onSend is wired through form submission via the type="submit" button
+  // below, not invoked from this component directly. Kept in the props
+  // contract so callers stay explicit about wiring.
+  onSend: _onSend,
   onMic,
   sendLabel,
   micLabel,

@@ -84,16 +84,14 @@ export function AddressAutocomplete({
 
   // Debounced search. 250ms is the sweet spot for "feels live" while
   // staying respectful of the public BAN API rate limits.
+  // The "should we search?" gate is computed in render so the effect
+  // only runs (and only sets state) when there's an actual fetch to do.
+  // Synchronous clear paths used to live inside the effect body and
+  // tripped react-hooks/set-state-in-effect.
+  const trimmed = query.trim()
+  const shouldSearch = enabled && trimmed.length >= 3
   useEffect(() => {
-    if (!enabled) {
-      setResults([])
-      return
-    }
-    const trimmed = query.trim()
-    if (trimmed.length < 3) {
-      setResults([])
-      return
-    }
+    if (!shouldSearch) return
     const ctl = new AbortController()
     const timer = setTimeout(async () => {
       setIsLoading(true)
@@ -118,7 +116,18 @@ export function AddressAutocomplete({
       ctl.abort()
       clearTimeout(timer)
     }
-  }, [query, enabled])
+  }, [trimmed, shouldSearch])
+
+  // When the search gate flips to false (input cleared, country changed,
+  // disabled), clear the previous results so the dropdown doesn't keep
+  // showing stale matches.
+  const [lastShouldSearch, setLastShouldSearch] = useState(shouldSearch)
+  if (lastShouldSearch !== shouldSearch) {
+    setLastShouldSearch(shouldSearch)
+    if (!shouldSearch) {
+      setResults([])
+    }
+  }
 
   function handlePick(feature: BANFeature) {
     onSelect({

@@ -24,8 +24,10 @@ function createWrapper() {
       queries: { retry: false, gcTime: 0 },
     },
   })
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
+  Wrapper.displayName = "TestWrapper"
+  return Wrapper
 }
 
 describe("unreadNotifCountKey", () => {

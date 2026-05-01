@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Camera, Star, Edit2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -43,8 +43,14 @@ export function ProfileHeader({
   const tUpload = useTranslations("upload")
   const tSidebar = useTranslations("sidebar")
 
-  // Reset error state when photo URL changes (e.g. after upload)
-  useEffect(() => { setPhotoError(false) }, [profile?.photo_url])
+  // Reset error state when photo URL changes (e.g. after upload). We
+  // track the URL in render-time state so the reset happens during the
+  // render that observes the change, not in an effect.
+  const [lastPhotoUrl, setLastPhotoUrl] = useState(profile?.photo_url)
+  if (lastPhotoUrl !== profile?.photo_url) {
+    setLastPhotoUrl(profile?.photo_url)
+    setPhotoError(false)
+  }
 
   const imageLabel = roleContext === "agency" ? t("logo") : t("photo")
   const badgeText = roleContext === "referrer" ? tSidebar("businessReferrer") : null
@@ -90,6 +96,7 @@ export function ProfileHeader({
                 )}
               >
                 {profile?.photo_url && !photoError ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
                   <img
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
@@ -115,6 +122,7 @@ export function ProfileHeader({
                 aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
               >
                 {profile?.photo_url && !photoError ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
                   <img
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}

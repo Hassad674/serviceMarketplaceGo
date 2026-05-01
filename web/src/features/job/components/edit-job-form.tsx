@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ChevronDown, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
@@ -46,12 +46,17 @@ export function EditJobForm({ job }: EditJobFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Mirror the server role into local form state during render to avoid
+  // setState-in-effect cascading renders. See create-job-form for the
+  // matching pattern.
   const isAgency = user?.role === "agency"
-  useEffect(() => {
+  const [lastIsAgency, setLastIsAgency] = useState(isAgency)
+  if (lastIsAgency !== isAgency) {
+    setLastIsAgency(isAgency)
     if (isAgency) {
       setFormData((prev) => ({ ...prev, applicantType: "freelancers" }))
     }
-  }, [isAgency])
+  }
 
   function updateField<K extends keyof JobFormData>(field: K, value: JobFormData[K]) {
     setFormData((prev) => ({ ...prev, [field]: value }))

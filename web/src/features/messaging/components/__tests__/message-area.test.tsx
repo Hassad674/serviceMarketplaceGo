@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { MessageArea } from "../message-area"
 import type { Message } from "../../types"

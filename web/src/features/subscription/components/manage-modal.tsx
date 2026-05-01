@@ -88,7 +88,7 @@ function PlanSummary({ subscription }: { subscription: Subscription }) {
           <span className="font-semibold">
             {formatDate(subscription.pending_cycle_effective_at)}
           </span>
-          . Tu gardes ton accès {cycle.toLowerCase()} jusqu'à cette date.
+          . Tu gardes ton accès {cycle.toLowerCase()} jusqu&apos;à cette date.
         </p>
       ) : null}
     </div>

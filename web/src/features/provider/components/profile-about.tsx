@@ -32,9 +32,6 @@ export function ProfileAbout({
   const displayLabel = label ?? t("about")
   const displayPlaceholder = placeholder ?? t("aboutPlaceholder")
 
-  // Hide entire section when readOnly and no content
-  if (readOnly && !content) return null
-
   const autoResize = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -45,6 +42,9 @@ export function ProfileAbout({
   useEffect(() => {
     if (editing) autoResize()
   }, [editing, draft, autoResize])
+
+  // Hide entire section when readOnly and no content
+  if (readOnly && !content) return null
 
   function startEditing() {
     setDraft(content)

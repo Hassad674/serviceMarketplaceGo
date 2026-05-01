@@ -182,4 +182,24 @@ describe("ProfileAbout", () => {
 
     expect(screen.getByText(/5 \/ 1000/)).toBeInTheDocument()
   })
+
+  // Regression: hooks must be called in the same order across renders.
+  // The readOnly + empty-content branch returns null AFTER the hooks, so
+  // toggling readOnly between renders must not trigger React's
+  // "rendered fewer hooks than expected" error.
+  it("returns null when readOnly with no content (hooks order stable)", () => {
+    const { container, rerender } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <ProfileAbout content="" readOnly />
+      </NextIntlClientProvider>,
+    )
+    expect(container.firstChild).toBeNull()
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <ProfileAbout content="Now has content" readOnly />
+      </NextIntlClientProvider>,
+    )
+    expect(screen.getByText("Now has content")).toBeInTheDocument()
+  })
 })

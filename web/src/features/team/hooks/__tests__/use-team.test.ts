@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
 import {
   useTeamMembers,
-  useTeamInvitations,
   useSendInvitation,
   useRemoveMember,
   useLeaveOrganization,
@@ -49,8 +48,10 @@ function createWrapper(client?: QueryClient) {
         mutations: { retry: false },
       },
     })
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
+  Wrapper.displayName = "TestWrapper"
+  return Wrapper
 }
 
 describe("team query keys", () => {

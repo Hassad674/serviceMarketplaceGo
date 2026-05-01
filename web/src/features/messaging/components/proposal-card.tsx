@@ -65,7 +65,6 @@ export function ProposalCard({
   const showModifyButton = isOwn && metadata.proposal_status === "pending"
 
   const isCounterProposal = metadata.proposal_version > 1
-  const isClient = metadata.proposal_client_id === currentUserId
 
   function handleAccept(e: React.MouseEvent) {
     e.stopPropagation()

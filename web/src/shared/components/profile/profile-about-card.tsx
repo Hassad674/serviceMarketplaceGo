@@ -35,8 +35,6 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
   const [draft, setDraft] = useState(content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  if (readOnly && !content) return null
-
   const autoResize = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -47,6 +45,8 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
   useEffect(() => {
     if (editing) autoResize()
   }, [editing, draft, autoResize])
+
+  if (readOnly && !content) return null
 
   const startEditing = () => {
     setDraft(content)

@@ -80,6 +80,7 @@ function Avatar({ photoUrl, alt }: AvatarProps) {
     )
   }
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- avatar is a MinIO URL, see freelance-profile-card.tsx note
     <img
       src={photoUrl}
       alt={alt}

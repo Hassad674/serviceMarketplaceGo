@@ -10,7 +10,6 @@ import { useHasApplied } from "../hooks/use-job-applications"
 import { useCredits } from "../hooks/use-jobs"
 import { ApplyModal } from "./apply-modal"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
-import type { JobResponse } from "../types"
 import { getJob } from "../api/job-api"
 import { useQuery } from "@tanstack/react-query"
 

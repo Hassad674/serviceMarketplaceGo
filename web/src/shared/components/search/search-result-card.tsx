@@ -55,7 +55,6 @@ const PERSONA_TO_PATH: Record<SearchDocumentPersona, string> = {
 
 export function SearchResultCard({ document, onSelect }: SearchResultCardProps) {
   const locale: FormatLocale = useLocale() === "fr" ? "fr" : "en"
-  const t = useTranslations("search")
   const headingId = `search-card-${document.id}`
   const href = `${PERSONA_TO_PATH[document.persona]}/${document.id}`
 

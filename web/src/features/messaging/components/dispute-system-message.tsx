@@ -98,7 +98,7 @@ interface DisputeSystemBubbleProps {
   conversationId: string
 }
 
-export function DisputeSystemBubble({ type, metadata, currentUserId, conversationId }: DisputeSystemBubbleProps) {
+export function DisputeSystemBubble({ type, metadata, currentUserId, conversationId: _conversationId }: DisputeSystemBubbleProps) {
   const router = useRouter()
   const t = useTranslations("disputes")
 
@@ -115,7 +115,7 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
 
   const Icon = config.icon
   const reason = (metadata.reason as string) ?? ""
-  const proposalAmount = (metadata.proposal_amount as number) ?? 0
+  const _proposalAmount = (metadata.proposal_amount as number) ?? 0
   const requestedAmount = (metadata.requested_amount as number) ?? 0
   const partyMessage = (metadata.message as string) ?? ""
   const amountClient = (metadata.amount_client as number) ?? (metadata.resolution_amount_client as number) ?? 0

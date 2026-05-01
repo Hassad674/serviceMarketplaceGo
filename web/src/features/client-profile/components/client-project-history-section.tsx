@@ -28,7 +28,6 @@ export function ClientProjectHistorySection(
   props: ClientProjectHistorySectionProps,
 ) {
   const { entries, readOnly = false } = props
-  const t = useTranslations("profile")
   const count = entries.length
 
   // Public surface: hide the card entirely on a zero-history client

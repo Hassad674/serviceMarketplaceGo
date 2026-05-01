@@ -50,30 +50,40 @@ export function CityAutocomplete({ value, countryCode, onChange, disabled }: Pro
   // Keep the visible query synced with the persisted canonical
   // selection — e.g. when TanStack Query refetches the profile or
   // when the parent clears the value after a country change.
-  useEffect(() => {
+  // Tracking `value` by reference in render avoids a setState-in-effect
+  // cascade.
+  const [lastValue, setLastValue] = useState(value)
+  if (lastValue !== value) {
+    setLastValue(value)
     setQuery(value?.city ?? "")
-  }, [value])
+  }
+
+  const trimmedQuery = query.trim()
+  const shouldSearch =
+    trimmedQuery.length >= CITY_SEARCH_MIN_CHARS &&
+    !(value && trimmedQuery === value.city)
+
+  // Reset the dropdown / loading state synchronously when the search gate
+  // flips off, again via render-time tracking — no effect needed.
+  const [lastShouldSearch, setLastShouldSearch] = useState(shouldSearch)
+  if (lastShouldSearch !== shouldSearch) {
+    setLastShouldSearch(shouldSearch)
+    if (!shouldSearch) {
+      setResults([])
+      setIsLoading(false)
+    }
+  }
 
   // Debounced search. Cancels any in-flight request when the query
   // changes so the dropdown never shows stale matches.
   useEffect(() => {
-    const trimmed = query.trim()
-    if (trimmed.length < CITY_SEARCH_MIN_CHARS) {
-      setResults([])
-      setIsLoading(false)
-      return
-    }
-    if (value && trimmed === value.city) {
-      // Don't re-query for the city we already have selected —
-      // this avoids a flicker right after a selection.
-      return
-    }
+    if (!shouldSearch) return
     const handle = window.setTimeout(() => {
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
       setIsLoading(true)
-      searchCities(trimmed, countryCode, controller.signal)
+      searchCities(trimmedQuery, countryCode, controller.signal)
         .then((next) => {
           if (controller.signal.aborted) return
           setResults(next)
@@ -89,7 +99,7 @@ export function CityAutocomplete({ value, countryCode, onChange, disabled }: Pro
         })
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [query, countryCode, value])
+  }, [trimmedQuery, countryCode, shouldSearch])
 
   // Close the dropdown when focus leaves the whole component.
   useEffect(() => {

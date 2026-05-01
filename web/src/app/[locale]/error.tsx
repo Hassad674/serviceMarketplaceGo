@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useTranslations } from "next-intl"
+import { Link } from "@i18n/navigation"
 
 // Locale-scoped error boundary (PERF-W-03 + QUAL-W-01). Catches any
 // rendering or data-fetching error that escapes a route's own
@@ -25,7 +26,6 @@ export default function LocaleError({
     // to logging without leaking stack traces to the client. We log
     // a single line with the digest so server logs can join with
     // the original traceback.
-    // eslint-disable-next-line no-console
     console.error("[error-boundary]", {
       message: error.message,
       digest: error.digest,
@@ -48,12 +48,12 @@ export default function LocaleError({
         >
           {t("errorRetry")}
         </button>
-        <a
+        <Link
           href="/"
           className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
         >
           {t("errorHome")}
-        </a>
+        </Link>
       </div>
     </div>
   )

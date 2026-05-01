@@ -35,8 +35,6 @@ import { mapAppLocaleToStripe } from "./lib/stripe-locale"
  *  - Polls account-status every 10s when user is actively editing to catch webhook updates.
  */
 
-type BusinessType = "individual" | "company"
-
 type AccountSessionResponse = {
   client_secret: string
   account_id: string
@@ -106,7 +104,7 @@ export default function PaymentInfoV2Page() {
     } catch {
       return null
     }
-  }, [])
+  }, [apiBase, authHeaders, mobileToken])
 
   /* ---------- Initial load (skip when user lacks kyc.manage) ---------- */
   useEffect(() => {
@@ -168,7 +166,7 @@ export default function PaymentInfoV2Page() {
     }
     const payload = (await res.json()) as AccountSessionResponse
     return payload.client_secret
-  }, [])
+  }, [apiBase, authHeaders, mobileToken])
 
   const initializeConnect = useCallback(() => {
     if (!STRIPE_PUBLISHABLE_KEY) {
@@ -232,8 +230,15 @@ export default function PaymentInfoV2Page() {
   }
 
   /* ---------- Ensure connectInstance for existing account mode ---------- */
+  // The setState happens through initializeConnect() but is gated by
+  // `!connectInstance` so the effect runs at most once per status change
+  // — no cascading renders. The Stripe Connect SDK must be initialised
+  // synchronously after the account status arrives, which is an
+  // external-system bootstrap; useState lazy init can't help because
+  // we don't have the data on first render.
   useEffect(() => {
     if ((mode === "onboarding" || mode === "dashboard") && !connectInstance && status) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- gated by !connectInstance above, runs at most once per status change
       initializeConnect()
     }
   }, [mode, connectInstance, status, initializeConnect])

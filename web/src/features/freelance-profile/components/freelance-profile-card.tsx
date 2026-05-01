@@ -82,6 +82,12 @@ function Avatar({ photoUrl, alt }: AvatarProps) {
     )
   }
   return (
+    // Plain <img> rather than next/image: avatars come from user
+    // uploads stored in MinIO (e.g. http://localhost:9000/...) which
+    // the Next image optimizer rejects whenever remotePatterns drifts
+    // across dev restarts. The raw <img> always works and the
+    // performance cost is negligible at 48×48.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={photoUrl}
       alt={alt}

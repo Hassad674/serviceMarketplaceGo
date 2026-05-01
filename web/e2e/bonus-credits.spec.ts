@@ -179,7 +179,10 @@ test.describe("Bonus credits after mission payment", () => {
     // Step 1: Register an enterprise
     await registerEnterprise(page)
     const enterpriseCookie = await getSessionCookie(context)
-    const enterpriseId = await getMyUserID(enterpriseCookie)
+    // Enterprise id is fetched for parity with provider flow but not
+    // asserted on directly in this scenario. Underscore prefix opts out
+    // of the no-unused-vars rule.
+    const _enterpriseId = await getMyUserID(enterpriseCookie)
 
     // Step 2: Register a provider (clears enterprise session)
     await context.clearCookies()

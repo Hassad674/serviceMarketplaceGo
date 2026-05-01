@@ -50,8 +50,10 @@ function createWrapper() {
       queries: { retry: false, gcTime: 0 },
     },
   })
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
+  Wrapper.displayName = "TestWrapper"
+  return Wrapper
 }
 
 // Helper: flush the async getWSUrl() microtask so the WebSocket is created.
@@ -402,7 +404,7 @@ describe("useMessagingWS", () => {
   })
 
   it("sends sync on reconnect when lastSeqMap has entries", async () => {
-    const { result } = renderHook(() => useMessagingWS("user-1"), {
+    const { result: _result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
     await flushWSConnect()

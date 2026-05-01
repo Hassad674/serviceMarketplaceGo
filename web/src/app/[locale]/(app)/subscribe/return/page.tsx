@@ -152,8 +152,8 @@ function TimeoutContent({ isMobile }: { isMobile: boolean }) {
         Paiement confirmé
       </h1>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-        Ton paiement est bien passé. L'activation Premium prend parfois un peu
-        plus de temps — rafraîchis l'application dans une minute.
+        Ton paiement est bien passé. L&apos;activation Premium prend parfois un peu
+        plus de temps — rafraîchis l&apos;application dans une minute.
       </p>
       {!isMobile && (
         <Link

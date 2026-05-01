@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ArrowDown, ArrowUp, Check, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -52,9 +52,12 @@ export function ExpertiseEditor({
 
   // Re-sync local draft whenever the persisted list changes from
   // outside (e.g. another tab, server refresh, optimistic rollback).
-  useEffect(() => {
+  // Render-time tracking by reference avoids setState-in-effect.
+  const [lastPersisted, setLastPersisted] = useState(persisted)
+  if (lastPersisted !== persisted) {
+    setLastPersisted(persisted)
     setSelected(persisted)
-  }, [persisted])
+  }
 
   const isDirty = useMemo(
     () => !arraysEqual(selected, persisted),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { Modal } from "@/shared/components/ui/modal"
@@ -37,9 +37,12 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
   // back, redirect cancelled, etc.) the previous click's `pending=true`
   // would otherwise leave the CTA stuck on "Redirection…" — reset it
   // every time the modal opens so the user lands on a fresh state.
-  useEffect(() => {
+  // Render-time tracking avoids a setState-in-effect cascade.
+  const [lastOpen, setLastOpen] = useState(open)
+  if (lastOpen !== open) {
+    setLastOpen(open)
     if (open) setPending(false)
-  }, [open])
+  }
 
   const handleClose = useCallback(() => {
     setPending(false)

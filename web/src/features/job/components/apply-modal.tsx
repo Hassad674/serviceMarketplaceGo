@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Send, Loader2, X, Upload, Video, Trash2 } from "lucide-react"
+import { Send, Loader2, X, Upload, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useApplyToJob } from "../hooks/use-job-applications"

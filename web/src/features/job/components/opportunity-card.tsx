@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Briefcase, Calendar, Users, MoreVertical, Flag } from "lucide-react"
+import { Briefcase, Calendar, Users, MoreVertical } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"

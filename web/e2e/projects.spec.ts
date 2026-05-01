@@ -14,7 +14,7 @@ test.describe("Projects", () => {
   })
 
   test("projects page loads with empty state", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects")
     await page.waitForLoadState("networkidle")
 
@@ -24,7 +24,7 @@ test.describe("Projects", () => {
   })
 
   test('"Create Project" button navigates to /projects/new', async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects")
     await page.waitForLoadState("networkidle")
 
@@ -42,7 +42,7 @@ test.describe("Projects", () => {
   })
 
   test("payment type selector defaults to Escrow", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -55,7 +55,7 @@ test.describe("Projects", () => {
   })
 
   test("can switch to Invoice billing", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -71,7 +71,7 @@ test.describe("Projects", () => {
   })
 
   test("milestone editor: add/remove milestones", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -102,7 +102,7 @@ test.describe("Projects", () => {
   })
 
   test("skills input: add/remove tags", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -137,7 +137,7 @@ test.describe("Projects", () => {
   })
 
   test("timeline: set dates, toggle ongoing", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -156,7 +156,7 @@ test.describe("Projects", () => {
   })
 
   test("applicant section: select radio options", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -175,7 +175,7 @@ test.describe("Projects", () => {
   })
 
   test("preview panel updates live", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 
@@ -197,7 +197,7 @@ test.describe("Projects", () => {
   })
 
   test("form validation (required fields)", async ({ page }) => {
-    const user = await registerEnterprise(page)
+    const _user = await registerEnterprise(page)
     await page.goto("/my-projects/new")
     await page.waitForLoadState("networkidle")
 

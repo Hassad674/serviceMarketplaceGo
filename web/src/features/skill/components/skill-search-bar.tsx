@@ -68,9 +68,13 @@ export function SkillSearchBar({
       return out
     }, [suggestions, canCreate])
 
-  useEffect(() => {
+  // Reset highlight when the search input changes. Render-time tracking
+  // avoids the setState-in-effect cascade.
+  const [lastInput, setLastInput] = useState(input)
+  if (lastInput !== input) {
+    setLastInput(input)
     setActiveIndex(0)
-  }, [input])
+  }
 
   // Close the dropdown when the user clicks outside the input/menu.
   useEffect(() => {

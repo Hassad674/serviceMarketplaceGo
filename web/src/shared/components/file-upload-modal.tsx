@@ -116,8 +116,12 @@ export function FileUploadModal({
   const t = useTranslations("messaging")
   const tCommon = useTranslations("common")
 
-  // Reset on open/close
-  useEffect(() => {
+  // Reset on open/close. Tracking `open` in render-time state lets us
+  // tear down preview URLs and reset local state during the render that
+  // observes the close, without setState-in-effect.
+  const [lastOpen, setLastOpen] = useState(open)
+  if (lastOpen !== open) {
+    setLastOpen(open)
     if (!open) {
       selectedFiles.forEach((sf) => {
         if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl)
@@ -126,8 +130,7 @@ export function FileUploadModal({
       setError(null)
       setIsDragOver(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }
 
   // Close on Escape + focus trap (Tab cycles within the modal)
   useEffect(() => {
@@ -369,6 +372,7 @@ export function FileUploadModal({
                   className="flex items-center gap-3 rounded-lg border border-border p-3"
                 >
                   {sf.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- previewUrl is a blob: URL, not a remote asset
                     <img
                       src={sf.previewUrl}
                       alt={sf.file.name}

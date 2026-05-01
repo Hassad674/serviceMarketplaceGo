@@ -264,14 +264,14 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
       {sync.isError && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           Pré-remplissage Stripe indisponible (KYC peut-être incomplet).
-          Remplis les champs manuellement — les autres champs s'adapteront
+          Remplis les champs manuellement — les autres champs s&apos;adapteront
           au pays choisi.
         </div>
       )}
       <BillingProfileForm variant="compact" onSaved={onContinue} />
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
         Une fois ton profil enregistré et complet, tu passes automatiquement à
-        l'étape de paiement.
+        l&apos;étape de paiement.
       </div>
     </div>
   )
@@ -304,8 +304,14 @@ function PaymentStep({
   const [error, setError] = useState<{ code?: string; message: string } | null>(null)
   const [retryToken, setRetryToken] = useState(0)
 
+  // The reset-then-fetch pattern below is intentional: the comment on
+  // useState above explains why we can't migrate to useMutation, and the
+  // sync resets at the top of the effect drive the visible "Préparation
+  // du paiement…" loader. Both setState calls at the top of the effect
+  // are guarded by the dep-array semantics (no cascading renders).
   useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset before async fetch, see comment block above the effect
     setError(null)
     // Drop the previous client_secret while the new session is being
     // created — this swaps the Stripe iframe for the "Préparation du
@@ -356,7 +362,7 @@ function PaymentStep({
   if (error) {
     return (
       <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-        <p className="font-medium">Le paiement n'a pas pu démarrer.</p>
+        <p className="font-medium">Le paiement n&apos;a pas pu démarrer.</p>
         <p className="text-xs">
           {error.message}
           {error.code && (

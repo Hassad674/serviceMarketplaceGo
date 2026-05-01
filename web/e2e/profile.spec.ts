@@ -1,5 +1,4 @@
-import { test, expect, type Page } from "@playwright/test"
-import path from "path"
+import { test, expect } from "@playwright/test"
 import {
   registerProvider,
   registerAgency,

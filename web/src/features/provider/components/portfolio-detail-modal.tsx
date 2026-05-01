@@ -19,10 +19,13 @@ export function PortfolioDetailModal({
   const [currentIndex, setCurrentIndex] = useState(0)
   const t = useTranslations("portfolio")
 
-  // Reset index when item changes
-  useEffect(() => {
+  // Reset the carousel index when the displayed item changes. Render-time
+  // tracking avoids the setState-in-effect cascade.
+  const [lastItemId, setLastItemId] = useState(item?.id)
+  if (lastItemId !== item?.id) {
+    setLastItemId(item?.id)
     setCurrentIndex(0)
-  }, [item?.id])
+  }
 
   const media = item ? [...item.media].sort((a, b) => a.position - b.position) : []
   const current = media[currentIndex]
@@ -86,6 +89,7 @@ export function PortfolioDetailModal({
                   className="h-full w-full object-contain"
                 />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL, see profile-header.tsx
                 <img
                   src={current?.media_url}
                   alt={`${item.title} — ${currentIndex + 1}`}
@@ -185,6 +189,7 @@ export function PortfolioDetailModal({
                       {m.media_type === "video" ? (
                         <div className="relative h-full w-full bg-slate-900">
                           {m.thumbnail_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- portfolio thumbnail is a MinIO URL
                             <img
                               src={m.thumbnail_url}
                               alt={`Thumb ${i + 1}`}
@@ -204,6 +209,7 @@ export function PortfolioDetailModal({
                           </div>
                         </div>
                       ) : (
+                        // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL
                         <img
                           src={m.media_url}
                           alt={`Thumb ${i + 1}`}
