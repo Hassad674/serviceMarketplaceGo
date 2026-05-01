@@ -90,6 +90,15 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 	if err != nil {
 		return nil, err
 	}
+
+	// Project-deadline upper bound: no milestone can be due after the
+	// proposal-level overall deadline. Run AFTER NewMilestoneBatch so
+	// the inter-milestone strict-order check has already passed and we
+	// only fail here for a genuine "exceeds project bound" violation.
+	if err := milestone.ValidateMilestonesAgainstProjectDeadline(milestoneInputs, input.Deadline); err != nil {
+		return nil, err
+	}
+
 	totalAmount := milestone.SumAmount(milestones)
 
 	p, err := domain.NewProposal(domain.NewProposalInput{

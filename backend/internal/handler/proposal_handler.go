@@ -352,6 +352,10 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "invalid_amount", err.Error())
 	case errors.Is(err, proposaldomain.ErrBelowMinimumAmount):
 		res.Error(w, http.StatusBadRequest, "below_minimum_amount", err.Error())
+	case errors.Is(err, milestonedomain.ErrMilestonesNotSequential):
+		res.Error(w, http.StatusBadRequest, "milestones_not_sequential", err.Error())
+	case errors.Is(err, milestonedomain.ErrMilestoneDeadlineAfterProject):
+		res.Error(w, http.StatusBadRequest, "milestone_deadline_after_project", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotProvider):
 		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotClient):
