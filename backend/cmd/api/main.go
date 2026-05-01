@@ -1439,7 +1439,15 @@ func main() {
 	}
 
 	// Dispute feature
-	disputeRepo := postgres.NewDisputeRepository(db)
+	// BUG-NEW-04 path 6/8: disputes is RLS-protected by migration 125
+	// (USING client_organization_id = current_org OR provider_organization_id
+	// = current_org). The txRunner wrap makes Create / Update /
+	// GetByIDForOrg / ListByOrganization pass under prod NOSUPERUSER
+	// NOBYPASSRLS. Sub-tables (dispute_evidence, dispute_counter_proposals,
+	// dispute_ai_chat_messages) are NOT directly RLS-protected so they
+	// stay on the legacy direct-db path; the application-level
+	// authorization layer enforces access through the parent dispute.
+	disputeRepo := postgres.NewDisputeRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	var aiAnalyzer service.AIAnalyzer
 	if cfg.AnthropicAPIKey != "" {
 		aiAnalyzer = anthropicadapter.NewAnalyzer(cfg.AnthropicAPIKey)
