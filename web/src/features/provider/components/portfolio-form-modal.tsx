@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useCallback, useEffect, useRef } from "react"
 import {
   X,
@@ -360,11 +361,14 @@ export function PortfolioFormModal({
                     {m.media_type === "video" ? (
                       <div className="relative h-full w-full bg-slate-900">
                         {m.thumbnail_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- portfolio thumbnail is a MinIO URL
-                          <img
+                          // Square form-modal thumbnail — fill + sizes
+                          // since the parent is aspect-square.
+                          <Image
                             src={m.thumbnail_url}
                             alt={`Media ${i + 1}`}
-                            className="h-full w-full object-cover"
+                            fill
+                            sizes="(max-width: 640px) 33vw, 200px"
+                            className="object-cover"
                           />
                         ) : (
                           <video
@@ -411,11 +415,14 @@ export function PortfolioFormModal({
                         </button>
                       </div>
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL
-                      <img
+                      // Square image media tile — fill + sizes for the
+                      // 3-/4-column responsive grid above.
+                      <Image
                         src={m.media_url}
                         alt={`Media ${i + 1}`}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 33vw, 200px"
+                        className="object-cover"
                       />
                     )}
 

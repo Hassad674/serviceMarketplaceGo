@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect, useCallback } from "react"
 import { X, ChevronLeft, ChevronRight, ExternalLink, Image as ImageIcon, Film } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -88,14 +89,19 @@ export function PortfolioDetailModal({
                   playsInline
                   className="h-full w-full object-contain"
                 />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL, see profile-header.tsx
-                <img
-                  src={current?.media_url}
+              ) : current ? (
+                // Large portfolio media (up to 60% of a 1200px viewport on
+                // desktop). `fill` lets the image scale into the parent's
+                // aspect-ratio container; `sizes` informs the optimizer
+                // which AVIF/WebP variant to serve.
+                <Image
+                  src={current.media_url}
                   alt={`${item.title} — ${currentIndex + 1}`}
-                  className="h-full w-full object-contain animate-fade-in"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  className="object-contain animate-fade-in"
                 />
-              )}
+              ) : null}
 
               {/* Prev arrow */}
               {hasPrev && (
@@ -189,11 +195,15 @@ export function PortfolioDetailModal({
                       {m.media_type === "video" ? (
                         <div className="relative h-full w-full bg-slate-900">
                           {m.thumbnail_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- portfolio thumbnail is a MinIO URL
-                            <img
+                            // Square thumbnail strip — parent is
+                            // aspect-square, so fill + sizes is the
+                            // right Next.js shape.
+                            <Image
                               src={m.thumbnail_url}
                               alt={`Thumb ${i + 1}`}
-                              className="h-full w-full object-cover"
+                              fill
+                              sizes="80px"
+                              className="object-cover"
                             />
                           ) : (
                             <video
@@ -209,11 +219,13 @@ export function PortfolioDetailModal({
                           </div>
                         </div>
                       ) : (
-                        // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL
-                        <img
+                        // Square image thumbnail in the strip.
+                        <Image
                           src={m.media_url}
                           alt={`Thumb ${i + 1}`}
-                          className="h-full w-full object-cover"
+                          fill
+                          sizes="80px"
+                          className="object-cover"
                         />
                       )}
                     </button>
