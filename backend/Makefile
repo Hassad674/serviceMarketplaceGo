@@ -3,11 +3,11 @@
 
 # Run API server with .env loaded
 run:
-	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/api/main.go
+	set -a && [ -f .env ] && . ./.env; set +a; go run ./cmd/api
 
 # Build binary
 build:
-	go build -o bin/api cmd/api/main.go
+	go build -o bin/api ./cmd/api
 
 # Run all tests
 test:
