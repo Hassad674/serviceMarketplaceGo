@@ -11,8 +11,10 @@ import (
 	milestonedomain "marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // ---------------------------------------------------------------------------
@@ -496,3 +498,31 @@ func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid
 func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+
+// orgCtx returns a base context tagged with the test org id —
+// every dispute service action now reads the caller's org from
+// the context (loadDisputeForActor / loadProposalForActor) and
+// panics on the missing key. Tests that exercise user-facing
+// service methods MUST start from this context, never from
+// context.Background() directly. The default org id matches
+// disputeFixtureOrg so the mock IsOrgAuthorized stub admits the
+// caller without per-test wiring.
+func orgCtx() context.Context {
+	return context.WithValue(context.Background(),
+		middleware.ContextKeyOrganizationID, disputeFixtureOrg)
+}
+
+// actorCtx returns a base context tagged with WithSystemActor —
+// used by tests that exercise admin / scheduler / webhook code
+// paths (AdminResolve, AskAI, IncreaseAIBudget, ForceEscalate).
+// The dispute service routes those callers through the
+// system-actor branch of loadDisputeForActor, so the test must
+// model the same boundary the real handler does.
+func actorCtx() context.Context {
+	return system.WithSystemActor(context.Background())
+}
+
+// disputeFixtureOrg is the synthetic org id used by orgCtx and
+// the dispute test fixtures. Stable across the suite so
+// assertions can compare against it directly when needed.
+var disputeFixtureOrg = uuid.MustParse("11111111-1111-1111-1111-111111111111")
