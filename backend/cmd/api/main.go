@@ -378,7 +378,14 @@ func main() {
 	}
 
 	// Payment records (custom KYC repos removed — see migration 040/041)
-	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
+	// BUG-NEW-04 path 7/8: payment_records is RLS-protected by migration
+	// 125 (USING organization_id = current_setting('app.current_org_id',
+	// true)). The txRunner wrap makes Create / Update / GetByIDForOrg /
+	// ListByOrganization pass under prod NOSUPERUSER NOBYPASSRLS. The
+	// client's org (resolved from organization_members at INSERT time)
+	// is the access boundary; provider-side reads of money received go
+	// through the tenant-isolated proposal path instead.
+	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 
 	// Push notification service (optional — only when FCM is configured)
 	// FCM push notifications are optional — the backend starts with pushSvc
