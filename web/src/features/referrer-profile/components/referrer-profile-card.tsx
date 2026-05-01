@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Link } from "@i18n/navigation"
 import { useLocale } from "next-intl"
 import { AvailabilityPill } from "@/shared/components/ui/availability-pill"
@@ -79,9 +80,10 @@ function Avatar({ photoUrl, alt }: AvatarProps) {
       <div className="h-12 w-12 rounded-full bg-muted border border-border" />
     )
   }
+  // 48×48 directory avatar — matches FreelanceProfileCard for visual
+  // parity in mixed-persona listings. Hosts declared in next.config.ts.
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- avatar is a MinIO URL, see freelance-profile-card.tsx note
-    <img
+    <Image
       src={photoUrl}
       alt={alt}
       width={48}

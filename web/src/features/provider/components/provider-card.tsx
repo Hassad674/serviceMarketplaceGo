@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { MapPin, Star } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
@@ -84,8 +85,8 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         {/* Avatar */}
         <div className="shrink-0">
           {profile.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar is a MinIO URL
-            <img
+            // 48×48 directory avatar (MinIO/R2 hosts in next.config.ts).
+            <Image
               src={profile.photo_url}
               alt={profile.name}
               width={48}

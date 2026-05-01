@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState } from "react"
 import { Camera, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -91,10 +92,8 @@ function PhotoPreview({ photoUrl }: PhotoPreviewProps) {
   }
   return (
     <div className="w-20 h-20 rounded-full bg-muted overflow-hidden border border-border">
-      {/* Plain <img>: photoUrl is the freshly uploaded MinIO key, which the
-          Next image optimizer routinely rejects across dev restarts. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      {/* 80×80 shared-photo preview. Hosts (MinIO + R2) live in next.config.ts. */}
+      <Image
         src={photoUrl}
         alt=""
         width={80}

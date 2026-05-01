@@ -16,7 +16,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:search": "vitest run src/shared/components/search src/shared/lib/search src/features/provider",
     "test:e2e:search": "playwright test e2e/search",
-    "cover:search": "vitest run src/shared/components/search src/shared/lib/search --coverage"
+    "cover:search": "vitest run src/shared/components/search src/shared/lib/search --coverage",
+    "check:no-raw-img": "node scripts/check-no-raw-img.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

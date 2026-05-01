@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect, useCallback } from "react"
 import { X, ChevronLeft, ChevronRight, Send, User, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -188,10 +189,12 @@ export function CandidateDetailPanel({
           {/* Header: Avatar + Name + Org type + Title */}
           <div className="flex items-start gap-4">
             {profile.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- user-uploaded MinIO URL, see profile-header.tsx
-              <img
+              // 56×56 detail panel avatar (MinIO/R2 declared in next.config.ts).
+              <Image
                 src={profile.photo_url}
                 alt={displayName}
+                width={56}
+                height={56}
                 className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
               />
             ) : (

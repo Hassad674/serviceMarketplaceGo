@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Pencil, Trash2, ImageIcon, Film, Play, ExternalLink } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { PortfolioItem } from "../api/portfolio-api"
@@ -42,14 +43,16 @@ export function PortfolioItemCard({
       onClick={onView}
     >
       {/* Cover — custom thumbnail (videos) > image > video first frame > placeholder.
-          Plain <img> for both branches: portfolio media is a MinIO URL,
-          see profile-header.tsx for the rationale. */}
+          Parent is aspect-[4/5] absolute container, so fill+sizes is the
+          right next/image shape. Hosts (MinIO + R2) declared in
+          next.config.ts > images.remotePatterns. */}
       {coverIsVideo && cover?.thumbnail_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={cover.thumbnail_url}
           alt={item.title}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       ) : coverIsVideo && cover?.media_url ? (
         <video
@@ -60,11 +63,12 @@ export function PortfolioItemCard({
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       ) : cover?.media_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={cover.media_url}
           alt={item.title}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
