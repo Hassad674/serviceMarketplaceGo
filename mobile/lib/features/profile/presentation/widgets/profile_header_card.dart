@@ -131,7 +131,13 @@ class ProfileAvatar extends StatelessWidget {
 
   ImageProvider? _resolveImage() {
     if (photoUrl == null || photoUrl!.isEmpty) return null;
-    return CachedNetworkImageProvider(photoUrl!);
+    // CircleAvatar(radius: 48) → 96 lp = 288 px @ 3x DPR. Decode at
+    // 256 to avoid the full-res download path (PERF-M-05).
+    return CachedNetworkImageProvider(
+      photoUrl!,
+      maxWidth: 256,
+      maxHeight: 256,
+    );
   }
 }
 

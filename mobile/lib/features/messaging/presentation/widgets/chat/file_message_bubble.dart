@@ -79,11 +79,17 @@ class FileMessageBubble extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(16),
                       ),
-                      child: CachedNetworkImage(
-                        imageUrl: fileUrl,
-                        maxHeightDiskCache: 512,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
+                      // RepaintBoundary stops bubble re-renders (e.g.
+                      // typing indicators above) from invalidating
+                      // the decoded image layer (PERF-M-08).
+                      child: RepaintBoundary(
+                        child: CachedNetworkImage(
+                          imageUrl: fileUrl,
+                          memCacheWidth: 720,
+                          maxWidthDiskCache: 720,
+                          maxHeightDiskCache: 512,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
                           height: 150,
                           color: Colors.black12,
                           child: const Center(
@@ -96,11 +102,12 @@ class FileMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Container(
-                          height: 80,
-                          color: Colors.black12,
-                          child: const Center(
-                            child: Icon(Icons.broken_image, size: 32),
+                          errorWidget: (_, __, ___) => Container(
+                            height: 80,
+                            color: Colors.black12,
+                            child: const Center(
+                              child: Icon(Icons.broken_image, size: 32),
+                            ),
                           ),
                         ),
                       ),

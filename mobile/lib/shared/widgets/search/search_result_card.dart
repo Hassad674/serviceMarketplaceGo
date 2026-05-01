@@ -111,16 +111,29 @@ class _PhotoImage extends StatelessWidget {
 
   final SearchDocument document;
 
+  /// Largest cover width we render on a phone (3x DPR × ~360 lp ≈ 1080).
+  /// Decoding to ~700 px is more than enough for a 4:5 card and saves
+  /// 4-6× the RAM that the original 2-4 MB JPEG would consume.
+  static const int _memCacheWidth = 720;
+
   @override
   Widget build(BuildContext context) {
     if (document.photoUrl.isEmpty) {
       return _InitialsBackdrop(name: document.displayName);
     }
-    return CachedNetworkImage(
-      imageUrl: document.photoUrl,
-      fit: BoxFit.cover,
-      placeholder: (_, __) => Container(color: Colors.grey.shade200),
-      errorWidget: (_, __, ___) => _InitialsBackdrop(name: document.displayName),
+    // RepaintBoundary isolates the photo decode/blit from the rest of
+    // the card — a re-render of the availability pill or rating badge
+    // overlays no longer invalidates the photo layer.
+    return RepaintBoundary(
+      child: CachedNetworkImage(
+        imageUrl: document.photoUrl,
+        fit: BoxFit.cover,
+        memCacheWidth: _memCacheWidth,
+        maxWidthDiskCache: _memCacheWidth,
+        placeholder: (_, __) => Container(color: Colors.grey.shade200),
+        errorWidget: (_, __, ___) =>
+            _InitialsBackdrop(name: document.displayName),
+      ),
     );
   }
 }

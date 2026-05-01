@@ -255,8 +255,14 @@ class _ProfileHeader extends StatelessWidget {
         CircleAvatar(
           radius: 30,
           backgroundColor: const Color(0xFFFFF1F2),
+          // 30 lp radius × 3x DPR = ~180 px. Cap at 192 to keep RAM
+          // bounded across the whole candidate list (PERF-M-05).
           backgroundImage: photoUrl.isNotEmpty
-              ? CachedNetworkImageProvider(photoUrl)
+              ? CachedNetworkImageProvider(
+                  photoUrl,
+                  maxWidth: 192,
+                  maxHeight: 192,
+                )
               : null,
           child: photoUrl.isEmpty
               ? Text(

@@ -96,17 +96,28 @@ class _PortfolioDetailSheetState extends State<PortfolioDetailSheet> {
                                     ),
                                   );
                                 }
-                                return CachedNetworkImage(
-                                  imageUrl: m.mediaUrl,
-                                  fit: BoxFit.contain,
-                                  placeholder: (_, __) => Container(
-                                    color: Colors.black12,
-                                  ),
-                                  errorWidget: (_, __, ___) => const Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      color: Colors.white54,
-                                      size: 48,
+                                // Detail sheet shows the original at
+                                // full screen — cap raster width at
+                                // 1080 px (3x DPR × 360 lp portrait
+                                // phone). RepaintBoundary keeps the
+                                // PageView swipe smooth: only the
+                                // active page repaints during a
+                                // gesture (PERF-M-08).
+                                return RepaintBoundary(
+                                  child: CachedNetworkImage(
+                                    imageUrl: m.mediaUrl,
+                                    fit: BoxFit.contain,
+                                    memCacheWidth: 1080,
+                                    maxWidthDiskCache: 1080,
+                                    placeholder: (_, __) => Container(
+                                      color: Colors.black12,
+                                    ),
+                                    errorWidget: (_, __, ___) => const Center(
+                                      child: Icon(
+                                        Icons.broken_image,
+                                        color: Colors.white54,
+                                        size: 48,
+                                      ),
                                     ),
                                   ),
                                 );
