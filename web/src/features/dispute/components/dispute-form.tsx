@@ -10,6 +10,8 @@ import { uploadFiles } from "@/shared/lib/upload"
 import { useOpenDispute } from "../hooks/use-disputes"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 interface DisputeFormProps {
   proposalId: string
   proposalAmount: number
@@ -90,7 +92,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             {t("reasonLabel")}
           </label>
-          <select
+          <Select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
@@ -100,7 +102,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             {reasons.map((r) => (
               <option key={r} value={r}>{t(`reason.${r}`)}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* Amount */}
@@ -110,7 +112,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           </label>
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 text-sm">
-              <input
+              <Input
                 type="radio"
                 name="amountType"
                 checked={amountType === "total"}
@@ -122,7 +124,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                 : t("totalRelease", { amount: formatEur(proposalAmount) })}
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input
+              <Input
                 type="radio"
                 name="amountType"
                 checked={amountType === "partial"}
@@ -133,7 +135,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             </label>
             {amountType === "partial" && (
               <div className="ml-6 flex items-center gap-2">
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={proposalAmount / 100}

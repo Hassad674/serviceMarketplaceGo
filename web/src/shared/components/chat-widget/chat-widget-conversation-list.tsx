@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "@/features/messaging/types"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type TypingState = Record<string, { userId: string }>
 
 interface ChatWidgetConversationListProps {
@@ -81,7 +82,7 @@ export function ChatWidgetConversationList({
             className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500"
             strokeWidth={1.5}
           />
-          <input
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

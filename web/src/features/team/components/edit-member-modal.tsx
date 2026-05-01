@@ -8,6 +8,8 @@ import { useRoleDefinitions, useUpdateMember } from "../hooks/use-team"
 import type { TeamMember, OrgRole, RoleDefinition } from "../types"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 // Dialog for changing a member's role and/or title. Owner is never
 // the target here (the list hides the dropdown for Owner). The role
 // selector never includes "owner" — promotions to Owner go through
@@ -105,7 +107,7 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
             >
               {t("roleLabel")}
             </label>
-            <select
+            <Select
               id="edit-member-role"
               value={role}
               onChange={(e) => setRole(e.target.value as Exclude<OrgRole, "owner">)}
@@ -116,7 +118,7 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
                   {t(`roles.${r}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Inline permission preview — refreshes whenever the user
@@ -155,7 +157,7 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
             >
               {t("titleLabel")}
             </label>
-            <input
+            <Input
               id="edit-member-title"
               type="text"
               value={title}

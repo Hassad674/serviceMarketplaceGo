@@ -94,6 +94,65 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 		].filter(Boolean) as string[]
 		const finalState = state ?? (error ? "error" : "default")
 
+		const selectField = (
+			<div className="relative">
+				<select
+					ref={ref}
+					id={id}
+					aria-invalid={ariaInvalid ?? (error ? true : undefined)}
+					aria-describedby={
+						describedByIds.length > 0 ? describedByIds.join(" ") : undefined
+					}
+					className={cn(
+						selectVariants({ state: finalState, size }),
+						className,
+					)}
+					{...props}
+				>
+					{placeholder !== undefined && (
+						<option value="" disabled={!props.value}>
+							{placeholder}
+						</option>
+					)}
+					{options
+						? options.map((opt) => (
+								<option
+									key={opt.value}
+									value={opt.value}
+									disabled={opt.disabled}
+								>
+									{opt.label}
+								</option>
+							))
+						: children}
+				</select>
+				{/* Decorative chevron — pointer-events-none so the native
+				    click target stays the select itself. */}
+				<svg
+					aria-hidden="true"
+					className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+					width="16"
+					height="16"
+					viewBox="0 0 16 16"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M4 6l4 4 4-4"
+						stroke="currentColor"
+						strokeWidth="1.5"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</svg>
+			</div>
+		)
+
+		const needsWrapper = Boolean(label || error || hint || wrapperClassName)
+		if (!needsWrapper) {
+			return selectField
+		}
+
 		return (
 			<div className={cn("flex flex-col gap-1", wrapperClassName)}>
 				{label && (
@@ -104,57 +163,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 						{label}
 					</label>
 				)}
-				<div className="relative">
-					<select
-						ref={ref}
-						id={id}
-						aria-invalid={ariaInvalid ?? (error ? true : undefined)}
-						aria-describedby={
-							describedByIds.length > 0 ? describedByIds.join(" ") : undefined
-						}
-						className={cn(
-							selectVariants({ state: finalState, size }),
-							className,
-						)}
-						{...props}
-					>
-						{placeholder !== undefined && (
-							<option value="" disabled={!props.value}>
-								{placeholder}
-							</option>
-						)}
-						{options
-							? options.map((opt) => (
-									<option
-										key={opt.value}
-										value={opt.value}
-										disabled={opt.disabled}
-									>
-										{opt.label}
-									</option>
-								))
-							: children}
-					</select>
-					{/* Decorative chevron — pointer-events-none so the native
-					    click target stays the select itself. */}
-					<svg
-						aria-hidden="true"
-						className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-						width="16"
-						height="16"
-						viewBox="0 0 16 16"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M4 6l4 4 4-4"
-							stroke="currentColor"
-							strokeWidth="1.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						/>
-					</svg>
-				</div>
+				{selectField}
 				{error && (
 					<p
 						id={`${id}-error`}

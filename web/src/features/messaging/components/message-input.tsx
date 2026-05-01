@@ -11,6 +11,7 @@ import { FileUploadModal } from "@/shared/components/file-upload-modal"
 import { useVoiceRecorder } from "../hooks/use-voice-recorder"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const TYPING_INTERVAL_MS = 2_000
 
 /** Map an audio MIME type to a file extension the backend allowlist accepts. */
@@ -349,7 +350,7 @@ export function MessageInput({
           </div>
 
           {/* Input */}
-          <input
+          <Input
             type="text"
             value={value}
             onChange={handleInputChange}

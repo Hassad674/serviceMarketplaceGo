@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl"
 import type { SearchDocumentPersona } from "@/shared/lib/search/search-document"
 import { NumberInput, SectionShell } from "./filter-primitives"
 
+import { Input } from "@/shared/components/ui/input"
 // FilterSectionPricing renders the min / max bounds the parent pipes
 // into the Typesense filter_by builder. Labels and unit suffix are
 // persona-aware (see buildPriceLabels) so the UX matches the primary
@@ -128,7 +129,7 @@ function NumberInputWithSuffix({
   }
   return (
     <div className="relative w-full min-w-0">
-      <input
+      <Input
         type="number"
         min={0}
         inputMode="numeric"

@@ -12,6 +12,7 @@ import { MessageContextMenu } from "./message-context-menu"
 import { isFileMetadata, isVoiceMetadata } from "./message-area-utils"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 // TextMessageBubble renders the chat-style "text/file/voice" bubble
 // with all interactive affordances: in-place edit, reply, delete,
 // report, plus a long-press context menu on touch devices. Kept apart
@@ -296,7 +297,7 @@ function EditInput({ value, onChange, onSubmit, onCancel }: EditInputProps) {
 
   return (
     <div className="space-y-2">
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

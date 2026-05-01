@@ -5,6 +5,7 @@ import { cn } from "@/shared/lib/utils"
 import type { ProfileType } from "../types"
 import type { BillingProfileFormValues } from "./billing-profile-form.schema"
 
+import { Input } from "@/shared/components/ui/input"
 // "Identité légale" + identifiants fiscaux:
 //   - profile_type radio (individual / business)
 //   - legal_name (always)
@@ -44,7 +45,7 @@ export function BillingSectionLegalIdentity() {
           htmlFor="legal_name"
           error={errors.legal_name?.message}
         >
-          <input
+          <Input
             id="legal_name"
             type="text"
             {...register("legal_name")}
@@ -55,7 +56,7 @@ export function BillingSectionLegalIdentity() {
         {profileType === "business" && (
           <>
             <Field label="Nom commercial (optionnel)" htmlFor="trading_name">
-              <input
+              <Input
                 id="trading_name"
                 type="text"
                 {...register("trading_name")}
@@ -67,7 +68,7 @@ export function BillingSectionLegalIdentity() {
               htmlFor="legal_form"
               error={errors.legal_form?.message}
             >
-              <input
+              <Input
                 id="legal_form"
                 type="text"
                 {...register("legal_form")}
@@ -87,7 +88,7 @@ export function BillingSectionLegalIdentity() {
             hint="14 chiffres, sans espace"
             error={errors.tax_id?.message}
           >
-            <input
+            <Input
               id="tax_id"
               type="text"
               inputMode="numeric"
@@ -98,7 +99,7 @@ export function BillingSectionLegalIdentity() {
           </Field>
         ) : (
           <Field label="Identifiant fiscal" htmlFor="tax_id">
-            <input
+            <Input
               id="tax_id"
               type="text"
               {...register("tax_id")}
@@ -132,7 +133,7 @@ function ProfileTypeRadio() {
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
             )}
           >
-            <input
+            <Input
               type="radio"
               value={option}
               {...register("profile_type")}

@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const COMPANY_NAME_MIN = 1
 const COMPANY_NAME_MAX = 120
 const DESCRIPTION_MAX = 2000
@@ -82,7 +83,7 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
         label={t("companyName")}
         error={form.formState.errors.company_name?.message}
       >
-        <input
+        <Input
           id="client-profile-company-name"
           type="text"
           autoComplete="organization"

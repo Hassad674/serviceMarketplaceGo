@@ -17,6 +17,8 @@ import { useUpdateOrganizationLocation } from "../hooks/use-update-organization-
 import type { WorkMode } from "../api/organization-shared-api"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
 // SharedLocationSection renders the editable "Where you work" card on
@@ -130,7 +132,7 @@ function CountryField({ value, locale, onChange }: CountryFieldProps) {
       >
         {t("countryLabel")}
       </label>
-      <select
+      <Select
         id="shared-location-country"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -142,7 +144,7 @@ function CountryField({ value, locale, onChange }: CountryFieldProps) {
             {getCountryLabel(option.code, locale)}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   )
 }
@@ -207,7 +209,7 @@ function RadiusField({ value, onChange }: RadiusFieldProps) {
       >
         {t("travelRadiusLabel")}
       </label>
-      <input
+      <Input
         id="shared-location-radius"
         type="number"
         min={0}

@@ -10,6 +10,7 @@ import type { JobFormData, DescriptionType } from "../types"
 import { ApplicantTypeSelector } from "./applicant-type-selector"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type JobDetailsSectionProps = {
   formData: JobFormData
   updateField: <K extends keyof JobFormData>(field: K, value: JobFormData[K]) => void
@@ -47,7 +48,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
             {formData.title.length}/{TITLE_MAX_LENGTH}
           </span>
         </div>
-        <input
+        <Input
           type="text"
           value={formData.title}
           onChange={(e) => updateField("title", e.target.value)}
@@ -63,7 +64,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
         <div className="space-y-2">
           {DESC_OPTIONS.map((option) => (
             <label key={option} className={cn("flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", "transition-all duration-200", formData.descriptionType === option ? "border-rose-500 bg-rose-50 dark:bg-rose-500/10 dark:border-rose-400" : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600")}>
-              <input type="radio" name="descriptionType" value={option} checked={formData.descriptionType === option} onChange={() => updateField("descriptionType", option)} className="h-4 w-4 border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-rose-500/20" />
+              <Input type="radio" name="descriptionType" value={option} checked={formData.descriptionType === option} onChange={() => updateField("descriptionType", option)} className="h-4 w-4 border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-rose-500/20" />
               <span className="flex items-center gap-2">
                 {descLabelMap[option].icon}
                 <span className={cn("text-sm font-medium", formData.descriptionType === option ? "text-rose-700 dark:text-rose-300" : "text-gray-700 dark:text-gray-300")}>{descLabelMap[option].label}</span>
@@ -180,7 +181,7 @@ function TagInput({ label, placeholder, tags, max, onChange }: TagInputProps) {
           </span>
         ))}
         {tags.length < max && (
-          <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={addTag} placeholder={tags.length === 0 ? placeholder : ""} className={cn("min-w-[120px] flex-1 bg-transparent text-sm", "text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500", "focus:outline-none")} />
+          <Input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={addTag} placeholder={tags.length === 0 ? placeholder : ""} className={cn("min-w-[120px] flex-1 bg-transparent text-sm", "text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500", "focus:outline-none")} />
         )}
       </div>
     </div>

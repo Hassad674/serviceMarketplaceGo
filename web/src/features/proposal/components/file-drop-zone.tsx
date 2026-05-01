@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 interface FileDropZoneProps {
   files: File[]
   onFilesChange: (files: File[]) => void
@@ -94,7 +95,7 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
         </p>
       </div>
 
-      <input
+      <Input
         ref={inputRef}
         type="file"
         multiple

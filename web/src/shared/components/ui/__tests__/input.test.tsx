@@ -142,6 +142,27 @@ describe("Input", () => {
 		expect(wrapper?.className).toContain("flex-col")
 	})
 
+	it("renders inline (no wrapper) when no label/error/hint/wrapperClassName", () => {
+		// Critical for migrations from raw <input> inside custom layouts:
+		// a wrapping <div> would break flex/grid positioning.
+		const { container } = render(<Input aria-label="Email" />)
+		const root = container.firstElementChild
+		expect(root?.tagName).toBe("INPUT")
+	})
+
+	it("renders the wrapper as soon as any wrapper-only prop is set", () => {
+		const cases = [
+			<Input key="label" label="L" />,
+			<Input key="error" aria-label="E" error="bad" />,
+			<Input key="hint" aria-label="H" hint="h" />,
+			<Input key="wrapper" aria-label="W" wrapperClassName="x" />,
+		]
+		for (const ui of cases) {
+			const { container } = render(ui)
+			expect(container.firstElementChild?.tagName).toBe("DIV")
+		}
+	})
+
 	it("invokes onChange and reflects user input", async () => {
 		const onChange = vi.fn()
 		const user = userEvent.setup()

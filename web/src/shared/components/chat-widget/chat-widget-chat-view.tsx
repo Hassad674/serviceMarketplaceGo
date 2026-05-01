@@ -14,6 +14,7 @@ import type { Conversation, Message } from "@/features/messaging/types"
 import type { PendingRecipient } from "./use-chat-widget"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const TYPING_INTERVAL_MS = 2_000
 
 /** Map an audio MIME type to a file extension the backend allowlist accepts. */
@@ -416,7 +417,7 @@ function WidgetMessageInput({
           </div>
 
           {/* Input */}
-          <input
+          <Input
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}

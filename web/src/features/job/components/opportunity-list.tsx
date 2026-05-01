@@ -12,6 +12,7 @@ import { CreditsInfoModal } from "./credits-info-modal"
 import type { OpenJobListFilters, JobResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 export function OpportunityList() {
   const t = useTranslations("opportunity")
   const [filters, setFilters] = useState<OpenJobListFilters>({})
@@ -45,7 +46,7 @@ export function OpportunityList() {
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
+          <Input
             type="text"
             placeholder={t("searchPlaceholder")}
             value={search}

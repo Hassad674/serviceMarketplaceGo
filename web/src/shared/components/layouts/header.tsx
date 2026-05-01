@@ -15,6 +15,7 @@ import { useSubscription } from "@/features/subscription/hooks/use-subscription"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const ROLE_LABEL_KEYS: Record<string, string> = {
   agency: "roleAgency",
   enterprise: "roleEnterprise",
@@ -81,7 +82,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       {/* Search */}
       <div className="relative hidden flex-1 sm:block sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-slate-400" strokeWidth={1.5} />
-        <input
+        <Input
           type="text"
           placeholder={tCommon("search")}
           className={cn(

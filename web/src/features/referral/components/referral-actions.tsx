@@ -7,6 +7,7 @@ import { useRespondToReferral } from "../hooks/use-referrals"
 import type { Referral, ReferralActorRole, RespondReferralInput } from "../types"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 interface ReferralActionsProps {
   referral: Referral
   viewerRole: ReferralActorRole
@@ -64,7 +65,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Nouveau taux : {counterRate.toFixed(counterRate % 1 === 0 ? 0 : 1)} %
             </label>
-            <input
+            <Input
               type="range"
               min={0}
               max={30}

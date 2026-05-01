@@ -12,6 +12,7 @@ import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLanguages } from "../hooks/use-update-organization-languages"
 
 import { Button } from "@/shared/components/ui/button"
+import { Select } from "@/shared/components/ui/select"
 type LanguageBucket = "professional" | "conversational"
 
 // SharedLanguagesSection edits the two language arrays on the org row.
@@ -110,7 +111,7 @@ function LanguageBucketEditor(props: LanguageBucketEditorProps) {
         bucketLabel={t(labelKey)}
       />
 
-      <select
+      <Select
         aria-label={t(labelKey)}
         value=""
         onChange={(e) => {
@@ -124,7 +125,7 @@ function LanguageBucketEditor(props: LanguageBucketEditorProps) {
             {getLanguageLabel(opt.code, locale)}
           </option>
         ))}
-      </select>
+      </Select>
 
       <p className="mt-2 text-xs text-muted-foreground tabular-nums">
         {t("selectionCount", { count: selected.length })}

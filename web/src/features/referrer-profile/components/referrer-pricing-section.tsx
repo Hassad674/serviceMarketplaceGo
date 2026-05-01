@@ -15,6 +15,7 @@ import { useUpsertReferrerPricing } from "../hooks/use-upsert-referrer-pricing"
 import { useDeleteReferrerPricing } from "../hooks/use-delete-referrer-pricing"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 // V1 pricing simplification: the referrer persona is narrowed down to
 // a single allowed type — `commission_pct` (the B2B referral
 // convention). The form now asks for ONE percentage in [0..100];
@@ -263,7 +264,7 @@ function CommissionInput({
         {label}
       </label>
       <div className="relative">
-        <input
+        <Input
           id={id}
           type="number"
           inputMode="decimal"
@@ -316,7 +317,7 @@ function NoteField({ value, onChange }: NoteFieldProps) {
       >
         {t("noteLabel")}
       </label>
-      <input
+      <Input
         id="referrer-pricing-note"
         type="text"
         value={value}

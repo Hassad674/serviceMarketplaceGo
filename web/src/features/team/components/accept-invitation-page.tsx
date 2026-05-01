@@ -7,6 +7,7 @@ import { ApiError } from "@/shared/lib/api-client"
 import { useInvitationPreview, useAcceptInvitation } from "../hooks/use-team"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // Public landing page reached from the invitation email link.
 //
 // Flow:
@@ -144,7 +145,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             {t("passwordLabel")}
           </label>
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             value={password}
@@ -172,7 +173,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             {t("confirmPasswordLabel")}
           </label>
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             value={confirmPassword}

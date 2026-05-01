@@ -13,6 +13,8 @@ import type {
 import { SUPPORTED_FIAT_CURRENCIES } from "../lib/pricing-format"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 interface PricingKindFormProps {
   kind: PricingKind
   orgType: string | undefined
@@ -182,7 +184,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
           >
             {t("currencyLabel")}
           </label>
-          <select
+          <Select
             id={`pricing-${kind}-currency`}
             value={currency}
             onChange={(e) => setCurrencyRaw(e.target.value)}
@@ -198,7 +200,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
                 </option>
               ))
             )}
-          </select>
+          </Select>
         </div>
         <div>
           <label
@@ -207,7 +209,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
           >
             {t("noteLabel")}
           </label>
-          <input
+          <Input
             id={`pricing-${kind}-note`}
             type="text"
             value={note}
@@ -350,7 +352,7 @@ function AmountInput({ id, label, value, suffix, onChange }: AmountInputProps) {
         {label}
       </label>
       <div className="relative">
-        <input
+        <Input
           id={id}
           type="number"
           inputMode="decimal"

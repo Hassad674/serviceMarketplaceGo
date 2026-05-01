@@ -13,6 +13,7 @@ import {
 } from "../types"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type MilestoneEditorProps = {
   milestones: MilestoneFormItem[]
   onChange: (milestones: MilestoneFormItem[]) => void
@@ -198,7 +199,7 @@ function MilestoneRow({
       </div>
 
       <div className="space-y-3">
-        <input
+        <Input
           type="text"
           value={milestone.title}
           onChange={(e) => onChange({ title: e.target.value })}
@@ -235,7 +236,7 @@ function MilestoneRow({
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
               &euro;
             </span>
-            <input
+            <Input
               type="number"
               min="0"
               step="0.01"
@@ -255,7 +256,7 @@ function MilestoneRow({
             />
           </div>
           <div>
-            <input
+            <Input
               type="date"
               value={milestone.deadline}
               min={minDate}

@@ -11,6 +11,7 @@ import { useCreateReview, useUploadReviewVideo } from "../hooks/use-reviews"
 import { StarRating } from "./star-rating"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024 // 100 MB
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
 
@@ -391,7 +392,7 @@ function VideoUploadField({
 
   return (
     <div>
-      <input
+      <Input
         ref={fileInputRef}
         type="file"
         accept="video/mp4,video/webm,video/quicktime"
@@ -442,7 +443,7 @@ function TitleVisibilityField({
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 transition-colors hover:bg-muted/50">
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}

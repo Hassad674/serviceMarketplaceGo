@@ -24,6 +24,7 @@ import {
 } from "../hooks/use-portfolio"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface PortfolioFormModalProps {
   item?: PortfolioItem
   open: boolean
@@ -290,7 +291,7 @@ export function PortfolioFormModal({
                 {title.length}/{TITLE_MAX}
               </span>
             </label>
-            <input
+            <Input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -334,7 +335,7 @@ export function PortfolioFormModal({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("dropZoneSubtitle")}
                 </p>
-                <input
+                <Input
                   type="file"
                   accept="image/*,video/*"
                   multiple
@@ -461,7 +462,7 @@ export function PortfolioFormModal({
                         <span className="text-[10px] font-medium">{t("addMore")}</span>
                       </>
                     )}
-                    <input
+                    <Input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*,video/*"
@@ -507,7 +508,7 @@ export function PortfolioFormModal({
             </label>
             <div className="relative">
               <Link2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
+              <Input
                 type="text"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
@@ -538,7 +539,7 @@ export function PortfolioFormModal({
         </div>
 
         {/* Hidden input for custom video thumbnail uploads */}
-        <input
+        <Input
           ref={customThumbnailInputRef}
           type="file"
           accept="image/*"

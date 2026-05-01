@@ -14,6 +14,8 @@ import { useUpdateLocation } from "../hooks/use-update-location"
 import { CityAutocomplete, type CitySelection } from "@/shared/components/location/city-autocomplete"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
 interface LocationSectionProps {
@@ -157,7 +159,7 @@ export function LocationSection({
           >
             {t("countryLabel")}
           </label>
-          <select
+          <Select
             id="location-country"
             value={country}
             onChange={(e) => handleCountryChange(e.target.value)}
@@ -169,7 +171,7 @@ export function LocationSection({
                 {getCountryLabel(option.code, locale)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -214,7 +216,7 @@ export function LocationSection({
           >
             {t("travelRadiusLabel")}
           </label>
-          <input
+          <Input
             id="location-radius"
             type="number"
             min={0}

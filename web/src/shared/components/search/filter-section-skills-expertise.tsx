@@ -12,6 +12,7 @@ import {
 } from "./filter-primitives"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const COMMON_LANGUAGES = ["fr", "en", "es", "de", "it", "pt"] as const
 
 // POPULAR_SKILLS is rendered as quick-add chips below the free-text
@@ -141,7 +142,7 @@ function SkillsBlock({
   return (
     <SectionShell title={t("skills")}>
       <SelectedSkillsChips selected={selected} onRemove={removeSkill} />
-      <input
+      <Input
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

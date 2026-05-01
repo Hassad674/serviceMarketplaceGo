@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const agencySchema = z
   .object({
     display_name: z.string().min(2, "Agency name is required"),
@@ -76,7 +77,7 @@ export function AgencyRegisterForm() {
           <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("agencyName")}
           </label>
-          <input
+          <Input
             id="display_name"
             type="text"
             autoComplete="organization"
@@ -94,7 +95,7 @@ export function AgencyRegisterForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -112,7 +113,7 @@ export function AgencyRegisterForm() {
             {t("password")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -142,7 +143,7 @@ export function AgencyRegisterForm() {
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"

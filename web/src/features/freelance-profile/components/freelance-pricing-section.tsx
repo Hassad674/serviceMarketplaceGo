@@ -15,6 +15,7 @@ import { useUpsertFreelancePricing } from "../hooks/use-upsert-freelance-pricing
 import { useDeleteFreelancePricing } from "../hooks/use-delete-freelance-pricing"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 // V1 pricing simplification: the freelance persona is narrowed down
 // to a single allowed type — `daily` (TJM, the French market standard
 // at ~95 %). The form no longer exposes a type dropdown or a currency
@@ -258,7 +259,7 @@ function AmountInput({ id, label, hint, value, onChange }: AmountInputProps) {
         {label}
       </label>
       <div className="relative">
-        <input
+        <Input
           id={id}
           type="number"
           inputMode="decimal"
@@ -298,7 +299,7 @@ function NoteField({ value, onChange }: NoteFieldProps) {
       >
         {t("noteLabel")}
       </label>
-      <input
+      <Input
         id="freelance-pricing-note"
         type="text"
         value={value}

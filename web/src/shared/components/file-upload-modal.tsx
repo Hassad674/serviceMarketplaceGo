@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_FILES = 5
 const BYTES_PER_MB = 1024 * 1024
@@ -423,7 +424,7 @@ export function FileUploadModal({
         )}
 
         {/* Hidden file input */}
-        <input
+        <Input
           ref={fileInputRef}
           type="file"
           multiple

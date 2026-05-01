@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl"
 import { resetPassword } from "@/features/auth/api/auth-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const resetPasswordSchema = z
   .object({
     password: z
@@ -114,7 +115,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             {t("newPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -144,7 +145,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="confirmPassword"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"

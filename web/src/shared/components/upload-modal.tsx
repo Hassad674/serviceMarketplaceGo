@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface UploadModalProps {
   open: boolean
   onClose: () => void
@@ -309,7 +310,7 @@ export function UploadModal({
         )}
 
         {/* Hidden file input */}
-        <input
+        <Input
           ref={fileInputRef}
           type="file"
           accept={accept}

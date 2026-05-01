@@ -21,6 +21,8 @@ import {
 } from "./search-filters"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 // SearchPageLayout is the composition root shared by the three public
 // listing pages (freelancers / agencies / referrers). It assembles:
 //
@@ -228,7 +230,7 @@ function TopBar({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
-        <input
+        <Input
           type="search"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
@@ -239,7 +241,7 @@ function TopBar({
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="hidden md:inline">{tSort("label")}</span>
-          <select
+          <Select
             value={sort}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
             className="h-11 rounded-xl border border-border bg-card px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
@@ -249,7 +251,7 @@ function TopBar({
             <option value="priceAsc">{tSort("priceAsc")}</option>
             <option value="priceDesc">{tSort("priceDesc")}</option>
             <option value="recent">{tSort("recent")}</option>
-          </select>
+          </Select>
         </label>
         <Button variant="ghost" size="auto"
           type="button"

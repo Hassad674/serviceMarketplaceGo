@@ -91,6 +91,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 		].filter(Boolean) as string[]
 		const finalState = state ?? (error ? "error" : "default")
 
+		const inputElement = (
+			<input
+				ref={ref}
+				id={id}
+				aria-invalid={ariaInvalid ?? (error ? true : undefined)}
+				aria-describedby={
+					describedByIds.length > 0 ? describedByIds.join(" ") : undefined
+				}
+				className={cn(inputVariants({ state: finalState, size }), className)}
+				{...props}
+			/>
+		)
+
+		// When the caller supplies none of the wrapper-only props, render
+		// the input inline. This keeps the migration from raw <input>
+		// sites visually identical: a wrapping <div> would otherwise
+		// break flex/grid layouts where the original <input> was a
+		// direct child.
+		const needsWrapper = Boolean(label || error || hint || wrapperClassName)
+		if (!needsWrapper) {
+			return inputElement
+		}
+
 		return (
 			<div className={cn("flex flex-col gap-1", wrapperClassName)}>
 				{label && (
@@ -101,19 +124,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 						{label}
 					</label>
 				)}
-				<input
-					ref={ref}
-					id={id}
-					aria-invalid={ariaInvalid ?? (error ? true : undefined)}
-					aria-describedby={
-						describedByIds.length > 0 ? describedByIds.join(" ") : undefined
-					}
-					className={cn(
-						inputVariants({ state: finalState, size }),
-						className,
-					)}
-					{...props}
-				/>
+				{inputElement}
 				{error && (
 					<p
 						id={`${id}-error`}

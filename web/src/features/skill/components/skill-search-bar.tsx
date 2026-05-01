@@ -16,6 +16,7 @@ import { useCreateUserSkill } from "../hooks/use-create-user-skill"
 import type { SkillResponse } from "../types"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface SkillSearchBarProps {
   alreadySelected: Set<string>
   onAdd: (skill: SkillResponse) => void
@@ -163,7 +164,7 @@ export function SkillSearchBar({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
-        <input
+        <Input
           id={inputId}
           type="text"
           value={input}

@@ -8,6 +8,7 @@ import { useApplyToJob } from "../hooks/use-job-applications"
 import { uploadVideo } from "@/shared/lib/upload-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 interface ApplyModalProps {
   open: boolean
   onClose: () => void
@@ -99,7 +100,7 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {t("optionalVideo")}
             </label>
-            <input
+            <Input
               ref={fileInputRef}
               type="file"
               accept="video/*"

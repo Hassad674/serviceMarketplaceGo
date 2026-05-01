@@ -9,6 +9,8 @@ import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z
@@ -73,7 +75,7 @@ export function RegisterForm() {
           <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("firstName")}
           </label>
-          <input
+          <Input
             id="first_name"
             type="text"
             autoComplete="given-name"
@@ -90,7 +92,7 @@ export function RegisterForm() {
           <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("lastName")}
           </label>
-          <input
+          <Input
             id="last_name"
             type="text"
             autoComplete="family-name"
@@ -108,7 +110,7 @@ export function RegisterForm() {
         <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("displayName")}
         </label>
-        <input
+        <Input
           id="display_name"
           type="text"
           placeholder={t("displayNamePlaceholder")}
@@ -124,7 +126,7 @@ export function RegisterForm() {
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("email")}
         </label>
-        <input
+        <Input
           id="email"
           type="email"
           autoComplete="email"
@@ -141,7 +143,7 @@ export function RegisterForm() {
         <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("password")}
         </label>
-        <input
+        <Input
           id="password"
           type="password"
           autoComplete="new-password"
@@ -158,7 +160,7 @@ export function RegisterForm() {
         <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("youAre")}
         </label>
-        <select
+        <Select
           id="role"
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("role")}
@@ -171,7 +173,7 @@ export function RegisterForm() {
               </option>
             ),
           )}
-        </select>
+        </Select>
         {errors.role && (
           <p className="text-xs text-red-600">{errors.role.message}</p>
         )}

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { ApplicantType } from "../types"
 
+import { Input } from "@/shared/components/ui/input"
 type ApplicantTypeSelectorProps = {
   value: ApplicantType
   onChange: (value: ApplicantType) => void
@@ -37,7 +38,7 @@ export function ApplicantTypeSelector({ value, onChange }: ApplicantTypeSelector
                 : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600",
             )}
           >
-            <input
+            <Input
               type="radio"
               name="applicantType"
               value={option}

@@ -26,6 +26,7 @@ import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
 import { useUser } from "@/shared/hooks/use-user"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const TITLE_MAX_LENGTH = 100
 
 export function CreateProposalPage() {
@@ -301,7 +302,7 @@ export function CreateProposalPage() {
                 {t("proposalTitle")} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="proposal-title"
                   type="text"
                   value={formData.title}
@@ -370,7 +371,7 @@ export function CreateProposalPage() {
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
                     &euro;
                   </span>
-                  <input
+                  <Input
                     id="proposal-amount"
                     type="number"
                     min="0"
@@ -433,7 +434,7 @@ export function CreateProposalPage() {
               >
                 {t("proposalDeadline")}
               </label>
-              <input
+              <Input
                 id="proposal-deadline"
                 type="date"
                 value={formData.deadline}

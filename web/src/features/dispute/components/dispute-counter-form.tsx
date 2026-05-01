@@ -10,6 +10,7 @@ import { uploadFiles } from "@/shared/lib/upload"
 import { useCounterPropose } from "../hooks/use-disputes"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface DisputeCounterFormProps {
   disputeId: string
   proposalAmount: number
@@ -73,7 +74,7 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
             {t("counterSplitLabel")}
           </label>
 
-          <input
+          <Input
             type="range"
             min={0}
             max={proposalAmount}

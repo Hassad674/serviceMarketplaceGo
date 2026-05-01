@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl"
 import { forgotPassword } from "@/features/auth/api/auth-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 })
@@ -75,7 +76,7 @@ export function ForgotPasswordForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"

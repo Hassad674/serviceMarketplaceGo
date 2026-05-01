@@ -7,6 +7,7 @@ import { isEUCountry } from "./eu-countries"
 import type { BillingProfileFormValues } from "./billing-profile-form.schema"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // "Identifiants fiscaux" — VAT applicability section.
 // Currently only handles the intracom VAT input + VIES validate
 // button (EU non-FR). The brief reserves space here for a future
@@ -58,7 +59,7 @@ export function BillingSectionFiscal({
           htmlFor="vat_number"
           error={errors.vat_number?.message}
         >
-          <input
+          <Input
             id="vat_number"
             type="text"
             {...register("vat_number")}

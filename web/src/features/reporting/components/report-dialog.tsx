@@ -17,6 +17,7 @@ import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface ReportDialogProps {
   open: boolean
   onClose: () => void
@@ -125,7 +126,7 @@ export function ReportDialog({
                   : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50",
               )}
             >
-              <input
+              <Input
                 type="radio"
                 name="reason"
                 value={r}

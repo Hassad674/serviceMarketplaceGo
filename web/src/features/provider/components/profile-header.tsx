@@ -9,6 +9,7 @@ import { UploadModal } from "@/shared/components/upload-modal"
 import type { Profile } from "../api/profile-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type RoleContext = "agency" | "provider" | "referrer"
 
 interface ProfileHeaderProps {
@@ -162,7 +163,7 @@ export function ProfileHeader({
                 <p className="text-base text-muted-foreground">{profile.title}</p>
               ) : null
             ) : isEditingTitle ? (
-              <input
+              <Input
                 ref={titleInputRef}
                 type="text"
                 value={titleDraft}

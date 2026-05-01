@@ -7,6 +7,7 @@ import { useInitiateTransfer } from "../hooks/use-team"
 import type { TeamMember } from "../types"
 
 import { Button } from "@/shared/components/ui/button"
+import { Select } from "@/shared/components/ui/select"
 // Initiates the 2-step ownership transfer flow. Only the current
 // Owner sees the button that opens this modal (gated upstream via
 // permissions). The target MUST be an existing Admin in the org —
@@ -91,7 +92,7 @@ export function TransferOwnershipModal({
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 {t("transferTargetLabel")}
               </label>
-              <select
+              <Select
                 value={targetUserID}
                 onChange={(e) => setTargetUserID(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
@@ -108,7 +109,7 @@ export function TransferOwnershipModal({
                     </option>
                   )
                 })}
-              </select>
+              </Select>
             </div>
           )}
 

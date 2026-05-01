@@ -12,6 +12,7 @@ import {
 } from "@/shared/lib/stripe-countries"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type CountrySelectorProps = {
   value: string | null
   onChange: (code: string) => void
@@ -113,7 +114,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
           <div className="border-b border-slate-100 p-3">
             <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
               <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-              <input
+              <Input
                 ref={searchRef}
                 type="text"
                 placeholder={t("searchCountry")}

@@ -18,6 +18,7 @@ import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMySocialLinks, useUpsertSocialLink, useDeleteSocialLink } from "../hooks/use-social-links"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type PlatformMeta = {
   key: string
   icon: LucideIcon
@@ -173,7 +174,7 @@ function SocialLinksEditor({ draft, setDraft, saving, onSave, onCancel }: Social
               <Icon className={`h-4 w-4 ${meta.color}`} aria-hidden="true" />
               {t(meta.key as "linkedin" | "instagram" | "youtube" | "twitter" | "github" | "website")}
             </label>
-            <input
+            <Input
               id={`social-${meta.key}`}
               type="url"
               value={draft[meta.key] || ""}

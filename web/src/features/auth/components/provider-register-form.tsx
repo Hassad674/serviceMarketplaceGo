@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const providerSchema = z
   .object({
     first_name: z.string().min(1, "First name is required"),
@@ -78,7 +79,7 @@ export function ProviderRegisterForm() {
             <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("firstName")}
             </label>
-            <input
+            <Input
               id="first_name"
               type="text"
               autoComplete="given-name"
@@ -95,7 +96,7 @@ export function ProviderRegisterForm() {
             <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("lastName")}
             </label>
-            <input
+            <Input
               id="last_name"
               type="text"
               autoComplete="family-name"
@@ -113,7 +114,7 @@ export function ProviderRegisterForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -131,7 +132,7 @@ export function ProviderRegisterForm() {
             {t("password")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -161,7 +162,7 @@ export function ProviderRegisterForm() {
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"

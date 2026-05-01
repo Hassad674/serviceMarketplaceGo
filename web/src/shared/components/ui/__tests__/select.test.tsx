@@ -162,4 +162,36 @@ describe("Select", () => {
 	it("has displayName for debugging", () => {
 		expect(Select.displayName).toBe("Select")
 	})
+
+	it("renders without the outer flex-col wrapper when no label/error/hint", () => {
+		// Critical for migrations from raw <select> inside custom layouts:
+		// the chevron's `relative` parent is still rendered (it has to be,
+		// for absolute positioning), but the OUTER `flex flex-col gap-1`
+		// wrapper is dropped so flex/grid layouts at call-sites don't
+		// gain an unexpected child.
+		const { container } = render(<Select aria-label="Color" options={colors} />)
+		const root = container.firstElementChild as HTMLElement
+		expect(root.tagName).toBe("DIV")
+		expect(root.className).toContain("relative")
+		expect(root.className).not.toContain("flex-col")
+	})
+
+	it("does render the outer wrapper when a wrapper-only prop is set", () => {
+		const cases = [
+			<Select key="label" label="L" options={colors} />,
+			<Select key="error" aria-label="E" options={colors} error="bad" />,
+			<Select key="hint" aria-label="H" options={colors} hint="h" />,
+			<Select
+				key="wrapper"
+				aria-label="W"
+				options={colors}
+				wrapperClassName="x"
+			/>,
+		]
+		for (const ui of cases) {
+			const { container } = render(ui)
+			const root = container.firstElementChild as HTMLElement
+			expect(root.className).toContain("flex-col")
+		}
+	})
 })

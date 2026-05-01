@@ -22,6 +22,7 @@ import {
 import { PickerModal, PickerTrigger } from "./picker-modal"
 import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 export interface ProviderPickerSelection {
   userId: string
   orgId: string
@@ -209,7 +210,7 @@ function SearchTab({ currentValue, onSelect }: SearchTabProps) {
       <div className="border-b border-slate-100 p-3">
         <div className="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-2">
           <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <input
+          <Input
             type="text"
             autoFocus
             value={query}

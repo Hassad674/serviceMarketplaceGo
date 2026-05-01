@@ -16,6 +16,7 @@ import type { LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // Shape of a single link used by the shared card. Kept minimal so
 // every persona feature can re-use the card without having to expose
 // its full API response shape.
@@ -236,7 +237,7 @@ function SocialLinksEditorForm({
                   | "website",
               )}
             </label>
-            <input
+            <Input
               id={`social-${meta.key}`}
               type="url"
               value={draft[meta.key] || ""}
