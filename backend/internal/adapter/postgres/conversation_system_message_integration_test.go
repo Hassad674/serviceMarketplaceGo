@@ -50,7 +50,7 @@ func insertConversationWithParticipants(t *testing.T, db *sql.DB, userA, userB u
 // proposal_auto_closed, dispute_auto_resolved) is actually persisted
 // with sender_id = NULL.
 //
-// Before migration 128 this test would fail with a NOT NULL violation
+// Before migration 130 this test would fail with a NOT NULL violation
 // at insert time — exactly the production failure mode that hid
 // completed-mission cards from the conversation.
 func TestCreateMessage_SystemActor_PersistsAsNULL(t *testing.T) {
@@ -76,7 +76,7 @@ func TestCreateMessage_SystemActor_PersistsAsNULL(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, repo.CreateMessage(context.Background(), msg),
-				"system-actor send must persist (migration 128 makes sender_id nullable)")
+				"system-actor send must persist (migration 130 makes sender_id nullable)")
 
 			var senderID *uuid.UUID
 			var storedType string

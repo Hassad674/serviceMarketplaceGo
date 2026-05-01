@@ -1,4 +1,4 @@
--- 128_messages_nullable_sender.down.sql
+-- 130_messages_nullable_sender.down.sql
 --
 -- Rollback to NOT NULL sender_id. Because system-actor messages
 -- inserted with NULL sender after this migration was applied would

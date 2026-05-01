@@ -1,4 +1,4 @@
--- 128_messages_nullable_sender.up.sql
+-- 130_messages_nullable_sender.up.sql
 --
 -- System messages (proposal_completed, evaluation_request,
 -- milestone_auto_approved, proposal_auto_closed, dispute_auto_resolved,

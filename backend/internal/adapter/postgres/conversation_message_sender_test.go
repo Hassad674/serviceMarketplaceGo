@@ -21,7 +21,7 @@ import (
 // The bug: runEndOfProjectEffects (and the scheduler) emits
 // proposal_completed / evaluation_request / milestone_auto_approved /
 // proposal_auto_closed system messages with SenderID = uuid.Nil. Before
-// migration 128 the sender_id column was NOT NULL with a FK on
+// migration 130 the sender_id column was NOT NULL with a FK on
 // users(id), so the row insert failed (FK violation when bound as the
 // zero UUID, NOT-NULL violation when bound as SQL NULL). The proposal
 // service ignored the error from SendSystemMessage so the message
@@ -34,7 +34,7 @@ import (
 //  1. senderForInsert maps uuid.Nil → nil (driver-level SQL NULL),
 //     never the zero UUID byte string.
 //  2. CreateMessage binds NULL when SenderID is uuid.Nil, so the
-//     adapter relies on the column being nullable (post-migration 128)
+//     adapter relies on the column being nullable (post-migration 130)
 //     to persist the row.
 // ---------------------------------------------------------------------------
 
