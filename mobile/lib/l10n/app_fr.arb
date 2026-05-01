@@ -1167,5 +1167,35 @@
   "clientProfileNotAvailable": "Le profil client n'est pas disponible pour ce compte.",
   "clientProfileNotFound": "Ce profil client n'existe pas.",
   "navClientProfile": "Profil client",
-  "navProviderProfile": "Profil prestataire"
+  "navProviderProfile": "Profil prestataire",
+  "gdprDeleteTitle": "Supprimer mon compte",
+  "gdprDeleteIntro": "La suppression de votre compte déclenche un délai de 30 jours. Pendant cette période, votre compte est verrouillé et vos données sont conservées. Au bout de 30 jours, vos données sont définitivement effacées.",
+  "gdprDeleteBullet1": "Vos données seront supprimées dans 30 jours sauf annulation.",
+  "gdprDeleteBullet2": "Vous ne pourrez pas vous connecter pendant ce délai.",
+  "gdprDeleteBullet3": "Nous vous enverrons un email de confirmation pour valider cette demande.",
+  "gdprDeletePasswordLabel": "Votre mot de passe actuel",
+  "gdprDeleteConfirmCheckbox": "Je comprends que mes données seront supprimées dans 30 jours sauf annulation.",
+  "gdprDeleteSubmit": "Demander la suppression",
+  "gdprDeleteGenericError": "Une erreur est survenue. Réessayez dans un instant.",
+  "gdprDeleteSuccessTitle": "Vérifiez votre boîte mail",
+  "gdprDeleteSuccessIntro": "Nous avons envoyé un lien de confirmation à :",
+  "gdprDeleteSuccessTtl": "Ce lien expire dans 24 heures.",
+  "gdprDeleteBlockedTitle": "Action requise avant la suppression",
+  "gdprDeleteBlockedIntro": "Vous êtes le propriétaire d'une ou plusieurs organisations avec des membres actifs. Transférez la propriété ou dissolvez-les avant de supprimer votre compte.",
+  "gdprDeleteBlockedMemberCount": "{count} membres actifs",
+  "@gdprDeleteBlockedMemberCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "gdprCancelTitle": "Annuler la suppression",
+  "gdprCancelBody": "Annulez votre demande de suppression de compte. Votre compte sera réactivé immédiatement.",
+  "gdprCancelButton": "Annuler la suppression",
+  "gdprCancelDoneTitle": "Annulation confirmée",
+  "gdprCancelDoneBody": "Votre compte est de nouveau actif. Bon retour !",
+  "gdprCancelGenericError": "Impossible d'annuler la suppression. Réessayez dans un instant.",
+  "gdprBannerTitle": "Compte planifié pour suppression",
+  "gdprBannerBody": "Votre compte sera définitivement supprimé le {date}. Touchez pour annuler.",
+  "@gdprBannerBody": {
+    "placeholders": {"date": {"type": "String"}}
+  },
+  "gdprBannerBodyNoDate": "Votre compte est planifié pour suppression. Touchez pour annuler."
 }
