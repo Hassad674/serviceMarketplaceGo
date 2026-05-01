@@ -21,8 +21,8 @@ class ProjectsListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
+        leading: const IconButton(
+          icon: Icon(Icons.menu),
           onPressed: openShellDrawer,
         ),
         title: Text(l10n.activeProjects),

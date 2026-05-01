@@ -63,8 +63,14 @@ class CandidateCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: const Color(0xFFFFF1F2),
+                    // 24 lp radius × 3x DPR = ~144 px raster. Cap
+                    // disk + memory cache at 128 (PERF-M-05).
                     backgroundImage: profile.photoUrl.isNotEmpty
-                        ? CachedNetworkImageProvider(profile.photoUrl)
+                        ? CachedNetworkImageProvider(
+                            profile.photoUrl,
+                            maxWidth: 128,
+                            maxHeight: 128,
+                          )
                         : null,
                     child: profile.photoUrl.isEmpty
                         ? Text(

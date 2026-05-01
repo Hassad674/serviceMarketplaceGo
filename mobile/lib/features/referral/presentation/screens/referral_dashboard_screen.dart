@@ -42,7 +42,7 @@ class ReferralDashboardScreen extends ConsumerWidget {
           children: [
             myAsync.when(
               loading: () => const _LoadingStats(),
-              error: (e, _) => _ErrorBanner(message: 'Could not load your referrals.'),
+              error: (e, _) => const _ErrorBanner(message: 'Could not load your referrals.'),
               data: (referrals) => _StatRow(referrals: referrals),
             ),
             const SizedBox(height: 24),
@@ -308,8 +308,8 @@ class _SectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
       child: Center(
         child: SizedBox(
           height: 24,

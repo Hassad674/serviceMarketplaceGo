@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/notification/data/notification_repository_impl.dart';
+import '../../main.dart' show firebaseReady;
 import '../router/app_router.dart';
 
 /// Routes a single FCM tap payload to the right in-app screen.
@@ -78,9 +79,22 @@ class FCMService {
     importance: Importance.high,
   );
 
-  /// Initialize FCM. Call after Firebase.initializeApp() and after
-  /// user is authenticated.
+  /// Initialize FCM. Awaits [firebaseReady] internally so callers can
+  /// invoke this without first ensuring [Firebase.initializeApp]
+  /// completed — useful for the [DashboardShell] which schedules
+  /// FCM init via `addPostFrameCallback` to avoid blocking the first
+  /// interactive frame on cold start.
   static Future<void> initialize(WidgetRef ref) async {
+    // Wait for the deferred Firebase init that [main] kicked off
+    // off-thread. If it failed (no network, etc.) the rest of the
+    // method would throw — instead, we silently exit and try again
+    // next cold start.
+    try {
+      await firebaseReady;
+    } catch (_) {
+      return;
+    }
+
     final messaging = FirebaseMessaging.instance;
 
     // Request permission (Android 13+ and iOS)

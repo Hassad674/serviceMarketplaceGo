@@ -99,7 +99,7 @@ class _EnterpriseRegisterScreenState
                       ],
 
                       // Company name
-                      _FieldLabel(text: 'Company name'),
+                      const _FieldLabel(text: 'Company name'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _companyNameController,
@@ -122,7 +122,7 @@ class _EnterpriseRegisterScreenState
                       const SizedBox(height: 16),
 
                       // Email
-                      _FieldLabel(text: 'Email'),
+                      const _FieldLabel(text: 'Email'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailController,
@@ -146,7 +146,7 @@ class _EnterpriseRegisterScreenState
                       const SizedBox(height: 16),
 
                       // Password
-                      _FieldLabel(text: 'Password'),
+                      const _FieldLabel(text: 'Password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passwordController,
@@ -194,7 +194,7 @@ class _EnterpriseRegisterScreenState
                       const SizedBox(height: 16),
 
                       // Confirm password
-                      _FieldLabel(text: 'Confirm password'),
+                      const _FieldLabel(text: 'Confirm password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _confirmPasswordController,
