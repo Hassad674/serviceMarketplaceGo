@@ -100,7 +100,10 @@ func TestCreateMessage_SystemActorBindsNULL(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	require.NoError(t, repo.CreateMessage(context.Background(), msg))
+	// Pass uuid.Nil for the tenant args — the repo built without a
+	// txRunner falls through to createMessageLegacy where the tenant
+	// values are unused (SET LOCAL is a no-op outside the RLS path).
+	require.NoError(t, repo.CreateMessage(context.Background(), msg, uuid.Nil, uuid.Nil))
 	require.NoError(t, mock.ExpectationsWereMet(),
 		"sender_id MUST bind as NULL for system-actor sends — otherwise the FK on users(id) silently drops the message")
 }
@@ -143,7 +146,8 @@ func TestCreateMessage_RealSenderBindsUUID(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	require.NoError(t, repo.CreateMessage(context.Background(), msg))
+	// Same legacy path — uuid.Nil tenant args.
+	require.NoError(t, repo.CreateMessage(context.Background(), msg, uuid.Nil, uuid.Nil))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

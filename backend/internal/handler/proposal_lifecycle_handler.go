@@ -295,10 +295,16 @@ func (h *ProposalLifecycleHandler) ListActiveProjects(w http.ResponseWriter, r *
 		milestonesByProposal = nil
 	}
 
+	// Batch-resolve participant display names — closes PERF-B-02.
+	// Previously this loop did 2*N sequential users.GetByID calls
+	// (one client + one provider per row), inflating the page latency
+	// by 80–200 ms.
+	namesByProposal := h.proposalSvc.GetParticipantNamesBatch(r.Context(), proposals)
+
 	data := make([]response.ProposalResponse, len(proposals))
 	for i, p := range proposals {
-		cn, pn := h.proposalSvc.GetParticipantNames(r.Context(), p.ClientID, p.ProviderID)
-		data[i] = response.NewProposalResponseWithNames(p, nil, milestonesByProposal[p.ID], cn, pn)
+		names := namesByProposal[p.ID]
+		data[i] = response.NewProposalResponseWithNames(p, nil, milestonesByProposal[p.ID], names.ClientName, names.ProviderName)
 	}
 	res.JSON(w, http.StatusOK, response.ProjectListResponse{
 		Data:       data,

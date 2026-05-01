@@ -536,6 +536,12 @@ func main() {
 		MilestoneTransitions: milestoneTransitionsRepo,
 		PendingEvents:        pendingEventsRepo,
 		Users:                userRepo,
+		// Same concrete *postgres.UserRepository — it satisfies both
+		// the wide UserRepository contract and the segregated
+		// UserBatchReader (GetByIDs). The duplicate field exists so
+		// the service can declare the segregated dep without forcing
+		// every other caller to bring it in.
+		UsersBatch:           userRepo,
 		Organizations:        organizationRepo,
 		Messages:             messagingSvc,
 		Storage:              storageSvc,

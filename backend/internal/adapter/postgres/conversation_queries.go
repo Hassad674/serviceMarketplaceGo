@@ -294,15 +294,26 @@ const queryMarkAsRead = `
 	      unread_count  = 0,
 	      updated_at    = now()`
 
+// queryGetTotalUnread sums the unread counts for a user across every
+// conversation. PERF-B-11: the partial index
+// idx_conversation_read_state_user_unread (migration 074) covers ONLY
+// rows where unread_count > 0, so adding the matching predicate on
+// the WHERE clause makes the planner pick that tight index instead
+// of the wider (user_id) index. Rows with unread_count = 0 contribute
+// 0 to the SUM so dropping them does not change the result.
 const queryGetTotalUnread = `
 	SELECT COALESCE(SUM(unread_count), 0)
 	FROM conversation_read_state
-	WHERE user_id = $1`
+	WHERE user_id = $1
+	  AND unread_count > 0`
 
+// queryGetTotalUnreadBatch — same partial-index optimisation as
+// queryGetTotalUnread, but grouped by user.
 const queryGetTotalUnreadBatch = `
 	SELECT user_id, COALESCE(SUM(unread_count), 0)
 	FROM conversation_read_state
 	WHERE user_id = ANY($1)
+	  AND unread_count > 0
 	GROUP BY user_id`
 
 const queryGetParticipantIDs = `

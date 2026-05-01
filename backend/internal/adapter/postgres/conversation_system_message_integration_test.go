@@ -75,7 +75,10 @@ func TestCreateMessage_SystemActor_PersistsAsNULL(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NoError(t, repo.CreateMessage(context.Background(), msg),
+			// Pass uuid.Nil for tenant args — this integration test
+			// builds the repo without a txRunner, so the tenant
+			// SET LOCAL is a no-op in the legacy code path.
+			require.NoError(t, repo.CreateMessage(context.Background(), msg, uuid.Nil, uuid.Nil),
 				"system-actor send must persist (migration 130 makes sender_id nullable)")
 
 			var senderID *uuid.UUID
