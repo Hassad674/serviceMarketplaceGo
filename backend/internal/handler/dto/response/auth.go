@@ -21,7 +21,15 @@ type UserResponse struct {
 	EmailVerified   bool    `json:"email_verified"`
 	KYCStatus       string  `json:"kyc_status"`
 	KYCDeadline     *string `json:"kyc_deadline,omitempty"`
-	CreatedAt       string  `json:"created_at"`
+	// DeletedAt is set when the user requested deletion via the
+	// GDPR right-to-erasure flow (P5). Until the cron purges them
+	// at T+30 they can still log in as a normal user (the auth
+	// guard refuses login at the handler layer when this field is
+	// set, BUT /auth/me lets the frontend learn the schedule so it
+	// can show the "your account will be deleted" banner).
+	DeletedAt    *string `json:"deleted_at,omitempty"`
+	HardDeleteAt *string `json:"hard_delete_at,omitempty"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 // OrganizationResponse carries the user's organization context in /me and
@@ -63,7 +71,7 @@ func NewUserResponse(u *user.User) UserResponse {
 	if accountType == "" {
 		accountType = string(user.AccountTypeMarketplaceOwner)
 	}
-	return UserResponse{
+	resp := UserResponse{
 		ID:              u.ID.String(),
 		Email:           u.Email,
 		FirstName:       u.FirstName,
@@ -76,6 +84,16 @@ func NewUserResponse(u *user.User) UserResponse {
 		EmailVerified:   u.EmailVerified,
 		CreatedAt:       u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+	if u.DeletedAt != nil {
+		// Render BOTH the soft-delete timestamp AND the scheduled
+		// hard-delete time so the frontend banner can compute the
+		// 30-day countdown without an extra fetch.
+		s := u.DeletedAt.Format(time.RFC3339)
+		hard := u.DeletedAt.Add(30 * 24 * time.Hour).Format(time.RFC3339)
+		resp.DeletedAt = &s
+		resp.HardDeleteAt = &hard
+	}
+	return resp
 }
 
 // applyOrgKYCToUser injects the org's KYC state onto the user response.

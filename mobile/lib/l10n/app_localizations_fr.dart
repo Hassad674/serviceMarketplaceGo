@@ -2977,4 +2977,92 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get navProviderProfile => 'Profil prestataire';
+
+  @override
+  String get gdprDeleteTitle => 'Supprimer mon compte';
+
+  @override
+  String get gdprDeleteIntro =>
+      'La suppression de votre compte déclenche un délai de 30 jours. Pendant cette période, votre compte est verrouillé et vos données sont conservées. Au bout de 30 jours, vos données sont définitivement effacées.';
+
+  @override
+  String get gdprDeleteBullet1 =>
+      'Vos données seront supprimées dans 30 jours sauf annulation.';
+
+  @override
+  String get gdprDeleteBullet2 =>
+      'Vous ne pourrez pas vous connecter pendant ce délai.';
+
+  @override
+  String get gdprDeleteBullet3 =>
+      'Nous vous enverrons un email de confirmation pour valider cette demande.';
+
+  @override
+  String get gdprDeletePasswordLabel => 'Votre mot de passe actuel';
+
+  @override
+  String get gdprDeleteConfirmCheckbox =>
+      'Je comprends que mes données seront supprimées dans 30 jours sauf annulation.';
+
+  @override
+  String get gdprDeleteSubmit => 'Demander la suppression';
+
+  @override
+  String get gdprDeleteGenericError =>
+      'Une erreur est survenue. Réessayez dans un instant.';
+
+  @override
+  String get gdprDeleteSuccessTitle => 'Vérifiez votre boîte mail';
+
+  @override
+  String get gdprDeleteSuccessIntro =>
+      'Nous avons envoyé un lien de confirmation à :';
+
+  @override
+  String get gdprDeleteSuccessTtl => 'Ce lien expire dans 24 heures.';
+
+  @override
+  String get gdprDeleteBlockedTitle => 'Action requise avant la suppression';
+
+  @override
+  String get gdprDeleteBlockedIntro =>
+      'Vous êtes le propriétaire d\'une ou plusieurs organisations avec des membres actifs. Transférez la propriété ou dissolvez-les avant de supprimer votre compte.';
+
+  @override
+  String gdprDeleteBlockedMemberCount(int count) {
+    return '$count membres actifs';
+  }
+
+  @override
+  String get gdprCancelTitle => 'Annuler la suppression';
+
+  @override
+  String get gdprCancelBody =>
+      'Annulez votre demande de suppression de compte. Votre compte sera réactivé immédiatement.';
+
+  @override
+  String get gdprCancelButton => 'Annuler la suppression';
+
+  @override
+  String get gdprCancelDoneTitle => 'Annulation confirmée';
+
+  @override
+  String get gdprCancelDoneBody =>
+      'Votre compte est de nouveau actif. Bon retour !';
+
+  @override
+  String get gdprCancelGenericError =>
+      'Impossible d\'annuler la suppression. Réessayez dans un instant.';
+
+  @override
+  String get gdprBannerTitle => 'Compte planifié pour suppression';
+
+  @override
+  String gdprBannerBody(String date) {
+    return 'Votre compte sera définitivement supprimé le $date. Touchez pour annuler.';
+  }
+
+  @override
+  String get gdprBannerBodyNoDate =>
+      'Votre compte est planifié pour suppression. Touchez pour annuler.';
 }

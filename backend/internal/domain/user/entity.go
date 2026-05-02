@@ -98,8 +98,22 @@ type User struct {
 	GoogleID            *string
 	EmailVerified       bool
 
+	// DeletedAt anchors the GDPR soft-delete flow (migration 132).
+	// Set to a non-nil timestamp when the user confirms deletion via
+	// the email link; cleared when they cancel. The daily purge cron
+	// hard-deletes when DeletedAt is older than 30 days. While set,
+	// every read filters the user out and login is refused with the
+	// account_scheduled_for_deletion code.
+	DeletedAt *time.Time
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// IsScheduledForDeletion reports whether the GDPR soft-delete flag
+// is currently set. Used by login + middleware to refuse access.
+func (u *User) IsScheduledForDeletion() bool {
+	return u.DeletedAt != nil
 }
 
 // NewUser creates a new user with validated fields.

@@ -61,7 +61,7 @@ const userColumns = `id, email, hashed_password, first_name, last_name, display_
 		role, account_type, session_version, referrer_enabled, email_notifications_enabled,
 		is_admin, status,
 		suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason,
-		organization_id, linkedin_id, google_id, email_verified, created_at, updated_at`
+		organization_id, linkedin_id, google_id, email_verified, deleted_at, created_at, updated_at`
 
 func (r *UserRepository) scanUserRow(scanner interface{ Scan(...any) error }) (*user.User, error) {
 	u := &user.User{}
@@ -71,7 +71,7 @@ func (r *UserRepository) scanUserRow(scanner interface{ Scan(...any) error }) (*
 		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.EmailNotificationsEnabled,
 		&u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
-		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
+		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified, &u.DeletedAt,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
