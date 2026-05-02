@@ -302,7 +302,7 @@ dart run build_runner build --delete-conflicting-outputs    # One-shot generatio
 dart run build_runner watch --delete-conflicting-outputs    # Watch mode
 ```
 
-Generated files: `*.freezed.dart`, `*.g.dart` — excluded from analysis via `analysis_options.yaml`, gitignored but re-generated on build.
+Generated files: `*.freezed.dart`, `*.g.dart` — excluded from analysis via `analysis_options.yaml`, **committed alongside source files** (convention since P12, 2026-05-02). Run `build_runner` locally **before each commit** that touches a Freezed/json_serializable-annotated file so the generated artefacts stay in sync.
 
 ---
 
@@ -330,7 +330,7 @@ Dart convention: **snake_case** for all files and directories.
 - **Tokens stored exclusively in `SecureStorageService`** — no SharedPreferences for auth data.
 - **English-language UI strings** — all user-facing text in English.
 - **Each feature is self-contained** — never import from one feature into another. Share via `core/` or domain events.
-- **Generated files are gitignored** — always regenerate with `build_runner` after cloning or pulling.
+- **Generated files are committed** — run `dart run build_runner build --delete-conflicting-outputs` locally before each commit that changes a Freezed/json_serializable-annotated source so the `*.freezed.dart` and `*.g.dart` artefacts stay in sync (convention since P12, 2026-05-02).
 
 ---
 
