@@ -22,6 +22,11 @@ type disputeProposals interface {
 }
 
 type ServiceDeps struct {
+	// Disputes stays on the wide DisputeRepository — the dispute
+	// service straddles all three segregated children (Reader for the
+	// many lookup paths, Writer for create/update + counter-proposals,
+	// EvidenceStore for evidence + chat-message appends). Composing
+	// locally would reproduce the wide port verbatim.
 	Disputes      repository.DisputeRepository
 	Proposals     disputeProposals
 	Milestones    repository.MilestoneRepository // phase 8 — required so disputes scope to a specific milestone
