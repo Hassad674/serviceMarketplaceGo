@@ -3,10 +3,12 @@ package resend
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/resend/resend-go/v2"
 
+	"marketplace-backend/internal/observability"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -28,7 +30,11 @@ type EmailService struct {
 // email) so sandbox mode doesn't drop invitation / password-reset
 // emails silently.
 func NewEmailService(apiKey, devRedirectEmail string) *EmailService {
-	client := resend.NewClient(apiKey)
+	httpClient := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: observability.HTTPClientTransport(http.DefaultTransport, "resend"),
+	}
+	client := resend.NewCustomClient(httpClient, apiKey)
 	return &EmailService{
 		client:           client,
 		from:             "Marketplace Service <onboarding@resend.dev>",

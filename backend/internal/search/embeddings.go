@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"marketplace-backend/internal/observability"
 )
 
 // embeddings.go defines the EmbeddingsClient port used by the indexer
@@ -83,10 +85,13 @@ func NewOpenAIEmbeddings(apiKey, model string, opts ...OpenAIOption) (*OpenAIEmb
 		return nil, fmt.Errorf("openai embeddings: model is required")
 	}
 	c := &OpenAIEmbeddingsClient{
-		apiKey:     apiKey,
-		model:      model,
-		endpoint:   openAIEmbeddingsURL,
-		httpClient: &http.Client{Timeout: defaultOpenAITimeout},
+		apiKey:   apiKey,
+		model:    model,
+		endpoint: openAIEmbeddingsURL,
+		httpClient: &http.Client{
+			Timeout:   defaultOpenAITimeout,
+			Transport: observability.HTTPClientTransport(http.DefaultTransport, "openai-embeddings"),
+		},
 	}
 	for _, opt := range opts {
 		opt(c)

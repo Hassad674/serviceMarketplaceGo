@@ -7,6 +7,7 @@ import (
 
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/observability"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
@@ -151,6 +152,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 // dev environments for a year.
 func mountGlobalMiddleware(r chi.Router, deps RouterDeps) {
 	r.Use(middleware.RequestID)
+	// OpenTelemetry HTTP server middleware. When OTel is disabled
+	// (default in dev / CI) the global tracer is the SDK no-op, so
+	// the wrap incurs only the fixed cost of the otelhttp wrapper —
+	// no spans are recorded, no exporter is dialled. Production
+	// deployments with OTEL_EXPORTER_OTLP_ENDPOINT set will see one
+	// server span per request, with W3C trace context propagated
+	// from the caller and into the response.
+	r.Use(observability.HTTPMiddleware("api.http"))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.SecurityHeaders(deps.Config))

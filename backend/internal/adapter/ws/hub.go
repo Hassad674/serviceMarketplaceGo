@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/google/uuid"
 )
 
@@ -13,6 +15,11 @@ type Client struct {
 	UserID uuid.UUID
 	Send   chan []byte
 	hub    *Hub
+	// conn is the underlying WebSocket connection. Optional —
+	// non-nil only on real ServeWS-issued clients. Tests that
+	// fabricate a Client (send_or_drop_test.go, hub_test.go) leave
+	// it nil; GracefulShutdown is robust to that.
+	conn *websocket.Conn
 }
 
 type Hub struct {
@@ -146,6 +153,67 @@ func (h *Hub) SendToUsers(userIDs []uuid.UUID, payload []byte, excludeUserID uui
 		}
 		h.SendToUser(id, payload)
 	}
+}
+
+// GracefulShutdown closes every active WebSocket connection with the
+// 1001 "Going Away" status frame so clients can re-connect to the
+// next instance instead of timing out on a dropped TCP connection.
+//
+// The function is bounded by ctx — if the context expires before all
+// conns are closed (e.g. a wedged client) the remaining conns are
+// abandoned and the function returns. This is the WS-shutdown sub-
+// budget of runServer's 3-step graceful shutdown (commit P11 #5).
+//
+// Closing semantics:
+//   - For each tracked conn, write a 1001 close frame with
+//     "server shutting down" reason. Failures are logged at WARN
+//     and ignored — a client whose socket is already half-dead will
+//     fail the close, which is fine.
+//   - The Send channel is NOT closed here. The writePump goroutine
+//     observes the close-frame write and returns naturally; closing
+//     the channel from two paths would race.
+//   - Bookkeeping (h.clients map, presence) is left to the readPump
+//     defer chain — once the client closes its side of the conn,
+//     the existing Unregister path runs.
+func (h *Hub) GracefulShutdown(ctx context.Context) error {
+	h.mu.RLock()
+	conns := make([]*websocket.Conn, 0)
+	users := make([]uuid.UUID, 0)
+	for userID, set := range h.clients {
+		for client := range set {
+			if client.conn != nil {
+				conns = append(conns, client.conn)
+				users = append(users, userID)
+			}
+		}
+	}
+	h.mu.RUnlock()
+
+	slog.Info("ws: graceful shutdown starting", "active_connections", len(conns))
+
+	const closeReason = "server shutting down"
+	for i, conn := range conns {
+		if ctx.Err() != nil {
+			slog.Warn("ws: graceful shutdown timed out — abandoning remaining conns",
+				"closed", i, "remaining", len(conns)-i)
+			return ctx.Err()
+		}
+		// Per-conn deadline so a single slow client cannot consume
+		// the whole budget. 500ms is plenty for a TCP write of a
+		// close frame; anything slower is a stalled link we are
+		// happy to abandon. coder/websocket's Close blocks on the
+		// write until the deadline fires, then returns.
+		_, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		err := conn.Close(websocket.StatusGoingAway, closeReason)
+		cancel()
+		if err != nil {
+			slog.Warn("ws: graceful close failed",
+				"user_id", users[i], "error", err)
+		}
+	}
+
+	slog.Info("ws: graceful shutdown complete", "closed_connections", len(conns))
+	return nil
 }
 
 // HandleStreamEvent dispatches Redis stream events to local WebSocket clients.

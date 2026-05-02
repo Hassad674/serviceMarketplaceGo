@@ -56,6 +56,7 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 			UserID: userID,
 			Send:   make(chan []byte, sendBufferSize),
 			hub:    deps.Hub,
+			conn:   conn,
 		}
 
 		// Register synchronously so the user's connection is observable

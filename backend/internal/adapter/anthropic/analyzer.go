@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"marketplace-backend/internal/observability"
 	portservice "marketplace-backend/internal/port/service"
 )
 
@@ -47,10 +48,17 @@ type Analyzer struct {
 }
 
 // NewAnalyzer creates an Analyzer bound to the given Anthropic API key.
+//
+// The HTTP client routes through observability.HTTPClientTransport so
+// each outbound call is captured as an OTel client span (no-op when
+// tracing is disabled).
 func NewAnalyzer(apiKey string) *Analyzer {
 	return &Analyzer{
 		apiKey: apiKey,
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: observability.HTTPClientTransport(http.DefaultTransport, "anthropic"),
+		},
 	}
 }
 

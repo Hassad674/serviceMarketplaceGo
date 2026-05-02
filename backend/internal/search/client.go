@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"marketplace-backend/internal/observability"
 )
 
 // client.go is a thin HTTP wrapper around the Typesense REST API.
@@ -91,9 +93,12 @@ func NewClient(host, apiKey string, opts ...Option) (*Client, error) {
 	}
 
 	c := &Client{
-		baseURL:    strings.TrimRight(host, "/"),
-		apiKey:     apiKey,
-		httpClient: &http.Client{Timeout: defaultRequestTimeout},
+		baseURL: strings.TrimRight(host, "/"),
+		apiKey:  apiKey,
+		httpClient: &http.Client{
+			Timeout:   defaultRequestTimeout,
+			Transport: observability.HTTPClientTransport(http.DefaultTransport, "typesense"),
+		},
 	}
 	for _, opt := range opts {
 		opt(c)

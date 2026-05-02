@@ -19,6 +19,8 @@ package nominatim
 import (
 	"net/http"
 	"time"
+
+	"marketplace-backend/internal/observability"
 )
 
 // defaultEndpoint is the public Nominatim forward-geocoding URL.
@@ -35,8 +37,13 @@ const defaultHTTPTimeout = 2 * time.Second
 // newHTTPClient builds the bounded-timeout HTTP client used by the
 // geocoder. Separated from NewGeocoder so tests can override the
 // transport via a custom http.Client if needed.
+//
+// The transport is wrapped with observability.HTTPClientTransport so
+// each outbound geocoding request is captured as an OTel client span
+// (no-op when tracing is disabled).
 func newHTTPClient() *http.Client {
 	return &http.Client{
-		Timeout: defaultHTTPTimeout,
+		Timeout:   defaultHTTPTimeout,
+		Transport: observability.HTTPClientTransport(http.DefaultTransport, "nominatim"),
 	}
 }
