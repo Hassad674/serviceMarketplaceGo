@@ -56,7 +56,9 @@ vi.mock("../wallet-commission-list", () => ({
   ),
 }))
 
-vi.mock("@/features/invoicing/components/current-month-aggregate", () => ({
+// `CurrentMonthAggregate` moved to shared (P9). wallet-page now
+// imports the shared path.
+vi.mock("@/shared/components/billing-profile/current-month-aggregate", () => ({
   CurrentMonthAggregate: () => <div data-testid="current-month" />,
 }))
 

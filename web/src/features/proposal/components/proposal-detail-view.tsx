@@ -24,9 +24,9 @@ import { ProposalStepper } from "./proposal-stepper"
 import { ActionsPanel, type ActionsPanelProps } from "./proposal-actions-panel"
 import { MilestoneTracker } from "./milestone-tracker"
 import type { ProposalResponse } from "../types"
-import { FeePreview } from "@/features/billing/components/fee-preview"
-import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
-import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
+import { FeePreview } from "@/shared/components/billing/fee-preview"
+import { UpgradeCta } from "@/shared/components/subscription/upgrade-cta"
+import { UpgradeModal } from "@/shared/components/subscription/upgrade-modal"
 import { Button } from "@/shared/components/ui/button"
 
 interface ProposalDetailViewProps {

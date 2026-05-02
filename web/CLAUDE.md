@@ -304,6 +304,7 @@ export function MissionsPage() {
 - **Features NEVER import from other features** — composition happens in `app/` pages.
 - Features can import from `shared/` but never from `app/` or other features.
 - If two features need the same logic, extract it to `shared/`.
+- **Enforced by ESLint** (`import/no-restricted-paths` in `eslint.config.mjs`, P9). A feature → feature import fails CI: extract the shared surface (type / helper / hook / component) to `src/shared/<category>/<name>` and update both sides to import from there. The audit count is 0 — keep it that way.
 
 ```
 features/mission/
@@ -336,6 +337,26 @@ features/mission/
 - Use `apiClient<T>()` from `src/shared/lib/api-client.ts` for all HTTP calls.
 - The `ApiError` class provides structured error handling with `status`, `code`, and `message`.
 - API base URL: `NEXT_PUBLIC_API_URL` env var (defaults to `http://localhost:8080`).
+
+### Follow-up: typed `apiClient<paths[...]>(path)` migration (P9 deferred)
+
+The `npm run generate-api` script targets `http://localhost:8080/api/v1/openapi.json`,
+but the backend currently does not expose that route — `api.d.ts` is therefore
+empty/missing in dev. The P9 plan called for migrating every `apiClient<T>("/api/v1/...")`
+call site from a string-literal path to a typed `apiClient<paths["/api/v1/..."]>(path)`
+shape, but this is gated on the backend exposing OpenAPI first.
+
+Tracking:
+1. Backend: add an OpenAPI 3.1 endpoint at `/api/openapi.json` (and `/api/v1/openapi.json`).
+   Either annotate handlers (e.g. `swaggo/swag`) or build the schema in code from the
+   chi router. Existing snapshot at `scripts/ci/openapi-schema.snapshot.json`
+   suggests the path was planned at `/api/openapi.json`.
+2. Web: update `package.json`'s `generate-api` script to point at the live URL,
+   commit the resulting `src/shared/types/api.d.ts`, then sweep all `apiClient<T>`
+   call sites to use `paths[...]` typing. ~74 sites in `src/`.
+
+Until then, paths stay as string literals — the change is pure typing improvement,
+not behaviour, and is safe to defer behind the OpenAPI exposure work.
 
 ---
 

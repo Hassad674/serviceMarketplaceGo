@@ -1,11 +1,5 @@
 import { API_BASE_URL, apiClient } from "@/shared/lib/api-client"
-import type {
-  BillingProfileSnapshot,
-  CurrentMonthAggregate,
-  InvoicesPage,
-  UpdateBillingProfileInput,
-  VIESResult,
-} from "../types"
+import type { InvoicesPage } from "../types"
 
 /**
  * Pure async wrappers around the invoicing endpoints. Each function
@@ -17,35 +11,19 @@ import type {
  * cookie, so none of these signatures take an `organization_id`.
  */
 
-/** GET /api/v1/me/billing-profile */
-export function fetchBillingProfile(): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>("/api/v1/me/billing-profile")
-}
-
-/** PUT /api/v1/me/billing-profile — partial saves are accepted server-side. */
-export function updateBillingProfile(
-  input: UpdateBillingProfileInput,
-): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>("/api/v1/me/billing-profile", {
-    method: "PUT",
-    body: input,
-  })
-}
-
-/** POST /api/v1/me/billing-profile/sync-from-stripe */
-export function syncBillingProfileFromStripe(): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>(
-    "/api/v1/me/billing-profile/sync-from-stripe",
-    { method: "POST" },
-  )
-}
-
-/** POST /api/v1/me/billing-profile/validate-vat — VIES round-trip. */
-export function validateBillingProfileVAT(): Promise<VIESResult> {
-  return apiClient<VIESResult>("/api/v1/me/billing-profile/validate-vat", {
-    method: "POST",
-  })
-}
+// Billing-profile endpoints (`fetchBillingProfile`, `updateBillingProfile`,
+// `syncBillingProfileFromStripe`, `validateBillingProfileVAT`,
+// `fetchCurrentMonthAggregate`) live in
+// `@/shared/lib/billing-profile/billing-profile-api` (P9 — wallet
+// renders the completion gate and current-month block, so the data
+// layer is shared). Re-exported here for back-compat.
+export {
+  fetchBillingProfile,
+  updateBillingProfile,
+  syncBillingProfileFromStripe,
+  validateBillingProfileVAT,
+  fetchCurrentMonthAggregate,
+} from "@/shared/lib/billing-profile/billing-profile-api"
 
 /** GET /api/v1/me/invoices?cursor= — cursor-paginated list. */
 export function fetchInvoices(cursor?: string): Promise<InvoicesPage> {
@@ -67,9 +45,4 @@ export function fetchInvoices(cursor?: string): Promise<InvoicesPage> {
  */
 export function getInvoicePDFURL(id: string): string {
   return `${API_BASE_URL}/api/v1/me/invoices/${id}/pdf`
-}
-
-/** GET /api/v1/me/invoicing/current-month — running fee total. */
-export function fetchCurrentMonthAggregate(): Promise<CurrentMonthAggregate> {
-  return apiClient<CurrentMonthAggregate>("/api/v1/me/invoicing/current-month")
 }

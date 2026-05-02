@@ -10,6 +10,13 @@ vi.mock("../../api/reporting-api", () => ({
   createReport: (...a: unknown[]) => mockCreateReport(...a),
 }))
 
+// `createReport` moved to shared (P9). The shared hook (re-exported
+// via `../use-report`) calls the shared module, so we mock that path
+// too.
+vi.mock("@/shared/lib/reporting/reporting-api", () => ({
+  createReport: (...a: unknown[]) => mockCreateReport(...a),
+}))
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },

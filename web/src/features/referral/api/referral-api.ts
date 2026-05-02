@@ -45,24 +45,20 @@ export async function listIncomingReferrals(
   return apiClient<ReferralListResponse>(`${BASE}/incoming${buildQuery(filter)}`)
 }
 
-export async function getReferral(id: string): Promise<Referral> {
-  return apiClient<Referral>(`${BASE}/${id}`)
-}
+// `getReferral` and `respondToReferral` are shared with the messaging
+// feature (P9 — `ReferralSystemMessage` is rendered inline in
+// conversation timelines). They live in
+// `@/shared/lib/referral/referral-api` and are re-exported here so
+// existing intra-feature imports keep working.
+export {
+  getReferral,
+  respondToReferral,
+} from "@/shared/lib/referral/referral-api"
 
 export async function createReferral(
   input: CreateReferralInput,
 ): Promise<Referral> {
   return apiClient<Referral>(BASE, {
-    method: "POST",
-    body: input,
-  })
-}
-
-export async function respondToReferral(
-  id: string,
-  input: RespondReferralInput,
-): Promise<Referral> {
-  return apiClient<Referral>(`${BASE}/${id}/respond`, {
     method: "POST",
     body: input,
   })

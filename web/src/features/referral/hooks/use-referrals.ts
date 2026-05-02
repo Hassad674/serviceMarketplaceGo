@@ -4,13 +4,11 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 
 import {
   createReferral,
-  getReferral,
   listAttributions,
   listCommissions,
   listIncomingReferrals,
   listMyReferrals,
   listNegotiations,
-  respondToReferral,
   type ListReferralsFilter,
 } from "../api/referral-api"
 import type {
@@ -20,8 +18,16 @@ import type {
   ReferralCommission,
   ReferralListResponse,
   ReferralNegotiation,
-  RespondReferralInput,
 } from "../types"
+
+// `useReferral` and `useRespondToReferral` (P9 — shared with messaging
+// for the inline system message) live in
+// `@/shared/hooks/referral/use-referral`. Re-exported here so existing
+// intra-feature imports keep working.
+export {
+  useReferral,
+  useRespondToReferral,
+} from "@/shared/hooks/referral/use-referral"
 
 // Query key factory — keep all referral keys under a single "referrals"
 // namespace so the dashboard can invalidate the whole tree on any mutation.
@@ -62,22 +68,8 @@ export function useIncomingReferrals(filter: ListReferralsFilter = {}) {
   })
 }
 
-// useReferral fetches a single referral by id. Polls every 5 seconds while
-// the row is in a pending state so the detail page reflects the other
-// party's response without a manual refresh.
-export function useReferral(id: string | undefined) {
-  return useQuery<Referral>({
-    queryKey: id ? referralKeys.detail(id) : ["referrals", "detail", "noop"],
-    queryFn: () => getReferral(id!),
-    enabled: Boolean(id),
-    staleTime: 5 * 1000,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      if (!status) return false
-      return status.startsWith("pending_") ? 5000 : false
-    },
-  })
-}
+// `useReferral` lives in `@/shared/hooks/referral/use-referral` (P9 —
+// re-exported at the top of this file).
 
 export function useReferralNegotiations(id: string | undefined) {
   return useQuery<ReferralNegotiation[]>({
@@ -138,22 +130,5 @@ export function useCreateReferral() {
   })
 }
 
-// useRespondToReferral handles every respond action (accept, reject,
-// negotiate, cancel, terminate). The mutation invalidates the matching
-// detail query and the dashboard lists so all surfaces stay in sync.
-export function useRespondToReferral(id: string | undefined) {
-  const queryClient = useQueryClient()
-  return useMutation<Referral, Error, RespondReferralInput>({
-    mutationFn: (input) => {
-      if (!id) throw new Error("referral id is required")
-      return respondToReferral(id, input)
-    },
-    onSuccess: (data) => {
-      if (id) {
-        queryClient.setQueryData(referralKeys.detail(id), data)
-        queryClient.invalidateQueries({ queryKey: referralKeys.negotiations(id) })
-      }
-      queryClient.invalidateQueries({ queryKey: referralKeys.all })
-    },
-  })
-}
+// `useRespondToReferral` lives in `@/shared/hooks/referral/use-referral`
+// (P9 — re-exported at the top of this file).

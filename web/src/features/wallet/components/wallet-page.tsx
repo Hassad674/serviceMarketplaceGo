@@ -1,6 +1,6 @@
 "use client"
 
-import { CurrentMonthAggregate as InvoicingCurrentMonth } from "@/features/invoicing/components/current-month-aggregate"
+import { CurrentMonthAggregate as InvoicingCurrentMonth } from "@/shared/components/billing-profile/current-month-aggregate"
 import { useWallet } from "../hooks/use-wallet"
 import { WalletPayoutSection } from "./wallet-payout-section"
 import { WalletTransactionsList } from "./wallet-transactions-list"

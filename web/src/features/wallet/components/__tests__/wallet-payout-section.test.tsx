@@ -48,13 +48,15 @@ const mockCompleteness = vi.fn<() => CompletenessShape>(() => ({
   isLoading: false,
   isError: false,
 }))
-vi.mock("@/features/invoicing/hooks/use-billing-profile-completeness", () => ({
+// `useBillingProfileCompleteness` moved to shared (P9). wallet-payout-section
+// now imports the shared path.
+vi.mock("@/shared/hooks/billing-profile/use-billing-profile-completeness", () => ({
   useBillingProfileCompleteness: () => mockCompleteness(),
 }))
 
 // Stub the BillingProfileCompletionModal to render an aria-labeled
 // dialog only when open — keeps the assertions simple.
-vi.mock("@/features/invoicing/components/billing-profile-completion-modal", () => ({
+vi.mock("@/shared/components/billing-profile/billing-profile-completion-modal", () => ({
   BillingProfileCompletionModal: ({
     open,
     onClose,

@@ -1,10 +1,3 @@
-"use client"
-
-import { useMutation } from "@tanstack/react-query"
-import { createReport } from "../api/reporting-api"
-
-export function useCreateReport() {
-  return useMutation({
-    mutationFn: createReport,
-  })
-}
+// `useCreateReport` lives in `@/shared/hooks/reporting/use-report` (P9
+// — consumed cross-feature). Re-exported here for back-compat.
+export { useCreateReport } from "@/shared/hooks/reporting/use-report"

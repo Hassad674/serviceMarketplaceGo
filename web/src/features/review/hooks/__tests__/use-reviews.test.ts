@@ -15,6 +15,17 @@ vi.mock("../../api/review-api", () => ({
   uploadReviewVideo: vi.fn(),
 }))
 
+// `review-api` moved to shared (P9). The shared review hooks
+// (re-exported via `../use-reviews`) call the shared module, so we
+// mock that path too.
+vi.mock("@/shared/lib/review/review-api", () => ({
+  fetchReviewsByUser: (...args: unknown[]) => mockFetchReviewsByUser(...args),
+  fetchAverageRating: (...args: unknown[]) => mockFetchAverageRating(...args),
+  fetchCanReview: vi.fn(),
+  createReview: vi.fn(),
+  uploadReviewVideo: vi.fn(),
+}))
+
 vi.mock("@/shared/hooks/use-current-user-id", () => ({
   useCurrentUserId: () => "test-user-id",
 }))

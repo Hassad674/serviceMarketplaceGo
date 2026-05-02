@@ -74,7 +74,9 @@ vi.mock("../dispute-system-message", () => ({
   ),
 }))
 
-vi.mock("@/features/referral/components/referral-system-message", () => ({
+// `ReferralSystemMessage` moved to shared (P9 — consumed cross-feature
+// by messaging). Mock the shared path that message-bubble now imports.
+vi.mock("@/shared/components/referral/referral-system-message", () => ({
   ReferralSystemMessage: ({ type }: { type: string }) => (
     <span data-testid={`referral-${type}`} />
   ),

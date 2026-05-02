@@ -6,7 +6,7 @@ import { cn } from "@/shared/lib/utils"
 import {
   ReferralSystemMessage,
   type ReferralSystemMessageMetadata,
-} from "@/features/referral/components/referral-system-message"
+} from "@/shared/components/referral/referral-system-message"
 import type { Message, ProposalMessageMetadata } from "../types"
 import { ProposalCard } from "./proposal-card"
 import {

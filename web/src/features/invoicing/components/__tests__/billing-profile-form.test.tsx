@@ -16,6 +16,16 @@ vi.mock("../../api/invoicing-api", () => ({
   validateBillingProfileVAT: () => mockValidate(),
 }))
 
+// `fetchBillingProfile` & friends moved to shared (P9). The form's
+// hooks call the shared API module, so we mock that path too.
+vi.mock("@/shared/lib/billing-profile/billing-profile-api", () => ({
+  fetchBillingProfile: () => mockFetch(),
+  updateBillingProfile: (...args: unknown[]) => mockUpdate(...args),
+  syncBillingProfileFromStripe: () => mockSync(),
+  validateBillingProfileVAT: () => mockValidate(),
+  fetchCurrentMonthAggregate: vi.fn(),
+}))
+
 function withQueryClient(ui: React.ReactNode) {
   const client = new QueryClient({
     defaultOptions: {
