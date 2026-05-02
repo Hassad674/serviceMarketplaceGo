@@ -53,13 +53,11 @@ export function getProposal(id: string): Promise<ProposalResponse> {
   return apiClient<ProposalResponse>(`/api/v1/proposals/${id}`)
 }
 
-export function acceptProposal(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/accept`, { method: "POST" })
-}
-
-export function declineProposal(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/decline`, { method: "POST" })
-}
+// `acceptProposal` and `declineProposal` are shared with the
+// `messaging` feature (P9). They live in
+// `@/shared/lib/proposal/proposal-actions-api` and are re-exported
+// here so existing intra-feature imports keep working.
+export { acceptProposal, declineProposal } from "@/shared/lib/proposal/proposal-actions-api"
 
 export function modifyProposal(id: string, data: ModifyProposalData): Promise<ProposalResponse> {
   return apiClient<ProposalResponse>(`/api/v1/proposals/${id}/modify`, {

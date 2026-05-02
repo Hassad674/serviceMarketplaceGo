@@ -26,7 +26,18 @@ vi.mock("../../api/proposal-api", () => ({
   listProjects: (...args: unknown[]) => mockListProjects(...args),
 }))
 
-// Mock the conversations and messages query key exports
+// `acceptProposal` / `declineProposal` were lifted to `shared/` (P9 — shared
+// with the messaging feature). The shared `useAcceptProposal` /
+// `useDeclineProposal` hooks (re-exported via `../use-proposals`) call them
+// from this path, so we mock the shared module too.
+vi.mock("@/shared/lib/proposal/proposal-actions-api", () => ({
+  acceptProposal: (...args: unknown[]) => mockAcceptProposal(...args),
+  declineProposal: (...args: unknown[]) => mockDeclineProposal(...args),
+}))
+
+// Mock the conversations and messages query key exports (legacy paths
+// kept for any code still importing from features; actual hooks use
+// the shared keys, mocked below).
 vi.mock("@/features/messaging/hooks/use-conversations", () => ({
   conversationsQueryKey: (uid: string | undefined) => ["user", uid, "messaging", "conversations"],
   CONVERSATIONS_QUERY_KEY: ["messaging", "conversations"],
@@ -35,6 +46,16 @@ vi.mock("@/features/messaging/hooks/use-messages", () => ({
   messagesQueryKey: (uid: string | undefined, conversationId: string | null) => ["user", uid, "messaging-messages", conversationId],
   MESSAGES_KEY_BASE: "messaging-messages",
   MESSAGES_QUERY_KEY: "messaging-messages",
+}))
+// Shared query keys used by the proposal hooks (P9).
+vi.mock("@/shared/lib/query-keys/messaging", () => ({
+  conversationsQueryKey: (uid: string | undefined) => ["user", uid, "messaging", "conversations"],
+  messagesQueryKey: (uid: string | undefined, conversationId: string | null) => ["user", uid, "messaging-messages", conversationId],
+  MESSAGES_KEY_BASE: "messaging-messages",
+}))
+vi.mock("@/shared/lib/query-keys/proposal", () => ({
+  projectsQueryKey: (uid: string | undefined) => ["user", uid, "projects"],
+  proposalQueryKey: (uid: string | undefined) => ["user", uid, "proposal"],
 }))
 vi.mock("@/shared/hooks/use-current-user-id", () => ({
   useCurrentUserId: () => "test-user-id",

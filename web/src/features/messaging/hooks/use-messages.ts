@@ -6,12 +6,13 @@ import type { FileMessageMetadata, VoiceMessageMetadata } from "../api/messaging
 import type { Message, MessageListResponse } from "../types"
 import { conversationsQueryKey } from "./use-conversations"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
-
-export const MESSAGES_KEY_BASE = "messaging-messages"
-
-export function messagesQueryKey(uid: string | undefined, conversationId: string | null) {
-  return ["user", uid, MESSAGES_KEY_BASE, conversationId] as const
-}
+// `messagesQueryKey` and `MESSAGES_KEY_BASE` are shared with the
+// `proposal` feature (P9).
+import {
+  messagesQueryKey,
+  MESSAGES_KEY_BASE,
+} from "@/shared/lib/query-keys/messaging"
+export { messagesQueryKey, MESSAGES_KEY_BASE }
 
 /** @deprecated Use messagesQueryKey(uid, conversationId) instead */
 export const MESSAGES_QUERY_KEY = MESSAGES_KEY_BASE

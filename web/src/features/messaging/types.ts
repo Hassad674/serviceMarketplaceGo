@@ -95,25 +95,15 @@ export type Message = {
 // proposal + call subsystems still anchor on user ids — the
 // conversation's "other participant" is a stable user handle those
 // flows need to target the right row.
-export type Conversation = {
-  id: string
-  other_user_id: string
-  other_org_id: string
-  other_org_name: string
-  other_org_type: string
-  other_photo_url: string
-  last_message: string | null
-  last_message_at: string | null
-  unread_count: number
-  last_message_seq: number
-  online: boolean
-}
-
-export type ConversationListResponse = {
-  data: Conversation[]
-  next_cursor?: string
-  has_more: boolean
-}
+// `Conversation` and `ConversationListResponse` are shared with the
+// `referral` feature (its pickers list the operator's existing
+// conversations). They live in `@/shared/types/messaging` and are
+// re-exported here so existing intra-feature imports keep working.
+import type {
+  Conversation,
+  ConversationListResponse,
+} from "@/shared/types/messaging"
+export type { Conversation, ConversationListResponse }
 
 export type MessageListResponse = {
   data: Message[]

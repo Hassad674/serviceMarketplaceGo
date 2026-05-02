@@ -12,8 +12,8 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/shared/lib/utils"
-import { listConversations } from "@/features/messaging/api/messaging-api"
-import type { Conversation } from "@/features/messaging/types"
+import { listConversations } from "@/shared/lib/messaging/conversations-api"
+import type { Conversation } from "@/shared/types/messaging"
 import {
   searchProfiles,
   type PublicProfileSummary,
