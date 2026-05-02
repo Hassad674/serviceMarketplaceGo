@@ -43,6 +43,16 @@ func (m *mockRepo) ScheduleTx(_ context.Context, _ *sql.Tx, e *pendingevent.Pend
 	return nil
 }
 
+// ScheduleStripe mirrors Schedule for interface-satisfaction; the
+// worker package's tests do not exercise the Stripe-webhook path
+// directly. P8 added this method to PendingEventRepository.
+func (m *mockRepo) ScheduleStripe(_ context.Context, e *pendingevent.PendingEvent) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scheduled = append(m.scheduled, e)
+	return true, nil
+}
+
 func (m *mockRepo) PopDue(_ context.Context, _ int) ([]*pendingevent.PendingEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
