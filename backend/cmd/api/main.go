@@ -259,12 +259,13 @@ func main() {
 	searchHandler, adminSearchStatsHandler := wireSearchQuery(cfg, infra.DB, typesenseClient)
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
-	go func() {
-		if err := pendingEventsWorker.Run(pendingEventsCtx); err != nil {
-			slog.Error("pending events worker exited", "error", err)
-		}
-	}()
-	slog.Info("phase 6: pending events worker started")
+	// P8 — the worker goroutine is started AFTER every Register
+	// call has returned (Stripe webhook handler in particular is
+	// wired downstream once the StripeHandler exists). Register
+	// is not goroutine-safe vs. Run's map read, so we register
+	// every handler synchronously above main, then start the loop
+	// once at the bottom (search "phase 6: pending events worker
+	// started" lower in this function).
 
 	// Review service + handler (late-stage) — see
 	// wire_review_jobs_portfolio_report.go. Runs AFTER notification so
@@ -585,6 +586,24 @@ func main() {
 		stripeHandler = invoicing.StripeHandler
 		walletHandler = invoicing.WalletHandler
 	}
+
+	// P8 — register the async Stripe webhook worker handler now
+	// that stripeHandler is fully wired (subscription + invoicing
+	// setters applied above). Must run BEFORE pendingEventsWorker.Run
+	// because the worker's handler map is not goroutine-safe vs.
+	// Register. When stripeHandler is nil (Stripe not configured)
+	// the registration is a no-op.
+	registerStripeWebhookWorker(pendingEventsWorker, stripeHandler)
+
+	// Start the pending-events worker now that every handler has
+	// been registered. The goroutine takes pendingEventsCtx so it
+	// shuts down cleanly via the deferred cancel above.
+	go func() {
+		if err := pendingEventsWorker.Run(pendingEventsCtx); err != nil {
+			slog.Error("pending events worker exited", "error", err)
+		}
+	}()
+	slog.Info("phase 6: pending events worker started")
 
 	// Dispute feature — see wire_dispute.go.
 	disputeCtx, disputeCancel := context.WithCancel(context.Background())
