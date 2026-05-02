@@ -683,3 +683,237 @@ func TestRateLimiter_SharedAcrossInstancesViaRedis(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code,
 		"two instances + shared Redis must share the quota (no double-budget)")
 }
+
+// TestUserOrIPKey_AuthenticatedUsesUserID — when the request carries
+// an authenticated user_id in context, UserOrIPKey returns
+// "user:<uuid>" so the throttle bucket is keyed off the user, not the
+// IP. This means a single user behind a NAT (sharing an IP with
+// hundreds of other users) is not penalised by their neighbours.
+func TestUserOrIPKey_AuthenticatedUsesUserID(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	keyFn := UserOrIPKey(rl)
+
+	uid := uuid.New()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.RemoteAddr = "10.0.0.1:1234"
+	ctx := context.WithValue(req.Context(), ContextKeyUserID, uid)
+	req = req.WithContext(ctx)
+
+	got, ok := keyFn(req)
+	require.True(t, ok)
+	assert.Equal(t, "user:"+uid.String(), got,
+		"authenticated user must key off user_id, not IP")
+}
+
+// TestUserOrIPKey_AnonymousUsesIP — without an authenticated context,
+// the keyFn falls back to the client IP. This is the P10
+// "fallback to IP if unauthenticated" requirement: anonymous
+// /auth/login + /auth/register attempts MUST hit the 30/min cap to
+// bound abuse from a single source.
+func TestUserOrIPKey_AnonymousUsesIP(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	keyFn := UserOrIPKey(rl)
+
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.RemoteAddr = "203.0.113.5:9876"
+
+	got, ok := keyFn(req)
+	require.True(t, ok)
+	assert.Equal(t, "ip:203.0.113.5", got,
+		"anonymous request must key off the client IP")
+}
+
+// TestUserOrIPKey_NilLimiterFallsBackToUserKey — defensive check
+// against a wiring bug. A nil RateLimiter on a route group would
+// already be a problem (the middleware itself can't run), but the
+// keyFn factory must not panic — it degrades to the legacy
+// UserKey behaviour so authenticated routes still throttle.
+func TestUserOrIPKey_NilLimiterFallsBackToUserKey(t *testing.T) {
+	keyFn := UserOrIPKey(nil)
+	require.NotNil(t, keyFn)
+
+	uid := uuid.New()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	ctx := context.WithValue(req.Context(), ContextKeyUserID, uid)
+	req = req.WithContext(ctx)
+
+	got, ok := keyFn(req)
+	require.True(t, ok)
+	assert.Equal(t, uid.String(), got,
+		"nil limiter must fall through to UserKey() behaviour (no namespace prefix)")
+
+	// Anonymous request with nil limiter -> UserKey returns false.
+	anon := httptest.NewRequest(http.MethodPost, "/", nil)
+	_, ok = keyFn(anon)
+	assert.False(t, ok, "anonymous + nil limiter must short-circuit (no IP fallback)")
+}
+
+// TestMutationRateLimit_31stMutationReturns429 — brief-mandated test:
+// 30 authenticated mutations succeed, the 31st returns 429 with a
+// Retry-After header. This is the canonical proof that the
+// DefaultMutationPolicy + UserOrIPKey + MutationOnly stack enforces
+// the 30/min/user cap.
+func TestMutationRateLimit_31stMutationReturns429(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	policy := RateLimitPolicy{Class: RateLimitClassMutation, Limit: 30, Window: time.Minute}
+	handler := rl.Middleware(policy, MutationOnly(UserOrIPKey(rl)))(newOKHandler())
+
+	uid := uuid.New()
+	makeReq := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", nil)
+		r.RemoteAddr = "10.0.0.99:5555"
+		ctx := context.WithValue(r.Context(), ContextKeyUserID, uid)
+		return r.WithContext(ctx)
+	}
+
+	// First 30 mutations all pass.
+	for i := 1; i <= 30; i++ {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, makeReq())
+		require.Equal(t, http.StatusOK, rec.Code,
+			"mutation %d/30 must be allowed (under cap)", i)
+	}
+
+	// 31st mutation: 429 + Retry-After + X-RateLimit-Remaining=0.
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeReq())
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code,
+		"31st mutation must return 429")
+	assert.NotEmpty(t, rec.Header().Get("Retry-After"),
+		"429 response must carry Retry-After header")
+	assert.Equal(t, "30", rec.Header().Get("X-RateLimit-Limit"))
+	assert.Equal(t, "0", rec.Header().Get("X-RateLimit-Remaining"))
+}
+
+// TestMutationRateLimit_30MutationsPlusGETPasses — the GET is NOT a
+// mutation, MutationOnly short-circuits it BEFORE the limiter runs,
+// so the GET does not consume budget. This is the core proof that
+// the read path is never throttled by the mutation cap.
+func TestMutationRateLimit_30MutationsPlusGETPasses(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	policy := RateLimitPolicy{Class: RateLimitClassMutation, Limit: 30, Window: time.Minute}
+	handler := rl.Middleware(policy, MutationOnly(UserOrIPKey(rl)))(newOKHandler())
+
+	uid := uuid.New()
+	makeMut := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", nil)
+		r.RemoteAddr = "10.0.0.99:5555"
+		ctx := context.WithValue(r.Context(), ContextKeyUserID, uid)
+		return r.WithContext(ctx)
+	}
+	makeGet := func() *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
+		r.RemoteAddr = "10.0.0.99:5555"
+		ctx := context.WithValue(r.Context(), ContextKeyUserID, uid)
+		return r.WithContext(ctx)
+	}
+
+	// Burn the full 30-mutation budget.
+	for i := 1; i <= 30; i++ {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, makeMut())
+		require.Equal(t, http.StatusOK, rec.Code, "mutation %d/30 must pass", i)
+	}
+
+	// GET passes — MutationOnly short-circuits the limiter, even
+	// though the mutation budget is exhausted.
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeGet())
+	assert.Equal(t, http.StatusOK, rec.Code,
+		"GET must NOT be throttled by the mutation cap, even after the budget is empty")
+}
+
+// TestMutationRateLimit_IPFallback_AnonymousMutationsThrottled — the
+// "fallback to IP if unauthenticated" path. 30 anonymous POSTs from
+// the same IP all pass; the 31st returns 429. Without UserOrIPKey,
+// these would slip through (UserKey returns false for anonymous
+// requests) and only the looser global 100/min cap would apply.
+func TestMutationRateLimit_IPFallback_AnonymousMutationsThrottled(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	policy := RateLimitPolicy{Class: RateLimitClassMutation, Limit: 30, Window: time.Minute}
+	handler := rl.Middleware(policy, MutationOnly(UserOrIPKey(rl)))(newOKHandler())
+
+	makeReq := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+		r.RemoteAddr = "192.168.50.1:1234"
+		// no user_id in context — anonymous
+		return r
+	}
+
+	for i := 1; i <= 30; i++ {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, makeReq())
+		require.Equal(t, http.StatusOK, rec.Code,
+			"anonymous mutation %d/30 must pass (under IP-keyed cap)", i)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeReq())
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code,
+		"31st anonymous mutation from same IP must be throttled — IP fallback fired")
+}
+
+// TestMutationRateLimit_IPFallback_DifferentIPsIndependent — proves
+// the IP-fallback bucket is per-IP. Two anonymous clients from
+// different IPs each get their own 30/min budget.
+func TestMutationRateLimit_IPFallback_DifferentIPsIndependent(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	policy := RateLimitPolicy{Class: RateLimitClassMutation, Limit: 1, Window: time.Minute}
+	handler := rl.Middleware(policy, MutationOnly(UserOrIPKey(rl)))(newOKHandler())
+
+	makeReq := func(ip string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/", nil)
+		r.RemoteAddr = ip + ":5555"
+		return r
+	}
+
+	// IP A burns its budget.
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeReq("1.2.3.4"))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// IP A's second request -> 429.
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeReq("1.2.3.4"))
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+
+	// IP B is independent -> still passes.
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, makeReq("5.6.7.8"))
+	assert.Equal(t, http.StatusOK, rec.Code,
+		"different IP must have its own bucket")
+}
+
+// TestMutationRateLimit_AuthAndAnonShareNothing — proves the
+// "user:" and "ip:" namespaces are isolated. An authenticated user
+// running 30 mutations does NOT consume the IP bucket of the same
+// client when they later hit an anonymous endpoint from the same IP.
+func TestMutationRateLimit_AuthAndAnonShareNothing(t *testing.T) {
+	rl, _ := newRateLimiterTest(t)
+	policy := RateLimitPolicy{Class: RateLimitClassMutation, Limit: 1, Window: time.Minute}
+	handler := rl.Middleware(policy, MutationOnly(UserOrIPKey(rl)))(newOKHandler())
+
+	const sharedIP = "9.9.9.9:1234"
+	uid := uuid.New()
+
+	// Authenticated request burns the user bucket.
+	authReq := httptest.NewRequest(http.MethodPost, "/", nil)
+	authReq.RemoteAddr = sharedIP
+	authReq = authReq.WithContext(context.WithValue(authReq.Context(), ContextKeyUserID, uid))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, authReq)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// Authenticated again -> 429 (user bucket exhausted).
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, authReq)
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+
+	// Anonymous from the SAME IP must still pass — different bucket.
+	anonReq := httptest.NewRequest(http.MethodPost, "/", nil)
+	anonReq.RemoteAddr = sharedIP
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, anonReq)
+	assert.Equal(t, http.StatusOK, rec.Code,
+		"user-keyed bucket must not bleed into IP-keyed bucket (and vice versa)")
+}
