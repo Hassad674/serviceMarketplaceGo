@@ -14,7 +14,8 @@ import (
 
 // ---------------------------------------------------------------------------
 // ProposalAdminHandler — focused tests for the 5 admin endpoints.
-// Auth is gated at the router via RequireRole("admin"); the handlers
+// Auth is gated at the router via middleware.RequireRole("admin")
+// + middleware.RequireAdmin (defense in depth); the handlers
 // themselves only validate URL params + delegate to the proposal app
 // service. We test that delegation works and that bad IDs are rejected.
 // ---------------------------------------------------------------------------

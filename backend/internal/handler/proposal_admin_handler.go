@@ -19,10 +19,10 @@ import (
 // queue.
 //
 // SRP rationale: every method here is exposed under /api/v1/admin/...
-// and gated by RequireRole("admin") in the router. They have nothing
-// to do with the user-facing lifecycle / payment / completion flows
-// — separating them here keeps the production handlers free of
-// admin-only branches.
+// and gated by middleware.RequireRole("admin") + middleware.RequireAdmin
+// in the router (see routes_admin.go). They have nothing to do with
+// the user-facing lifecycle / payment / completion flows — separating
+// them here keeps the production handlers free of admin-only branches.
 //
 // Dependencies:
 //   - proposalSvc: drives the ConfirmPaymentAndActivate (force-activate)

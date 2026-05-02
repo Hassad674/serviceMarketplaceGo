@@ -8,9 +8,22 @@ import (
 	"marketplace-backend/internal/handler/middleware"
 )
 
-// mountAdminRoutes wires the entire /admin sub-tree. Gated by
-// RequireAdmin in addition to the global auth middleware so a
-// non-admin token is rejected before any handler-level check runs.
+// mountAdminRoutes wires the entire /admin sub-tree. Gated by THREE
+// layered middlewares — defense-in-depth, every layer can independently
+// refuse the request:
+//
+//  1. `auth` — must produce a valid identity. 401 otherwise.
+//  2. `RequireRole("admin")` — primary role gate. 403 if the JWT/session
+//     does not carry the `admin` role string. SEC-FINAL-03.
+//  3. `RequireAdmin` — secondary `is_admin` flag gate. 403 if the
+//     boolean is false (covers the case where a future migration
+//     changes the role taxonomy but leaves the flag as the
+//     authoritative source).
+//
+// The two role checks are intentional: a single-source check would
+// fail open if an admin's role string drifts (rename, capitalization,
+// etc.). With both checks an attacker would need to compromise both
+// the role and the flag — the defense is multiplicative.
 //
 // The block is split into focused helpers so each admin domain
 // (users, conversations, jobs, reviews, moderation, media, disputes,
@@ -21,6 +34,7 @@ func mountAdminRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) htt
 	}
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(auth)
+		r.Use(middleware.RequireRole("admin"))
 		r.Use(middleware.RequireAdmin())
 		r.Use(middleware.NoCache)
 		mountAdminUsersRoutes(r, deps)

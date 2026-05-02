@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — fast, opinionated quality gates
+#
+# Runs the cheapest, highest-value checks against the staged files
+# only. Heavy work (full test suites, integration tests) stays in
+# CI — here we keep the loop tight so the cost of one commit is
+# under five seconds on a typical change.
+#
+# Why bash rather than husky / lefthook / pre-commit.com:
+#   - Zero npm dependency, zero runtime install for a brand-new
+#     contributor. `git clone` + `scripts/install-git-hooks.sh`
+#     and they are good to go.
+#   - We ship four apps (backend Go, web Next, admin Vite, mobile
+#     Flutter); a single bash script that branches per stack is
+#     easier to reason about than four wrappers.
+#
+# Escape hatch: `git commit --no-verify` skips this hook entirely.
+# Use it sparingly (broken-laptop flights, doc-only commits where
+# the hook has a transient false positive) and document the why
+# in the PR.
+#
+# Exit codes:
+#   0 — all checks passed.
+#   1 — at least one check failed; commit aborted.
+
+set -euo pipefail
+
+# Pretty colored output. Disabled when stdout is not a TTY (CI,
+# terminals piped to a file) so logs stay greppable.
+if [ -t 1 ]; then
+  C_RED=$'\033[31m'
+  C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m'
+  C_DIM=$'\033[2m'
+  C_RESET=$'\033[0m'
+else
+  C_RED=''
+  C_GREEN=''
+  C_YELLOW=''
+  C_DIM=''
+  C_RESET=''
+fi
+
+log() { printf '%s[pre-commit]%s %s\n' "$C_DIM" "$C_RESET" "$*"; }
+fail() {
+  printf '%s[pre-commit]%s %s\n' "$C_RED" "$C_RESET" "$*" >&2
+  exit 1
+}
+ok() { printf '%s[pre-commit]%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn() { printf '%s[pre-commit]%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
+
+# Diff against the index, not the working tree, so we only inspect
+# files actually being committed.
+staged_files() {
+  git diff --cached --name-only --diff-filter=ACMR
+}
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# -----------------------------------------------------------------
+# 1. Go formatting (gofmt)
+# -----------------------------------------------------------------
+go_files=$(staged_files | grep -E '^backend/.+\.go$' || true)
+
+if [ -n "$go_files" ]; then
+  if ! command -v gofmt >/dev/null 2>&1; then
+    warn "gofmt missing; skipping Go formatting check"
+  else
+    log "gofmt -d on $(echo "$go_files" | wc -l | tr -d ' ') Go file(s)..."
+    diff_output=$(printf '%s\n' "$go_files" | xargs gofmt -d 2>&1 || true)
+    if [ -n "$diff_output" ]; then
+      printf '%s\n' "$diff_output"
+      fail "gofmt found unformatted Go files. Run 'gofmt -w <file>' and re-stage."
+    fi
+    ok "gofmt clean"
+  fi
+fi
+
+# -----------------------------------------------------------------
+# 2. TypeScript compilation (web + admin)
+# -----------------------------------------------------------------
+ts_files_web=$(staged_files | grep -E '^web/src/.+\.(ts|tsx)$' || true)
+ts_files_admin=$(staged_files | grep -E '^admin/src/.+\.(ts|tsx)$' || true)
+
+if [ -n "$ts_files_web" ]; then
+  if [ ! -d "web/node_modules" ]; then
+    warn "web/node_modules missing; skipping web tsc check (run 'cd web && npm install')"
+  else
+    log "tsc --noEmit on web (touched $(echo "$ts_files_web" | wc -l | tr -d ' ') file(s))..."
+    if ! (cd web && npx --no-install tsc --noEmit 2>&1); then
+      fail "web tsc failed. Fix the type errors and re-stage."
+    fi
+    ok "web tsc clean"
+  fi
+fi
+
+if [ -n "$ts_files_admin" ]; then
+  if [ ! -d "admin/node_modules" ]; then
+    warn "admin/node_modules missing; skipping admin tsc check (run 'cd admin && npm install')"
+  else
+    log "tsc -b --noEmit on admin (touched $(echo "$ts_files_admin" | wc -l | tr -d ' ') file(s))..."
+    if ! (cd admin && npx --no-install tsc -b --noEmit 2>&1); then
+      fail "admin tsc failed. Fix the type errors and re-stage."
+    fi
+    ok "admin tsc clean"
+  fi
+fi
+
+# -----------------------------------------------------------------
+# 3. Flutter analyze
+# -----------------------------------------------------------------
+dart_files=$(staged_files | grep -E '^mobile/lib/.+\.dart$' || true)
+
+if [ -n "$dart_files" ]; then
+  if ! command -v flutter >/dev/null 2>&1; then
+    warn "flutter missing; skipping Dart analyze (install Flutter or use --no-verify if doc-only)"
+  else
+    log "flutter analyze (touched $(echo "$dart_files" | wc -l | tr -d ' ') file(s))..."
+    if ! (cd mobile && flutter analyze --no-fatal-infos 2>&1); then
+      fail "flutter analyze failed. Fix the warnings and re-stage."
+    fi
+    ok "flutter analyze clean"
+  fi
+fi
+
+# -----------------------------------------------------------------
+# 4. Repo-wide hygiene checks (cheap, always run)
+# -----------------------------------------------------------------
+# Refuse files that look like committed secrets. The pattern is
+# intentionally conservative — false positives are noisy but
+# better than a leaked key.
+secret_files=$(staged_files | grep -E '\.env(\.|$)|credentials\.json|\.pem$|\.key$' | grep -vE 'example|sample|test' || true)
+if [ -n "$secret_files" ]; then
+  printf '%s\n' "$secret_files"
+  fail "These files look like secrets and must not be committed. Add them to .gitignore."
+fi
+
+ok "pre-commit checks passed"
+exit 0

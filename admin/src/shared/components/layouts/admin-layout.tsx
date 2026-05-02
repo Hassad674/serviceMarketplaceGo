@@ -3,9 +3,17 @@ import { useAuth } from "@/shared/hooks/use-auth"
 import { useAdminWS } from "@/shared/hooks/use-admin-ws"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
+import { RouteSkeleton } from "@/shared/components/ui/route-skeleton"
 
 export function AdminLayout() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isHydrating } = useAuth()
+
+  // While the boot-time cookie probe is in flight (SEC-FINAL-07
+  // memory-only token model — see auth-store.ts), avoid redirecting
+  // to /login for users who actually have a valid session cookie.
+  // The flash from "loading" to authenticated UI is shorter than the
+  // /login round-trip would be.
+  if (isHydrating) return <RouteSkeleton />
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
 

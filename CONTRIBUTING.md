@@ -40,6 +40,11 @@ bottom of this section.
 git clone https://github.com/Hassad674/serviceMarketplaceGo.git
 cd serviceMarketplaceGo
 
+# Wire local pre-commit hooks (gofmt, tsc, flutter analyze).
+# Skip with `git commit --no-verify` if a hook is wrong for your
+# situation — see `.githooks/pre-commit` for the full list.
+./scripts/install-git-hooks.sh
+
 # Infrastructure: PostgreSQL 16 + Redis 7 + MinIO + Typesense 28
 docker compose up -d
 
