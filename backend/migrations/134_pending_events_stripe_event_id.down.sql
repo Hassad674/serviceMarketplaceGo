@@ -1,4 +1,4 @@
--- 133_pending_events_stripe_event_id.down.sql
+-- 134_pending_events_stripe_event_id.down.sql
 --
 -- Rolls back the P8 Stripe-event-id deduplication column.
 --

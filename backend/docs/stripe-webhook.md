@@ -50,7 +50,7 @@ used to.
 Three layers, evaluated in order:
 
 1. **`pending_events.stripe_event_id` partial unique index**
-   (migration 133). The webhook handler's INSERT uses
+   (migration 134). The webhook handler's INSERT uses
    `ON CONFLICT (stripe_event_id) DO NOTHING`, so a Stripe re-delivery
    of the same `evt_*` is a silent no-op. **This is the primary
    idempotency line.**
@@ -159,7 +159,7 @@ partial unique index. The migration is fast metadata-only (Postgres
 11+) and backfill-free — existing rows get `NULL` and the index
 ignores them.
 
-Rollback is reversible: `133_pending_events_stripe_event_id.down.sql`
+Rollback is reversible: `134_pending_events_stripe_event_id.down.sql`
 drops the index and the column. The application code falls back to
 inline dispatch when `WithPendingEventsQueue` is not called, so
 disabling the async path requires only un-wiring the setter in
