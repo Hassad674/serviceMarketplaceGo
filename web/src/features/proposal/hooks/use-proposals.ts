@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createProposal,
   getProposal,
-  acceptProposal,
-  declineProposal,
   modifyProposal,
   initiatePayment,
   submitMilestone,
@@ -14,17 +12,21 @@ import {
   listProjects,
 } from "../api/proposal-api"
 import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api"
-import { conversationsQueryKey } from "@/features/messaging/hooks/use-conversations"
-import { messagesQueryKey } from "@/features/messaging/hooks/use-messages"
+import {
+  conversationsQueryKey,
+  messagesQueryKey,
+} from "@/shared/lib/query-keys/messaging"
+import {
+  projectsQueryKey,
+  proposalQueryKey,
+} from "@/shared/lib/query-keys/proposal"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
-export function projectsQueryKey(uid: string | undefined) {
-  return ["user", uid, "projects"] as const
-}
-
-export function proposalQueryKey(uid: string | undefined) {
-  return ["user", uid, "proposal"] as const
-}
+// `projectsQueryKey` and `proposalQueryKey` live in
+// `@/shared/lib/query-keys/proposal` (P9 — shared with the messaging
+// feature). Re-exported here to keep existing intra-feature imports
+// working.
+export { projectsQueryKey, proposalQueryKey }
 
 /** @deprecated Use projectsQueryKey(uid) instead */
 export const PROJECTS_QUERY_KEY = ["projects"]
@@ -59,35 +61,14 @@ export function useCreateProposal() {
   })
 }
 
-export function useAcceptProposal() {
-  const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
-
-  return useMutation({
-    mutationFn: (id: string) => acceptProposal(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: projectsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
-      // Do NOT invalidate messages here. The WS handler adds the
-      // system message and syncProposalStatusInCache updates proposal cards.
-    },
-  })
-}
-
-export function useDeclineProposal() {
-  const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
-
-  return useMutation({
-    mutationFn: (id: string) => declineProposal(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
-      // Do NOT invalidate messages -- same reason as useAcceptProposal.
-    },
-  })
-}
+// `useAcceptProposal` and `useDeclineProposal` live in
+// `@/shared/hooks/proposal/use-proposal-actions` (P9 — shared with the
+// messaging feature, which renders proposal cards inside conversations).
+// Re-exported here to keep existing intra-feature imports working.
+export {
+  useAcceptProposal,
+  useDeclineProposal,
+} from "@/shared/hooks/proposal/use-proposal-actions"
 
 export function useModifyProposal() {
   const queryClient = useQueryClient()

@@ -13,16 +13,10 @@ export type InvoiceSourceType =
   | "monthly_commission"
   | "credit_note"
 
-/**
- * One field the backend considers missing for the billing profile to
- * be considered "complete". The reason is a machine-readable token
- * (e.g. "required", "invalid_format") that the UI maps to localized
- * copy — never displayed verbatim.
- */
-export type MissingField = {
-  field: string
-  reason: string
-}
+// `MissingField` is shared with `wallet` and `subscription` (P9). Re-exported
+// here so existing intra-feature imports keep working without churn.
+import type { MissingField } from "@/shared/types/billing-profile"
+export type { MissingField }
 
 export type BillingProfile = {
   organization_id: string

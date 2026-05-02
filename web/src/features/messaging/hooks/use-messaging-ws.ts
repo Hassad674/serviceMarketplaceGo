@@ -7,7 +7,7 @@ import { markAsRead } from "../api/messaging-api"
 import { conversationsQueryKey } from "./use-conversations"
 import { messagesQueryKey } from "./use-messages"
 import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
-import { proposalQueryKey } from "@/features/proposal/hooks/use-proposals"
+import { proposalQueryKey } from "@/shared/lib/query-keys/proposal"
 
 const HEARTBEAT_INTERVAL = 30_000
 const TYPING_CLEAR_DELAY = 5_000
