@@ -1,26 +1,4 @@
-import { apiClient } from "@/shared/lib/api-client"
-import type { FeePreview } from "../types"
-
-/**
- * Fetches the platform fee preview for a given milestone amount.
- *
- * The prestataire's role (freelance / agency) is resolved server-side
- * from the JWT — NEVER pass role as a query parameter, as that would
- * let a client fake the cheaper grid. `amount_cents` is the only
- * numeric input the endpoint accepts.
- *
- * When `recipientId` is provided, the backend runs the same role
- * resolution as the proposal creation endpoint (`DetermineRoles`)
- * and sets `viewer_is_provider` in the response, so the UI can
- * hide the preview for client-side viewers (enterprise, agency
- * paired with a provider, etc.).
- */
-export function getFeePreview(
-  amountCents: number,
-  recipientId?: string,
-): Promise<FeePreview> {
-  const safe = Math.max(0, Math.trunc(amountCents))
-  const params = new URLSearchParams({ amount: String(safe) })
-  if (recipientId) params.set("recipient_id", recipientId)
-  return apiClient<FeePreview>(`/api/v1/billing/fee-preview?${params.toString()}`)
-}
+// `getFeePreview` lives in `@/shared/lib/billing/billing-api` (P9 —
+// `FeePreview` UX is consumed cross-feature by proposal). Re-exported
+// here for back-compat.
+export { getFeePreview } from "@/shared/lib/billing/billing-api"

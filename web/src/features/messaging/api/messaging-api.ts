@@ -1,6 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
 import type {
-  ConversationListResponse,
   MessageListResponse,
   StartConversationResponse,
   Message,
@@ -8,10 +7,10 @@ import type {
   UnreadCountResponse,
 } from "../types"
 
-export function listConversations(cursor?: string): Promise<ConversationListResponse> {
-  const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<ConversationListResponse>(`/api/v1/messaging/conversations${params}`)
-}
+// `listConversations` is shared with the `referral` feature (P9). Lives
+// in `@/shared/lib/messaging/conversations-api` and is re-exported here
+// so existing intra-feature imports keep working.
+export { listConversations } from "@/shared/lib/messaging/conversations-api"
 
 export function listMessages(conversationId: string, cursor?: string): Promise<MessageListResponse> {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""

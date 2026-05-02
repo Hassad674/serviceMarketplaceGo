@@ -41,7 +41,7 @@ vi.mock("lucide-react", () => ({
 // Mock proposal hooks
 const acceptMutateFn = vi.fn()
 const declineMutateFn = vi.fn()
-vi.mock("@/features/proposal/hooks/use-proposals", () => ({
+vi.mock("@/shared/hooks/proposal/use-proposal-actions", () => ({
   useAcceptProposal: () => ({
     mutate: acceptMutateFn,
     isPending: false,

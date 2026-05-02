@@ -8,6 +8,13 @@ vi.mock("../../hooks/use-fee-preview", () => ({
   useFeePreview: (...args: unknown[]) => mockUseFeePreview(...args),
 }))
 
+// `useFeePreview` moved to shared (P9). The shared `FeePreview`
+// component (re-exported via `../fee-preview`) imports from there, so
+// we mock the shared path too.
+vi.mock("@/shared/hooks/billing/use-fee-preview", () => ({
+  useFeePreview: (...args: unknown[]) => mockUseFeePreview(...args),
+}))
+
 const TIERS = [
   { label: "0 - 200", max_cents: 20000, fee_cents: 200 },
   { label: "200 - 1000", max_cents: 100000, fee_cents: 500 },

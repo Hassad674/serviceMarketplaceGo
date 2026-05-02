@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
-  uploadPhoto,
   uploadVideo,
   uploadReferrerVideo,
   deleteVideo,
@@ -11,26 +10,10 @@ import {
 import { profileQueryKey } from "./use-profile"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
-export function useUploadPhoto() {
-  const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
-
-  return useMutation({
-    mutationFn: (file: File) => uploadPhoto(file),
-    onSuccess: () => {
-      // Provider profile cache — the canonical source for /api/v1/profile.
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
-      // The photo/logo is shared with the client-profile facet
-      // (agencies expose both). Invalidate the client-profile cache
-      // too so an upload done from either page shows up on the other
-      // without a manual refresh. We keep the provider feature free
-      // of direct client-profile imports by keying on the query key
-      // prefix rather than pulling the hook's constant.
-      queryClient.invalidateQueries({ queryKey: ["client-profile"] })
-      queryClient.invalidateQueries({ queryKey: ["public-client-profile"] })
-    },
-  })
-}
+// `useUploadPhoto` lives in `@/shared/hooks/use-upload-photo` (P9 —
+// consumed cross-feature by client-profile). Re-exported here for
+// back-compat.
+export { useUploadPhoto } from "@/shared/hooks/use-upload-photo"
 
 export function useUploadVideo() {
   const queryClient = useQueryClient()

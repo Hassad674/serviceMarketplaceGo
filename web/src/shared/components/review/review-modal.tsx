@@ -1,0 +1,507 @@
+"use client"
+
+import { useState, useCallback, useRef } from "react"
+import { X, Loader2, Video, Trash2 } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
+import { ApiError } from "@/shared/lib/api-client"
+import type { ReviewSide } from "@/shared/types/review"
+import {
+  useCreateReview,
+  useUploadReviewVideo,
+} from "@/shared/hooks/review/use-reviews"
+import { StarRating } from "@/shared/components/review/star-rating"
+
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024 // 100 MB
+const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
+
+interface ReviewModalProps {
+  proposalId: string
+  proposalTitle: string
+  isOpen: boolean
+  onClose: () => void
+  /**
+   * Direction of the double-blind review being submitted.
+   *
+   * - `client_to_provider` (default) — the existing form: global
+   *   rating + detailed sub-criteria (timeliness, communication,
+   *   quality) + comment + video + title visibility.
+   * - `provider_to_client` — a lean variant for providers rating the
+   *   client: no sub-criteria, just global rating + comment + video
+   *   + title visibility.
+   *
+   * Backward-compatible default keeps every legacy call site (which
+   * was always the client side) working unchanged.
+   */
+  side?: ReviewSide
+}
+
+export function ReviewModal({
+  proposalId,
+  proposalTitle,
+  isOpen,
+  onClose,
+  side = "client_to_provider",
+}: ReviewModalProps) {
+  const t = useTranslations("review")
+  const canReview = useHasPermission("reviews.respond")
+  const [globalRating, setGlobalRating] = useState(0)
+  const [timeliness, setTimeliness] = useState(0)
+  const [communication, setCommunication] = useState(0)
+  const [quality, setQuality] = useState(0)
+  const [comment, setComment] = useState("")
+  const [videoUrl, setVideoUrl] = useState("")
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [titleVisible, setTitleVisible] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { mutate: submitReview, isPending } = useCreateReview()
+  const { mutate: uploadVideo, isPending: isUploading } = useUploadReviewVideo()
+
+  const isProviderSide = side === "provider_to_client"
+  const modalTitle = isProviderSide
+    ? t("titleProviderToClient")
+    : t("titleClientToProvider")
+  const subtitleText = isProviderSide
+    ? t("subtitleProviderToClient")
+    : proposalTitle
+
+  const mapErrorCode = useCallback(
+    (code: string): string => {
+      switch (code) {
+        case "review_window_closed":
+          return t("errorWindowClosed")
+        case "not_participant":
+          return t("errorNotParticipant")
+        default:
+          return t("errorGeneric")
+      }
+    },
+    [t],
+  )
+
+  const resetForm = useCallback(() => {
+    setGlobalRating(0)
+    setTimeliness(0)
+    setCommunication(0)
+    setQuality(0)
+    setComment("")
+    setVideoUrl("")
+    setVideoFile(null)
+    setTitleVisible(true)
+    setErrorMessage(null)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setErrorMessage(null)
+    onClose()
+  }, [onClose])
+
+  const handleVideoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) return
+    if (file.size > MAX_VIDEO_SIZE) return
+
+    setVideoFile(file)
+    uploadVideo(file, {
+      onSuccess: (url) => setVideoUrl(url),
+      onError: () => setVideoFile(null),
+    })
+  }, [uploadVideo])
+
+  const handleRemoveVideo = useCallback(() => {
+    setVideoUrl("")
+    setVideoFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }, [])
+
+  const handleSubmit = useCallback(() => {
+    if (globalRating === 0) return
+    setErrorMessage(null)
+
+    submitReview(
+      {
+        proposal_id: proposalId,
+        global_rating: globalRating,
+        // Sub-criteria are only meaningful on the client->provider side.
+        // The backend rejects them with `invalid_subcriteria_for_side`
+        // if sent from the provider side, so we omit them entirely here.
+        ...(isProviderSide
+          ? {}
+          : {
+              timeliness: timeliness > 0 ? timeliness : undefined,
+              communication: communication > 0 ? communication : undefined,
+              quality: quality > 0 ? quality : undefined,
+            }),
+        comment: comment.trim() || undefined,
+        video_url: videoUrl || undefined,
+        title_visible: titleVisible,
+      },
+      {
+        onSuccess: () => {
+          resetForm()
+          onClose()
+        },
+        onError: (err) => {
+          const code =
+            err instanceof ApiError ? err.code : "unknown_error"
+          setErrorMessage(mapErrorCode(code))
+        },
+      },
+    )
+  }, [
+    proposalId, globalRating, timeliness, communication, quality,
+    comment, videoUrl, titleVisible, isProviderSide, submitReview,
+    resetForm, onClose, mapErrorCode,
+  ])
+
+  if (!isOpen || !canReview) return null
+
+  const isBusy = isPending || isUploading
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-label={modalTitle}
+    >
+      <div className="mx-4 w-full max-w-lg animate-scale-in rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+        <ReviewModalHeader
+          title={modalTitle}
+          subtitle={subtitleText}
+          closeLabel={t("close")}
+          onClose={handleClose}
+        />
+
+        <div className="space-y-5">
+          <StarRating
+            rating={globalRating}
+            onRatingChange={setGlobalRating}
+            size="lg"
+            label={`${t("globalRating")} *`}
+          />
+
+          {!isProviderSide && (
+            <DetailedCriteria
+              timeliness={timeliness}
+              communication={communication}
+              quality={quality}
+              onTimelinessChange={setTimeliness}
+              onCommunicationChange={setCommunication}
+              onQualityChange={setQuality}
+              labels={{
+                detailed: t("detailedCriteria"),
+                timeliness: t("timeliness"),
+                communication: t("communication"),
+                quality: t("quality"),
+              }}
+            />
+          )}
+
+          <CommentField
+            value={comment}
+            onChange={setComment}
+            label={t("comment")}
+            placeholder={t("commentPlaceholder")}
+            disabled={isBusy}
+          />
+
+          <VideoUploadField
+            videoUrl={videoUrl}
+            videoFile={videoFile}
+            isUploading={isUploading}
+            fileInputRef={fileInputRef}
+            onSelect={handleVideoSelect}
+            onRemove={handleRemoveVideo}
+            labels={{
+              add: t("addVideo"),
+              remove: t("removeVideo"),
+              uploading: t("uploadingVideo"),
+            }}
+          />
+
+          <TitleVisibilityField
+            checked={titleVisible}
+            onChange={setTitleVisible}
+            label={t("titleVisibleLabel")}
+            hint={t("titleVisibleHint")}
+          />
+
+          {errorMessage && (
+            <p
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+            >
+              {errorMessage}
+            </p>
+          )}
+
+          <ReviewModalActions
+            onSubmit={handleSubmit}
+            onCancel={handleClose}
+            isPending={isPending}
+            isBusy={isBusy}
+            canSubmit={globalRating > 0}
+            labels={{ submit: t("submit"), cancel: t("cancel") }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReviewModalHeader({
+  title,
+  subtitle,
+  closeLabel,
+  onClose,
+}: {
+  title: string
+  subtitle: string
+  closeLabel: string
+  onClose: () => void
+}) {
+  return (
+    <div className="mb-6 flex items-center justify-between">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      <Button variant="ghost" size="auto"
+        type="button"
+        onClick={onClose}
+        className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors"
+        aria-label={closeLabel}
+      >
+        <X className="h-5 w-5" />
+      </Button>
+    </div>
+  )
+}
+
+function DetailedCriteria({
+  timeliness,
+  communication,
+  quality,
+  onTimelinessChange,
+  onCommunicationChange,
+  onQualityChange,
+  labels,
+}: {
+  timeliness: number
+  communication: number
+  quality: number
+  onTimelinessChange: (v: number) => void
+  onCommunicationChange: (v: number) => void
+  onQualityChange: (v: number) => void
+  labels: { detailed: string; timeliness: string; communication: string; quality: string }
+}) {
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <p className="text-sm font-medium text-muted-foreground">
+        {labels.detailed}
+      </p>
+      <StarRating rating={timeliness} onRatingChange={onTimelinessChange} size="md" label={labels.timeliness} />
+      <StarRating rating={communication} onRatingChange={onCommunicationChange} size="md" label={labels.communication} />
+      <StarRating rating={quality} onRatingChange={onQualityChange} size="md" label={labels.quality} />
+    </div>
+  )
+}
+
+function CommentField({
+  value,
+  onChange,
+  label,
+  placeholder,
+  disabled,
+}: {
+  value: string
+  onChange: (v: string) => void
+  label: string
+  placeholder: string
+  disabled: boolean
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="review-comment" className="text-sm font-medium text-foreground">
+        {label}
+      </label>
+      <textarea
+        id="review-comment"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        maxLength={2000}
+        className={cn(
+          "w-full resize-none rounded-lg border border-border bg-transparent",
+          "px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
+          "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
+          "transition-all duration-200",
+        )}
+        disabled={disabled}
+      />
+      <p className="text-right text-xs text-muted-foreground">{value.length}/2000</p>
+    </div>
+  )
+}
+
+function VideoUploadField({
+  videoUrl,
+  videoFile,
+  isUploading,
+  fileInputRef,
+  onSelect,
+  onRemove,
+  labels,
+}: {
+  videoUrl: string
+  videoFile: File | null
+  isUploading: boolean
+  fileInputRef: React.RefObject<HTMLInputElement | null>
+  onSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemove: () => void
+  labels: { add: string; remove: string; uploading: string }
+}) {
+  if (videoUrl) {
+    return (
+      <div className="space-y-2">
+        <video
+          src={videoUrl}
+          controls
+          className="w-full rounded-lg border border-border"
+          style={{ maxHeight: 200 }}
+        />
+        <Button variant="ghost" size="auto"
+          type="button"
+          onClick={onRemove}
+          className="flex items-center gap-1.5 text-sm text-destructive hover:underline"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          {labels.remove}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <Input
+        ref={fileInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime"
+        onChange={onSelect}
+        className="hidden"
+        id="review-video-input"
+      />
+      <Button variant="ghost" size="auto"
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isUploading}
+        className={cn(
+          "flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed",
+          "border-border px-4 py-3 text-sm text-muted-foreground",
+          "hover:border-rose-300 hover:text-foreground transition-all duration-200",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+        )}
+      >
+        {isUploading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {labels.uploading}
+          </>
+        ) : (
+          <>
+            <Video className="h-4 w-4" />
+            {labels.add}
+          </>
+        )}
+      </Button>
+      {videoFile && isUploading && (
+        <p className="mt-1 text-xs text-muted-foreground">{videoFile.name}</p>
+      )}
+    </div>
+  )
+}
+
+function TitleVisibilityField({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+  hint: string
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 transition-colors hover:bg-muted/50">
+      <Input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-border text-rose-600 focus:ring-2 focus:ring-rose-500/20"
+      />
+      <span className="space-y-1 text-sm">
+        <span className="block font-medium text-foreground">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
+  )
+}
+
+function ReviewModalActions({
+  onSubmit,
+  onCancel,
+  isPending,
+  isBusy,
+  canSubmit,
+  labels,
+}: {
+  onSubmit: () => void
+  onCancel: () => void
+  isPending: boolean
+  isBusy: boolean
+  canSubmit: boolean
+  labels: { submit: string; cancel: string }
+}) {
+  return (
+    <div className="flex gap-3 pt-2">
+      <Button variant="ghost" size="auto"
+        type="button"
+        onClick={onSubmit}
+        disabled={isBusy || !canSubmit}
+        className={cn(
+          "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-white",
+          "gradient-primary hover:shadow-glow active:scale-[0.98]",
+          "transition-all duration-200",
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none",
+        )}
+      >
+        {isPending && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
+        {labels.submit}
+      </Button>
+      <Button variant="ghost" size="auto"
+        type="button"
+        onClick={onCancel}
+        disabled={isBusy}
+        className={cn(
+          "rounded-lg border border-border px-4 py-2.5 text-sm font-medium",
+          "text-foreground hover:bg-muted transition-all duration-200",
+        )}
+      >
+        {labels.cancel}
+      </Button>
+    </div>
+  )
+}

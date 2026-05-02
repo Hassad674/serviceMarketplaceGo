@@ -1,11 +1,3 @@
-import { apiClient } from "@/shared/lib/api-client"
-
-export async function createReport(data: {
-  target_type: string
-  target_id: string
-  conversation_id: string
-  reason: string
-  description: string
-}) {
-  return apiClient("/api/v1/reports", { method: "POST", body: data })
-}
+// `createReport` lives in `@/shared/lib/reporting/reporting-api` (P9
+// — consumed cross-feature). Re-exported here for back-compat.
+export { createReport } from "@/shared/lib/reporting/reporting-api"

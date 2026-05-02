@@ -18,12 +18,12 @@ import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { ProposalMessageMetadata } from "../types"
-// Cross-feature import — ProposalCard renders proposal actions within messaging context.
-// This is an accepted exception documented in the task spec.
+// Proposal actions are exposed from `shared/` (P9) — messaging owns
+// the conversation UI but does not depend on the proposal feature.
 import {
   useAcceptProposal,
   useDeclineProposal,
-} from "@/features/proposal/hooks/use-proposals"
+} from "@/shared/hooks/proposal/use-proposal-actions"
 
 import { Button } from "@/shared/components/ui/button"
 type ProposalStatus = ProposalMessageMetadata["proposal_status"]

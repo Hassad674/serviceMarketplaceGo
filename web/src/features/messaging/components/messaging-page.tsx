@@ -19,9 +19,9 @@ import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from ".
 import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
 import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
-import { ReviewModal } from "@/features/review/components/review-modal"
-import { deriveReviewSide } from "@/features/review/utils/derive-side"
-import { ReportDialog } from "@/features/reporting/components/report-dialog"
+import { ReviewModal } from "@/shared/components/review/review-modal"
+import { deriveReviewSide } from "@/shared/lib/review/derive-side"
+import { ReportDialog } from "@/shared/components/reporting/report-dialog"
 import type { Conversation, ConversationListResponse, Message } from "../types"
 import type { ReviewSide } from "@/shared/types/review"
 

@@ -17,6 +17,17 @@ vi.mock("../../api/invoicing-api", () => ({
   validateBillingProfileVAT: vi.fn(),
 }))
 
+// `fetchBillingProfile` & friends moved to shared (P9). The shared
+// hooks (re-exported from `../use-billing-profile`) call the shared
+// API module, so we mock that path too.
+vi.mock("@/shared/lib/billing-profile/billing-profile-api", () => ({
+  fetchBillingProfile: () => mockFetch(),
+  updateBillingProfile: vi.fn(),
+  syncBillingProfileFromStripe: vi.fn(),
+  validateBillingProfileVAT: vi.fn(),
+  fetchCurrentMonthAggregate: vi.fn(),
+}))
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
