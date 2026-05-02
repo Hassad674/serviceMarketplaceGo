@@ -40,7 +40,7 @@
 
 | # | Plan | Stack | Effort | Tool | Status | PR | Notes |
 |---|---|---|---|---|---|---|---|
-| **P6** | Migration 132 dénormalisation `last_message` sur `conversations` + N+1 elim | backend | 1j | foreground | ⏳ pending | — | Décision : trigger vs app maintenance. |
+| **P6** | Migration 133 dénormalisation `last_message` sur `conversations` + N+1 elim | backend | 1j | foreground | ⏳ pending | — | Décision : trigger vs app maintenance. |
 | **P7** | ISP consumer migration (50+ call sites → segregated interfaces de Phase 3 J) | backend | 2j | `claude -p` | ⏳ pending | — | Mécanique mais scope large. |
 | **P8** | Stripe webhook async via `pending_events` worker + scheduler RLS migration | backend | 2j | foreground | ⏳ pending | — | Orchestration à designer. |
 | **P9** | Cross-feature imports cleanup web (33 violations) + 96 hardcoded API paths → typed client | web | 2j | foreground | ⏳ pending | — | Refactor architectural. |
@@ -71,7 +71,7 @@ Idem.
 
 ## Décisions clés à valider en cours de route
 
-- [ ] **Migration 132** — trigger PostgreSQL vs maintenance applicatif au INSERT messages (P6)
+- [ ] **Migration 133** — trigger PostgreSQL vs maintenance applicatif au INSERT messages (P6)
 - [ ] **GDPR retention** — quelle durée pour les audit_logs après account deletion ? (P5)
 - [ ] **OTel exporter** — Jaeger self-hosted vs Honeycomb vs Datadog free tier ? (P11)
 - [ ] **Stripe webhook async** — split idempotency table from RLS scope OR keep webhook handler on privileged role ? (P8)
