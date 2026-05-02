@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { fetchAdminInvoices, openInvoicePDF } from "../api/invoicing-api"
 import { EMPTY_ADMIN_INVOICE_FILTERS } from "../types"
+import { useAuthStore } from "@/shared/stores/auth-store"
 
 // makeResponseWithURL builds a Response object and overrides its
 // `url` getter so we can simulate fetch following a redirect to the
@@ -14,11 +15,11 @@ function makeResponseWithURL(url: string, status = 200): Response {
 
 describe("fetchAdminInvoices", () => {
   beforeEach(() => {
-    localStorage.setItem("admin_token", "test-token")
+    useAuthStore.getState().setToken("test-token")
     vi.stubGlobal("fetch", vi.fn())
   })
   afterEach(() => {
-    localStorage.clear()
+    useAuthStore.getState().clear()
     vi.unstubAllGlobals()
   })
 
@@ -68,7 +69,7 @@ describe("fetchAdminInvoices", () => {
     expect(url).toContain("cursor=cur1")
   })
 
-  it("sends the bearer token from localStorage", async () => {
+  it("sends the bearer token from the in-memory auth store", async () => {
     const mockFetch = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ data: [], has_more: false }), {
@@ -85,11 +86,11 @@ describe("fetchAdminInvoices", () => {
 
 describe("openInvoicePDF", () => {
   beforeEach(() => {
-    localStorage.setItem("admin_token", "test-token")
+    useAuthStore.getState().setToken("test-token")
     vi.stubGlobal("fetch", vi.fn())
   })
   afterEach(() => {
-    localStorage.clear()
+    useAuthStore.getState().clear()
     vi.unstubAllGlobals()
   })
 
