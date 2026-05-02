@@ -88,7 +88,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	defer cancel()
 
 	query := `SELECT ` + userColumns + ` FROM users WHERE id = $1`
-	u, err := r.scanUserRow(r.db.QueryRowContext(ctx, query, id))
+	u, err := r.scanUserRow(QueryRow(ctx, r.db, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
@@ -118,7 +118,7 @@ func (r *UserRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*user
 	}
 
 	query := `SELECT ` + userColumns + ` FROM users WHERE id = ANY($1)`
-	rows, err := r.db.QueryContext(ctx, query, pq.Array(idStrings))
+	rows, err := Query(ctx, r.db, query, pq.Array(idStrings))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get users by ids: %w", err)
 	}
@@ -143,7 +143,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	defer cancel()
 
 	query := `SELECT ` + userColumns + ` FROM users WHERE email = $1`
-	u, err := r.scanUserRow(r.db.QueryRowContext(ctx, query, email))
+	u, err := r.scanUserRow(QueryRow(ctx, r.db, query, email))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
@@ -252,7 +252,7 @@ func (r *UserRepository) GetSessionVersion(ctx context.Context, userID uuid.UUID
 	defer cancel()
 
 	var version int
-	err := r.db.QueryRowContext(ctx,
+	err := QueryRow(ctx, r.db,
 		`SELECT session_version FROM users WHERE id = $1`,
 		userID,
 	).Scan(&version)
@@ -270,7 +270,7 @@ func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 	defer cancel()
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists)
+	err := QueryRow(ctx, r.db, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check email existence: %w", err)
 	}
