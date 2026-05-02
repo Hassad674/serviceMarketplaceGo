@@ -9,7 +9,7 @@ import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
-import { ReportDialog } from "@/features/reporting/components/report-dialog"
+import { ReportDialog } from "@/shared/components/reporting/report-dialog"
 import type { ApplicationWithProfile } from "../types"
 import { Button } from "@/shared/components/ui/button"
 

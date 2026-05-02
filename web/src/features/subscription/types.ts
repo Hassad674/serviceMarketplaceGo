@@ -5,9 +5,12 @@
 // has turned auto-renew OFF — the plan stays active until the
 // end of the paid period, then expires naturally.
 
-export type Plan = "freelance" | "agency"
-
-export type BillingCycle = "monthly" | "annual"
+// `Plan` and `BillingCycle` are shared with the proposal feature (P9
+// — `UpgradeCta` / `UpgradeModal` are rendered inline inside proposal
+// flows). They live in `@/shared/types/subscription` and are
+// re-exported here so existing intra-feature imports keep working.
+import type { Plan, BillingCycle } from "@/shared/types/subscription"
+export type { Plan, BillingCycle }
 
 export type SubscriptionStatus =
   | "incomplete"

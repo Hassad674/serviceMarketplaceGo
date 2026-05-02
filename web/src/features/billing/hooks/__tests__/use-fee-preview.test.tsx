@@ -10,6 +10,13 @@ vi.mock("../../api/billing-api", () => ({
   getFeePreview: (...args: unknown[]) => mockGetFeePreview(...args),
 }))
 
+// `getFeePreview` moved to shared (P9). The hook re-exported via
+// `../use-fee-preview` calls the shared module, so we mock that path
+// too.
+vi.mock("@/shared/lib/billing/billing-api", () => ({
+  getFeePreview: (...args: unknown[]) => mockGetFeePreview(...args),
+}))
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },

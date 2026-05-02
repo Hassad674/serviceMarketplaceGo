@@ -5,7 +5,7 @@ import { Briefcase, Calendar, Users, MoreVertical } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
-import { ReportDialog } from "@/features/reporting/components/report-dialog"
+import { ReportDialog } from "@/shared/components/reporting/report-dialog"
 import type { JobResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
 

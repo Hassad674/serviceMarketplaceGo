@@ -13,6 +13,15 @@ vi.mock("../../hooks/use-report", () => ({
   }),
 }))
 
+// `useCreateReport` moved to shared (P9). The shared `ReportDialog`
+// (re-exported via `../report-dialog`) imports from the shared path.
+vi.mock("@/shared/hooks/reporting/use-report", () => ({
+  useCreateReport: () => ({
+    mutate: mockMutate,
+    isPending: false,
+  }),
+}))
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
