@@ -65,13 +65,39 @@
 
 ---
 
-## F.3 — MEDIUM (~5-7 jours, polish post-launch)
+## F.3 — MEDIUM polish (publish-ready path)
 
-À détailler après F.2 si le user veut continuer le polish. Items dans `auditperf.md`, `auditqualite.md`, `auditsecurite.md` sections MEDIUM.
+### F.3.1 ✅ done — direct path to TOP 1% (Architecture + Security + Maintainability)
+
+| # | Item | Status | PR |
+|---|---|---|---|
+| 1 | Admin token localStorage → Zustand in-memory (SEC-FINAL-07) | ✅ | **#94** |
+| 2 | SSRF guard on `ValidateSocialURL` (SEC-FINAL-04) | ✅ | #94 |
+| 3 | `RequireRole` middleware (SEC-FINAL-03) | ✅ | #94 |
+| 4 | 8 ADRs Michael Nygard format | ✅ | #94 |
+| 5 | CHANGELOG.md Keep-a-Changelog 1.1.0 + SemVer 2.0 | ✅ | #94 |
+| 6 | Pre-commit hooks bash + install + self-test | ✅ | #94 |
+
+**Final report**: 32 files changed (+2596 / -137). Validation pipeline green: backend (101 packages OK), admin (112/112 tests), web (tsc clean). Mobile out-of-scope for F.3.1.
+
+### F.3.2 — pending (DRY web cleanup) — gated on backend OpenAPI exposure
+
+Brief: `docs/plans/F3_2_brief.md` (à créer)
+- 467 hardcoded `/api/v1/...` paths in `web/src/` → typed `apiClient<paths[X]>(path)`
+- Requires backend to expose `/api/openapi.json` first (chi-router introspection or swag annotations)
+- 3 pre-existing ESLint errors flagged
+
+### F.3.3 — pending (Quality web/mobile)
+
+Brief: `docs/plans/F3_3_brief.md` (à créer)
+- Mobile `dynamic` regression 196 → 746
+- Mobile `Color(0x...)` regression 491 → 573
+- 19 backend files > 600 lines split
+- CONTRIBUTING.md typo `contract-isolation.spec.ts` → `refactor-isolation.spec.ts`
 
 ## F.4 — LOW (~2-3 jours, perfectionnement final)
 
-Idem.
+À détailler après F.3 — 41 LOW findings restants dans audits.
 
 ---
 
