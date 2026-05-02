@@ -8,6 +8,7 @@ import (
 
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
+	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/config"
@@ -64,6 +65,13 @@ func main() {
 			slog.Warn("otel shutdown error", "error", err)
 		}
 	}()
+
+	// Install OTel-wrapped HTTP transports on third-party SDKs that
+	// expose package-global clients. This must happen AFTER OTel init
+	// (so the global tracer + propagator are set) and BEFORE any SDK
+	// instance is created so the wrap is in place from the first
+	// outbound call.
+	stripeadapter.InstallOTelBackends()
 
 	// Bring up every backbone resource (DB, Redis, repos, output
 	// adapters, messaging fan-out, WS hub) — see wire_infra.go.

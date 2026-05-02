@@ -15,6 +15,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"marketplace-backend/internal/observability"
 )
 
 // defaultBaseURL is the production OpenAI API root. Tests override it
@@ -36,6 +38,11 @@ type Client struct {
 
 // NewClient builds a Client. Pass an empty baseURL to hit the real
 // OpenAI API; tests pass an httptest.Server URL.
+//
+// The underlying http.Client uses observability.HTTPClientTransport
+// so each outbound call is captured as an OTel client span with W3C
+// trace context injected — when OTel is enabled this lets a request
+// trace stitch across the marketplace -> OpenAI hop.
 func NewClient(apiKey, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
@@ -43,7 +50,10 @@ func NewClient(apiKey, baseURL string) *Client {
 	return &Client{
 		apiKey:  apiKey,
 		baseURL: baseURL,
-		http:    &http.Client{Timeout: defaultTimeout},
+		http: &http.Client{
+			Timeout:   defaultTimeout,
+			Transport: observability.HTTPClientTransport(http.DefaultTransport, "openai"),
+		},
 	}
 }
 

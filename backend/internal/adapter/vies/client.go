@@ -23,6 +23,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
+	"marketplace-backend/internal/observability"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -88,9 +89,12 @@ func WithHTTPClient(hc *http.Client) Option {
 func NewClient(redisClient *goredis.Client, opts ...Option) *Client {
 	c := &Client{
 		redisClient: redisClient,
-		httpClient:  &http.Client{Timeout: httpTimeout},
-		endpoint:    DefaultEndpoint,
-		cacheTTL:    DefaultCacheTTL,
+		httpClient: &http.Client{
+			Timeout:   httpTimeout,
+			Transport: observability.HTTPClientTransport(http.DefaultTransport, "vies"),
+		},
+		endpoint: DefaultEndpoint,
+		cacheTTL: DefaultCacheTTL,
 	}
 	for _, opt := range opts {
 		opt(c)

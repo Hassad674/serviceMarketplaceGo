@@ -3,8 +3,11 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	goredis "github.com/redis/go-redis/v9"
+
+	"marketplace-backend/internal/observability"
 )
 
 func NewClient(redisURL string) (*goredis.Client, error) {
@@ -22,6 +25,14 @@ func NewClient(redisURL string) (*goredis.Client, error) {
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping: %w", err)
+	}
+
+	// Attach OTel tracing hooks. When OTel is disabled the global
+	// tracer is the SDK no-op so the hooks resolve to non-recording
+	// spans. Tracing failure is non-fatal — Redis operations still
+	// run, only observability is lost.
+	if err := observability.InstrumentRedis(client); err != nil {
+		slog.Warn("redis: otel instrumentation failed", "error", err)
 	}
 
 	return client, nil
