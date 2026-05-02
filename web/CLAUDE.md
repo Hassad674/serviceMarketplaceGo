@@ -304,6 +304,7 @@ export function MissionsPage() {
 - **Features NEVER import from other features** — composition happens in `app/` pages.
 - Features can import from `shared/` but never from `app/` or other features.
 - If two features need the same logic, extract it to `shared/`.
+- **Enforced by ESLint** (`import/no-restricted-paths` in `eslint.config.mjs`, P9). A feature → feature import fails CI: extract the shared surface (type / helper / hook / component) to `src/shared/<category>/<name>` and update both sides to import from there. The audit count is 0 — keep it that way.
 
 ```
 features/mission/
