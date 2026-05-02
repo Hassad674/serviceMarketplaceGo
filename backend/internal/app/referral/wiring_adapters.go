@@ -54,16 +54,19 @@ func (l *ThinSnapshotLoader) LoadClient(ctx context.Context, userID uuid.UUID) (
 // by the organization (the merchant of record), so a user id resolves to
 // the Stripe account through their owned org.
 //
+// Narrowed to OrganizationStripeStore — the resolver only needs
+// GetStripeAccountByUserID.
+//
 // Returns empty string (not an error) when no account id is attached —
 // that's the signal for the distributor to park the commission as
 // pending_kyc, not a failure.
 type OrgStripeAccountResolver struct {
-	orgs repository.OrganizationRepository
+	orgs repository.OrganizationStripeStore
 }
 
 // NewOrgStripeAccountResolver wires the resolver. Safe with nil orgs
 // (returns empty account id and nil error).
-func NewOrgStripeAccountResolver(orgs repository.OrganizationRepository) *OrgStripeAccountResolver {
+func NewOrgStripeAccountResolver(orgs repository.OrganizationStripeStore) *OrgStripeAccountResolver {
 	return &OrgStripeAccountResolver{orgs: orgs}
 }
 
@@ -186,15 +189,17 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 //
 // Always includes the anchor user id in the returned slice, even when the
 // user has no org row — this is the single-user fallback.
+//
+// Narrowed to OrganizationReader — the resolver only calls FindByUserID.
 type OrgDirectoryMemberResolver struct {
-	orgs    repository.OrganizationRepository
+	orgs    repository.OrganizationReader
 	members repository.OrganizationMemberRepository
 }
 
 // NewOrgDirectoryMemberResolver wires the resolver. Safe with nil
 // dependencies — the resolver degrades to single-recipient fan-out.
 func NewOrgDirectoryMemberResolver(
-	orgs repository.OrganizationRepository,
+	orgs repository.OrganizationReader,
 	members repository.OrganizationMemberRepository,
 ) *OrgDirectoryMemberResolver {
 	return &OrgDirectoryMemberResolver{orgs: orgs, members: members}

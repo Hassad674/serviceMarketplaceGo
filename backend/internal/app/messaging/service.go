@@ -17,22 +17,24 @@ import (
 )
 
 type Service struct {
-	messages              repository.MessageRepository
-	users                 repository.UserRepository
-	orgs                  repository.OrganizationRepository
-	orgMembers            repository.OrganizationMemberRepository
-	presence              service.PresenceService
-	broadcaster           service.MessageBroadcaster
-	storage               service.StorageService
-	rateLimiter           service.MessagingRateLimiter
-	mediaRecorder         service.MediaRecorder
+	messages repository.MessageRepository
+	users    repository.UserRepository
+	// orgs is narrowed to OrganizationReader — messaging only ever
+	// resolves the recipient org by id (FindByID).
+	orgs                   repository.OrganizationReader
+	orgMembers             repository.OrganizationMemberRepository
+	presence               service.PresenceService
+	broadcaster            service.MessageBroadcaster
+	storage                service.StorageService
+	rateLimiter            service.MessagingRateLimiter
+	mediaRecorder          service.MediaRecorder
 	moderationOrchestrator *appmoderation.Service
 }
 
 type ServiceDeps struct {
 	Messages      repository.MessageRepository
 	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
+	Organizations repository.OrganizationReader
 	OrgMembers    repository.OrganizationMemberRepository
 	Presence      service.PresenceService
 	Broadcaster   service.MessageBroadcaster

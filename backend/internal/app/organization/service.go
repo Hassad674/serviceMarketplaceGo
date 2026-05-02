@@ -21,7 +21,10 @@ import (
 // Team management (invite, promote, demote, remove, transfer ownership)
 // lives on top of this service and is added in Phase 2+.
 type Service struct {
-	orgs        repository.OrganizationRepository
+	// orgs reuses the package-local orgReaderWriter composite — the
+	// service reads the org row in ResolveContextForUser and creates a
+	// fresh org + owner membership atomically in CreateForOwner.
+	orgs        orgReaderWriter
 	members     repository.OrganizationMemberRepository
 	invitations repository.OrganizationInvitationRepository
 }
@@ -30,7 +33,7 @@ type Service struct {
 // even in Phase 1 — invitations is injected now so the wiring never
 // changes as we add capabilities.
 func NewService(
-	orgs repository.OrganizationRepository,
+	orgs orgReaderWriter,
 	members repository.OrganizationMemberRepository,
 	invitations repository.OrganizationInvitationRepository,
 ) *Service {

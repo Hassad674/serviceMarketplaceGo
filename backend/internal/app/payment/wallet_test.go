@@ -52,6 +52,13 @@ func (s *walletStubRecords) GetByProposalID(_ context.Context, id uuid.UUID) (*d
 	return nil, domain.ErrPaymentRecordNotFound
 }
 
+// walletStubOrgs is shared by tests of both the narrowed WalletService
+// (which only needs OrganizationStripeStore) AND the parent Service
+// constructor (which still takes the wide OrganizationRepository so it
+// can build the payout sub-service). Keeping the embed wide lets us
+// reuse one stub across both call sites without behaviour change. Once
+// the parent ServiceDeps narrows in a follow-up, this can switch back
+// to OrganizationStripeStore.
 type walletStubOrgs struct {
 	repository.OrganizationRepository
 	stripeAccountID string

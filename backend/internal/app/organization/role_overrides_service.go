@@ -33,7 +33,10 @@ type RolePermissionsRateLimiter interface {
 // its authorization rules (Owner-only, non-overridable permission
 // allowlist) can evolve without touching the rest of team management.
 type RoleOverridesService struct {
-	orgs        repository.OrganizationRepository
+	// orgs reuses the package-local orgReaderWriter composite — the
+	// service reads the org row to inspect existing overrides and writes
+	// the JSONB column via SaveRoleOverrides.
+	orgs        orgReaderWriter
 	members     repository.OrganizationMemberRepository
 	users       repository.UserRepository
 	audits      repository.AuditRepository
@@ -43,7 +46,7 @@ type RoleOverridesService struct {
 
 // RoleOverridesServiceDeps groups the constructor arguments.
 type RoleOverridesServiceDeps struct {
-	Orgs        repository.OrganizationRepository
+	Orgs        orgReaderWriter
 	Members     repository.OrganizationMemberRepository
 	Users       repository.UserRepository
 	Audits      repository.AuditRepository

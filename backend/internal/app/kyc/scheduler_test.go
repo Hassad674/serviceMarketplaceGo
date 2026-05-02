@@ -49,12 +49,16 @@ type saveKYCNotifCall struct {
 	State map[string]time.Time
 }
 
-var _ repository.OrganizationRepository = (*kycMockOrgRepo)(nil)
+// kycMockOrgRepo implements the narrowed scheduler dependency
+// (OrganizationReader + OrganizationStripeStore). The legacy 22-method
+// stub was shrunk to the 13 methods the two segregated children
+// actually expose — every dropped method was unused by the scheduler
+// and only there to satisfy the wide port.
+var (
+	_ repository.OrganizationReader      = (*kycMockOrgRepo)(nil)
+	_ repository.OrganizationStripeStore = (*kycMockOrgRepo)(nil)
+)
 
-func (m *kycMockOrgRepo) Create(_ context.Context, _ *organization.Organization) error { return nil }
-func (m *kycMockOrgRepo) CreateWithOwnerMembership(_ context.Context, _ *organization.Organization, _ *organization.Member) error {
-	return nil
-}
 func (m *kycMockOrgRepo) FindByID(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
 	return &organization.Organization{ID: id}, nil
 }
@@ -63,11 +67,6 @@ func (m *kycMockOrgRepo) FindByOwnerUserID(_ context.Context, _ uuid.UUID) (*org
 }
 func (m *kycMockOrgRepo) FindByUserID(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
 	return nil, nil
-}
-func (m *kycMockOrgRepo) Update(_ context.Context, _ *organization.Organization) error { return nil }
-func (m *kycMockOrgRepo) Delete(_ context.Context, _ uuid.UUID) error                  { return nil }
-func (m *kycMockOrgRepo) SaveRoleOverrides(_ context.Context, _ uuid.UUID, _ organization.RoleOverrides) error {
-	return nil
 }
 func (m *kycMockOrgRepo) CountAll(_ context.Context) (int, error) { return 0, nil }
 func (m *kycMockOrgRepo) FindByStripeAccountID(_ context.Context, _ string) (*organization.Organization, error) {

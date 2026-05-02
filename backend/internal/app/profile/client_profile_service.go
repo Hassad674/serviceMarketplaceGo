@@ -23,9 +23,18 @@ import (
 // description) and the organization repository (type gating + name
 // rename). Both are interfaces from port/, so the service is fully
 // testable with mocks.
+// clientProfileOrgs is the local composite the client-profile service
+// needs: it reads the org row to gate by org type and writes the row
+// to apply a rename. No single segregated child covers "FindByID +
+// Update", so we compose locally.
+type clientProfileOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationWriter
+}
+
 type ClientProfileService struct {
 	profiles      repository.ProfileRepository
-	organizations repository.OrganizationRepository
+	organizations clientProfileOrgs
 }
 
 // NewClientProfileService wires a new client-profile service. It
@@ -34,7 +43,7 @@ type ClientProfileService struct {
 // ExpertiseService pattern.
 func NewClientProfileService(
 	profileRepo repository.ProfileRepository,
-	orgRepo repository.OrganizationRepository,
+	orgRepo clientProfileOrgs,
 ) *ClientProfileService {
 	return &ClientProfileService{
 		profiles:      profileRepo,

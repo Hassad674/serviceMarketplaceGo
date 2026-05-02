@@ -15,16 +15,13 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
-// --- mockOrgRepo (minimal, KYC-aware) ---
-
+// mockOrgRepo implements the narrowed OrganizationReader the job
+// service actually consumes. The KYC check on a job application is the
+// only place the service touches the organizations table.
 type mockOrgRepo struct {
 	findByUserIDFn func(ctx context.Context, userID uuid.UUID) (*organization.Organization, error)
 }
 
-func (m *mockOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
-func (m *mockOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
-	return nil
-}
 func (m *mockOrgRepo) FindByID(context.Context, uuid.UUID) (*organization.Organization, error) {
 	return nil, nil
 }
@@ -39,43 +36,18 @@ func (m *mockOrgRepo) FindByUserID(ctx context.Context, userID uuid.UUID) (*orga
 	// test that doesn't care about KYC passes through the check.
 	return &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeProviderPersonal}, nil
 }
-func (m *mockOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
-func (m *mockOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
-func (m *mockOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
 func (m *mockOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
 	return nil, nil
 }
+func (m *mockOrgRepo) CountAll(context.Context) (int, error) { return 0, nil }
 func (m *mockOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
 	return nil, nil
-}
-func (m *mockOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
-	return "", "", nil
-}
-func (m *mockOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
-	return "", "", nil
-}
-func (m *mockOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
-	return nil
-}
-func (m *mockOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
-func (m *mockOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
-	return nil, nil
-}
-func (m *mockOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error { return nil }
-func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
-	return nil
-}
-func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
-	return nil
-}
-func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
-	return nil
 }
 func (m *mockOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
 	return nil, nil
 }
 
-var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
+var _ repository.OrganizationReader = (*mockOrgRepo)(nil)
 
 // --- mockJobRepo ---
 
