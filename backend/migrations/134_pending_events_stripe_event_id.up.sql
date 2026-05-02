@@ -1,4 +1,4 @@
--- 133_pending_events_stripe_event_id.up.sql
+-- 134_pending_events_stripe_event_id.up.sql
 --
 -- P8 (Stripe webhook async): adds `stripe_event_id` for deduplication
 -- of Stripe webhook events enqueued onto pending_events.
