@@ -87,6 +87,181 @@ const noRawImgPromoted = {
   },
 };
 
+// P9 — Features must NEVER import from each other. Composition lives
+// in `app/` pages or in `shared/`; cross-feature imports turn the
+// dependency graph into spaghetti and break the modularity contract
+// documented in `web/CLAUDE.md` ("Features NEVER import from other
+// features"). This rule keeps the audit at zero.
+//
+// The plugin is loaded transitively via `eslint-config-next`, so no
+// extra `plugins` block is needed.
+const noCrossFeatureImports = {
+  files: ["src/features/**"],
+  rules: {
+    "import/no-restricted-paths": [
+      "error",
+      {
+        zones: [
+          {
+            target: "./src/features/auth",
+            from: "./src/features",
+            except: ["./auth"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/account",
+            from: "./src/features",
+            except: ["./account"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/billing",
+            from: "./src/features",
+            except: ["./billing"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/call",
+            from: "./src/features",
+            except: ["./call"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/client-profile",
+            from: "./src/features",
+            except: ["./client-profile"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/dispute",
+            from: "./src/features",
+            except: ["./dispute"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/freelance-profile",
+            from: "./src/features",
+            except: ["./freelance-profile"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/invoicing",
+            from: "./src/features",
+            except: ["./invoicing"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/job",
+            from: "./src/features",
+            except: ["./job"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/messaging",
+            from: "./src/features",
+            except: ["./messaging"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/notification",
+            from: "./src/features",
+            except: ["./notification"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/organization-shared",
+            from: "./src/features",
+            except: ["./organization-shared"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/proposal",
+            from: "./src/features",
+            except: ["./proposal"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/provider",
+            from: "./src/features",
+            except: ["./provider"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/referral",
+            from: "./src/features",
+            except: ["./referral"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/referrer-profile",
+            from: "./src/features",
+            except: ["./referrer-profile"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/reporting",
+            from: "./src/features",
+            except: ["./reporting"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/review",
+            from: "./src/features",
+            except: ["./review"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/skill",
+            from: "./src/features",
+            except: ["./skill"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/subscription",
+            from: "./src/features",
+            except: ["./subscription"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/team",
+            from: "./src/features",
+            except: ["./team"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+          {
+            target: "./src/features/wallet",
+            from: "./src/features",
+            except: ["./wallet"],
+            message:
+              "Features must not import from other features. Extract shared logic to src/shared/.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 // P3 — `react/forbid-elements` blocks raw <button>, <input>, <select>
 // outside of the design-system primitives layer. Every site has been
 // migrated to the Button / Input / Select primitives in
@@ -134,6 +309,7 @@ const eslintConfig = defineConfig([
   unusedVarsConvention,
   noRawImgPromoted,
   noRawNativeFormElements,
+  noCrossFeatureImports,
 ]);
 
 export default eslintConfig;
