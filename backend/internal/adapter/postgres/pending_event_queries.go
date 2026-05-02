@@ -7,8 +7,32 @@ const queryInsertPendingEvent = `
 INSERT INTO pending_events (
     id, event_type, payload, fires_at,
     status, attempts, last_error,
-    processed_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    processed_at, created_at, updated_at,
+    stripe_event_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+`
+
+// queryInsertPendingEventStripeIdempotent is the Stripe-webhook path's
+// INSERT. The ON CONFLICT clause on the partial unique index over
+// stripe_event_id makes Stripe re-deliveries a silent no-op — the
+// caller cannot tell from the row count whether the event was a fresh
+// insert or a duplicate, which is the desired behaviour: either way
+// "the event is enqueued exactly once" is the post-condition we
+// promise the webhook handler.
+//
+// We use DO NOTHING (not DO UPDATE) because no field is allowed to
+// mutate after the original insert: the payload, fires_at, status all
+// belong to the first delivery and overwriting them on a retry would
+// reset the worker's progress (e.g. an in-progress dispatch could be
+// kicked back to status=pending).
+const queryInsertPendingEventStripeIdempotent = `
+INSERT INTO pending_events (
+    id, event_type, payload, fires_at,
+    status, attempts, last_error,
+    processed_at, created_at, updated_at,
+    stripe_event_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING
 `
 
 // queryPopDuePendingEvents claims up to N due rows in a single
@@ -58,7 +82,8 @@ FROM   due
 WHERE  e.id = due.id
 RETURNING e.id, e.event_type, e.payload, e.fires_at,
           e.status, e.attempts, e.last_error,
-          e.processed_at, e.created_at, e.updated_at
+          e.processed_at, e.created_at, e.updated_at,
+          e.stripe_event_id
 `
 
 const queryMarkPendingEventDone = `
@@ -82,7 +107,8 @@ WHERE  id = $1 AND status = 'processing'
 const queryGetPendingEventByID = `
 SELECT id, event_type, payload, fires_at,
        status, attempts, last_error,
-       processed_at, created_at, updated_at
+       processed_at, created_at, updated_at,
+       stripe_event_id
 FROM pending_events
 WHERE id = $1
 `

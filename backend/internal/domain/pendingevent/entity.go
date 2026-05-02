@@ -74,6 +74,30 @@ const (
 	//
 	// Payload: { "organization_id": "<uuid>" }
 	TypeSearchDelete EventType = "search.delete"
+
+	// TypeStripeWebhook is the outbox event emitted by the Stripe
+	// webhook HTTP handler the moment a delivery's signature is
+	// verified. The async worker pops it back, decodes the
+	// projected StripeWebhookEvent payload, and routes it through
+	// the event-type-specific Stripe handlers (subscription
+	// snapshot, invoice.paid, charge.refunded, etc.). The
+	// signature-verifying webhook responds 200 OK in <50ms while
+	// the heavy work (PDF generation, fan-out emails) runs out of
+	// band — Stripe's 10s timeout is a hard upper bound and the
+	// pre-async dispatch chain came uncomfortably close to it on
+	// invoice.paid + chrome PDF generation.
+	//
+	// Idempotency: the row is uniquely keyed on the Stripe
+	// `evt_*` id via the StripeEventID field on PendingEvent so a
+	// retried delivery (Stripe re-delivers on any non-2xx) lands
+	// on ON CONFLICT DO NOTHING — never a second row, never a
+	// double dispatch.
+	//
+	// Payload: the JSON-marshalled StripeWebhookEvent projection,
+	// stable across versions because we own its schema (it's the
+	// Go struct in port/service/stripe_service.go, not raw Stripe
+	// JSON).
+	TypeStripeWebhook EventType = "stripe.webhook"
 )
 
 // IsValid reports whether the type is one of the recognised values.
@@ -81,7 +105,8 @@ func (t EventType) IsValid() bool {
 	switch t {
 	case TypeMilestoneAutoApprove, TypeMilestoneFundReminder,
 		TypeProposalAutoClose, TypeStripeTransfer,
-		TypeSearchReindex, TypeSearchDelete:
+		TypeSearchReindex, TypeSearchDelete,
+		TypeStripeWebhook:
 		return true
 	}
 	return false
@@ -116,14 +141,21 @@ func (s Status) IsValid() bool {
 // be idempotent — a failed run will be retried, and a successful run
 // that crashes before marking the row done will be re-attempted at
 // the next tick.
+//
+// StripeEventID is set ONLY on TypeStripeWebhook rows and carries the
+// Stripe `evt_*` identifier so a re-delivered webhook (Stripe retries
+// on any non-2xx response) is deduplicated by a partial unique index
+// at the database layer. For every other event type the field stays
+// empty and the index ignores the row.
 type PendingEvent struct {
-	ID         uuid.UUID
-	EventType  EventType
-	Payload    json.RawMessage
-	FiresAt    time.Time
-	Status     Status
-	Attempts   int
-	LastError  *string
+	ID            uuid.UUID
+	EventType     EventType
+	Payload       json.RawMessage
+	FiresAt       time.Time
+	Status        Status
+	Attempts      int
+	LastError     *string
+	StripeEventID string
 
 	ProcessedAt *time.Time
 	CreatedAt   time.Time
@@ -137,10 +169,16 @@ type PendingEvent struct {
 const MaxAttempts = 5
 
 // NewPendingEventInput is the validated factory input.
+//
+// StripeEventID is OPTIONAL: when set, the persistence layer treats
+// the resulting row as a Stripe-deduplicated insert (ON CONFLICT
+// (stripe_event_id) DO NOTHING). When empty, the row is a normal
+// non-Stripe pending event and the unique index does not apply.
 type NewPendingEventInput struct {
-	EventType EventType
-	Payload   json.RawMessage
-	FiresAt   time.Time
+	EventType     EventType
+	Payload       json.RawMessage
+	FiresAt       time.Time
+	StripeEventID string
 }
 
 // NewPendingEvent builds a validated PendingEvent ready for INSERT.
@@ -156,16 +194,24 @@ func NewPendingEvent(input NewPendingEventInput) (*PendingEvent, error) {
 	if input.FiresAt.IsZero() {
 		return nil, ErrZeroFiresAt
 	}
+	if input.EventType == TypeStripeWebhook && input.StripeEventID == "" {
+		// Stripe webhook rows MUST carry the evt_* id — without it
+		// the deduplication index can't catch retries. Refusing the
+		// build at the domain boundary is the cheapest place to
+		// surface the contract violation.
+		return nil, ErrMissingStripeEventID
+	}
 	now := time.Now()
 	return &PendingEvent{
-		ID:        uuid.New(),
-		EventType: input.EventType,
-		Payload:   input.Payload,
-		FiresAt:   input.FiresAt,
-		Status:    StatusPending,
-		Attempts:  0,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            uuid.New(),
+		EventType:     input.EventType,
+		Payload:       input.Payload,
+		FiresAt:       input.FiresAt,
+		Status:        StatusPending,
+		Attempts:      0,
+		StripeEventID: input.StripeEventID,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}, nil
 }
 

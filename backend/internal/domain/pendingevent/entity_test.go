@@ -29,6 +29,7 @@ func TestEventType_IsValid(t *testing.T) {
 		{pendingevent.TypeStripeTransfer, true},
 		{pendingevent.TypeSearchReindex, true},
 		{pendingevent.TypeSearchDelete, true},
+		{pendingevent.TypeStripeWebhook, true},
 		{"", false},
 		{"unknown", false},
 	}
@@ -74,6 +75,27 @@ func TestNewPendingEvent_Happy(t *testing.T) {
 	}
 }
 
+// TestNewPendingEvent_StripeWebhookHappy covers the new TypeStripeWebhook
+// path: a valid event_id MUST round-trip into the entity so the
+// repository can persist it on the partial unique index. Without
+// this guard the constructor could silently drop the id and break
+// dedup at the database layer.
+func TestNewPendingEvent_StripeWebhookHappy(t *testing.T) {
+	in := validInput()
+	in.EventType = pendingevent.TypeStripeWebhook
+	in.StripeEventID = "evt_1Q9Zxq2eZvKYlo2C123456"
+	e, err := pendingevent.NewPendingEvent(in)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.StripeEventID != in.StripeEventID {
+		t.Errorf("StripeEventID = %q, want %q", e.StripeEventID, in.StripeEventID)
+	}
+	if e.EventType != pendingevent.TypeStripeWebhook {
+		t.Errorf("EventType = %q, want %q", e.EventType, pendingevent.TypeStripeWebhook)
+	}
+}
+
 func TestNewPendingEvent_Validation(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -83,6 +105,10 @@ func TestNewPendingEvent_Validation(t *testing.T) {
 		{"invalid type", func(in *pendingevent.NewPendingEventInput) { in.EventType = "bogus" }, pendingevent.ErrInvalidEventType},
 		{"empty payload", func(in *pendingevent.NewPendingEventInput) { in.Payload = nil }, pendingevent.ErrEmptyPayload},
 		{"zero fires_at", func(in *pendingevent.NewPendingEventInput) { in.FiresAt = time.Time{} }, pendingevent.ErrZeroFiresAt},
+		{"stripe webhook without event id", func(in *pendingevent.NewPendingEventInput) {
+			in.EventType = pendingevent.TypeStripeWebhook
+			in.StripeEventID = ""
+		}, pendingevent.ErrMissingStripeEventID},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

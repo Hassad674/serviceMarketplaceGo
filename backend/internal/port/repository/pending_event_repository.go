@@ -28,6 +28,18 @@ type PendingEventRepository interface {
 	// you get two rows.
 	Schedule(ctx context.Context, e *pendingevent.PendingEvent) error
 
+	// ScheduleStripe inserts a Stripe-webhook pending event with
+	// at-most-once-per-Stripe-event-id semantics. The implementation
+	// uses ON CONFLICT (stripe_event_id) DO NOTHING so a Stripe
+	// re-delivery (Stripe retries on any non-2xx response) is a
+	// silent no-op rather than a duplicate row.
+	//
+	// Returns (true, nil) on first delivery, (false, nil) when the
+	// event was already enqueued, or (_, err) on a database error.
+	// The caller must reply 200 OK to Stripe in both the inserted
+	// and deduplicated cases.
+	ScheduleStripe(ctx context.Context, e *pendingevent.PendingEvent) (bool, error)
+
 	// ScheduleTx inserts a new pending event inside an existing
 	// transaction. Used by the outbox pattern (BUG-05): callers
 	// committing a domain mutation alongside an `event` (e.g. a
