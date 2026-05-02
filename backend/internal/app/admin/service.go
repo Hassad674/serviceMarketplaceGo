@@ -39,7 +39,10 @@ type ServiceDeps struct {
 	Reviews            repository.ReviewRepository
 	Jobs               repository.JobRepository
 	Applications       repository.JobApplicationRepository
-	Proposals          repository.ProposalRepository
+	// Proposals is narrowed to ProposalReader — admin only reads stats
+	// (CountAll). Mutations go through the dispute / proposal app
+	// services, never through the admin facade.
+	Proposals          repository.ProposalReader
 	AdminConversations repository.AdminConversationRepository
 	MediaRepo          repository.MediaRepository
 	ModerationRepo     repository.AdminModerationRepository
@@ -71,7 +74,7 @@ type Service struct {
 	reviews            repository.ReviewRepository
 	jobs               repository.JobRepository
 	applications       repository.JobApplicationRepository
-	proposals          repository.ProposalRepository
+	proposals          repository.ProposalReader
 	adminConversations repository.AdminConversationRepository
 	mediaRepo          repository.MediaRepository
 	moderationRepo     repository.AdminModerationRepository

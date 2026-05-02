@@ -5,26 +5,21 @@ import (
 
 	"github.com/google/uuid"
 
-	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	reviewdomain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
 )
 
-// --- mockProposalRepo ---
+// mockProposalRepo implements the narrowed ProposalReader the
+// projecthistory service consumes. The legacy 16-method stub was
+// shrunk to the 12 reader methods — every dropped method belonged
+// to ProposalWriter / ProposalMilestoneStore and was unused here.
 
 type mockProposalRepo struct {
 	ListCompletedByOrganizationFunc    func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error)
 	ListCompletedByClientOrganizationFn func(orgID uuid.UUID, limit int) ([]*proposaldomain.Proposal, error)
 }
 
-func (m *mockProposalRepo) Create(context.Context, *proposaldomain.Proposal) error { return nil }
-func (m *mockProposalRepo) CreateWithDocuments(context.Context, *proposaldomain.Proposal, []*proposaldomain.ProposalDocument) error {
-	return nil
-}
-func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(context.Context, *proposaldomain.Proposal, []*proposaldomain.ProposalDocument, []*milestonedomain.Milestone) error {
-	return nil
-}
 func (m *mockProposalRepo) GetByID(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil
 }
@@ -34,7 +29,6 @@ func (m *mockProposalRepo) GetByIDForOrg(context.Context, uuid.UUID, uuid.UUID) 
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposaldomain.Proposal, error) {
 	return nil, nil
 }
-func (m *mockProposalRepo) Update(context.Context, *proposaldomain.Proposal) error { return nil }
 func (m *mockProposalRepo) GetLatestVersion(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil
 }
@@ -53,9 +47,6 @@ func (m *mockProposalRepo) ListCompletedByOrganization(ctx context.Context, orgI
 func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposaldomain.ProposalDocument, error) {
 	return nil, nil
 }
-func (m *mockProposalRepo) CreateDocument(context.Context, *proposaldomain.ProposalDocument) error {
-	return nil
-}
 func (m *mockProposalRepo) IsOrgAuthorizedForProposal(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return true, nil
 }
@@ -70,7 +61,7 @@ func (m *mockProposalRepo) ListCompletedByClientOrganization(_ context.Context, 
 	return nil, nil
 }
 
-var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
+var _ repository.ProposalReader = (*mockProposalRepo)(nil)
 
 // --- mockReviewRepo ---
 

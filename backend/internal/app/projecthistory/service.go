@@ -30,14 +30,17 @@ type Entry struct {
 }
 
 // ServiceDeps groups the repositories needed by the service.
+//
+// Proposals is narrowed to ProposalReader — the public project history
+// only ever lists completed missions; it never mutates a proposal.
 type ServiceDeps struct {
-	Proposals repository.ProposalRepository
+	Proposals repository.ProposalReader
 	Reviews   repository.ReviewRepository
 }
 
 // Service orchestrates the project history read.
 type Service struct {
-	proposals repository.ProposalRepository
+	proposals repository.ProposalReader
 	reviews   repository.ReviewRepository
 }
 
