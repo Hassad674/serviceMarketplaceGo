@@ -43,6 +43,13 @@ func (f *fakePendingEvents) ScheduleTx(_ context.Context, _ *sql.Tx, e *pendinge
 	return nil
 }
 
+// ScheduleStripe is required by the PendingEventRepository interface
+// after P8. The publisher does not exercise the Stripe webhook path,
+// so this stub returns success without recording the event.
+func (f *fakePendingEvents) ScheduleStripe(_ context.Context, _ *pendingevent.PendingEvent) (bool, error) {
+	return true, nil
+}
+
 func (f *fakePendingEvents) PopDue(_ context.Context, _ int) ([]*pendingevent.PendingEvent, error) {
 	return nil, nil
 }

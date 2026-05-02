@@ -123,13 +123,20 @@ func wireProfileHandler(deps profileHandlerDeps) *handler.ProfileHandler {
 // fans out diff-based multi-channel notifications when org KYC
 // fields change; the referral KYC listener drains parked
 // pending_kyc commissions the moment the referrer becomes payable.
+//
+// PendingEventsRepo is the P8 async-dispatch queue: when set, the
+// webhook HTTP handler enqueues onto it and replies 200 in <50ms,
+// and the dispatch chain runs in a background worker (registered in
+// adapter/worker/handlers/stripe_handlers.go). nil disables the
+// async path and HandleWebhook falls back to inline dispatch.
 type stripeHandlerDeps struct {
-	Cfg              *config.Config
-	PaymentInfoSvc   *paymentapp.Service
-	ProposalSvc      *proposalapp.Service
-	OrganizationRepo *postgres.OrganizationRepository
-	Notifications    *notifapp.Service
-	ReferralSvc      *referralapp.Service
+	Cfg               *config.Config
+	PaymentInfoSvc    *paymentapp.Service
+	ProposalSvc       *proposalapp.Service
+	OrganizationRepo  *postgres.OrganizationRepository
+	Notifications     *notifapp.Service
+	ReferralSvc       *referralapp.Service
+	PendingEventsRepo *postgres.PendingEventRepository
 }
 
 // wireStripeHandler builds the optional Stripe HTTP handler when
@@ -157,6 +164,15 @@ func wireStripeHandler(deps stripeHandlerDeps) *handler.StripeHandler {
 	// Stripe account becomes payable.
 	embeddedNotifier.SetReferralKYCListener(deps.ReferralSvc)
 	stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
+
+	// P8 — async dispatch via pending_events. With the queue wired,
+	// HandleWebhook verifies the signature, enqueues a TypeStripeWebhook
+	// row (ON CONFLICT (stripe_event_id) DO NOTHING for retries), and
+	// replies 200 in <50ms. The dispatch chain runs in the background
+	// worker registered by wirePendingEventsStripeHandler in main.go.
+	if deps.PendingEventsRepo != nil {
+		stripeHandler = stripeHandler.WithPendingEventsQueue(deps.PendingEventsRepo)
+	}
 	return stripeHandler
 }
 

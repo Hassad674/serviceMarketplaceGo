@@ -149,7 +149,16 @@ func (s *Service) buildMilestoneEvent(ctx context.Context, eventType pendingeven
 // AutoApproveMilestone runs (e.g. the client approved manually 1
 // minute before the timer fired), this method is a no-op and returns
 // nil so the worker marks the event done without retrying.
+//
+// P8 — defensive system-actor wrap. Today's only caller is the
+// pending_events worker, which already tags its root context with
+// system.WithSystemActor before dispatch. Wrapping here too costs
+// almost nothing (a single context.WithValue) and protects against
+// future direct callers (tests, ad-hoc CLI tools, an admin force-
+// auto-approve endpoint) hitting the legacy GetByID warn-if-not-
+// system-actor guard from rls.go.
 func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUID) error {
+	ctx = system.WithSystemActor(ctx)
 	m, err := s.milestones.GetByID(ctx, milestoneID)
 	if err != nil {
 		return fmt.Errorf("get milestone: %w", err)
@@ -307,7 +316,11 @@ func (s *Service) runEndOfProjectEffects(ctx context.Context, p *domain.Proposal
 // the milestone_fund_reminder handler. Sends a reminder notification
 // to the client. Idempotent: if the milestone is no longer in
 // pending_funding state when the event fires, no notification is sent.
+//
+// P8 — defensive system-actor wrap. See AutoApproveMilestone for
+// the rationale.
 func (s *Service) FundReminderForMilestone(ctx context.Context, milestoneID uuid.UUID) error {
+	ctx = system.WithSystemActor(ctx)
 	m, err := s.milestones.GetByID(ctx, milestoneID)
 	if err != nil {
 		return fmt.Errorf("get milestone: %w", err)
@@ -334,7 +347,11 @@ func (s *Service) FundReminderForMilestone(ctx context.Context, milestoneID uuid
 // declined, withdrawn) when the event fires, this method is a no-op.
 // If the next milestone has been funded since the schedule time,
 // also a no-op.
+//
+// P8 — defensive system-actor wrap. See AutoApproveMilestone for
+// the rationale.
 func (s *Service) AutoCloseProposal(ctx context.Context, proposalID uuid.UUID) error {
+	ctx = system.WithSystemActor(ctx)
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)

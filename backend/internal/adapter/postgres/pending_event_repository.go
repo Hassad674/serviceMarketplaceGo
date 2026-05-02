@@ -53,12 +53,60 @@ func (r *PendingEventRepository) Schedule(ctx context.Context, e *pendingevent.P
 		e.ID, string(e.EventType), e.Payload, e.FiresAt,
 		string(e.Status), e.Attempts, e.LastError,
 		e.ProcessedAt, e.CreatedAt, e.UpdatedAt,
+		nullableString(e.StripeEventID),
 	)
 	if err != nil {
 		return fmt.Errorf("insert pending event: %w", err)
 	}
 	return nil
 }
+
+// ScheduleStripe inserts a Stripe-webhook pending event with
+// at-most-once-per-evt-id semantics. Stripe retries deliver the same
+// event_id on any non-2xx response (and sometimes on transient
+// network conditions), so the webhook handler MUST treat a duplicate
+// as a no-op rather than a second worker dispatch. ON CONFLICT
+// (stripe_event_id) DO NOTHING gives us that guarantee at the
+// database layer — even under concurrent webhook deliveries from
+// Stripe's parallel retry workers.
+//
+// Returns (true, nil) when the row was inserted (first delivery),
+// (false, nil) when the row was a duplicate (silent dedup), or
+// (_, err) on a database failure. The webhook handler maps the
+// boolean into a structured log line so operators can see the
+// dedup ratio in dashboards.
+func (r *PendingEventRepository) ScheduleStripe(ctx context.Context, e *pendingevent.PendingEvent) (bool, error) {
+	if e.StripeEventID == "" {
+		return false, fmt.Errorf("schedule stripe pending event: stripe_event_id is required")
+	}
+	if e.EventType != pendingevent.TypeStripeWebhook {
+		return false, fmt.Errorf("schedule stripe pending event: event type must be %q, got %q",
+			pendingevent.TypeStripeWebhook, e.EventType)
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, queryInsertPendingEventStripeIdempotent,
+		e.ID, string(e.EventType), e.Payload, e.FiresAt,
+		string(e.Status), e.Attempts, e.LastError,
+		e.ProcessedAt, e.CreatedAt, e.UpdatedAt,
+		e.StripeEventID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("insert stripe pending event: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		// pq always reports RowsAffected; this branch is defensive.
+		return false, fmt.Errorf("rows affected: %w", err)
+	}
+	return affected > 0, nil
+}
+
+// (nullableString lives in milestone_transition_repository.go and
+// returns sql.NullString — reused here to keep the empty-string-as-
+// NULL behaviour consistent across all repositories that bind
+// optional TEXT columns.)
 
 // ScheduleTx inserts a pending event inside an existing transaction.
 // The caller owns the transaction lifecycle — Begin / Commit /
@@ -76,6 +124,7 @@ func (r *PendingEventRepository) ScheduleTx(ctx context.Context, tx *sql.Tx, e *
 		e.ID, string(e.EventType), e.Payload, e.FiresAt,
 		string(e.Status), e.Attempts, e.LastError,
 		e.ProcessedAt, e.CreatedAt, e.UpdatedAt,
+		nullableString(e.StripeEventID),
 	)
 	if err != nil {
 		return fmt.Errorf("insert pending event in tx: %w", err)
@@ -207,14 +256,16 @@ func (r *PendingEventRepository) GetByID(ctx context.Context, id uuid.UUID) (*pe
 func scanPendingEvent(s scanner) (*pendingevent.PendingEvent, error) {
 	var e pendingevent.PendingEvent
 	var (
-		eventType string
-		status    string
-		lastError sql.NullString
+		eventType     string
+		status        string
+		lastError     sql.NullString
+		stripeEventID sql.NullString
 	)
 	if err := s.Scan(
 		&e.ID, &eventType, &e.Payload, &e.FiresAt,
 		&status, &e.Attempts, &lastError,
 		&e.ProcessedAt, &e.CreatedAt, &e.UpdatedAt,
+		&stripeEventID,
 	); err != nil {
 		return nil, err
 	}
@@ -223,6 +274,9 @@ func scanPendingEvent(s scanner) (*pendingevent.PendingEvent, error) {
 	if lastError.Valid {
 		err := lastError.String
 		e.LastError = &err
+	}
+	if stripeEventID.Valid {
+		e.StripeEventID = stripeEventID.String
 	}
 	return &e, nil
 }
