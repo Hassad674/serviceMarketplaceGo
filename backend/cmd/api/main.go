@@ -54,15 +54,17 @@ func main() {
 		// Non-fatal: tracing failure must never block the server boot.
 		slog.Warn("otel init failed, continuing without tracing", "error", err)
 	}
-	// otelShutdown is also invoked by runServer's graceful-shutdown
-	// 3-step (commit 5) — the deferred call here is a defence-in-
-	// depth flush in case the program exits before reaching that path
-	// (panic, os.Exit upstream).
+	// otelShutdown is invoked by runServer's graceful-shutdown 3-step
+	// (phase 3 — workers + flush). The deferred fallback below covers
+	// abnormal exits where runServer never returns (panic, os.Exit
+	// upstream) so spans are flushed even when the SIGTERM path is
+	// not taken. The OTel SDK's Shutdown is idempotent — calling it
+	// from both sites is safe.
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if err := otelShutdown(ctx); err != nil {
-			slog.Warn("otel shutdown error", "error", err)
+			slog.Debug("otel deferred shutdown noop or already-flushed", "error", err)
 		}
 	}()
 
@@ -737,11 +739,28 @@ func main() {
 		RateLimiter:          httpRateLimiter,
 	})
 
-	// Run server + drive graceful shutdown — see wire_serve.go.
+	// Run server + drive 3-step graceful shutdown — see wire_serve.go.
+	// Every CancelFunc that drives a long-running goroutine (workers,
+	// schedulers, in-flight upload tracking) is threaded through so
+	// the SIGTERM path drains them in phase 3 before the process
+	// exits. The deferred cancel calls earlier in this function stay
+	// — they cover the panic / os.Exit upstream paths where runServer
+	// never returns.
 	runServer(serveDeps{
 		Cfg:           cfg,
 		Router:        r,
+		WSHub:         infra.WSHub,
 		UploadCancel:  uploadCancel,
 		UploadHandler: uploadHandler,
+		WorkerCancels: []context.CancelFunc{
+			notifWorkerCancel,
+			pendingEventsCancel,
+			mediaWorkerCancel,
+			kycCancel,
+			disputeCancel,
+			gdprCancel,
+			infraCancel,
+		},
+		OtelShutdown: otelShutdown,
 	})
 }
