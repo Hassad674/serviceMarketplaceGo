@@ -196,13 +196,6 @@ const queryInsertMessage = `
 	INSERT INTO messages (id, conversation_id, sender_id, content, msg_type, metadata, reply_to_id, seq, status, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
-// queryUpdateConversationTimestamp is kept as the legacy single-column
-// path for any future caller that bumps `updated_at` without a
-// message context (none today). The hot path — message inserts — uses
-// queryUpdateConversationLastMessage instead.
-const queryUpdateConversationTimestamp = `
-	UPDATE conversations SET updated_at = $2 WHERE id = $1`
-
 // queryUpdateConversationLastMessage denormalizes the just-inserted
 // message preview onto the conversation row. Maintained inside the
 // same transaction as the INSERT into messages (createMessageInTx)
