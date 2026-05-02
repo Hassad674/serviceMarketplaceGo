@@ -8,6 +8,7 @@ import (
 	"marketplace-backend/internal/adapter/worker/handlers"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	"marketplace-backend/internal/domain/pendingevent"
+	"marketplace-backend/internal/handler"
 )
 
 // newPendingEventsWorker builds the phase-6 unified scheduler. Runs
@@ -26,6 +27,11 @@ import (
 // The search-related event types are registered later, by
 // wireSearchIndexer, when Typesense is configured — both helpers
 // share the same *worker.Worker instance returned here.
+//
+// The Stripe webhook handler is registered later by
+// registerStripeWebhookWorker (called from main.go after the
+// StripeHandler is wired), keeping this constructor free of the
+// stripe / handler / app cross-imports.
 func newPendingEventsWorker(
 	pendingEventsRepo *postgres.PendingEventRepository,
 	proposalSvc *proposalapp.Service,
@@ -44,4 +50,22 @@ func newPendingEventsWorker(
 	// previous deploy get marked "done" on the next worker tick.
 	w.Register(pendingevent.TypeStripeTransfer, handlers.NewLegacyStripeTransferDrainHandler())
 	return w
+}
+
+// registerStripeWebhookWorker attaches the P8 async Stripe webhook
+// handler to an already-built worker. Called from main.go after the
+// StripeHandler is wired so the dispatcher is non-nil.
+//
+// When stripeHandler is nil (Stripe not configured for this
+// deployment) the registration is a no-op — the webhook HTTP route
+// is also absent, so no row of TypeStripeWebhook will ever land in
+// the queue.
+func registerStripeWebhookWorker(w *worker.Worker, stripeHandler *handler.StripeHandler) {
+	if w == nil || stripeHandler == nil {
+		return
+	}
+	w.Register(
+		pendingevent.TypeStripeWebhook,
+		handlers.NewStripeWebhookHandler(stripeHandler),
+	)
 }
