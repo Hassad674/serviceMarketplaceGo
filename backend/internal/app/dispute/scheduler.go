@@ -13,6 +13,7 @@ import (
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // schedulerDisputes is the local composite the dispute scheduler
@@ -67,7 +68,16 @@ func NewScheduler(deps SchedulerDeps) *Scheduler {
 }
 
 // Run blocks until ctx is cancelled. Ticks every interval + runs immediately.
+//
+// P8 — defensive system-actor wrap on the goroutine root context. The
+// caller in cmd/api/wire_dispute.go already wraps once, but
+// duplicating the tag here costs nothing (context.WithValue is
+// O(1)) and removes the dependency on every caller getting the wrap
+// right. Downstream repository calls (DisputeWriter.Update,
+// ProposalReader.GetByID via system-actor branch) are safe under
+// NOSUPERUSER NOBYPASSRLS only when this tag is in the chain.
 func (s *Scheduler) Run(ctx context.Context, interval time.Duration) {
+	ctx = system.WithSystemActor(ctx)
 	s.tick(ctx)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

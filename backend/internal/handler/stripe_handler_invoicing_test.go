@@ -81,7 +81,7 @@ func TestHandleInvoicePaid_DispatchesToInvoicingService(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleInvoicePaid(r, event)
+	h.handleInvoicePaid(r.Context(), event)
 
 	assert.Equal(t, 1, tracking.pdfCalls, "pdf renderer must be called exactly once")
 	assert.Equal(t, 1, tracking.uploadCalls, "r2 upload must be called exactly once")
@@ -110,7 +110,7 @@ func TestHandleInvoicePaid_NoOpWhenInvoicingDisabled(t *testing.T) {
 
 	// Must not panic, must not produce side effects when feature is
 	// off — the only assertion is that the call is a clean no-op.
-	h.handleInvoicePaid(r, event)
+	h.handleInvoicePaid(r.Context(), event)
 }
 
 func TestHandleInvoicePaid_NoOpWhenNotSubscriptionInvoice(t *testing.T) {
@@ -129,7 +129,7 @@ func TestHandleInvoicePaid_NoOpWhenNotSubscriptionInvoice(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleInvoicePaid(r, event)
+	h.handleInvoicePaid(r.Context(), event)
 
 	assert.Equal(t, 0, tracking.pdfCalls, "non-subscription invoice must not reach the invoicing service")
 	assert.Equal(t, 0, tracking.persistCalls)
