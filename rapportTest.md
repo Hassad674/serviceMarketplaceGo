@@ -1,9 +1,24 @@
-# Rapport Tests + Migrations + DB — Final Deep
+# Rapport Tests + Migrations + DB — Final Verification
 
-**Date** : 2026-05-01 (final audit before public showcase)
-**Branche** : `chore/final-audit-deep`
+**Date** : 2026-05-01 (final verification post F.1 + F.2)
+**Branche** : `chore/final-verification-audit`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
-**Méthodologie** : audit statique sans `go test` ni `flutter test` exécutés. File-level coverage = `non-test files avec un _test.go companion / total non-test files`. Migrations = analyse SQL pure. Cross-référence avec PRs #31-#66 fusionnés.
+**Méthodologie** : audit statique + run réel `go test ./... -count=1` (PASS, all green) + cross-référence avec PRs #31 → #91 mergés.
+
+---
+
+## Verification: backend test suite green
+
+`cd backend && go build ./... && go vet ./... && go test ./... -count=1 -timeout 120s` — **all passing**, 0 failures, 0 race conditions detected (where -race enabled). gosec sweep: 652 files, 0 issues, 41 nosec annotations.
+
+## What changed since previous round (F.1 + F.2 PRs #67 → #91)
+
+- **P5 (#74)** GDPR endpoints — new `app/gdpr/` (Service, Scheduler, Signer) + `gdpr_handler.go` + `routes_gdpr.go` + `app/gdpr/service_test.go`, `scheduler_test.go`. Tests cover Export, RequestDeletion, ConfirmDeletion, CancelDeletion, salt-anonymization purge.
+- **P6 (#85)** Last_message denormalisation — m.133, conversation queries refactored, `bench_test.go` for the denormalized list path.
+- **P8 (#86)** Stripe webhook async via pending_events — m.134 dedup column, stripe handler async dispatch.
+- **P9 (#89)** Web cross-feature ESLint enforcement — `eslint.config.mjs` with 33 `import/no-restricted-paths` zones.
+- **P10 (#87)** ReadHeaderTimeout slowloris guard, slow query logger, mutation rate limit anonymous fallback. `wire_serve_test.go` (258 LOC), `slow_query_test.go` (359 LOC), `ratelimit_test.go` extended (+234 LOC).
+- **P11 (#88)** OTel SDK + 3-step graceful shutdown. `internal/observability/otel_test.go`.
 
 ---
 

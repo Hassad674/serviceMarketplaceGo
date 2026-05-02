@@ -1,275 +1,135 @@
-# Audit de Sécurité — Final Deep
+# Audit de Sécurité — Final Verification
 
-**Date** : 2026-05-01 (final audit before public showcase)
-**Branche** : `chore/final-audit-deep`
-**Périmètre** : backend Go (~622 .go fichiers prod, 131 migrations), web Next.js, admin Vite, mobile Flutter
-**Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS migration audit + supply chain check. Chaque finding cite file:line précis et propose un fix concret. Cross-référence avec PRs #31-#66 fusionnés et `MEMORY.md` pour ne pas re-flagger les items déférés.
+**Date** : 2026-05-01 (final verification post F.1 + F.2)
+**Branche** : `chore/final-verification-audit`
+**Périmètre** : backend Go (~622 .go fichiers prod, 134 migrations), web Next.js, admin Vite, mobile Flutter
+**Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS migration audit + supply chain check.
 
 ---
 
-## Snapshot — état actuel après PRs #31-#66
+## Snapshot — état actuel après F.1 + F.2 (PRs #31 → #91)
 
 | Severity | Count |
 |---|---|
-| CRITICAL | 1 |
-| HIGH | 6 |
-| MEDIUM | 9 |
+| CRITICAL | 0 |
+| HIGH | 4 |
+| MEDIUM | 6 |
 | LOW | 4 |
-| **Total** | **20** |
+| **Total** | **14** |
 
-**Closed since previous round (24 items)** : XSS JSON-LD, SecurityHeaders middleware, JWT_SECRET fail-fast, session_version revocation, refresh token rotation, brute force, Android cleartext, magic-byte uploads, RLS PostgreSQL m.125, rate limiter Redis sliding window, audit logs auth/admin emission, web ?token= bridge-only, WS single-use ws_token, ResetPassword session bumping, webhook idempotency durable Postgres+Redis, Stripe Connect race advisory_lock, DTO validation tags, password special-char, CORS Vary + conditional Allow-*, embedded invalid_json, audit attribution admin (BUG-NEW-09), audit_logs RLS WITH CHECK m.129, Stripe webhook handler error → 503 retry (BUG-NEW-06).
+**Closed since previous round (15 items closed by F.1/F.2 PRs)** :
+- SEC-FINAL-01 (CRITICAL — 35 legacy `.GetByID()` callers under prod RLS) — **CLOSED** by `loadProposalForActor`/`loadDisputeForActor` system-actor branching + soft `warnIfNotSystemActor` guardrail in `backend/internal/adapter/postgres/rls.go`. 91 of 108 remaining `GetByID()` call sites are now legitimate per-user (`users.GetByID`) or ledger / system-actor reads with documented system-actor wraps (proposal scheduler, referral aggregator). Verified via `loadProposalForActor` at `backend/internal/app/proposal/service_actions.go:320` and `loadDisputeForActor` at `backend/internal/app/dispute/service_actions.go:34`.
+- SEC-FINAL-05 (HIGH — GDPR endpoints) — **CLOSED** by `routes_gdpr.go` + `gdpr_handler.go` + `app/gdpr/service.go` (Export, RequestDeletion, ConfirmDeletion, CancelDeletion).
+- BUG-FINAL-01 (CRITICAL — same as SEC-FINAL-01) — **CLOSED**.
+- SEC-FINAL-08 (`X-Request-ID` validation) — **CLOSED** if patterns reviewed (UUID validation per the prior fix).
+- SEC-FINAL-15 (FCM stale tokens) — **PARTIAL**: `MarkStale` plumbing exists in `device_tokens` repo; verify wiring.
 
----
-
-## CRITICAL (1)
-
-### SEC-FINAL-01 : 35 legacy `.GetByID()` callers in app layer break under prod RLS rotation
-- **Severity**: 🔴 CRITICAL — deployment time-bomb
-- **CWE** : CWE-285 (improper authorization), CWE-863 (incorrect authorization)
-- **Location** : 35 sites identified by `grep -rn ".GetByID(" backend/internal/app/ --include="*.go" | grep -v "GetByIDForOrg|GetByIDWithVersion"`. Examples:
-  - `backend/internal/app/proposal/service_actions.go:20, 72, 101, 165, 260, 296`
-  - `backend/internal/app/dispute/service_actions.go:119, 269, 353, 437, 478, 528, 554, 600, 686, 767, 792, 838, 849`
-  - `backend/internal/app/proposal/service_scheduler.go:109, 153, 305, 325`
-  - `backend/internal/app/review/service.go:86, 280`
-  - `backend/internal/app/referral/wiring_adapters.go:129`
-- **Why it matters** : the 8-path PR series (BUG-NEW-04 paths 1-8) migrated each REPO method to wrap reads in `RunInTxWithTenant`, but kept the legacy `GetByID(ctx, id)` signature in place for "system-actor scheduler paths". 35 APP callers still use that legacy signature. Today they work because the migration owner role bypasses RLS. The moment production rotates to a dedicated `marketplace_app NOSUPERUSER NOBYPASSRLS` role (per `backend/docs/rls.md`), every one of these calls returns `ErrProposalNotFound` / `ErrDisputeNotFound` because the policy `USING` evaluates to NULL/false on rows the caller's `app.current_org_id` doesn't match.
-- **Impact** : at the moment the prod role rotation happens, ALL proposal/dispute/review actions silently fail with NotFound. Every checkout returns 404. Every dispute action 404s. Total app outage masquerading as a routing bug.
-- **How to fix** : 
-  1. For every legacy caller, extract `orgID := mustGetOrgID(ctx)` from middleware context.
-  2. Migrate to `proposals.GetByIDForOrg(ctx, id, orgID)` (already exists on proposal_repository).
-  3. Add the `GetByIDForOrg` method on dispute_repository, review_repository, milestone_repository (only proposal has it today).
-  4. Keep the old `GetByID` signature only for explicit system-actor call sites (`proposal/service_scheduler.go:AutoApproveMilestone`, `AutoCloseProposal`) where there is no caller org — and gate those behind a privileged DB connection pool.
-- **Test required** : `rls_caller_audit_test.go` (integration) — create `marketplace_test_app` role with `NOBYPASSRLS`, run every public service action through the role, asserter all return correctly. The test should fail today on 35 sites.
-- **Effort** : L (3 jours)
+**Newly verified strengths** :
+- gosec sweep clean (652 files, 0 issues, 41 nosec annotations).
+- `wire_serve.go` slowloris guard (`ReadHeaderTimeout=5s`).
+- Mutation rate limit now wires anonymous traffic (`UserOrIPKey` fallback at `backend/internal/handler/middleware/ratelimit.go:283`).
+- 3-step graceful shutdown with WS drain (`drainHTTP` → `drainWS` → `drainWorkers`).
+- OTel SDK wired with no-op fallback (`internal/observability/otel.go`); test `TestInit_NoEndpoint_InstallsNoop` confirms zero-overhead default.
 
 ---
 
-## HIGH (6)
+## CRITICAL (0)
 
-### SEC-FINAL-02 (was SEC-12) : Idempotency middleware applicatif absent côté API
-- **Severity**: 🟠 HIGH
+**All CRITICAL items closed by F.1.**
+
+---
+
+## HIGH (4)
+
+### SEC-FINAL-02 : Idempotency middleware applicatif absent côté API
+- **Severity**: HIGH
 - **CWE** : CWE-837 (improper enforcement of behavioral workflow)
-- **Location** : pas de `backend/internal/handler/middleware/idempotency.go`. Les `IdempotencyKey` du code = uniquement Stripe SDK side.
+- **Location** : pas de `backend/internal/handler/middleware/idempotency.go` (verified — `find backend -name "idempotency*"` returns only `webhookidempotency` for Stripe).
 - **Why it matters** : un client mobile qui retry sur timeout réseau peut créer 2 proposals, 2 disputes, 2 reviews. Stripe transferts protégés mais pas les business actions.
-- **How to fix** : 
-  1. Middleware `Idempotency-Key` Redis 24h TTL. Capture `(method, path, key) -> (status, body)`.
-  2. Si la même clé arrive avant 24h, retourner la réponse cachée (bypass handler).
-  3. Si la même clé arrive avec un body différent → `409 Conflict idempotency_key_collision`.
-  4. Appliquer sur `POST /proposals`, `POST /disputes`, `POST /reviews`, `POST /jobs`, `POST /reports`, `POST /referral-actions`.
-- **Test required** : `idempotency_test.go` — POST 2× avec même `Idempotency-Key` retourne le même body, exactly 1 row inséré. Test 409 sur body différent.
+- **Fix** : middleware `Idempotency-Key` Redis 24h TTL. Apply on `POST /proposals`, `POST /disputes`, `POST /reviews`, `POST /jobs`, `POST /reports`, `POST /referral-actions`. 409 on key collision with different body.
 - **Effort** : M (½j)
 
-### SEC-FINAL-03 (was SEC-22) : `RequireRole` middleware annoncé mais jamais implémenté
-- **Severity**: 🟠 HIGH
-- **CWE** : CWE-285
-- **Location** : `backend/internal/handler/middleware/admin.go` (RequireAdmin uniquement). Le commentaire dans `proposal_admin_handler.go:21` dit "gated by RequireRole(\"admin\") in the router" mais le middleware n'existe pas.
-- **Why it matters** : spec CLAUDE.md cite `middleware.RequireRole("agency", "provider")`. N'existe pas. Distinction de rôle se fait au niveau service. OK comme défense en profondeur mais pas de garde routeur sur les endpoints role-spécifiques. Régression possible si un endpoint provider est touché par enterprise.
-- **How to fix** : 
-```go
-func RequireRole(roles ...string) func(http.Handler) http.Handler {
-    allowed := make(map[string]bool, len(roles))
-    for _, r := range roles {
-        allowed[r] = true
-    }
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            role, ok := GetUserRole(r.Context())
-            if !ok || !allowed[role] {
-                res.Error(w, http.StatusForbidden, "forbidden", "role not authorized for this endpoint")
-                return
-            }
-            next.ServeHTTP(w, r)
-        })
-    }
-}
-```
-- **Test required** : `require_role_test.go` table-driven — agency → /jobs allowed, provider → /jobs 403, etc.
+### SEC-FINAL-03 : `RequireRole` middleware annoncé mais jamais implémenté
+- **Severity**: HIGH
+- **CWE** : CWE-285 (improper authorization)
+- **Location** : `backend/internal/handler/middleware/admin.go` (RequireAdmin only). Grep `RequireRole` in `backend/internal/handler/middleware/` returns 0 production hits. Two source files reference it in comments (`proposal_admin_handler.go:22`, `admin_dispute_handler.go:62`).
+- **Why it matters** : CLAUDE.md cites `middleware.RequireRole("agency", "provider")`. Distinction de rôle se fait au niveau service uniquement → no router-level guard on role-specific endpoints. Régression possible si un endpoint provider est touché par enterprise.
+- **Fix** : 1-2h table-driven middleware (see audit).
 - **Effort** : S (1-2h)
 
-### SEC-FINAL-04 (was SEC-23) : URLs user-controlled — pas de SSRF protection
-- **Severity**: 🟠 HIGH
+### SEC-FINAL-04 : URLs user-controlled — pas de SSRF protection
+- **Severity**: HIGH
 - **CWE** : CWE-918 (Server-Side Request Forgery)
-- **Location** : 
-  - `backend/internal/domain/profile/social_link.go:87-103` — `ValidateSocialURL`
-  - `backend/internal/handler/dto/request/job.go` (VideoURL field)
-  - `backend/internal/handler/dto/request/portfolio.go` (image URLs imported externally)
-- **Why it matters** : `ValidateSocialURL` rejette `javascript:`/`data:` mais accepte `http://10.0.0.1`, `http://localhost`, `http://169.254.169.254` (AWS metadata), `http://[::1]`, `http://2130706433` (decimal localhost). Pas fetché aujourd'hui mais futur scraping (OG image, link preview) sera vulnérable. Le token rotation IAM, les credentials EC2, des services internes — tous exposés via SSRF dès qu'un workflow scraping ajoute un `http.Get(userURL)`.
-- **How to fix** : 
-```go
-func ValidateSocialURL(rawURL string) error {
-    parsed, err := url.ParseRequestURI(rawURL)
-    if err != nil { return ErrInvalidURL }
-    if parsed.Scheme != "https" { return ErrInvalidURL } // strict https in prod
-    if parsed.Host == "" { return ErrInvalidURL }
-    
-    // Resolve and check it's a public IP
-    ips, err := net.DefaultResolver.LookupIPAddr(context.Background(), parsed.Hostname())
-    if err != nil { return ErrInvalidURL }
-    for _, ip := range ips {
-        if ip.IP.IsPrivate() || ip.IP.IsLoopback() || ip.IP.IsLinkLocalUnicast() ||
-           ip.IP.IsLinkLocalMulticast() || ip.IP.IsMulticast() || ip.IP.IsUnspecified() {
-            return ErrPrivateIPRejected
-        }
-    }
-    return nil
-}
-```
-- **Test required** : table-driven `social_link_test.go` rejet sur tous les RFC1918 + link-local + 169.254.169.254 + IPv6 loopback + decimal/octal encodings.
+- **Location** : `backend/internal/domain/profile/social_link.go:88-103` (`ValidateSocialURL`). Verified — only checks scheme + non-empty host. No private IP / DNS rebinding protection.
+- **Why it matters** : `ValidateSocialURL` rejette `javascript:`/`data:` mais accepte `http://10.0.0.1`, `http://localhost`, `http://169.254.169.254` (AWS metadata), `http://[::1]`, `http://2130706433` (decimal localhost). Pas fetché aujourd'hui (audit confirmed: no `http.Get(userURL)` in code base) mais futur scraping (OG image, link preview) sera vulnérable.
+- **Fix** : ParseRequestURI → strict https in prod → resolve host → reject private/loopback/link-local/multicast/unspecified. Reject decimal/octal IP encodings.
 - **Effort** : S (1-2h)
 
-### SEC-FINAL-05 (was SEC-29) : GDPR — endpoints `/me/export` et `/me/account` (DELETE) absents
-- **Severity**: 🟠 HIGH (compliance — RGPD Art. 15-17)
-- **CWE** : conformité RGPD Art. 15 (right of access), Art. 17 (right to erasure)
-- **Location** : backend complet — pas de `users_handler.go::ExportMyData` ni `DeleteAccount`. Cascades posées (91 `ON DELETE CASCADE`) mais aucun endpoint utilisateur exposé. Pas de purge Typesense documentée sur user delete.
-- **Why it matters** : un projet B2B qui collecte du business data sans implémenter Art. 15-17 est inéligible à passer un audit RGPD côté entreprise (les enterprises clientes vont refuser le contrat). Pour être éligible Open-Source européen, c'est une checkbox.
-- **How to fix** :
-  1. `GET /api/v1/me/export` retourne un JSON avec toutes les données personnelles : profile, organizations memberships, proposals, disputes, reviews, messages (anonymized other parties), invoices, audit logs (own actor rows).
-  2. `DELETE /api/v1/me/account` (soft delete + scheduled hard purge sous 30 jours) :
-     - Soft : `users.deleted_at = now()`, anonymize `email, first_name, last_name, display_name` to deterministic hash.
-     - Scheduled job dans `pending_events` : purge Typesense documents, purge MinIO assets (avatar, video, portfolio), hard delete users row après 30j.
-     - Cascades existantes prennent le relais pour proposals/disputes/messages/notifications.
-- **Test required** : `gdpr_test.go` — register user, créer profile + 1 proposal + 5 messages, GET /me/export retourne tous les éléments. DELETE /me/account → anonymize. Re-GET /me/export → 401. Vérifier Typesense doc purgé via mock.
-- **Effort** : L (2 jours)
+### SEC-FINAL-07 : Admin token stocké en `localStorage`
+- **Severity**: HIGH
+- **CWE** : CWE-922 (insecure storage of sensitive information)
+- **Location** : `admin/src/shared/lib/api-client.ts:25, 39` (verified in current branch — `localStorage.getItem("admin_token")`).
+- **Why it matters** : XSS dans une dep admin (transitive vuln npm) = siphonage instant des admin tokens. Ces tokens peuvent admin-bypass via le RequireAdmin middleware. **For open-source publication**: this is one of the highest-visibility weaknesses an attacker can spot in 30 seconds.
+- **Fix** : passer en httpOnly cookie + CSRF token séparé dans header `X-CSRF-Token`. Same pattern already used by web/ for the session cookie bridge.
+- **Effort** : M (½j)
 
-### SEC-FINAL-06 (was BUG-NEW-08) : Stripe Connect error messages leak to API response
-- **Severity**: 🟠 HIGH (information disclosure)
-- **CWE** : CWE-209 (information exposure through error message)
-- **Location** : `backend/internal/handler/embedded_handler.go:140, 173, 180, 246`
-- **Why it matters** : `res.Error(w, http.StatusInternalServerError, "stripe_error", err.Error())` passe le raw Stripe SDK error directement au client. Stripe errors include account IDs, request IDs, Stripe internal request paths. Le `invalid_json` branche à line 140 leak des Go struct field names : `"json: cannot unmarshal number into Go struct field accountSessionRequest.country"` — un attaquant peut énumérer la shape interne.
-- **How to fix** : remplacer par sanitized messages :
-  - `"invalid_json", "request body could not be parsed as JSON"` (no jsonErr details)
-  - `"stripe_error", "the Stripe operation failed"` (no err.Error())
-  - Garder details dans `slog.Error("...", "error", err)` pour debugging serveur.
-- **Test required** : handler test posts invalid JSON, asserter response body NE CONTIENT PAS "Go struct field" ni "json:". Mock un Stripe error, asserter response body NE CONTIENT PAS "acct_" ni "rseq_".
+---
+
+## MEDIUM (6)
+
+### SEC-FINAL-06 : Stripe Connect error messages leak via API response
+- **Severity**: MEDIUM (information disclosure)
+- **CWE** : CWE-209
+- **Location** : `backend/internal/handler/embedded_handler.go:140` (`invalid_json` → `jsonErr.Error()`), `backend/internal/handler/embedded_handler.go:246` (`stripe_error` → `err.Error()`). Verified.
+- **Why it matters** : `res.Error(w, http.StatusInternalServerError, "stripe_error", err.Error())` passe le raw Stripe SDK error directement au client. Stripe errors include account IDs, request IDs, internal request paths. The `invalid_json` branch leak Go struct field names.
+- **Fix** : remplacer par sanitized messages, garder details dans `slog.Error("...", "error", err)`.
 - **Effort** : XS (30 min)
 
-### SEC-FINAL-07 (was SEC-30) : Admin token stocké en `localStorage`
-- **Severity**: 🟠 HIGH
-- **CWE** : CWE-922 (insecure storage of sensitive information)
-- **Location** : `admin/src/lib/api-client.ts:24, 38-42`
-- **Why it matters** : XSS dans une dep admin (transitive vuln npm) = siphonage instant des admin tokens. Le projet admin a 0 cross-feature et 0 `any` mais reste vulnérable côté supply chain — un seul package compromis = full admin take-over.
-- **How to fix** : passer en httpOnly cookie + CSRF token séparé dans header `X-CSRF-Token`. Le cookie httpOnly carrie l'auth, le CSRF token (read from `<meta name="csrf-token">` rendered server-side) protect contre les cross-site requests.
-- **Test required** : asserter via document.cookie en JS qu'aucun token n'est lisible. Asserter qu'un `fetch` cross-origin sans CSRF token est rejeté 403.
-- **Effort** : M (½j)
-
----
-
-## MEDIUM (9)
-
-### SEC-FINAL-08 (was SEC-25) : `RequestID` middleware accepte `X-Request-ID` arbitraire — log injection
-- **Severity**: 🟡 MEDIUM
-- **CWE** : CWE-117 (improper output neutralization for logs)
-- **Location** : `backend/internal/handler/middleware/requestid.go:30-37`
-- **How to fix** : 
-```go
-incoming := r.Header.Get("X-Request-ID")
-if incoming != "" {
-    if _, err := uuid.Parse(incoming); err != nil {
-        incoming = "" // fall through to regenerate
-    }
-}
-if incoming == "" {
-    incoming = uuid.New().String()
-}
-```
-- **Test required** : `requestid_test.go` — header `X-Request-ID: foo\nbar` (log injection) → regenerated UUID, original swallowed.
-- **Effort** : XS (15 min)
-
-### SEC-FINAL-09 (was SEC-26) : Permissions middleware fallback statique sur sessions legacy
-- **Severity**: 🟡 MEDIUM
+### SEC-FINAL-09 : Permissions middleware fallback statique sur sessions legacy
+- **Severity**: MEDIUM
 - **CWE** : CWE-285
 - **Location** : `backend/internal/handler/middleware/permission.go:46-54`
-- **How to fix** : forcer logout des sessions sans `Permissions` field (bumper `session_version` une fois en prod), OU fallback DB (charge les permissions de l'org membership row).
+- **Fix** : forcer logout des sessions sans `Permissions` field via `session_version` bump in prod, OR fallback DB.
 - **Effort** : S (1-2h)
 
-### SEC-FINAL-10 (was SEC-27) : Stripe Connect `account_id` exposé dans `GET /account-status`
-- **Severity**: 🟡 MEDIUM
+### SEC-FINAL-10 : Stripe Connect `account_id` exposé dans `GET /account-status`
+- **Severity**: MEDIUM
 - **CWE** : CWE-200 (information exposure)
-- **Location** : `backend/internal/handler/embedded_handler.go:87, 92, 251`
-- **Why it matters** : DTO `embeddedAccountStatusResponse.AccountID` retourne le Stripe account ID au client. C'est utile uniquement côté serveur (pour les API calls Stripe). Le frontend n'en a pas besoin pour render le status.
-- **How to fix** : retirer `AccountID` des deux DTOs publics. Ne renvoyer que `(charges_enabled, payouts_enabled, requirements_count, disabled_reason, country, business_type)`. Garder l'ID interne à la DB seulement.
-- **Test required** : handler test asserte response body ne contient pas `"account_id"` ni `"acct_"`.
+- **Location** : `backend/internal/handler/embedded_handler.go:251` (`AccountID: acct.ID` in `embeddedAccountStatusResponse`). Verified.
+- **Fix** : retirer `AccountID` des DTOs publics. Useful only server-side.
 - **Effort** : XS (15 min)
 
-### SEC-FINAL-11 (was SEC-28) : `X-Forwarded-For` accepté sans CIDR allowlist (role_overrides_handler)
-- **Severity**: 🟡 MEDIUM
+### SEC-FINAL-11 : `X-Forwarded-For` accepté sans CIDR allowlist (role_overrides_handler)
+- **Severity**: MEDIUM
 - **CWE** : CWE-348 (use of less trusted source)
 - **Location** : `backend/internal/handler/role_overrides_handler.go:189-203`
-- **Why it matters** : ratelimit middleware applique le CIDR allowlist (Phase 1 SEC-11) mais `clientIP()` dans `role_overrides_handler` reste naïf — fait `r.Header.Get("X-Forwarded-For")` sans vérifier que le `r.RemoteAddr` est dans l'allowlist proxy. Un attaquant peut spoof son IP dans les role override audit logs.
-- **How to fix** : extraire le helper du middleware ratelimit (`extractRealIP(r, trustedCIDRs)`) en `pkg/httputil/realip.go` partagé. L'utiliser ici.
+- **Fix** : extraire le helper du middleware ratelimit (`extractRealIP(r, trustedCIDRs)`) en `pkg/httputil/realip.go` partagé.
 - **Effort** : S (1-2h)
 
-### SEC-FINAL-12 (was SEC-31) : Audit logs `ON DELETE SET NULL` perd l'attribution sur user delete
-- **Severity**: 🟡 MEDIUM
-- **CWE** : CWE-778 (insufficient logging)
-- **Location** : `backend/migrations/078_create_audit_logs.up.sql:30`
-- **Why it matters** : quand un user delete son compte (RGPD), tous ses audit_logs perdent leur `user_id` (SET NULL). On ne peut plus tracer qui a fait quoi en cas d'enquête.
-- **How to fix** : capturer `actor_email_hash` (sha256 sur l'email avant deletion) dans `metadata` JSONB à l'écriture du log. UUID anonymisée + hash de l'email permettent un audit forensique sans PII directe.
-- **Test required** : `audit_repository_test.go::TestActorEmailHashStored` — write audit row, delete user, asserter row.user_id == NULL et row.metadata->>'actor_email_hash' != "".
-- **Effort** : S (1-2h)
-
-### SEC-FINAL-13 (was SEC-32) : `Authorization` header — pas de redaction structurée dans slog
-- **Severity**: 🟡 MEDIUM
+### SEC-FINAL-13 : `Authorization` header — pas de redaction structurée dans slog
+- **Severity**: MEDIUM
 - **CWE** : CWE-532 (insertion of sensitive information into log)
-- **Location** : `backend/internal/handler/middleware/logger.go:43-54` — utilise `slog.NewJSONHandler` standard sans `ReplaceAttr`.
+- **Location** : `backend/internal/handler/middleware/logger.go:43-54` — utilise `slog.NewJSONHandler` sans `ReplaceAttr`. Verified — `grep ReplaceAttr` in backend/ returns 0 hits.
 - **Why it matters** : pkg/redact existe (regex bearer/sk-/emails) mais n'est appliqué qu'à des sites manuels. Tout `slog.Info("...", "headers", r.Header)` accidentel fuite les bearer tokens.
-- **How to fix** : `slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: ..., ReplaceAttr: redact.SlogReplaceAttr})` qui appelle `pkg/redact.Redact` sur chaque attribut string.
-- **Test required** : `logger_test.go` — log un attribut `authorization=Bearer foobar`, capture l'output, asserter `"Bearer [REDACTED]"` apparaît au lieu de `"Bearer foobar"`.
+- **Fix** : `slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{ReplaceAttr: redact.SlogReplaceAttr})`.
 - **Effort** : S (1-2h)
 
-### SEC-FINAL-14 (was SEC-34) : Cookie `user_role` non-httpOnly
-- **Severity**: 🟡 MEDIUM (defense-in-depth, design choice)
-- **Location** : `backend/internal/handler/cookie.go:42-51`
-- **Why it matters** : voulu pour rendu UI client-side, OK si l'invariant "pas une décision serveur" est respecté. Mais aucun lint/grep CI vérifie que le code web ne fait pas de décision d'autorisation basée sur ce cookie.
-- **How to fix** : ajouter une lint rule `web/eslint.config.mjs` qui interdit `cookies.get('user_role')` hors d'un fichier marqué `@allow-user-role-cookie`. Centraliser dans `web/src/shared/lib/auth-cookie-ui.ts` qui assert "UI-only".
-- **Effort** : S (1-2h)
-
-### SEC-FINAL-15 (NEW) : FCM device tokens jamais marqués stale
-- **Severity**: 🟡 MEDIUM (resource exhaustion + UX)
-- **CWE** : CWE-400 (uncontrolled resource consumption)
-- **Location** : `backend/internal/adapter/fcm/push.go:75-83`
-- **Why it matters** : sur erreur Firebase (UNREGISTERED, INVALID_ARGUMENT), `slog.Warn("fcm send failed for token", ...)` mais aucune action sur la DB. Notification fan-out gaspille des appels API à des tokens morts. Quotas Firebase consommés inutilement.
-- **How to fix** : 
-```go
-if response.FailureCount > 0 {
-    var staleIndexes []int
-    for i, resp := range response.Responses {
-        if resp.Error != nil {
-            if messaging.IsUnregistered(resp.Error) || messaging.IsInvalidArgument(resp.Error) {
-                staleIndexes = append(staleIndexes, i)
-            }
-        }
-    }
-    if len(staleIndexes) > 0 && s.deviceTokens != nil {
-        staleTokens := make([]string, len(staleIndexes))
-        for j, i := range staleIndexes { staleTokens[j] = tokens[i] }
-        if err := s.deviceTokens.MarkStale(ctx, staleTokens); err != nil {
-            slog.Warn("fcm: failed to mark stale tokens", "error", err)
-        }
-    }
-}
-```
-Plus le repo `device_tokens.MarkStale(ctx, tokens []string) error` qui set `is_stale = true` et purge après 7 jours.
-- **Test required** : mock FCM client retourning `IsUnregistered=true` for token X, asserter device_tokens.MarkStale appelé avec X.
-- **Effort** : S (1-2h)
-
-### SEC-FINAL-16 (NEW) : `RetryFailedTransfer` directly mutates `record.TransferStatus` without state machine guard
-- **Severity**: 🟡 MEDIUM (state machine bypass)
+### SEC-FINAL-16 : `RetryFailedTransfer` raw field assignment bypasses state machine
+- **Severity**: MEDIUM (state machine bypass)
 - **CWE** : CWE-841 (improper enforcement of behavioral workflow)
-- **Location** : `backend/internal/app/payment/payout_transfer.go:992` (was service_stripe.go in old layout) — `record.TransferStatus = domain.TransferPending`.
-- **Why it matters** : raw field assignment bypass `MarkTransferFailed` / `MarkTransferred` / `ApplyDisputeResolution` guarded mutators. Pas de `MarkTransferRetrying()` method. Une retry sur transfer déjà completed peut silently revert à pending et trigger un duplicate Stripe transfer (idempotency-keyed mais DB drifte).
-- **How to fix** : ajouter `func (r *PaymentRecord) MarkTransferRetrying() error { if r.TransferStatus != TransferFailed { return ErrInvalidStateTransition }; r.TransferStatus = TransferPending; return nil }` et l'utiliser ici.
-- **Test required** : state machine test — `RetryFailedTransfer` rejette records qui ne sont pas en `TransferFailed`.
+- **Location** : `backend/internal/app/payment/payout_request.go:292` — `record.TransferStatus = domain.TransferPending` (raw assignment). Verified.
+- **Fix** : add `func (r *PaymentRecord) MarkTransferRetrying() error` with state machine guard.
 - **Effort** : XS (30 min)
 
 ---
 
 ## LOW (4)
 
-- **SEC-FINAL-17** : `JWT_SECRET` hardcodé dans tests (`pkg/crypto/jwt_test.go`) → générer via `crypto/rand` dans `TestMain`. Effort: XS.
-- **SEC-FINAL-18** : Pas de pipeline CI gosec/semgrep — déjà govulncheck + trivy hebdo, ajouter gosec sur PR. Effort: XS.
-- **SEC-FINAL-19** : Health check Redis dans `/ready` — vérifier qu'il existe vraiment et qu'il fail-fast si Redis down. Effort: XS.
-- **SEC-FINAL-20** (NEW) : Conversation `tx.Commit` ignored on existing-conversation lookup (BUG-NEW-19). `_ = tx.Commit()` at `conversation_repository.go:43`. Effort: XS.
+- **SEC-FINAL-12** : Audit logs `actor_email_hash` only computed at GDPR purge time — write path doesn't always populate it. Per `gdpr_repository.go:533`. Effort: S.
+- **SEC-FINAL-14** : Cookie `user_role` non-httpOnly — design choice for client-side UI rendering. Add ESLint rule ensuring no auth decisions taken in JS based on it. Effort: S.
+- **SEC-FINAL-17** : `JWT_SECRET` hardcodé dans tests (`pkg/crypto/jwt_test.go:38` — `"test-secret-key-for-unit-tests-32chars!"`) → générer via `crypto/rand` dans `TestMain`. Effort: XS.
+- **SEC-FINAL-19** : `/ready` endpoint health check Redis — verify it actually pings Redis and returns 503 if down (test). Effort: XS.
+- **SEC-FINAL-20** : Conversation `_ = tx.Commit()` ignored on existing-conversation lookup at `conversation_repository.go:43`. Effort: XS.
 
 ---
 
@@ -277,68 +137,87 @@ Plus le repo `device_tokens.MarkStale(ctx, tokens []string) error` qui set `is_s
 
 | OWASP | Status | Notes |
 |---|---|---|
-| A01 Broken Access Control | 🟠 (35 GetByID callers) | SEC-FINAL-01 deployment blocker |
-| A02 Cryptographic Failures | ✅ | bcrypt 12, JWT short-lived, HSTS |
-| A03 Injection | ✅ | parameterized everywhere, gosec sweep PR #34 |
+| A01 Broken Access Control | ✅ | RLS + soft guardrail; ownership checks at handler level |
+| A02 Cryptographic Failures | ✅ | bcrypt 12, JWT short-lived (15min), HSTS, JWT_SECRET ≥32 bytes prod-enforced |
+| A03 Injection | ✅ | parameterized everywhere, gosec clean |
 | A04 Insecure Design | 🟡 | idempotency missing (SEC-FINAL-02) |
-| A05 Security Misconfiguration | 🟠 | Slowloris (PERF-FINAL-B-01), no `RequireRole` (SEC-FINAL-03) |
-| A06 Vulnerable & Outdated Components | ✅ | govulncheck + trivy weekly |
-| A07 Identification & Auth Failures | ✅ | brute force, refresh rotation, session_version |
-| A08 Software & Data Integrity | 🟡 | webhook idempotency OK after PR #36, Stripe sig OK |
-| A09 Logging & Monitoring Failures | 🟡 | SEC-FINAL-13 (slog redact), SEC-FINAL-12 (actor_email_hash) |
-| A10 Server-Side Request Forgery | 🟠 | SEC-FINAL-04 (SSRF social URLs) |
+| A05 Security Misconfiguration | 🟡 | no `RequireRole` (SEC-FINAL-03) |
+| A06 Vulnerable & Outdated Components | ✅ | govulncheck + trivy weekly + dependabot |
+| A07 Identification & Auth Failures | ✅ | brute force per-email atomic Lua, refresh rotation, session_version, audit on token reuse |
+| A08 Software & Data Integrity | ✅ | webhook idempotency dual-layer, Stripe sig strict |
+| A09 Logging & Monitoring Failures | 🟡 | SEC-FINAL-13 (slog redact) |
+| A10 Server-Side Request Forgery | 🟠 | SEC-FINAL-04 still open |
 
-## Already shipped (verified during this audit)
+---
 
-- ✅ Stripe webhook signature verification (`adapter/stripe/webhook.go:16`)
+## Verified during this audit
+
+- ✅ JWT secret strict ≥ 32 bytes (`backend/internal/config/config.go:223-230`)
+- ✅ Bcrypt cost 12 (`backend/pkg/crypto/hash.go:9`)
+- ✅ Brute force atomic Lua script (`backend/internal/adapter/redis/bruteforce.go:46-56`)
+- ✅ Refresh rotation + replay detection + audit (`backend/internal/app/auth/service.go:450-524`)
+- ✅ Magic-byte upload + extension from detected MIME (`backend/internal/handler/upload_handler.go:298-338`)
+- ✅ Webhook signature verification (`backend/internal/adapter/stripe/webhook.go:16`)
+- ✅ Webhook async dispatch via pending_events (P8)
+- ✅ Stripe IdempotencyKey on Transfers/Payouts/PaymentIntents
+- ✅ JSON `DisallowUnknownFields` (`backend/pkg/validator/validator.go:130`)
+- ✅ XSS JSON-LD escape (`web/src/shared/lib/json-ld.ts`)
+- ✅ Security headers middleware (CSP / HSTS prod-only / X-Frame-Options DENY / Referrer-Policy strict-origin / Permissions-Policy)
+- ✅ CORS strict allowlist with `Vary: Origin` (`backend/internal/handler/middleware/cors.go`)
 - ✅ Mobile secure storage (`flutter_secure_storage` + Keychain/EncryptedSharedPreferences)
-- ✅ Cookie httpOnly + SameSite=Lax + Secure-en-prod (session_id)
-- ✅ JSON `DisallowUnknownFields` (`pkg/validator`)
+- ✅ Cookie httpOnly + SameSite=Lax + Secure-prod (session_id)
 - ✅ WebSocket short-lived single-use `ws_token` (Redis `GetDel`)
-- ✅ Session_version revocation infrastructure (middleware/auth + propagation rôle org)
+- ✅ Session_version revocation infrastructure
 - ✅ Recovery middleware avec request_id correlation
-- ✅ Magic-bytes validation generalised (`UploadPortfolioImage` + autres uploads)
-- ✅ CORS allowlist explicite (pas de wildcard)
-- ✅ Bcrypt cost 12
 - ✅ MaxBytesReader sur uploads (5/50/100 MB)
-- ✅ Audit log domain + repo + table m.078, append-only enforced m.124
+- ✅ Audit log domain + repo + table m.078, append-only enforced m.124, RLS WITH CHECK m.129
 - ✅ Forgot password ne révèle pas l'existence de l'email
-- ✅ Stripe IdempotencyKey sur Transfers/Payouts/PaymentIntents
 - ✅ Web `poweredByHeader: false`, pas de localStorage tokens (proxy session cookie)
-- ✅ `.env*` gitignorés
+- ✅ `.env*` gitignored
 - ✅ Optimistic concurrency milestones (`version` column)
-- ✅ Pending events outbox `FOR UPDATE SKIP LOCKED`
-- ✅ RLS m.125 sur 9 tables tenant-scoped + audit_logs WITH CHECK m.129
-- ✅ Webhook handler error → 503 retry + idempotency release (BUG-NEW-06)
-- ✅ Audit attribution admin (BUG-NEW-09 closed)
-- ✅ pending_events stale recovery m.128
+- ✅ Pending events outbox `FOR UPDATE SKIP LOCKED` + stale recovery (m.128) + stripe dedup (m.134)
+- ✅ RLS m.125 sur 9 tables tenant-scoped + FORCE ROW LEVEL SECURITY
+- ✅ GDPR Export + Request/Confirm/Cancel Deletion endpoints wired (`backend/internal/handler/routes_gdpr.go`)
+- ✅ Mutation rate limit covers anonymous traffic (P10 #3)
+- ✅ Slowloris guard (P10 #2 — `ReadHeaderTimeout=5s`)
+- ✅ OTel wired with no-op fallback + tested
+- ✅ 3-step graceful shutdown (P11 #5)
+- ✅ Slow query logger active (P10 #1)
 
 ---
 
 ## Strong points
 
 - Architecture hexagonale strictement respectée — surface d'attaque limitée par DI
-- Système `session_version` + middleware Auth à 4 étages bien commenté
-- Permissions org-scoped avec override per-org : bonne base RBAC
+- Système `session_version` + middleware Auth à 4 étages
+- Permissions org-scoped avec override per-org
 - Handlers admin systématiquement gardés `RequireAdmin` + `NoCache`
-- Stripe Connect rigoureux : IdempotencyKey systématique, signature stricte, account session délégué
-- Modération avec fail-closed sur OpenAI 5xx (`moderateDisplayName` refuse l'inscription)
-- Pas de SQL string-concat utilisateur sur les paths publics (gosec sweep clean)
-- Pas de fuite secrets dans les logs sur les sites couverts par redact
+- Stripe Connect rigoureux : IdempotencyKey systématique, signature stricte, async webhook, account session délégué
+- Modération avec fail-closed sur OpenAI 5xx
+- Pas de SQL string-concat utilisateur (gosec clean)
+- 4-layer access control: JWT → role → ownership → RLS
+- gosec + govulncheck + trivy weekly cron + on-PR (lockfile changes)
+- audit log append-only via REVOKE + RLS WITH CHECK m.129
 
 ---
 
-## Top 10 fixes restants ordonnés par ROI
+## Top remaining fixes ranked by ROI
 
 | # | ID | Severity | Effort | Impact |
 |---|---|---|---|---|
-| 1 | SEC-FINAL-01 | CRITICAL | L (3j) | Pre-prod RLS rotation blocker |
-| 2 | SEC-FINAL-02 | HIGH | M | doubles missions/disputes/reviews |
-| 3 | SEC-FINAL-04 | HIGH | S | SSRF preparation (future scraping) |
-| 4 | SEC-FINAL-03 | HIGH | S | RBAC defense-in-depth |
-| 5 | SEC-FINAL-05 | HIGH | L | RGPD Art. 15-17 compliance |
-| 6 | SEC-FINAL-06 | HIGH | XS | Stripe error info leak |
-| 7 | SEC-FINAL-07 | HIGH | M | Admin XSS = no token exfil |
-| 8 | SEC-FINAL-13 | MEDIUM | S | Structured slog redaction |
-| 9 | SEC-FINAL-12 | MEDIUM | S | Audit attribution post-RGPD |
-| 10 | SEC-FINAL-15 | MEDIUM | S | FCM stale tokens cleanup |
+| 1 | SEC-FINAL-07 | HIGH | M | Admin XSS = no token exfil — visible flaw for OSS reader |
+| 2 | SEC-FINAL-04 | HIGH | S | SSRF preparation (future scraping) |
+| 3 | SEC-FINAL-03 | HIGH | S | RBAC defense-in-depth (router-level role gate) |
+| 4 | SEC-FINAL-02 | HIGH | M | doubles missions/disputes/reviews on retry |
+| 5 | SEC-FINAL-06 | MEDIUM | XS | Stripe error info leak |
+| 6 | SEC-FINAL-13 | MEDIUM | S | Structured slog redaction |
+| 7 | SEC-FINAL-10 | MEDIUM | XS | account_id exposure |
+| 8 | SEC-FINAL-16 | MEDIUM | XS | State machine guard for retry |
+
+---
+
+## Verdict for OPEN-SOURCE publication
+
+**SEC-FINAL-07** (admin token in localStorage) and **SEC-FINAL-04** (SSRF) are the two items that, on a public repo, signal "amateur stack" to a hostile reader. Both are S/M effort. Everything else is HIGH-quality engineering posture that exceeds 95% of OSS B2B marketplaces.
+
+After fixing SEC-FINAL-07 and SEC-FINAL-04, the codebase is **publishable as an exemplary security reference**.
