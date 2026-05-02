@@ -94,7 +94,7 @@
 - **Severity**: MEDIUM
 - **Location** : `backend/internal/adapter/postgres/conversation_queries.go:89-141`
 - **Why it matters** : double LATERAL pour `conversation_participants → users` + `last_message`. À 10k+ conversations, 30-50 ms par page p50. C'est l'endpoint le plus chargé de la home dashboard.
-- **How to fix** : dénormaliser `last_message_seq`, `last_message_content_preview` (≤100 chars), `last_message_at`, `last_message_sender_id` directement sur la table `conversations`. Maintenu par trigger `AFTER INSERT ON messages` (atomique) OU par l'app au moment de l'INSERT messages dans la même tx (préféré, contrôle explicite). Migration `132_denormalize_last_message.up.sql` + backfill.
+- **How to fix** : dénormaliser `last_message_seq`, `last_message_content_preview` (≤100 chars), `last_message_at`, `last_message_sender_id` directement sur la table `conversations`. Maintenu par trigger `AFTER INSERT ON messages` (atomique) OU par l'app au moment de l'INSERT messages dans la même tx (préféré, contrôle explicite). Migration `133_denormalize_last_message.up.sql` + backfill.
 - **Test required** : `conversation_queries_test.go::TestListConversations_LastMessageDenormalised` — insert 5 conversations + 20 messages, asserter chaque conversation a son last_message correctement, et asserter qu'aucune LATERAL join apparaît dans `EXPLAIN`.
 - **Effort** : M (½j)
 
