@@ -49,7 +49,7 @@ func (s *WebhookIdempotencyStore) TryClaim(ctx context.Context, eventID, eventTy
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := s.db.ExecContext(ctx, `
+	result, err := Exec(ctx, s.db, `
 		INSERT INTO stripe_webhook_events (stripe_event_id, event_type)
 		VALUES ($1, $2)
 		ON CONFLICT (stripe_event_id) DO NOTHING`,
@@ -83,7 +83,7 @@ func (s *WebhookIdempotencyStore) Release(ctx context.Context, eventID string) e
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx,
+	_, err := Exec(ctx, s.db,
 		`DELETE FROM stripe_webhook_events WHERE stripe_event_id = $1`,
 		eventID,
 	)
