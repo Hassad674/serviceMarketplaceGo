@@ -4,13 +4,16 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
+	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/observability"
 )
 
 func main() {
@@ -32,6 +35,45 @@ func main() {
 		slog.Error("config validation failed", "error", err)
 		os.Exit(1)
 	}
+
+	// OpenTelemetry tracing. When OTEL_EXPORTER_OTLP_ENDPOINT is unset
+	// (the default in dev / CI) Init returns a no-op shutdown closure
+	// and installs the SDK's no-op tracer — zero overhead. Production
+	// deployments set the standard OTLP env vars to route spans to a
+	// Jaeger / Honeycomb / Datadog / Tempo backend. The shutdown
+	// closure is invoked by runServer's 3-step graceful shutdown so
+	// pending spans are flushed before the process exits.
+	otelCfg := observability.LoadFromEnv()
+	if otelCfg.Environment == "" {
+		otelCfg.Environment = cfg.Env
+	}
+	otelInitCtx, otelInitCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	otelShutdown, err := observability.Init(otelInitCtx, otelCfg)
+	otelInitCancel()
+	if err != nil {
+		// Non-fatal: tracing failure must never block the server boot.
+		slog.Warn("otel init failed, continuing without tracing", "error", err)
+	}
+	// otelShutdown is invoked by runServer's graceful-shutdown 3-step
+	// (phase 3 — workers + flush). The deferred fallback below covers
+	// abnormal exits where runServer never returns (panic, os.Exit
+	// upstream) so spans are flushed even when the SIGTERM path is
+	// not taken. The OTel SDK's Shutdown is idempotent — calling it
+	// from both sites is safe.
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := otelShutdown(ctx); err != nil {
+			slog.Debug("otel deferred shutdown noop or already-flushed", "error", err)
+		}
+	}()
+
+	// Install OTel-wrapped HTTP transports on third-party SDKs that
+	// expose package-global clients. This must happen AFTER OTel init
+	// (so the global tracer + propagator are set) and BEFORE any SDK
+	// instance is created so the wrap is in place from the first
+	// outbound call.
+	stripeadapter.InstallOTelBackends()
 
 	// Bring up every backbone resource (DB, Redis, repos, output
 	// adapters, messaging fan-out, WS hub) — see wire_infra.go.
@@ -697,11 +739,28 @@ func main() {
 		RateLimiter:          httpRateLimiter,
 	})
 
-	// Run server + drive graceful shutdown — see wire_serve.go.
+	// Run server + drive 3-step graceful shutdown — see wire_serve.go.
+	// Every CancelFunc that drives a long-running goroutine (workers,
+	// schedulers, in-flight upload tracking) is threaded through so
+	// the SIGTERM path drains them in phase 3 before the process
+	// exits. The deferred cancel calls earlier in this function stay
+	// — they cover the panic / os.Exit upstream paths where runServer
+	// never returns.
 	runServer(serveDeps{
 		Cfg:           cfg,
 		Router:        r,
+		WSHub:         infra.WSHub,
 		UploadCancel:  uploadCancel,
 		UploadHandler: uploadHandler,
+		WorkerCancels: []context.CancelFunc{
+			notifWorkerCancel,
+			pendingEventsCancel,
+			mediaWorkerCancel,
+			kycCancel,
+			disputeCancel,
+			gdprCancel,
+			infraCancel,
+		},
+		OtelShutdown: otelShutdown,
 	})
 }

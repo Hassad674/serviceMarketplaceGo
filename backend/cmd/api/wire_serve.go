@@ -11,42 +11,88 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"marketplace-backend/internal/adapter/ws"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/observability"
 )
 
 // serveDeps captures the resources the HTTP server lifecycle hooks
-// reach into: the *config.Config (read at boot for the port + env
-// metadata), the wired router, and the upload handler whose Stop
-// drain shares the 30s shutdown budget.
+// reach into. Server bootstrap (the *config.Config + the wired
+// router) sits on the left; graceful-shutdown hooks (every
+// CancelFunc + the WS hub + the OTel shutdown closure) sit on the
+// right. The graceful path runs the three sub-budgets defined in
+// docs/plans/P11_brief.md:
+//
+//  1. 15s — HTTP server drain via srv.Shutdown
+//  2. 10s — WS hub drain via WSHub.GracefulShutdown (1001 frames)
+//  3.  5s — workers + flush via every CancelFunc + UploadHandler.Stop
+//           and OtelShutdown
+//
+// Total budget stays at 30s — the documented soft cap on Kubernetes
+// preStop hooks before the kubelet escalates to SIGKILL. Sub-budgets
+// are wired with context.WithTimeout so a slow phase does not eat
+// the next phase's allowance.
 type serveDeps struct {
-	Cfg           *config.Config
-	Router        chi.Router
+	Cfg    *config.Config
+	Router chi.Router
+
+	// WSHub.GracefulShutdown closes every active WS conn with the
+	// 1001 "Going Away" status frame so clients can re-connect to
+	// the next instance instead of timing out on a dropped TCP
+	// connection. Optional — when nil the WS phase is a no-op.
+	WSHub *ws.Hub
+
+	// UploadCancel signals the upload goroutines to wind down their
+	// downstream Rekognition / S3 work. Stop blocks until they
+	// confirm exit; the cancel is fired ahead of Stop so the work
+	// observes the shutdown without polling.
 	UploadCancel  context.CancelFunc
 	UploadHandler *handler.UploadHandler
+
+	// WorkerCancels is the bag of context.CancelFunc returned by
+	// every worker / scheduler wired in main.go (notification,
+	// pending events, kyc, dispute, gdpr, media moderation). Each
+	// cancel is fired during phase 3 — the workers stop processing
+	// their current task and return so the parent goroutine exits.
+	// Order does not matter; the cancel call is idempotent.
+	WorkerCancels []context.CancelFunc
+
+	// OtelShutdown drains the OpenTelemetry SpanProcessor and the
+	// OTLP exporter. Always non-nil — observability.Init returns a
+	// no-op closure when tracing is disabled. Invoked at the tail of
+	// phase 3 so spans recorded during shutdown are flushed before
+	// the process exits.
+	OtelShutdown observability.ShutdownFunc
 }
 
+// 3-step graceful shutdown sub-budgets. Sums to 30s — the Kubernetes
+// preStop default. Tuning: bump httpDrainBudget if long-running
+// requests need more time; bump wsDrainBudget for high-density WS
+// workloads. workerDrainBudget is the smallest because workers tick
+// on relatively short intervals (<= 30s) — anything longer than 5s
+// means the worker is wedged and dragging it longer wastes the
+// budget on the rest of the shutdown.
+const (
+	totalShutdownBudget = 30 * time.Second
+	httpDrainBudget     = 15 * time.Second
+	wsDrainBudget       = 10 * time.Second
+	workerDrainBudget   = 5 * time.Second
+)
+
 // runServer brings up the HTTP server and waits for SIGINT/SIGTERM
-// to drive a 30s graceful shutdown. The upload handler's drain runs
-// inside the same budget so in-flight RecordUpload goroutines wind
-// down their downstream Rekognition / S3 work cleanly.
-//
-// Behaviour and timeouts are byte-identical to the legacy inline
-// block in main.go: ReadTimeout 15s, WriteTimeout 0 (long-lived
-// WS), IdleTimeout 60s, Shutdown ctx 30s.
+// to drive the 3-step graceful shutdown documented above. Behaviour
+// is otherwise byte-identical to the legacy inline block in main.go:
+// ReadTimeout 15s, WriteTimeout 0 (long-lived WS), IdleTimeout 60s.
 func runServer(deps serveDeps) {
-	// Create HTTP server
-	// WriteTimeout is 0 to allow long-lived WebSocket connections.
-	// Handler-level timeouts protect regular HTTP endpoints instead.
 	srv := &http.Server{
 		Addr:         ":" + deps.Cfg.Port,
 		Handler:      deps.Router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0,
+		WriteTimeout: 0, // 0 to allow long-lived WebSocket connections.
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in goroutine
 	go func() {
 		slog.Info("server starting", "port", deps.Cfg.Port, "env", deps.Cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -55,28 +101,105 @@ func runServer(deps serveDeps) {
 		}
 	}()
 
-	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	slog.Info("shutting down server...")
+	slog.Info("graceful shutdown initiated",
+		"total_budget", totalShutdownBudget,
+		"http_budget", httpDrainBudget,
+		"ws_budget", wsDrainBudget,
+		"worker_budget", workerDrainBudget,
+	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	overallCtx, overallCancel := context.WithTimeout(context.Background(), totalShutdownBudget)
+	defer overallCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		slog.Error("server forced to shutdown", "error", err)
-	}
-
-	// BUG-17: drain in-flight upload goroutines (max 30s budget shared
-	// with the HTTP shutdown above). uploadCancel above triggers the
-	// individual goroutine's WithCancel so they observe the shutdown
-	// signal; Stop() then waits for them to exit cleanly.
-	deps.UploadCancel()
-	if err := deps.UploadHandler.Stop(ctx); err != nil {
-		slog.Warn("upload handler shutdown timed out", "error", err)
-	}
+	drainHTTP(overallCtx, srv)
+	drainWS(overallCtx, deps.WSHub)
+	drainWorkers(overallCtx, deps)
 
 	slog.Info("server stopped")
+}
+
+// drainHTTP runs phase 1 of the 3-step shutdown: srv.Shutdown stops
+// accepting new connections and waits for in-flight requests to
+// complete. Bounded by httpDrainBudget — anything still in flight
+// after that is forced closed.
+func drainHTTP(parent context.Context, srv *http.Server) {
+	ctx, cancel := context.WithTimeout(parent, httpDrainBudget)
+	defer cancel()
+
+	start := time.Now()
+	if err := srv.Shutdown(ctx); err != nil {
+		slog.Error("http server shutdown error", "error", err, "elapsed", time.Since(start))
+		return
+	}
+	slog.Info("http server drained", "elapsed", time.Since(start))
+}
+
+// drainWS runs phase 2: WSHub.GracefulShutdown closes every active
+// WebSocket connection with a 1001 "Going Away" frame so clients can
+// reconnect to the next instance. nil hub is a no-op (covered when a
+// deployment runs with the WS path disabled).
+func drainWS(parent context.Context, hub *ws.Hub) {
+	if hub == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(parent, wsDrainBudget)
+	defer cancel()
+
+	start := time.Now()
+	if err := hub.GracefulShutdown(ctx); err != nil {
+		slog.Warn("ws graceful shutdown timed out", "error", err, "elapsed", time.Since(start))
+		return
+	}
+	slog.Info("ws connections drained", "elapsed", time.Since(start))
+}
+
+// drainWorkers runs phase 3: every worker / scheduler context is
+// cancelled, the upload goroutines are stopped, OTel spans are
+// flushed. The phase is bounded by workerDrainBudget but each
+// individual sub-step is best-effort — a slow flush should not
+// prevent the rest of the cleanup from running.
+func drainWorkers(parent context.Context, deps serveDeps) {
+	ctx, cancel := context.WithTimeout(parent, workerDrainBudget)
+	defer cancel()
+
+	start := time.Now()
+
+	// Trip every worker context so the loops observe ctx.Done() and
+	// exit at the next tick. Cancels are idempotent so calling them
+	// again from the deferred chains in main.go is safe.
+	for _, c := range deps.WorkerCancels {
+		if c != nil {
+			c()
+		}
+	}
+
+	// Drain the upload goroutines (BUG-17 fix). UploadCancel signals
+	// them; Stop blocks until they exit cleanly OR the ctx expires.
+	if deps.UploadCancel != nil {
+		deps.UploadCancel()
+	}
+	if deps.UploadHandler != nil {
+		if err := deps.UploadHandler.Stop(ctx); err != nil {
+			slog.Warn("upload handler shutdown timed out", "error", err)
+		}
+	}
+
+	// Final OTel flush so spans recorded during shutdown make it
+	// onto the wire. observability.Init returns a no-op closure when
+	// OTel is disabled so this is always safe to call. The flush
+	// must be the last step — anything after it would not be
+	// captured.
+	if deps.OtelShutdown != nil {
+		flushCtx, flushCancel := context.WithTimeout(ctx, 2*time.Second)
+		if err := deps.OtelShutdown(flushCtx); err != nil {
+			slog.Warn("otel flush failed", "error", err)
+		}
+		flushCancel()
+	}
+
+	slog.Info("workers drained", "elapsed", time.Since(start))
 }
