@@ -1,4 +1,5 @@
 import { adminApi } from "@/shared/lib/api-client"
+import { getAuthToken } from "@/shared/stores/auth-store"
 import type { AdminInvoiceFilters, AdminInvoiceListResponse } from "../types"
 
 // fetchAdminInvoices serializes the filter struct into the backend's
@@ -23,25 +24,24 @@ export function fetchAdminInvoices(
   )
 }
 
-// getInvoicePDFRedirect returns the absolute URL the operator should
-// open to get the presigned PDF. The backend responds with a 302 to a
-// 5-minute presigned R2 URL — opening the URL in a new tab does the
-// redirect transparently. We add the bearer token via a query param
-// would expose the token; instead we assume the operator's session
-// cookie or the localStorage bearer token is read at request time. To
-// keep the redirect flow simple and avoid leaking the bearer token, we
-// fetch the PDF endpoint with the token, follow the redirect, and open
-// the eventual presigned URL in a new tab.
+// openInvoicePDF returns the absolute URL the operator should open to
+// get the presigned PDF. The backend responds with a 302 to a 5-minute
+// presigned R2 URL — opening the URL in a new tab follows the redirect
+// transparently. Adding the bearer token via a query param would leak
+// it to logs and the URL bar, so we keep the token in the
+// Authorization header (read from the in-memory Zustand store, never
+// from localStorage — see SEC-FINAL-07 in `auth-store.ts`).
 export async function openInvoicePDF(id: string, isCreditNote: boolean): Promise<string> {
   // We cannot rely on adminApi here because it parses JSON and we want
   // the redirect target. Re-implement the auth header read once + do a
   // fetch with redirect: "follow".
   const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8083"
-  const token = localStorage.getItem("admin_token")
+  const token = getAuthToken()
   const typeParam = isCreditNote ? "credit_note" : "invoice"
   const url = `${apiUrl}/api/v1/admin/invoices/${id}/pdf?type=${typeParam}`
   const res = await fetch(url, {
     method: "GET",
+    credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     redirect: "follow",
   })
