@@ -20,7 +20,7 @@ import (
 // path is owned by the messaging app service.
 type ServiceDeps struct {
 	Reports      repository.ReportRepository
-	Users        repository.UserRepository
+	Users        repository.UserReader
 	Messages     repository.MessageReader
 	Jobs         repository.JobRepository
 	Applications repository.JobApplicationRepository
@@ -29,7 +29,7 @@ type ServiceDeps struct {
 // Service orchestrates report use cases.
 type Service struct {
 	reports       repository.ReportRepository
-	users         repository.UserRepository
+	users         repository.UserReader
 	messages      repository.MessageReader
 	jobs          repository.JobRepository
 	applications  repository.JobApplicationRepository

@@ -35,7 +35,7 @@ type InvitationService struct {
 	orgs          repository.OrganizationReader
 	members       repository.OrganizationMemberRepository
 	invitations   repository.OrganizationInvitationRepository
-	users         repository.UserRepository
+	users         repository.UserReader
 	hasher        service.HasherService
 	email         service.EmailService
 	rateLimiter   InvitationRateLimiter
@@ -49,7 +49,7 @@ type InvitationServiceDeps struct {
 	Orgs          repository.OrganizationReader
 	Members       repository.OrganizationMemberRepository
 	Invitations   repository.OrganizationInvitationRepository
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Hasher        service.HasherService
 	Email         service.EmailService
 	RateLimiter   InvitationRateLimiter

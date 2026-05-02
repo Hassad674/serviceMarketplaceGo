@@ -16,6 +16,17 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
+// adminUsers is the local composite the admin service needs: it
+// reads every report path (counts, listings, lookups), writes
+// status flips (Update) when banning / unbanning, and bumps
+// session_version (AuthStore.BumpSessionVersion) so a banned admin
+// loses its in-flight tokens immediately. KYCStore is out of scope.
+type adminUsers interface {
+	repository.UserReader
+	repository.UserWriter
+	repository.UserAuthStore
+}
+
 // DashboardStats holds aggregated statistics for the admin dashboard.
 type DashboardStats struct {
 	TotalUsers         int
@@ -34,7 +45,11 @@ type DashboardStats struct {
 
 // ServiceDeps groups dependencies for the admin Service.
 type ServiceDeps struct {
-	Users              repository.UserRepository
+	// Users is narrowed to adminUsers — admin endpoints read every
+	// reader path (counts, lists, lookups) and write status changes
+	// (Update) when banning / unbanning. AuthStore + KYCStore are out
+	// of scope for the admin facade.
+	Users              adminUsers
 	Reports            repository.ReportRepository
 	Reviews            repository.ReviewRepository
 	Jobs               repository.JobRepository
@@ -69,7 +84,7 @@ type ServiceDeps struct {
 }
 
 type Service struct {
-	users              repository.UserRepository
+	users              adminUsers
 	reports            repository.ReportRepository
 	reviews            repository.ReviewRepository
 	jobs               repository.JobRepository

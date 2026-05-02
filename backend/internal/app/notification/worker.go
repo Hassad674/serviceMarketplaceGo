@@ -30,12 +30,15 @@ const (
 )
 
 // WorkerDeps groups dependencies for the notification delivery worker.
+//
+// Users is narrowed to UserReader — the worker only resolves the
+// recipient by id (GetByID) to render the email/push payload.
 type WorkerDeps struct {
 	Queue    NotificationQueue
 	Presence service.PresenceService
 	Push     service.PushService
 	Email    service.EmailService
-	Users    repository.UserRepository
+	Users    repository.UserReader
 	Notifs   repository.NotificationRepository
 }
 
@@ -72,7 +75,7 @@ type Worker struct {
 	presence service.PresenceService
 	push     service.PushService
 	email    service.EmailService
-	users    repository.UserRepository
+	users    repository.UserReader
 	notifs   repository.NotificationRepository
 
 	cfg WorkerConfig

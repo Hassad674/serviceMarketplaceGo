@@ -80,7 +80,7 @@ type Service struct {
 // the composite is the union.
 type ServiceDeps struct {
 	Records       repository.PaymentRecordRepository
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Organizations payoutOrgs
 	Stripe        service.StripeService
 	Notifications service.NotificationSender

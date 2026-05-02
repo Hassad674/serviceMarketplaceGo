@@ -30,7 +30,7 @@ type ServiceDeps struct {
 	Disputes      repository.DisputeRepository
 	Proposals     disputeProposals
 	Milestones    repository.MilestoneRepository // phase 8 — required so disputes scope to a specific milestone
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	MessageRepo   repository.MessageReader // read-side, used by AI summary (ListMessagesSinceTime)
 	Messages      service.MessageSender
 	Notifications service.NotificationSender
@@ -42,7 +42,7 @@ type Service struct {
 	disputes      repository.DisputeRepository
 	proposals     disputeProposals
 	milestones    repository.MilestoneRepository
-	users         repository.UserRepository
+	users         repository.UserReader
 	messageRepo   repository.MessageReader
 	messages      service.MessageSender
 	notifications service.NotificationSender

@@ -36,19 +36,33 @@ type RoleOverridesService struct {
 	// orgs reuses the package-local orgReaderWriter composite — the
 	// service reads the org row to inspect existing overrides and writes
 	// the JSONB column via SaveRoleOverrides.
-	orgs        orgReaderWriter
-	members     repository.OrganizationMemberRepository
-	users       repository.UserRepository
+	orgs    orgReaderWriter
+	members repository.OrganizationMemberRepository
+	// users is the local composite roleOverridesUsers — the service
+	// reads the org owner for the email notification (Reader) and
+	// bumps session_version on every affected member (AuthStore) so
+	// the new permission set takes effect immediately. Writer +
+	// KYCStore are out of scope here.
+	users       roleOverridesUsers
 	audits      repository.AuditRepository
 	email       service.EmailService
 	rateLimiter RolePermissionsRateLimiter
+}
+
+// roleOverridesUsers is the local composite the role-overrides
+// service needs (Reader + AuthStore). No segregated child covers
+// "GetByID + BumpSessionVersion" — composing locally keeps the wide
+// port out of the dependency graph.
+type roleOverridesUsers interface {
+	repository.UserReader
+	repository.UserAuthStore
 }
 
 // RoleOverridesServiceDeps groups the constructor arguments.
 type RoleOverridesServiceDeps struct {
 	Orgs        orgReaderWriter
 	Members     repository.OrganizationMemberRepository
-	Users       repository.UserRepository
+	Users       roleOverridesUsers
 	Audits      repository.AuditRepository
 	Email       service.EmailService
 	RateLimiter RolePermissionsRateLimiter

@@ -39,10 +39,23 @@ type orgReaderWriter interface {
 	repository.OrganizationWriter
 }
 
+// membershipUsers is the local composite the membership service
+// needs: it reads actors / targets (Reader), bumps session_version on
+// every promotion / demotion / transfer so in-flight JWTs invalidate
+// immediately (AuthStore), and deletes the target user when the
+// org-owner removal flow opts to scrub the orphan account (Writer).
+// All three segregated children are required — composing locally
+// keeps the wide port out of the dependency graph.
+type membershipUsers interface {
+	repository.UserReader
+	repository.UserWriter
+	repository.UserAuthStore
+}
+
 type MembershipService struct {
 	orgs          orgReaderWriter
 	members       repository.OrganizationMemberRepository
-	users         repository.UserRepository
+	users         membershipUsers
 	notifications service.NotificationSender // nil disables notifications
 }
 
@@ -50,7 +63,7 @@ type MembershipService struct {
 type MembershipServiceDeps struct {
 	Orgs          orgReaderWriter
 	Members       repository.OrganizationMemberRepository
-	Users         repository.UserRepository
+	Users         membershipUsers
 	Notifications service.NotificationSender // optional
 }
 

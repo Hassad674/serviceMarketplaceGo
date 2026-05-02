@@ -19,7 +19,7 @@ import (
 type ServiceDeps struct {
 	Jobs         repository.JobRepository
 	Applications repository.JobApplicationRepository
-	Users        repository.UserRepository
+	Users        repository.UserReader
 	// Organizations is narrowed to OrganizationReader — the job feature
 	// only resolves the applicant's org by user id to gate KYC.
 	Organizations repository.OrganizationReader
@@ -32,7 +32,7 @@ type ServiceDeps struct {
 type Service struct {
 	jobs         repository.JobRepository
 	applications repository.JobApplicationRepository
-	users        repository.UserRepository
+	users        repository.UserReader
 	orgs         repository.OrganizationReader
 	profiles     repository.ProfileRepository
 	messages               service.MessageSender

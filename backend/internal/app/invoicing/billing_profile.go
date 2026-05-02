@@ -74,7 +74,7 @@ type billingProfileOrgs interface {
 // snapshot's invoicing_email simply stays empty (legacy behaviour).
 type BillingProfileDeps struct {
 	Organizations billingProfileOrgs
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	StripeKYC     service.StripeKYCSnapshotReader
 	VIESValidator service.VIESValidator
 }

@@ -25,7 +25,7 @@ import (
 type ServiceDeps struct {
 	Reviews       repository.ReviewRepository
 	Proposals     repository.ProposalReader
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Notifications service.NotificationSender
 }
 
@@ -33,7 +33,7 @@ type ServiceDeps struct {
 type Service struct {
 	reviews                repository.ReviewRepository
 	proposals              repository.ProposalReader
-	users                  repository.UserRepository
+	users                  repository.UserReader
 	notifications          service.NotificationSender
 	moderationOrchestrator *appmoderation.Service
 }

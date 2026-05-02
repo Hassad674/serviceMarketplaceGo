@@ -16,6 +16,16 @@ import (
 	"marketplace-backend/pkg/sanitize"
 )
 
+// messagingUsers is the local composite the messaging service needs:
+// it reads the recipient by id (Reader) and bumps last_active_at on
+// every message send (AuthStore.TouchLastActive). No segregated child
+// covers both — composing locally keeps the wide port out of the
+// dependency graph.
+type messagingUsers interface {
+	repository.UserReader
+	repository.UserAuthStore
+}
+
 type Service struct {
 	// messages stays on the wide MessageRepository — the messaging
 	// service straddles all three segregated children (Reader for the
@@ -23,7 +33,7 @@ type Service struct {
 	// BroadcasterStore for the WS fan-out helpers). Composing locally
 	// would reproduce the wide port verbatim.
 	messages repository.MessageRepository
-	users    repository.UserRepository
+	users    messagingUsers
 	// orgs is narrowed to OrganizationReader — messaging only ever
 	// resolves the recipient org by id (FindByID).
 	orgs                   repository.OrganizationReader
@@ -38,7 +48,7 @@ type Service struct {
 
 type ServiceDeps struct {
 	Messages      repository.MessageRepository
-	Users         repository.UserRepository
+	Users         messagingUsers
 	Organizations repository.OrganizationReader
 	OrgMembers    repository.OrganizationMemberRepository
 	Presence      service.PresenceService

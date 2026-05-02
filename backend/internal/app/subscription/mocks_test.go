@@ -16,7 +16,7 @@ import (
 // compiler fails here — catches drift before it reaches runtime.
 var (
 	_ repository.SubscriptionRepository         = (*mockSubRepo)(nil)
-	_ repository.UserRepository                 = (*mockUserRepo)(nil)
+	_ repository.UserReader                     = (*mockUserRepo)(nil)
 	_ repository.ProviderMilestoneAmountsReader = (*mockAmountsReader)(nil)
 	_ service.StripeSubscriptionService         = (*mockStripe)(nil)
 )
@@ -55,22 +55,22 @@ func (m *mockSubRepo) Update(ctx context.Context, s *domain.Subscription) error 
 	return nil
 }
 
-// --- mockUserRepo — minimal implementation of the full UserRepository ---
+// mockUserRepo implements the narrowed UserReader the subscription
+// service consumes. The legacy 15-method UserRepository stub was
+// shrunk to the 8 reader methods — every dropped method belonged to
+// UserWriter / UserAuthStore / UserKYCStore and was unused here.
 
 type mockUserRepo struct {
 	user *domainuser.User
 	err  error
 }
 
-func (m *mockUserRepo) Create(_ context.Context, _ *domainuser.User) error { return nil }
 func (m *mockUserRepo) GetByID(_ context.Context, _ uuid.UUID) (*domainuser.User, error) {
 	return m.user, m.err
 }
 func (m *mockUserRepo) GetByEmail(_ context.Context, _ string) (*domainuser.User, error) {
 	return nil, nil
 }
-func (m *mockUserRepo) Update(_ context.Context, _ *domainuser.User) error { return nil }
-func (m *mockUserRepo) Delete(_ context.Context, _ uuid.UUID) error        { return nil }
 func (m *mockUserRepo) ExistsByEmail(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
@@ -85,16 +85,6 @@ func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) 
 func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*domainuser.User, error) {
 	return nil, nil
 }
-func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
-	return 0, nil
-}
-func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
-	return 0, nil
-}
-func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
-	return nil
-}
-func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error { return nil }
 
 // --- mockAmountsReader ---
 

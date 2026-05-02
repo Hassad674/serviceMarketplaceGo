@@ -75,7 +75,7 @@ type Service struct {
 	// service reads the org row (FindByID) and reads its Stripe account
 	// id (GetStripeAccount).
 	organizations billingProfileOrgs
-	users         repository.UserRepository
+	users         repository.UserReader
 	stripeKYC     service.StripeKYCSnapshotReader
 	vies          service.VIESValidator
 }

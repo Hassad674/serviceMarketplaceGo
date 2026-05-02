@@ -22,7 +22,10 @@ type ServiceDeps struct {
 	Milestones          repository.MilestoneRepository          // required since phase 4 — every proposal has ≥1 milestone
 	MilestoneTransitions repository.MilestoneTransitionRepository // optional since phase 9 — when nil, audit writes are no-ops
 	PendingEvents       repository.PendingEventRepository        // optional since phase 6 — when nil, scheduling is a no-op
-	Users               repository.UserRepository
+	// Users is narrowed to UserReader — every proposal flow only
+	// resolves users by id (GetByID) for naming, KYC and side
+	// resolution. Persistence happens in dedicated mutation services.
+	Users               repository.UserReader
 	// UsersBatch is the bulk-fetch sibling consumed by
 	// GetParticipantNamesBatch (PERF-B-02). Optional — when nil, the
 	// list path falls back to per-id lookups so legacy test setups still
@@ -61,7 +64,7 @@ type Service struct {
 	milestones           repository.MilestoneRepository
 	milestoneTransitions repository.MilestoneTransitionRepository
 	pendingEvents        repository.PendingEventRepository
-	users                repository.UserRepository
+	users                repository.UserReader
 	usersBatch           repository.UserBatchReader
 	orgs                 proposalOrgs
 	messages             service.MessageSender

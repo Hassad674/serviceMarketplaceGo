@@ -39,7 +39,9 @@ import (
 // unchanged.
 type WalletService struct {
 	records repository.PaymentRecordRepository
-	users   repository.UserRepository
+	// users is narrowed to UserReader — wallet only resolves the caller
+	// + recipient user rows to compute fees and viewer-side flags.
+	users   repository.UserReader
 	// orgs is narrowed to the Stripe-store child — wallet only ever
 	// reads the connected-account id off the organization row.
 	orgs   repository.OrganizationStripeStore
@@ -64,7 +66,7 @@ type WalletService struct {
 // sub-service only reads stripe_account_id off the org row.
 type WalletServiceDeps struct {
 	Records       repository.PaymentRecordRepository
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Organizations repository.OrganizationStripeStore
 	Stripe        portservice.StripeService
 }

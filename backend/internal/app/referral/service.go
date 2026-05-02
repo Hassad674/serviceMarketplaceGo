@@ -37,7 +37,7 @@ import (
 // would reproduce the wide port verbatim.
 type ServiceDeps struct {
 	Referrals        repository.ReferralRepository
-	Users            repository.UserRepository
+	Users            repository.UserReader
 	Messages         service.MessageSender
 	Notifications    service.NotificationSender
 	Stripe           service.StripeService
@@ -53,7 +53,7 @@ type ServiceDeps struct {
 // exposes intro lifecycle use cases (create, respond, cancel, terminate).
 type Service struct {
 	referrals        repository.ReferralRepository
-	users            repository.UserRepository
+	users            repository.UserReader
 	messages         service.MessageSender
 	notifications    service.NotificationSender
 	stripe           service.StripeService
