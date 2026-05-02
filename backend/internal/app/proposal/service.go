@@ -11,6 +11,13 @@ import (
 )
 
 type ServiceDeps struct {
+	// Proposals stays on the wide ProposalRepository — the proposal
+	// service straddles all three segregated children (Reader for
+	// GetByID/GetByIDForOrg/GetDocuments/IsOrgAuthorizedForProposal/
+	// ListActiveProjectsByOrganization, Writer for
+	// CreateWithDocuments/Update, MilestoneStore for
+	// CreateWithDocumentsAndMilestones). Composing locally would
+	// reproduce the wide port verbatim.
 	Proposals           repository.ProposalRepository
 	Milestones          repository.MilestoneRepository          // required since phase 4 — every proposal has ≥1 milestone
 	MilestoneTransitions repository.MilestoneTransitionRepository // optional since phase 9 — when nil, audit writes are no-ops

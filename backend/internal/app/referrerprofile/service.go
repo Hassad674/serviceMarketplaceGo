@@ -43,7 +43,9 @@ type Service struct {
 	// an accepted state: the reputation endpoint returns an empty
 	// aggregate in that case, keeping the profile feature removable.
 	referrals repository.ReferralRepository
-	proposals repository.ProposalRepository
+	// proposals is narrowed to ProposalReader — the reputation
+	// aggregate only batch-loads proposals by id (GetByIDs).
+	proposals repository.ProposalReader
 	reviews   repository.ReviewRepository
 	users     repository.UserBatchReader
 }

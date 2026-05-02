@@ -75,10 +75,13 @@ type PublicClientProfile struct {
 //
 // Organizations is narrowed to OrganizationReader — the public client
 // profile only ever resolves the org by id (FindByID).
+//
+// Proposals is narrowed to ProposalReader — the public client profile
+// only sums paid proposals and lists completed ones for the history.
 type ServiceDeps struct {
 	Organizations repository.OrganizationReader
 	Profiles      repository.ProfileRepository
-	Proposals     repository.ProposalRepository
+	Proposals     repository.ProposalReader
 	Reviews       repository.ReviewRepository
 }
 
@@ -86,7 +89,7 @@ type ServiceDeps struct {
 type Service struct {
 	organizations repository.OrganizationReader
 	profiles      repository.ProfileRepository
-	proposals     repository.ProposalRepository
+	proposals     repository.ProposalReader
 	reviews       repository.ReviewRepository
 }
 

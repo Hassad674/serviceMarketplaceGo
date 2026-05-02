@@ -97,8 +97,10 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 // query count O(1) regardless of attribution count. If the proposal
 // query ever becomes hot, add ProposalRepository.GetByIDs for a
 // batch query.
+//
+// Narrowed to ProposalReader — the resolver only calls GetByID.
 type ProposalRepoSummaryResolver struct {
-	proposals  repository.ProposalRepository
+	proposals  repository.ProposalReader
 	milestones repository.MilestoneRepository
 }
 
@@ -106,7 +108,7 @@ type ProposalRepoSummaryResolver struct {
 // proposals / milestones (returns empty map or partial data with no
 // error — the UI degrades to missing fields rather than crashing).
 func NewProposalRepoSummaryResolver(
-	proposals repository.ProposalRepository,
+	proposals repository.ProposalReader,
 	milestones repository.MilestoneRepository,
 ) *ProposalRepoSummaryResolver {
 	return &ProposalRepoSummaryResolver{proposals: proposals, milestones: milestones}

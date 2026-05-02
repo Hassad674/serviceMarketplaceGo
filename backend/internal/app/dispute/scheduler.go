@@ -16,10 +16,14 @@ import (
 )
 
 // SchedulerDeps groups dependencies for the dispute scheduler.
+//
+// Proposals reuses the disputeProposals composite — the auto-resolve
+// path reads the source proposal and updates its escrow / dispute
+// flags when the respondent never replies.
 type SchedulerDeps struct {
 	Svc           *Service // canonical escalation routine lives here
 	Disputes      repository.DisputeRepository
-	Proposals     repository.ProposalRepository
+	Proposals     disputeProposals
 	Messages      service.MessageSender
 	Notifications service.NotificationSender
 	Payments      service.PaymentProcessor
@@ -35,7 +39,7 @@ type SchedulerDeps struct {
 type Scheduler struct {
 	svc           *Service
 	disputes      repository.DisputeRepository
-	proposals     repository.ProposalRepository
+	proposals     disputeProposals
 	messages      service.MessageSender
 	notifications service.NotificationSender
 	payments      service.PaymentProcessor

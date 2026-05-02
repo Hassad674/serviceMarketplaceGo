@@ -10,9 +10,20 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// disputeProposals is the local composite the dispute service needs:
+// it reads a proposal (GetByID / GetByIDForOrg) before negotiating
+// terms and writes it back (Update) when the resolution flow flips
+// the dispute_status / status / amount fields. No segregated child
+// covers both, so we compose locally and keep the wide port out of
+// the dependency graph.
+type disputeProposals interface {
+	repository.ProposalReader
+	repository.ProposalWriter
+}
+
 type ServiceDeps struct {
 	Disputes      repository.DisputeRepository
-	Proposals     repository.ProposalRepository
+	Proposals     disputeProposals
 	Milestones    repository.MilestoneRepository // phase 8 — required so disputes scope to a specific milestone
 	Users         repository.UserRepository
 	MessageRepo   repository.MessageRepository // read-side, used by AI summary
@@ -24,7 +35,7 @@ type ServiceDeps struct {
 
 type Service struct {
 	disputes      repository.DisputeRepository
-	proposals     repository.ProposalRepository
+	proposals     disputeProposals
 	milestones    repository.MilestoneRepository
 	users         repository.UserRepository
 	messageRepo   repository.MessageRepository
