@@ -70,6 +70,20 @@ const queryGetConversation = `
 // proposal + call flows that anchor on user ids) and the other org's
 // metadata (used for display in the list).
 //
+// queryListConversationsFirst — P6 denormalized read.
+//
+// The legacy shape used a `LEFT JOIN LATERAL (SELECT ... FROM messages
+// ORDER BY seq DESC LIMIT 1)` which fired one index scan per row in
+// the result set — the textbook N+1. Migration 133 + the maintenance
+// in createMessageInTx hold the latest message preview directly on
+// the conversation row, so we now read the four denormalized columns
+// inline. EXPLAIN ANALYZE shows the plan collapses from "Nested Loop
+// Left Join → Limit on idx_messages_conversation_seq_unique (per row)"
+// to a flat Sort → Hash/Seq join with zero per-row subquery.
+//
+// COALESCE on last_message_seq keeps the API shape stable for empty
+// conversations (preserves the existing `0` default — see scan path).
+//
 // $1 = caller organization_id
 // $2 = caller user_id (for the operator's personal unread count)
 // $3 = limit
@@ -81,9 +95,9 @@ const queryListConversationsFirst = `
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
-		lm.content,
-		lm.created_at,
-		COALESCE(lm.seq, 0),
+		c.last_message_content_preview,
+		c.last_message_at,
+		COALESCE(c.last_message_seq, 0),
 		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
@@ -97,13 +111,6 @@ const queryListConversationsFirst = `
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
 	LEFT JOIN conversation_read_state crs
 		ON crs.conversation_id = c.id AND crs.user_id = $2
-	LEFT JOIN LATERAL (
-		SELECT content, created_at, seq
-		FROM messages
-		WHERE conversation_id = c.id
-		ORDER BY seq DESC
-		LIMIT 1
-	) lm ON TRUE
 	WHERE EXISTS (
 		SELECT 1
 		FROM conversation_participants cp_my
@@ -113,6 +120,13 @@ const queryListConversationsFirst = `
 	ORDER BY c.updated_at DESC, c.id DESC
 	LIMIT $3`
 
+// queryListConversationsWithCursor — same shape as the first-page
+// query, with the additional `(c.updated_at, c.id) < ($3, $4)` clause
+// to skip already-paged rows. `c.updated_at` is the same value as
+// `c.last_message_at` post-migration 133, but we keep the cursor on
+// updated_at because empty conversations (no messages yet) carry NULL
+// in last_message_at and would break ORDER BY.
+//
 // $1 = caller organization_id, $2 = caller user_id,
 // $3/$4 = cursor (updated_at, id), $5 = limit
 const queryListConversationsWithCursor = `
@@ -123,9 +137,9 @@ const queryListConversationsWithCursor = `
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
-		lm.content,
-		lm.created_at,
-		COALESCE(lm.seq, 0),
+		c.last_message_content_preview,
+		c.last_message_at,
+		COALESCE(c.last_message_seq, 0),
 		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
@@ -139,13 +153,6 @@ const queryListConversationsWithCursor = `
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
 	LEFT JOIN conversation_read_state crs
 		ON crs.conversation_id = c.id AND crs.user_id = $2
-	LEFT JOIN LATERAL (
-		SELECT content, created_at, seq
-		FROM messages
-		WHERE conversation_id = c.id
-		ORDER BY seq DESC
-		LIMIT 1
-	) lm ON TRUE
 	WHERE EXISTS (
 		SELECT 1
 		FROM conversation_participants cp_my
