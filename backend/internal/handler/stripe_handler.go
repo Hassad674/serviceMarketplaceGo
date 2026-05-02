@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,8 +17,10 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	subscriptionapp "marketplace-backend/internal/app/subscription"
+	"marketplace-backend/internal/domain/pendingevent"
 	subscriptiondomain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/dto/response"
+	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/system"
 	res "marketplace-backend/pkg/response"
@@ -86,6 +89,16 @@ type StripeHandler struct {
 	// no-op. Removing the invoicing module from main.go disables the
 	// hook cleanly.
 	invoicingSvc *invoicingapp.Service
+
+	// Async pipeline (P8). pendingEvents is the queue the webhook
+	// HTTP handler enqueues onto after signature verification — the
+	// dispatch chain (PDF generation, email sends, multi-row DB
+	// writes) runs in the background worker so HandleWebhook can
+	// reply 200 to Stripe in <50ms. nil disables the async path
+	// entirely; HandleWebhook then dispatches inline (legacy
+	// behaviour, kept so unit tests that don't wire a queue still
+	// drive the dispatcher).
+	pendingEvents repository.PendingEventRepository
 }
 
 func NewStripeHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service, publishableKey string) *StripeHandler {
@@ -126,6 +139,22 @@ func (h *StripeHandler) WithSubscription(svc *subscriptionapp.Service, cache Sub
 	return h
 }
 
+// WithPendingEventsQueue wires the async-dispatch queue into the
+// webhook HTTP handler. After this setter is called, HandleWebhook
+// verifies the signature and immediately enqueues a TypeStripeWebhook
+// row on pending_events — the registered worker handler in
+// adapter/worker/handlers/stripe_handlers.go decodes the projected
+// event from the queue and calls Dispatch in a background goroutine.
+//
+// Pass repo=nil to disable the async path: HandleWebhook then falls
+// back to inline dispatch (the legacy synchronous behaviour, kept so
+// existing unit tests that don't wire a queue still exercise the
+// dispatcher directly).
+func (h *StripeHandler) WithPendingEventsQueue(repo repository.PendingEventRepository) *StripeHandler {
+	h.pendingEvents = repo
+	return h
+}
+
 // GetConfig returns the Stripe publishable key for frontend initialization.
 func (h *StripeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.StripeConfigResponse{
@@ -135,7 +164,27 @@ func (h *StripeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 
 // HandleWebhook processes Stripe webhook events.
 // No auth middleware — Stripe sends directly, verified by signature.
+//
+// P8 — Async dispatch. The webhook handler used to dispatch every
+// event inline, which on invoice.paid (PDF generation via headless
+// chrome, ~2-5s) routinely came within 1-2 seconds of Stripe's 10s
+// timeout. P8 moved dispatch to a pending_events worker:
+//
+//  1. Verify the Stripe signature (fast — pure crypto, no DB).
+//  2. If the async queue is wired, marshal the projected event and
+//     enqueue it via ScheduleStripe (ON CONFLICT DO NOTHING on the
+//     evt_* id — Stripe re-deliveries are silent no-ops).
+//  3. Reply 200 OK in <50ms regardless of dispatch outcome.
+//  4. The worker handler picks up the row in the next tick (default
+//     30s, but 0s on cold-start since the worker runs an immediate
+//     tick) and calls Dispatch.
+//
+// When pendingEvents is nil (test wiring or local debugging), the
+// handler falls back to the legacy inline-dispatch path with the
+// IdempotencyClaimer + Release-on-error semantics so existing tests
+// continue to drive the dispatcher directly.
 func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	enqueueStart := time.Now()
 	body, err := io.ReadAll(io.LimitReader(r.Body, 65536))
 	if err != nil {
 		res.Error(w, http.StatusBadRequest, "read_error", "cannot read request body")
@@ -155,6 +204,102 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Async path: enqueue and return 200 immediately. Skips the
+	// IdempotencyClaimer entirely — the partial unique index on
+	// pending_events.stripe_event_id provides at-most-once
+	// semantics directly at the DB layer, and the worker handlers
+	// are already idempotent so a re-dispatch on retry is safe.
+	if h.pendingEvents != nil && event.EventID != "" {
+		if h.enqueueAsync(r.Context(), event, enqueueStart, w) {
+			return
+		}
+		// enqueueAsync wrote a 5xx already — fall through is not
+		// safe; bail out so we don't double-write the response.
+		return
+	}
+
+	// Legacy inline-dispatch path. Used only when pendingEvents
+	// is not wired (e.g. in unit tests that drive the dispatcher
+	// directly and do not need the async pipeline).
+	h.handleWebhookInline(w, r, event)
+}
+
+// enqueueAsync runs the P8 async path: marshal the event projection,
+// schedule it via ScheduleStripe (ON CONFLICT DO NOTHING), reply 200.
+// Returns true when the response has been written to w (success or
+// silent dedup); returns false when a fall-through is desired.
+//
+// On a database error (Postgres down, conflict on a non-evt index,
+// etc.) the caller responds 5xx to signal retry — Stripe will re-send
+// the same evt_* id and the next attempt will land on a freshly
+// reachable database.
+func (h *StripeHandler) enqueueAsync(
+	ctx context.Context,
+	event *portservice.StripeWebhookEvent,
+	enqueueStart time.Time,
+	w http.ResponseWriter,
+) bool {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		// Marshalling our own struct shouldn't ever fail; if it
+		// does, treat it as a 5xx so Stripe retries — by the next
+		// retry the deploy may have rolled back the offending
+		// shape.
+		slog.Error("stripe webhook: marshal event for queue failed",
+			"event_id", event.EventID, "event_type", event.Type, "error", err)
+		res.Error(w, http.StatusServiceUnavailable, "enqueue_error",
+			"failed to encode event for async dispatch")
+		return true
+	}
+
+	pe, err := pendingevent.NewPendingEvent(pendingevent.NewPendingEventInput{
+		EventType:     pendingevent.TypeStripeWebhook,
+		Payload:       payload,
+		FiresAt:       time.Now(),
+		StripeEventID: event.EventID,
+	})
+	if err != nil {
+		slog.Error("stripe webhook: build pending event failed",
+			"event_id", event.EventID, "event_type", event.Type, "error", err)
+		res.Error(w, http.StatusServiceUnavailable, "enqueue_error",
+			"failed to construct queue row")
+		return true
+	}
+
+	inserted, err := h.pendingEvents.ScheduleStripe(ctx, pe)
+	if err != nil {
+		slog.Error("stripe webhook: enqueue failed — Stripe will retry",
+			"event_id", event.EventID, "event_type", event.Type, "error", err)
+		res.Error(w, http.StatusServiceUnavailable, "enqueue_error",
+			"failed to enqueue event for async dispatch")
+		return true
+	}
+
+	enqueueMS := time.Since(enqueueStart).Milliseconds()
+	if inserted {
+		slog.Info("stripe webhook: enqueued for async dispatch",
+			"event_id", event.EventID,
+			"event_type", event.Type,
+			"enqueue_ms", enqueueMS)
+	} else {
+		// Duplicate Stripe delivery — caught by ON CONFLICT
+		// DO NOTHING. Silent no-op is the contract.
+		slog.Info("stripe webhook: duplicate delivery deduplicated by ON CONFLICT",
+			"event_id", event.EventID,
+			"event_type", event.Type,
+			"enqueue_ms", enqueueMS)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return true
+}
+
+// handleWebhookInline is the legacy synchronous dispatcher kept for
+// the test wiring that does not provide a pending_events queue. The
+// production path goes through enqueueAsync; this function exists so
+// the existing unit tests in stripe_handler_*_test.go continue to
+// drive the dispatcher without rewiring every fixture.
+func (h *StripeHandler) handleWebhookInline(w http.ResponseWriter, r *http.Request, event *portservice.StripeWebhookEvent) {
 	// Idempotency guard. Stripe retries on 5xx, and a transient DB blip
 	// could apply the same subscription transition twice (reactivate,
 	// re-bump StartedAt) — or worse, fund a milestone twice. The
@@ -189,7 +334,7 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// then unconditionally returned 200, leaving the durable claim
 	// permanent — Stripe's next retry was silently deduped and the
 	// state change was lost forever.
-	dispatchErr := h.dispatch(r, event)
+	dispatchErr := h.Dispatch(r.Context(), event)
 
 	if dispatchErr != nil {
 		slog.Error("stripe webhook: handler returned error, releasing idempotency claim and replying 5xx",
@@ -220,32 +365,42 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// dispatch routes the event to its type-specific handler and returns
-// the first non-nil error. Errors here trigger an idempotency release
-// in HandleWebhook so Stripe re-delivers the event.
-func (h *StripeHandler) dispatch(r *http.Request, event *portservice.StripeWebhookEvent) error {
+// Dispatch routes a verified Stripe event to its type-specific
+// handler and returns the first non-nil error. Used by the
+// pending_events worker handler (registered in
+// adapter/worker/handlers/stripe_handlers.go) — the handler decodes
+// the persisted StripeWebhookEvent payload from the queue row and
+// hands it to this method.
+//
+// Public so the worker handler can call it from outside the handler
+// package without exposing every per-event method individually. The
+// HTTP webhook entry point (HandleWebhook) no longer calls Dispatch —
+// it enqueues and returns 200 — but tests still use the per-event
+// helpers directly to assert outcomes without going through the
+// queue.
+func (h *StripeHandler) Dispatch(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	switch event.Type {
 	case "payment_intent.succeeded":
-		return h.handlePaymentSucceeded(r, event.PaymentIntentID)
+		return h.handlePaymentSucceeded(ctx, event.PaymentIntentID)
 	case "payment_intent.payment_failed":
 		slog.Warn("payment intent failed", "payment_intent_id", event.PaymentIntentID)
 		return nil
 	case "account.updated":
-		return h.dispatchEmbeddedNotif(r, event)
+		return h.dispatchEmbeddedNotif(ctx, event)
 	case "capability.updated",
 		"account.application.authorized",
 		"account.application.deauthorized",
 		"account.external_account.created",
 		"account.external_account.updated",
 		"account.external_account.deleted":
-		return h.dispatchEmbeddedNotif(r, event)
+		return h.dispatchEmbeddedNotif(ctx, event)
 	case "customer.subscription.created":
-		return h.handleSubscriptionCreated(r, event)
+		return h.handleSubscriptionCreated(ctx, event)
 	case "customer.subscription.updated",
 		"customer.subscription.deleted":
-		return h.handleSubscriptionSnapshot(r, event)
+		return h.handleSubscriptionSnapshot(ctx, event)
 	case "invoice.payment_failed":
-		return h.handleInvoicePaymentFailed(r, event)
+		return h.handleInvoicePaymentFailed(ctx, event)
 	case "invoice.payment_succeeded":
 		// Handled by the customer.subscription.updated that follows.
 		// Stripe fires both on a successful renewal, but the
@@ -259,13 +414,13 @@ func (h *StripeHandler) dispatch(r *http.Request, event *portservice.StripeWebho
 		// the trigger for issuing our own customer-facing invoice
 		// (FAC-NNNNNN), independent of the subscription state
 		// reflection that customer.subscription.updated drives.
-		return h.handleInvoicePaid(r, event)
+		return h.handleInvoicePaid(ctx, event)
 	case "charge.refunded":
 		// charge.refunded triggers a credit note (AV-NNNNNN) for the
 		// refunded amount. The handler short-circuits when the refund
 		// can't be matched to one of our subscription invoices —
 		// non-invoiced charges are out of scope.
-		return h.handleChargeRefunded(r, event)
+		return h.handleChargeRefunded(ctx, event)
 	default:
 		slog.Debug("unhandled stripe event", "type", event.Type)
 		return nil
@@ -284,11 +439,11 @@ func (h *StripeHandler) dispatch(r *http.Request, event *portservice.StripeWebho
 // (cmd/stripe-backfill-metadata) removes the need for this fallback in
 // Stripe once it runs; the code keeps it around for safety during the
 // transition window.
-func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) handleSubscriptionCreated(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	if h.subscriptionSvc == nil || event.SubscriptionSnapshot == nil {
 		return nil
 	}
-	orgID, cacheUserID, err := h.resolveSubscriptionOwner(r.Context(), event)
+	orgID, cacheUserID, err := h.resolveSubscriptionOwner(ctx, event)
 	if err != nil {
 		slog.Warn("stripe webhook: subscription.created owner resolution failed",
 			"event_id", event.EventID,
@@ -316,7 +471,7 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 	// that a no-op.
 	snap := *event.SubscriptionSnapshot
 	if event.SubscriptionCancelAtPeriodEndIntent && !snap.CancelAtPeriodEnd {
-		if uErr := h.subscriptionSvc.EnforceCancelAtPeriodEnd(r.Context(), snap.ID, true); uErr != nil {
+		if uErr := h.subscriptionSvc.EnforceCancelAtPeriodEnd(ctx, snap.ID, true); uErr != nil {
 			slog.Warn("stripe webhook: enforce cancel_at_period_end failed, persisting Stripe default",
 				"event_id", event.EventID, "stripe_sub_id", snap.ID, "error", uErr)
 		} else {
@@ -325,7 +480,7 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 	}
 
 	if err := h.subscriptionSvc.RegisterFromCheckout(
-		r.Context(),
+		ctx,
 		orgID,
 		subscriptiondomain.Plan(event.SubscriptionPlan),
 		subscriptiondomain.BillingCycle(event.SubscriptionCycle),
@@ -345,7 +500,7 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 	// org_id, and invalidation falls back to TTL — acceptable given the
 	// 60s window.
 	if cacheUserID != uuid.Nil {
-		h.invalidateSubscriptionCache(r.Context(), cacheUserID)
+		h.invalidateSubscriptionCache(ctx, cacheUserID)
 	}
 	return nil
 }
@@ -382,11 +537,11 @@ func (h *StripeHandler) resolveSubscriptionOwner(
 
 // handleSubscriptionSnapshot reflects customer.subscription.updated and
 // customer.subscription.deleted into our row via the app service.
-func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) handleSubscriptionSnapshot(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	if h.subscriptionSvc == nil || event.SubscriptionSnapshot == nil {
 		return nil
 	}
-	if err := h.subscriptionSvc.HandleSubscriptionSnapshot(r.Context(), *event.SubscriptionSnapshot, event.SubscriptionDeleted); err != nil {
+	if err := h.subscriptionSvc.HandleSubscriptionSnapshot(ctx, *event.SubscriptionSnapshot, event.SubscriptionDeleted); err != nil {
 		slog.Error("stripe webhook: subscription snapshot update failed",
 			"event_id", event.EventID, "stripe_sub_id", event.SubscriptionSnapshot.ID, "error", err)
 		// BUG-NEW-06 — surface so the dispatcher releases the
@@ -404,7 +559,7 @@ func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *ports
 	// already errs on the side of charging the standard fee on miss.
 	if event.SubscriptionUserID != "" {
 		if uid, err := uuid.Parse(event.SubscriptionUserID); err == nil {
-			h.invalidateSubscriptionCache(r.Context(), uid)
+			h.invalidateSubscriptionCache(ctx, uid)
 		}
 	}
 	return nil
@@ -424,7 +579,7 @@ func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *ports
 //     the line description is missing.
 //  5. Hand off to the invoicing app service; errors are logged but the
 //     webhook still returns 200 to Stripe (handled by the caller).
-func (h *StripeHandler) handleInvoicePaid(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) handleInvoicePaid(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	if h.invoicingSvc == nil {
 		return nil
 	}
@@ -435,7 +590,7 @@ func (h *StripeHandler) handleInvoicePaid(r *http.Request, event *portservice.St
 		return nil
 	}
 
-	orgID, err := h.resolveInvoicePaidOwner(r.Context(), event)
+	orgID, err := h.resolveInvoicePaidOwner(ctx, event)
 	if err != nil {
 		slog.Warn("stripe webhook: invoice.paid owner resolution failed",
 			"event_id", event.EventID,
@@ -453,7 +608,7 @@ func (h *StripeHandler) handleInvoicePaid(r *http.Request, event *portservice.St
 		planLabel = "Premium subscription"
 	}
 
-	if _, err := h.invoicingSvc.IssueFromSubscription(r.Context(), invoicingapp.IssueFromSubscriptionInput{
+	if _, err := h.invoicingSvc.IssueFromSubscription(ctx, invoicingapp.IssueFromSubscriptionInput{
 		OrganizationID:        orgID,
 		StripeEventID:         event.EventID,
 		StripeInvoiceID:       event.InvoiceID,
@@ -513,7 +668,7 @@ func (h *StripeHandler) resolveInvoicePaidOwner(
 //  3. Hand off to the invoicing app service. Errors are logged but the
 //     webhook still returns 200 so Stripe doesn't burn its retry budget
 //     re-running a pipeline that's never going to succeed.
-func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) handleChargeRefunded(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	if h.invoicingSvc == nil {
 		return nil
 	}
@@ -523,7 +678,7 @@ func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice
 		return nil
 	}
 
-	inv, err := h.invoicingSvc.FindInvoiceByPaymentIntentID(r.Context(), event.ChargePaymentIntentID)
+	inv, err := h.invoicingSvc.FindInvoiceByPaymentIntentID(ctx, event.ChargePaymentIntentID)
 	if err != nil {
 		// Not all charges produce one of OUR invoices (early
 		// test data, non-subscription payments, etc.). A miss is
@@ -535,7 +690,7 @@ func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice
 		return nil
 	}
 
-	if _, err := h.invoicingSvc.IssueCreditNote(r.Context(), invoicingapp.IssueCreditNoteInput{
+	if _, err := h.invoicingSvc.IssueCreditNote(ctx, invoicingapp.IssueCreditNoteInput{
 		OriginalInvoiceID: inv.ID,
 		Reason:            "Stripe refund",
 		AmountCents:       event.ChargeAmountRefundedCents,
@@ -555,7 +710,8 @@ func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice
 }
 
 // handleInvoicePaymentFailed opens a grace window on the subscription.
-func (h *StripeHandler) handleInvoicePaymentFailed(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) handleInvoicePaymentFailed(ctx context.Context, event *portservice.StripeWebhookEvent) error {
+	_ = ctx // reserved for future grace-window writes
 	if h.subscriptionSvc == nil || event.InvoiceSubscriptionID == "" {
 		return nil
 	}
@@ -587,11 +743,11 @@ func (h *StripeHandler) invalidateSubscriptionCache(ctx context.Context, userID 
 // Stripe retry — pushing the same notification twice on a Stripe retry
 // would spam users, which is worse than dropping the notification.
 // Therefore this returns nil even on internal failure.
-func (h *StripeHandler) dispatchEmbeddedNotif(r *http.Request, event *portservice.StripeWebhookEvent) error {
+func (h *StripeHandler) dispatchEmbeddedNotif(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	if h.embeddedNotifier == nil || event == nil || event.AccountSnapshot == nil {
 		return nil
 	}
-	if err := h.embeddedNotifier.HandleAccountSnapshot(r.Context(), event.AccountSnapshot); err != nil {
+	if err := h.embeddedNotifier.HandleAccountSnapshot(ctx, event.AccountSnapshot); err != nil {
 		slog.Warn("embedded notifier: handle snapshot",
 			"account_id", event.AccountSnapshot.AccountID,
 			"event_type", event.Type,
@@ -600,7 +756,7 @@ func (h *StripeHandler) dispatchEmbeddedNotif(r *http.Request, event *portservic
 	return nil
 }
 
-func (h *StripeHandler) handlePaymentSucceeded(r *http.Request, piID string) error {
+func (h *StripeHandler) handlePaymentSucceeded(ctx context.Context, piID string) error {
 	// Stripe webhook is a system-actor caller: the request is
 	// authenticated by signature, not by a user session, so the
 	// per-tenant org context expected by user-facing flows is
@@ -608,7 +764,7 @@ func (h *StripeHandler) handlePaymentSucceeded(r *http.Request, piID string) err
 	// (e.g. ConfirmPaymentAndActivate) take the system-actor
 	// branch of loadProposalForActor instead of panicking on
 	// MustGetOrgID.
-	ctx := system.WithSystemActor(r.Context())
+	ctx = system.WithSystemActor(ctx)
 
 	proposalID, err := h.paymentSvc.HandlePaymentSucceeded(ctx, piID)
 	if err != nil {

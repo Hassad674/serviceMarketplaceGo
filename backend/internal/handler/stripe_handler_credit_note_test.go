@@ -180,7 +180,7 @@ func TestHandleChargeRefunded_DispatchesAndMarksCredited(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleChargeRefunded(r, event)
+	h.handleChargeRefunded(r.Context(), event)
 
 	assert.Equal(t, 1, tracking.creditNotePersists, "credit note must be persisted exactly once")
 	require.NotNil(t, tracking.persistedCN)
@@ -205,7 +205,7 @@ func TestHandleChargeRefunded_NoMatchingInvoice_LogsAndSkips(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleChargeRefunded(r, event)
+	h.handleChargeRefunded(r.Context(), event)
 
 	assert.Equal(t, 0, tracking.creditNotePersists, "no credit note when invoice match fails")
 	assert.Empty(t, tracking.markedCreditedIDs)
@@ -227,8 +227,8 @@ func TestHandleChargeRefunded_IdempotentReplay_NoDuplicate(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleChargeRefunded(r, event)
-	h.handleChargeRefunded(r, event) // replay same event id
+	h.handleChargeRefunded(r.Context(), event)
+	h.handleChargeRefunded(r.Context(), event) // replay same event id
 
 	assert.Equal(t, 1, tracking.creditNotePersists, "replay must NOT create a second credit note")
 	assert.Len(t, tracking.markedCreditedIDs, 1, "replay must NOT mark credited twice")
@@ -245,7 +245,7 @@ func TestHandleChargeRefunded_NoOpWhenInvoicingDisabled(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", nil)
 
 	// Must not panic, must not produce side effects when feature is off.
-	h.handleChargeRefunded(r, event)
+	h.handleChargeRefunded(r.Context(), event)
 }
 
 func TestHandleChargeRefunded_NoOpWhenNoPaymentIntent(t *testing.T) {
@@ -258,7 +258,7 @@ func TestHandleChargeRefunded_NoOpWhenNoPaymentIntent(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 
-	h.handleChargeRefunded(r, event)
+	h.handleChargeRefunded(r.Context(), event)
 
 	assert.Equal(t, 0, tracking.creditNotePersists)
 }

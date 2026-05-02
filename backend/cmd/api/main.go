@@ -525,12 +525,13 @@ func main() {
 
 	// Stripe HTTP handler — see wire_late_handlers.go.
 	stripeHandler := wireStripeHandler(stripeHandlerDeps{
-		Cfg:              cfg,
-		PaymentInfoSvc:   paymentInfoSvc,
-		ProposalSvc:      proposalSvc,
-		OrganizationRepo: infra.OrganizationRepo,
-		Notifications:    notifSvc,
-		ReferralSvc:      referralSvc,
+		Cfg:               cfg,
+		PaymentInfoSvc:    paymentInfoSvc,
+		ProposalSvc:       proposalSvc,
+		OrganizationRepo:  infra.OrganizationRepo,
+		Notifications:     notifSvc,
+		ReferralSvc:       referralSvc,
+		PendingEventsRepo: pendingEventsRepo,
 	})
 
 	// Wallet + billing handlers — see wire_payment.go.
