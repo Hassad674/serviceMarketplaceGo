@@ -419,10 +419,15 @@ func createMessageInTx(ctx context.Context, tx *sql.Tx, msg *message.Message) er
 		return fmt.Errorf("insert message: %w", err)
 	}
 
-	if _, err := tx.ExecContext(ctx, queryUpdateConversationTimestamp,
-		msg.ConversationID, msg.CreatedAt,
+	// P6: maintain conversations.last_message_* in the SAME tx as the
+	// INSERT above so /api/v1/messaging/conversations can read the
+	// preview without a per-row LATERAL subquery on `messages`.
+	// senderArg is reused — system messages bind NULL exactly like
+	// the messages.sender_id column does (mig 130).
+	if _, err := tx.ExecContext(ctx, queryUpdateConversationLastMessage,
+		msg.ConversationID, msg.CreatedAt, msg.Seq, msg.Content, senderArg,
 	); err != nil {
-		return fmt.Errorf("update conversation: %w", err)
+		return fmt.Errorf("update conversation last_message: %w", err)
 	}
 
 	return nil

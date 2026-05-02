@@ -189,8 +189,39 @@ const queryInsertMessage = `
 	INSERT INTO messages (id, conversation_id, sender_id, content, msg_type, metadata, reply_to_id, seq, status, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
+// queryUpdateConversationTimestamp is kept as the legacy single-column
+// path for any future caller that bumps `updated_at` without a
+// message context (none today). The hot path — message inserts — uses
+// queryUpdateConversationLastMessage instead.
 const queryUpdateConversationTimestamp = `
 	UPDATE conversations SET updated_at = $2 WHERE id = $1`
+
+// queryUpdateConversationLastMessage denormalizes the just-inserted
+// message preview onto the conversation row. Maintained inside the
+// same transaction as the INSERT into messages (createMessageInTx)
+// so /api/v1/messaging/conversations can read the preview without
+// a per-conversation LATERAL subquery.
+//
+// $1 = conversation_id
+// $2 = message created_at (also bumps updated_at — same value to keep
+//      ORDER BY updated_at stable with the existing API contract)
+// $3 = message seq
+// $4 = message content (truncated to 100 chars via LEFT() — keeps
+//      truncation server-side so we don't ship full payloads)
+// $5 = message sender_id (NULL for system messages — mirrors mig 130)
+//
+// Decision (locked, see docs/plans/P6_brief.md): maintenance applicatif
+// in createMessageInTx, NOT a PG trigger. Writes are visible in code,
+// debuggable, and the SET LOCAL tenant context already covers the RLS
+// USING expression on the row.
+const queryUpdateConversationLastMessage = `
+	UPDATE conversations
+	SET updated_at                   = $2,
+	    last_message_seq             = $3,
+	    last_message_content_preview = LEFT($4, 100),
+	    last_message_at              = $2,
+	    last_message_sender_id       = $5
+	WHERE id = $1`
 
 const queryGetMessage = `
 	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
