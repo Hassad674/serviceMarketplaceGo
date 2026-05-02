@@ -14,6 +14,16 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// notificationUsers is the local composite the notification service
+// needs: it reads users by id (Reader) to check the per-user email
+// kill-switch and writes that switch via UpdateEmailNotificationsEnabled
+// (KYCStore). No segregated child covers both — composing locally
+// keeps the wide port out of the dependency graph.
+type notificationUsers interface {
+	repository.UserReader
+	repository.UserKYCStore
+}
+
 // ServiceDeps groups dependencies for the notification service.
 type ServiceDeps struct {
 	Notifications repository.NotificationRepository
@@ -21,7 +31,7 @@ type ServiceDeps struct {
 	Broadcaster   service.MessageBroadcaster
 	Push          service.PushService  // nil if FCM not configured
 	Email         service.EmailService // nil if email not configured
-	Users         repository.UserRepository
+	Users         notificationUsers
 	Queue         NotificationQueue // nil for synchronous fallback
 }
 
@@ -32,7 +42,7 @@ type Service struct {
 	broadcaster   service.MessageBroadcaster
 	push          service.PushService
 	email         service.EmailService
-	users         repository.UserRepository
+	users         notificationUsers
 	queue         NotificationQueue
 }
 

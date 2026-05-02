@@ -17,13 +17,17 @@ import (
 )
 
 // AdminDisputeHandler handles admin-only dispute endpoints.
+//
+// disputes is narrowed to DisputeReader — admin endpoints only list
+// (ListAll) and count (CountAll); every state mutation goes through
+// the dispute app service.
 type AdminDisputeHandler struct {
 	svc       *disputeapp.Service
-	disputes  repository.DisputeRepository
+	disputes  repository.DisputeReader
 	isDevMode bool // Enables /force-escalate for dev/staging only.
 }
 
-func NewAdminDisputeHandler(svc *disputeapp.Service, disputes repository.DisputeRepository, isDevMode bool) *AdminDisputeHandler {
+func NewAdminDisputeHandler(svc *disputeapp.Service, disputes repository.DisputeReader, isDevMode bool) *AdminDisputeHandler {
 	return &AdminDisputeHandler{svc: svc, disputes: disputes, isDevMode: isDevMode}
 }
 

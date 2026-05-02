@@ -56,8 +56,8 @@ type ProjectHistoryEntry struct {
 // The field is kept for one release as an accepted-and-ignored value
 // to avoid breaking existing wiring in cmd/api/main.go.
 type ReputationDeps struct {
-	Referrals repository.ReferralRepository
-	Proposals repository.ProposalRepository
+	Referrals reputationReferrals
+	Proposals repository.ProposalReader
 	Reviews   repository.ReviewRepository
 	// Users is deprecated: the apporteur reputation surface no longer
 	// exposes provider names. The field is still accepted so existing

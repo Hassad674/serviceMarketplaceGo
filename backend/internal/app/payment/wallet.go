@@ -39,9 +39,13 @@ import (
 // unchanged.
 type WalletService struct {
 	records repository.PaymentRecordRepository
-	users   repository.UserRepository
-	orgs    repository.OrganizationRepository
-	stripe  portservice.StripeService
+	// users is narrowed to UserReader — wallet only resolves the caller
+	// + recipient user rows to compute fees and viewer-side flags.
+	users   repository.UserReader
+	// orgs is narrowed to the Stripe-store child — wallet only ever
+	// reads the connected-account id off the organization row.
+	orgs   repository.OrganizationStripeStore
+	stripe portservice.StripeService
 
 	// referralWallet renders the apporteur side of the wallet (commission
 	// totals + recent commissions). Nil when the referral feature is not
@@ -57,10 +61,13 @@ type WalletService struct {
 }
 
 // WalletServiceDeps groups every dependency NewWalletService needs.
+//
+// Organizations is narrowed to OrganizationStripeStore — the wallet
+// sub-service only reads stripe_account_id off the org row.
 type WalletServiceDeps struct {
 	Records       repository.PaymentRecordRepository
-	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
+	Users         repository.UserReader
+	Organizations repository.OrganizationStripeStore
 	Stripe        portservice.StripeService
 }
 

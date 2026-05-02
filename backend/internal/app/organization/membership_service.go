@@ -27,18 +27,43 @@ import (
 // notification to the affected user via the NotificationSender port;
 // dispatch is best-effort and cannot block the main flow (see
 // notifier.go).
+// orgReaderWriter is the composite the membership service needs: it
+// reads the org row for the transfer / admin-override pre-checks and
+// writes the row when the transfer flow flips the pending_transfer_*
+// columns. Declared locally because no segregated child covers
+// "FindByID + Update" alone — splitting further would create a child
+// that's only used here. Composition over a wider port is the
+// CLAUDE.md-prescribed escape hatch.
+type orgReaderWriter interface {
+	repository.OrganizationReader
+	repository.OrganizationWriter
+}
+
+// membershipUsers is the local composite the membership service
+// needs: it reads actors / targets (Reader), bumps session_version on
+// every promotion / demotion / transfer so in-flight JWTs invalidate
+// immediately (AuthStore), and deletes the target user when the
+// org-owner removal flow opts to scrub the orphan account (Writer).
+// All three segregated children are required — composing locally
+// keeps the wide port out of the dependency graph.
+type membershipUsers interface {
+	repository.UserReader
+	repository.UserWriter
+	repository.UserAuthStore
+}
+
 type MembershipService struct {
-	orgs          repository.OrganizationRepository
+	orgs          orgReaderWriter
 	members       repository.OrganizationMemberRepository
-	users         repository.UserRepository
+	users         membershipUsers
 	notifications service.NotificationSender // nil disables notifications
 }
 
 // MembershipServiceDeps groups the constructor arguments for NewMembershipService.
 type MembershipServiceDeps struct {
-	Orgs          repository.OrganizationRepository
+	Orgs          orgReaderWriter
 	Members       repository.OrganizationMemberRepository
-	Users         repository.UserRepository
+	Users         membershipUsers
 	Notifications service.NotificationSender // optional
 }
 

@@ -16,6 +16,17 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
+// adminUsers is the local composite the admin service needs: it
+// reads every report path (counts, listings, lookups), writes
+// status flips (Update) when banning / unbanning, and bumps
+// session_version (AuthStore.BumpSessionVersion) so a banned admin
+// loses its in-flight tokens immediately. KYCStore is out of scope.
+type adminUsers interface {
+	repository.UserReader
+	repository.UserWriter
+	repository.UserAuthStore
+}
+
 // DashboardStats holds aggregated statistics for the admin dashboard.
 type DashboardStats struct {
 	TotalUsers         int
@@ -34,12 +45,19 @@ type DashboardStats struct {
 
 // ServiceDeps groups dependencies for the admin Service.
 type ServiceDeps struct {
-	Users              repository.UserRepository
+	// Users is narrowed to adminUsers — admin endpoints read every
+	// reader path (counts, lists, lookups) and write status changes
+	// (Update) when banning / unbanning. AuthStore + KYCStore are out
+	// of scope for the admin facade.
+	Users              adminUsers
 	Reports            repository.ReportRepository
 	Reviews            repository.ReviewRepository
 	Jobs               repository.JobRepository
 	Applications       repository.JobApplicationRepository
-	Proposals          repository.ProposalRepository
+	// Proposals is narrowed to ProposalReader — admin only reads stats
+	// (CountAll). Mutations go through the dispute / proposal app
+	// services, never through the admin facade.
+	Proposals          repository.ProposalReader
 	AdminConversations repository.AdminConversationRepository
 	MediaRepo          repository.MediaRepository
 	ModerationRepo     repository.AdminModerationRepository
@@ -53,7 +71,12 @@ type ServiceDeps struct {
 	// Organization team management (Phase 6). All four are optional
 	// at build time but must be set together for the admin team
 	// endpoints to work; otherwise the handlers return a 500.
-	Orgs           repository.OrganizationRepository
+	//
+	// Orgs is narrowed to OrganizationReader — admin only reads org
+	// rows (CountAll for stats, FindByID / FindByOwnerUserID for the
+	// team detail aggregate). All write paths go through the
+	// Membership / Invitation app services.
+	Orgs           repository.OrganizationReader
 	OrgMembers     repository.OrganizationMemberRepository
 	OrgInvitations repository.OrganizationInvitationRepository
 	Membership     *organizationapp.MembershipService
@@ -61,12 +84,12 @@ type ServiceDeps struct {
 }
 
 type Service struct {
-	users              repository.UserRepository
+	users              adminUsers
 	reports            repository.ReportRepository
 	reviews            repository.ReviewRepository
 	jobs               repository.JobRepository
 	applications       repository.JobApplicationRepository
-	proposals          repository.ProposalRepository
+	proposals          repository.ProposalReader
 	adminConversations repository.AdminConversationRepository
 	mediaRepo          repository.MediaRepository
 	moderationRepo     repository.AdminModerationRepository
@@ -77,7 +100,7 @@ type Service struct {
 	broadcaster        portservice.MessageBroadcaster
 	adminNotifier      portservice.AdminNotifierService
 
-	orgs           repository.OrganizationRepository
+	orgs           repository.OrganizationReader
 	orgMembers     repository.OrganizationMemberRepository
 	orgInvitations repository.OrganizationInvitationRepository
 	membership     *organizationapp.MembershipService

@@ -14,10 +14,14 @@ import (
 )
 
 // ServiceDeps groups the dependencies for the report service.
+//
+// Messages is narrowed to MessageReader — the report service only
+// validates the target message exists (GetMessage); every mutation
+// path is owned by the messaging app service.
 type ServiceDeps struct {
 	Reports      repository.ReportRepository
-	Users        repository.UserRepository
-	Messages     repository.MessageRepository
+	Users        repository.UserReader
+	Messages     repository.MessageReader
 	Jobs         repository.JobRepository
 	Applications repository.JobApplicationRepository
 }
@@ -25,8 +29,8 @@ type ServiceDeps struct {
 // Service orchestrates report use cases.
 type Service struct {
 	reports       repository.ReportRepository
-	users         repository.UserRepository
-	messages      repository.MessageRepository
+	users         repository.UserReader
+	messages      repository.MessageReader
 	jobs          repository.JobRepository
 	applications  repository.JobApplicationRepository
 	adminNotifier service.AdminNotifierService

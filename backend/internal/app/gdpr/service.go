@@ -50,8 +50,11 @@ type JWTSigner interface {
 
 // Service orchestrates the four GDPR endpoints.
 type Service struct {
-	repo          repository.GDPRRepository
-	users         repository.UserRepository
+	repo repository.GDPRRepository
+	// users is narrowed to UserReader — GDPR endpoints only resolve
+	// the requesting user by id (GetByID); deletion / purge writes go
+	// through the dedicated GDPRRepository contract.
+	users         repository.UserReader
 	hasher        service.HasherService
 	email         service.EmailService
 	signer        JWTSigner
@@ -65,7 +68,7 @@ type Service struct {
 // the marketplace (per project memory).
 type ServiceDeps struct {
 	Repo          repository.GDPRRepository
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Hasher        service.HasherService
 	Email         service.EmailService
 	Signer        JWTSigner

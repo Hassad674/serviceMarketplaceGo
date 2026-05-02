@@ -16,23 +16,40 @@ import (
 	"marketplace-backend/pkg/sanitize"
 )
 
+// messagingUsers is the local composite the messaging service needs:
+// it reads the recipient by id (Reader) and bumps last_active_at on
+// every message send (AuthStore.TouchLastActive). No segregated child
+// covers both — composing locally keeps the wide port out of the
+// dependency graph.
+type messagingUsers interface {
+	repository.UserReader
+	repository.UserAuthStore
+}
+
 type Service struct {
-	messages              repository.MessageRepository
-	users                 repository.UserRepository
-	orgs                  repository.OrganizationRepository
-	orgMembers            repository.OrganizationMemberRepository
-	presence              service.PresenceService
-	broadcaster           service.MessageBroadcaster
-	storage               service.StorageService
-	rateLimiter           service.MessagingRateLimiter
-	mediaRecorder         service.MediaRecorder
+	// messages stays on the wide MessageRepository — the messaging
+	// service straddles all three segregated children (Reader for the
+	// many lookup paths, Writer for create / update / mark-read,
+	// BroadcasterStore for the WS fan-out helpers). Composing locally
+	// would reproduce the wide port verbatim.
+	messages repository.MessageRepository
+	users    messagingUsers
+	// orgs is narrowed to OrganizationReader — messaging only ever
+	// resolves the recipient org by id (FindByID).
+	orgs                   repository.OrganizationReader
+	orgMembers             repository.OrganizationMemberRepository
+	presence               service.PresenceService
+	broadcaster            service.MessageBroadcaster
+	storage                service.StorageService
+	rateLimiter            service.MessagingRateLimiter
+	mediaRecorder          service.MediaRecorder
 	moderationOrchestrator *appmoderation.Service
 }
 
 type ServiceDeps struct {
 	Messages      repository.MessageRepository
-	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
+	Users         messagingUsers
+	Organizations repository.OrganizationReader
 	OrgMembers    repository.OrganizationMemberRepository
 	Presence      service.PresenceService
 	Broadcaster   service.MessageBroadcaster

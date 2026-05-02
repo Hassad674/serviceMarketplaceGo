@@ -17,7 +17,11 @@ import (
 // Enterprises pass through unconditionally (they pay, they don't receive).
 // Orgs with no earnings pass through (no KYC deadline started).
 // Orgs that have completed KYC pass through.
-func RequireKYCCompliant(orgs repository.OrganizationRepository) func(http.Handler) http.Handler {
+//
+// Narrowed to OrganizationReader: the middleware only ever calls
+// FindByID. Passing the wide OrganizationRepository at wiring time
+// still satisfies the interface via structural typing.
+func RequireKYCCompliant(orgs repository.OrganizationReader) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			role := GetRole(r.Context())
