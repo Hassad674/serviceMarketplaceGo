@@ -28,9 +28,16 @@ import (
 
 // ServiceDeps groups the dependency interfaces needed by the referral service.
 // Grouping into a struct keeps the constructor stable as new ports are added.
+//
+// Referrals stays on the wide ReferralRepository — the referral
+// service straddles all four segregated children (Reader for the many
+// lookup paths, Writer for create/update + negotiations,
+// AttributionStore for the proposal anchor, CommissionStore for the
+// distributor + clawback + kyc-listener flows). Composing locally
+// would reproduce the wide port verbatim.
 type ServiceDeps struct {
 	Referrals        repository.ReferralRepository
-	Users            repository.UserRepository
+	Users            repository.UserReader
 	Messages         service.MessageSender
 	Notifications    service.NotificationSender
 	Stripe           service.StripeService
@@ -46,7 +53,7 @@ type ServiceDeps struct {
 // exposes intro lifecycle use cases (create, respond, cancel, terminate).
 type Service struct {
 	referrals        repository.ReferralRepository
-	users            repository.UserRepository
+	users            repository.UserReader
 	messages         service.MessageSender
 	notifications    service.NotificationSender
 	stripe           service.StripeService

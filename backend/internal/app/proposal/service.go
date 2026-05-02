@@ -11,20 +11,33 @@ import (
 )
 
 type ServiceDeps struct {
+	// Proposals stays on the wide ProposalRepository — the proposal
+	// service straddles all three segregated children (Reader for
+	// GetByID/GetByIDForOrg/GetDocuments/IsOrgAuthorizedForProposal/
+	// ListActiveProjectsByOrganization, Writer for
+	// CreateWithDocuments/Update, MilestoneStore for
+	// CreateWithDocumentsAndMilestones). Composing locally would
+	// reproduce the wide port verbatim.
 	Proposals           repository.ProposalRepository
 	Milestones          repository.MilestoneRepository          // required since phase 4 — every proposal has ≥1 milestone
 	MilestoneTransitions repository.MilestoneTransitionRepository // optional since phase 9 — when nil, audit writes are no-ops
 	PendingEvents       repository.PendingEventRepository        // optional since phase 6 — when nil, scheduling is a no-op
-	Users               repository.UserRepository
+	// Users is narrowed to UserReader — every proposal flow only
+	// resolves users by id (GetByID) for naming, KYC and side
+	// resolution. Persistence happens in dedicated mutation services.
+	Users               repository.UserReader
 	// UsersBatch is the bulk-fetch sibling consumed by
 	// GetParticipantNamesBatch (PERF-B-02). Optional — when nil, the
 	// list path falls back to per-id lookups so legacy test setups still
 	// work. In production wiring the concrete *postgres.UserRepository
 	// satisfies both Users (UserRepository) and UsersBatch
 	// (UserBatchReader), so the same instance is passed twice.
-	UsersBatch          repository.UserBatchReader
-	Organizations       repository.OrganizationRepository
-	Messages            service.MessageSender
+	UsersBatch repository.UserBatchReader
+	// Organizations is narrowed to proposalOrgs — proposal flows read
+	// the provider's org for KYC gating and stamp the first-earning
+	// timestamp on the StripeStore.
+	Organizations proposalOrgs
+	Messages      service.MessageSender
 	Storage             service.StorageService
 	Notifications       service.NotificationSender
 	Payments            service.PaymentProcessor            // nil if Stripe not configured
@@ -37,14 +50,23 @@ type ServiceDeps struct {
 	AutoCloseDelay    time.Duration // default 14 days
 }
 
+// proposalOrgs is the local composite the proposal service needs:
+// FindByUserID (Reader) for KYC gating on the create / action paths
+// and SetKYCFirstEarning (StripeStore) for the milestone-funding
+// success path. No segregated child covers both, so we compose locally.
+type proposalOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationStripeStore
+}
+
 type Service struct {
 	proposals            repository.ProposalRepository
 	milestones           repository.MilestoneRepository
 	milestoneTransitions repository.MilestoneTransitionRepository
 	pendingEvents        repository.PendingEventRepository
-	users                repository.UserRepository
+	users                repository.UserReader
 	usersBatch           repository.UserBatchReader
-	orgs                 repository.OrganizationRepository
+	orgs                 proposalOrgs
 	messages             service.MessageSender
 	storage              service.StorageService
 	notifications        service.NotificationSender

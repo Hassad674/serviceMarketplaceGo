@@ -15,10 +15,18 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// mediaUsers is the local composite the media service needs: it reads
+// the uploader by id (Reader) and writes the suspension flag back via
+// Update (Writer) when the auto-suspension threshold is crossed.
+type mediaUsers interface {
+	repository.UserReader
+	repository.UserWriter
+}
+
 // ServiceDeps groups the dependencies required to construct a media service.
 type ServiceDeps struct {
 	Media               repository.MediaRepository
-	Users               repository.UserRepository
+	Users               mediaUsers
 	Storage             service.StorageService
 	Transit             service.TransitStorageService
 	Moderation          service.ContentModerationService
@@ -32,7 +40,7 @@ type ServiceDeps struct {
 // Service orchestrates media recording and moderation.
 type Service struct {
 	media               repository.MediaRepository
-	users               repository.UserRepository
+	users               mediaUsers
 	storage             service.StorageService
 	transit             service.TransitStorageService
 	moderation          service.ContentModerationService

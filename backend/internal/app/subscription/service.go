@@ -30,8 +30,11 @@ const defaultGraceWindow = 72 * time.Hour
 
 // Service orchestrates the subscription lifecycle.
 type Service struct {
-	subs       repository.SubscriptionRepository
-	users      repository.UserRepository
+	subs repository.SubscriptionRepository
+	// users is narrowed to UserReader — the subscription service only
+	// resolves the actor by id (GetByID); membership / auth flows go
+	// through the auth service.
+	users      repository.UserReader
 	amounts    repository.ProviderMilestoneAmountsReader
 	stripe     service.StripeSubscriptionService
 	lookupKeys PlanLookupKeys
@@ -90,7 +93,7 @@ type URLs struct {
 // imports concrete types — only interfaces from port/.
 type ServiceDeps struct {
 	Subscriptions repository.SubscriptionRepository
-	Users         repository.UserRepository
+	Users         repository.UserReader
 	Amounts       repository.ProviderMilestoneAmountsReader
 	Stripe        service.StripeSubscriptionService
 	LookupKeys    PlanLookupKeys

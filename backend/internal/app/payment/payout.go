@@ -42,9 +42,21 @@ import (
 //   - proposalStatuses: optional gate on RequestPayout / RetryFailedTransfer
 //     so escrow funds never leave the platform before the mission is
 //     marked completed (prevents the wallet "Retirer" side-channel bug)
+// payoutOrgs is the local composite the payout sub-service needs: it
+// reads the org row (Reader), reads / clears the connected-account
+// state (StripeStore), and writes the org back to flip the
+// auto-payout consent flag (Writer). All three segregated children
+// are required — composing locally keeps the wide port out of the
+// dependency graph.
+type payoutOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationWriter
+	repository.OrganizationStripeStore
+}
+
 type PayoutService struct {
 	records repository.PaymentRecordRepository
-	orgs    repository.OrganizationRepository
+	orgs    payoutOrgs
 	stripe  portservice.StripeService
 
 	// referralDistributor is the apporteur commission hook fired after
@@ -64,7 +76,7 @@ type PayoutService struct {
 // PayoutServiceDeps groups every dependency NewPayoutService needs.
 type PayoutServiceDeps struct {
 	Records       repository.PaymentRecordRepository
-	Organizations repository.OrganizationRepository
+	Organizations payoutOrgs
 	Stripe        portservice.StripeService
 }
 

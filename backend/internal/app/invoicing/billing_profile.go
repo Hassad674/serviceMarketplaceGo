@@ -51,6 +51,16 @@ type VIESValidationSnapshot struct {
 	CheckedAt      time.Time
 }
 
+// billingProfileOrgs is the local composite the invoicing flows need:
+// FindByID (Reader) to load the org row + GetStripeAccount (StripeStore)
+// to read its connected-account id. No segregated child covers both, so
+// we compose locally — narrower than the wide port and explicit about
+// the actual surface in use.
+type billingProfileOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationStripeStore
+}
+
 // BillingProfileDeps groups optional dependencies for the Phase 6
 // methods. Phase 4/5 callers can keep using the original NewService
 // constructor and skip these — the methods that need the dep return a
@@ -63,8 +73,8 @@ type VIESValidationSnapshot struct {
 // account's email. Both deps are optional — when missing, the
 // snapshot's invoicing_email simply stays empty (legacy behaviour).
 type BillingProfileDeps struct {
-	Organizations repository.OrganizationRepository
-	Users         repository.UserRepository
+	Organizations billingProfileOrgs
+	Users         repository.UserReader
 	StripeKYC     service.StripeKYCSnapshotReader
 	VIESValidator service.VIESValidator
 }

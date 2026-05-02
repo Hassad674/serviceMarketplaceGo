@@ -36,11 +36,9 @@ type fakeReferralRepo struct {
 	attribs   []*referraldomain.Attribution
 }
 
-func (f *fakeReferralRepo) Create(context.Context, *referraldomain.Referral) error { return nil }
 func (f *fakeReferralRepo) GetByID(context.Context, uuid.UUID) (*referraldomain.Referral, error) {
 	return nil, nil
 }
-func (f *fakeReferralRepo) Update(context.Context, *referraldomain.Referral) error { return nil }
 func (f *fakeReferralRepo) FindActiveByCouple(context.Context, uuid.UUID, uuid.UUID) (*referraldomain.Referral, error) {
 	return nil, nil
 }
@@ -61,9 +59,6 @@ func (f *fakeReferralRepo) ListIncomingForProvider(context.Context, uuid.UUID, r
 }
 func (f *fakeReferralRepo) ListIncomingForClient(context.Context, uuid.UUID, repository.ReferralListFilter) ([]*referraldomain.Referral, string, error) {
 	return nil, "", nil
-}
-func (f *fakeReferralRepo) AppendNegotiation(context.Context, *referraldomain.Negotiation) error {
-	return nil
 }
 func (f *fakeReferralRepo) ListNegotiations(context.Context, uuid.UUID) ([]*referraldomain.Negotiation, error) {
 	return nil, nil
@@ -96,24 +91,6 @@ func (f *fakeReferralRepo) ListAttributionsByReferralIDs(_ context.Context, ids 
 	}
 	return out, nil
 }
-func (f *fakeReferralRepo) CreateCommission(context.Context, *referraldomain.Commission) error {
-	return nil
-}
-func (f *fakeReferralRepo) UpdateCommission(context.Context, *referraldomain.Commission) error {
-	return nil
-}
-func (f *fakeReferralRepo) FindCommissionByMilestone(context.Context, uuid.UUID) (*referraldomain.Commission, error) {
-	return nil, nil
-}
-func (f *fakeReferralRepo) ListCommissionsByReferral(context.Context, uuid.UUID) ([]*referraldomain.Commission, error) {
-	return nil, nil
-}
-func (f *fakeReferralRepo) ListPendingKYCByReferrer(context.Context, uuid.UUID) ([]*referraldomain.Commission, error) {
-	return nil, nil
-}
-func (f *fakeReferralRepo) ListRecentCommissionsByReferrer(context.Context, uuid.UUID, int) ([]*referraldomain.Commission, error) {
-	return nil, nil
-}
 func (f *fakeReferralRepo) ListExpiringIntros(context.Context, time.Time, int) ([]*referraldomain.Referral, error) {
 	return nil, nil
 }
@@ -127,7 +104,15 @@ func (f *fakeReferralRepo) SumCommissionsByReferrer(context.Context, uuid.UUID) 
 	return nil, nil
 }
 
-var _ repository.ReferralRepository = (*fakeReferralRepo)(nil)
+// fakeReferralRepo implements the narrowed reputation surface
+// (ReferralReader + ReferralAttributionStore). The legacy 24-method
+// stub was shrunk to 15 — every dropped method belonged to
+// ReferralWriter or ReferralCommissionStore, neither of which is
+// consumed by the reputation aggregate.
+var (
+	_ repository.ReferralReader           = (*fakeReferralRepo)(nil)
+	_ repository.ReferralAttributionStore = (*fakeReferralRepo)(nil)
+)
 
 type fakeProposalRepo struct {
 	counters  *callCounters

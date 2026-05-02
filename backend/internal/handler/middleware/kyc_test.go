@@ -16,9 +16,9 @@ import (
 	"marketplace-backend/internal/port/repository"
 )
 
-// stubOrgRepo implements repository.OrganizationRepository for KYC
-// middleware tests. Only FindByID is meaningful; the rest are no-op
-// stubs that satisfy the interface.
+// stubOrgRepo implements the narrowed OrganizationReader the KYC
+// middleware actually consumes. Only FindByID is meaningful; the
+// remaining reader methods are no-op stubs that satisfy the contract.
 type stubOrgRepo struct {
 	org *organization.Organization
 	err error
@@ -28,58 +28,27 @@ func (s *stubOrgRepo) FindByID(_ context.Context, _ uuid.UUID) (*organization.Or
 	return s.org, s.err
 }
 
-// --- no-op stubs to satisfy the interface ---
+// --- no-op stubs to satisfy OrganizationReader ---
 
-func (s *stubOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
-func (s *stubOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
-	return nil
-}
 func (s *stubOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
 	return nil, nil
 }
 func (s *stubOrgRepo) FindByUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
 	return nil, nil
 }
-func (s *stubOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
-func (s *stubOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
-func (s *stubOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
 func (s *stubOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
 	return nil, nil
 }
+func (s *stubOrgRepo) CountAll(context.Context) (int, error) { return 0, nil }
 func (s *stubOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
 	return nil, nil
-}
-func (s *stubOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
-	return "", "", nil
-}
-func (s *stubOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
-	return "", "", nil
-}
-func (s *stubOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
-	return nil
-}
-func (s *stubOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
-func (s *stubOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
-	return nil, nil
-}
-func (s *stubOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error {
-	return nil
-}
-func (s *stubOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
-	return nil
-}
-func (s *stubOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
-	return nil
-}
-func (s *stubOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
-	return nil
 }
 func (s *stubOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
 	return nil, nil
 }
 
-// Compile-time assertion that stubOrgRepo satisfies the interface.
-var _ repository.OrganizationRepository = (*stubOrgRepo)(nil)
+// Compile-time assertion that stubOrgRepo satisfies the narrowed reader.
+var _ repository.OrganizationReader = (*stubOrgRepo)(nil)
 
 func setAuthContext(r *http.Request, userID uuid.UUID, role string) *http.Request {
 	ctx := context.WithValue(r.Context(), ContextKeyUserID, userID)

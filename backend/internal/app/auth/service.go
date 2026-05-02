@@ -77,6 +77,11 @@ type AuthOutput struct {
 }
 
 type Service struct {
+	// users stays on the wide UserRepository — the auth service
+	// straddles three segregated children (Reader for ExistsByEmail /
+	// GetByID / GetByEmail, Writer for Create / Update, AuthStore for
+	// TouchLastActive). Composing locally would cover almost the whole
+	// wide port; keeping it wide is clearer.
 	users                  repository.UserRepository
 	resets                 repository.PasswordResetRepository
 	hasher                 service.HasherService

@@ -42,10 +42,27 @@ type Service struct {
 	// WithReputationDeps, consumed by GetReferrerReputation. Nil is
 	// an accepted state: the reputation endpoint returns an empty
 	// aggregate in that case, keeping the profile feature removable.
-	referrals repository.ReferralRepository
-	proposals repository.ProposalRepository
+	//
+	// referrals is narrowed to reputationReferrals — the reputation
+	// aggregate only reads referrals by referrer (Reader) and lists
+	// the matching attributions in batch (AttributionStore). Writes,
+	// commissions and negotiations are out of scope for this surface.
+	referrals reputationReferrals
+	// proposals is narrowed to ProposalReader — the reputation
+	// aggregate only batch-loads proposals by id (GetByIDs).
+	proposals repository.ProposalReader
 	reviews   repository.ReviewRepository
 	users     repository.UserBatchReader
+}
+
+// reputationReferrals is the local composite the reputation aggregate
+// needs from the referral feature: ListByReferrer (Reader) +
+// ListAttributionsByReferralIDs (AttributionStore). No segregated
+// child covers both, so we compose locally and keep the wide port
+// out of the dependency graph.
+type reputationReferrals interface {
+	repository.ReferralReader
+	repository.ReferralAttributionStore
 }
 
 // NewService wires the referrer profile service with its single

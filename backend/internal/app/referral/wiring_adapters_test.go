@@ -75,8 +75,11 @@ func TestOrgStripeAccountResolver_RepoError_ReturnsEmptyNoError(t *testing.T) {
 
 // ─── ProposalRepoSummaryResolver ──────────────────────────────────────
 
+// stubProposalRepoForSummary embeds the narrowed ProposalReader the
+// resolver now takes — every method beyond GetByID is left to the
+// embedded nil interface, mirroring the resolver's actual surface.
 type stubProposalRepoForSummary struct {
-	repository.ProposalRepository
+	repository.ProposalReader
 	byID map[uuid.UUID]*proposal.Proposal
 	err  error
 }

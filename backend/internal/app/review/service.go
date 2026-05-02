@@ -18,18 +18,22 @@ import (
 )
 
 // ServiceDeps groups the dependencies for the review service.
+//
+// Proposals is narrowed to ProposalReader — review use cases only
+// resolve the source proposal (GetByIDForOrg) to derive who reviews
+// whom; mutations are scoped to the reviews aggregate.
 type ServiceDeps struct {
 	Reviews       repository.ReviewRepository
-	Proposals     repository.ProposalRepository
-	Users         repository.UserRepository
+	Proposals     repository.ProposalReader
+	Users         repository.UserReader
 	Notifications service.NotificationSender
 }
 
 // Service orchestrates review use cases.
 type Service struct {
 	reviews                repository.ReviewRepository
-	proposals              repository.ProposalRepository
-	users                  repository.UserRepository
+	proposals              repository.ProposalReader
+	users                  repository.UserReader
 	notifications          service.NotificationSender
 	moderationOrchestrator *appmoderation.Service
 }

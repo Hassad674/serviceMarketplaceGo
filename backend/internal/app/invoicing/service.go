@@ -70,8 +70,12 @@ type Service struct {
 	// the original constructor signature (Phase 4/5 callers) stays
 	// unchanged. Each method that needs one returns a clear "feature
 	// disabled" error when the dep is nil.
-	organizations repository.OrganizationRepository
-	users         repository.UserRepository
+	//
+	// organizations is narrowed to billingProfileOrgs — the invoicing
+	// service reads the org row (FindByID) and reads its Stripe account
+	// id (GetStripeAccount).
+	organizations billingProfileOrgs
+	users         repository.UserReader
 	stripeKYC     service.StripeKYCSnapshotReader
 	vies          service.VIESValidator
 }

@@ -38,7 +38,7 @@ type TeamHandler struct {
 	userBatch  repository.UserBatchReader
 	sessionSvc service.SessionService
 	cookie     *CookieConfig
-	users      repository.UserRepository
+	users      repository.UserReader
 }
 
 // TeamHandlerDeps groups constructor params for TeamHandler. The
@@ -51,7 +51,7 @@ type TeamHandlerDeps struct {
 	UserBatch      repository.UserBatchReader
 	SessionService service.SessionService
 	Cookie         *CookieConfig
-	Users          repository.UserRepository
+	Users          repository.UserReader
 }
 
 func NewTeamHandler(deps TeamHandlerDeps) *TeamHandler {

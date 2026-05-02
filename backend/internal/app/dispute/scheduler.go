@@ -15,11 +15,25 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// schedulerDisputes is the local composite the dispute scheduler
+// needs: it lists pending disputes (Reader) and updates them when
+// auto-resolution or escalation fires (Writer). No segregated child
+// covers both — composing locally keeps the wide port out of the
+// dependency graph.
+type schedulerDisputes interface {
+	repository.DisputeReader
+	repository.DisputeWriter
+}
+
 // SchedulerDeps groups dependencies for the dispute scheduler.
+//
+// Proposals reuses the disputeProposals composite — the auto-resolve
+// path reads the source proposal and updates its escrow / dispute
+// flags when the respondent never replies.
 type SchedulerDeps struct {
 	Svc           *Service // canonical escalation routine lives here
-	Disputes      repository.DisputeRepository
-	Proposals     repository.ProposalRepository
+	Disputes      schedulerDisputes
+	Proposals     disputeProposals
 	Messages      service.MessageSender
 	Notifications service.NotificationSender
 	Payments      service.PaymentProcessor
@@ -34,8 +48,8 @@ type SchedulerDeps struct {
 // stays here because it has no manual counterpart.
 type Scheduler struct {
 	svc           *Service
-	disputes      repository.DisputeRepository
-	proposals     repository.ProposalRepository
+	disputes      schedulerDisputes
+	proposals     disputeProposals
 	messages      service.MessageSender
 	notifications service.NotificationSender
 	payments      service.PaymentProcessor

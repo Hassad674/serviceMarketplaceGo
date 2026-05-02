@@ -71,7 +71,10 @@ type RouterDeps struct {
 	Config              *config.Config
 	TokenService        service.TokenService
 	SessionService      service.SessionService
-	UserRepo            repository.UserRepository // for KYC middleware
+	// UserRepo is consumed by the Auth middleware as a
+	// SessionVersionChecker — only GetSessionVersion is called. Narrowed
+	// to UserAuthStore (3 methods) instead of the wide UserRepository.
+	UserRepo repository.UserAuthStore
 
 	// OrgOverridesResolver is the read port used by the Auth middleware
 	// to compute each caller's effective permissions live on every

@@ -48,8 +48,9 @@ func (m *mockExpertiseRepoHandler) Replace(ctx context.Context, orgID uuid.UUID,
 
 // orgRepoForType returns an org repo whose FindByID always resolves
 // to an organization of the given type. Used to steer the expertise
-// service's per-org-type validation in tests.
-func orgRepoForType(t organization.OrgType) repository.OrganizationRepository {
+// service's per-org-type validation in tests. Returns the narrowed
+// OrganizationReader the expertise service now consumes.
+func orgRepoForType(t organization.OrgType) repository.OrganizationReader {
 	return &mockOrgRepo{
 		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
 			return &organization.Organization{ID: id, Type: t}, nil
@@ -60,7 +61,7 @@ func orgRepoForType(t organization.OrgType) repository.OrganizationRepository {
 func newExpertiseHandler(
 	profileRepo *mockProfileRepo,
 	expRepo *mockExpertiseRepoHandler,
-	orgRepo repository.OrganizationRepository,
+	orgRepo repository.OrganizationReader,
 ) *ProfileHandler {
 	if profileRepo == nil {
 		profileRepo = &mockProfileRepo{}
