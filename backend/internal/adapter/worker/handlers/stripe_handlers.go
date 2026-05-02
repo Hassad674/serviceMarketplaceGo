@@ -34,6 +34,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"marketplace-backend/internal/domain/pendingevent"
 	portservice "marketplace-backend/internal/port/service"
@@ -72,6 +74,11 @@ func NewStripeWebhookHandler(dispatcher StripeDispatcher) *StripeWebhookHandler 
 // backoff is still the safest behaviour: it puts the row in the
 // admin-visible failed bucket after MaxAttempts where ops can triage
 // it manually.
+//
+// Emits structured logs with `event_id`, `event_type`, and
+// `process_ms` so the dashboard can correlate enqueue→dispatch
+// latency end-to-end (the enqueue side logs `enqueue_ms` from the
+// HTTP handler).
 func (h *StripeWebhookHandler) Handle(ctx context.Context, event *pendingevent.PendingEvent) error {
 	if h.dispatcher == nil {
 		// Defensive: a wiring mistake (queue registered, dispatcher
@@ -84,5 +91,24 @@ func (h *StripeWebhookHandler) Handle(ctx context.Context, event *pendingevent.P
 	if err := json.Unmarshal(event.Payload, &stripeEvent); err != nil {
 		return fmt.Errorf("decode stripe webhook payload: %w", err)
 	}
-	return h.dispatcher.Dispatch(ctx, &stripeEvent)
+
+	start := time.Now()
+	dispatchErr := h.dispatcher.Dispatch(ctx, &stripeEvent)
+	processMS := time.Since(start).Milliseconds()
+
+	if dispatchErr != nil {
+		slog.Warn("stripe webhook worker: dispatch failed — row will retry with backoff",
+			"event_id", stripeEvent.EventID,
+			"event_type", stripeEvent.Type,
+			"process_ms", processMS,
+			"attempts", event.Attempts,
+			"error", dispatchErr)
+		return dispatchErr
+	}
+	slog.Info("stripe webhook worker: dispatch succeeded",
+		"event_id", stripeEvent.EventID,
+		"event_type", stripeEvent.Type,
+		"process_ms", processMS,
+		"attempts", event.Attempts)
+	return nil
 }
