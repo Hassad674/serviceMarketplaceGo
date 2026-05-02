@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
@@ -11,6 +12,7 @@ import (
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/observability"
 )
 
 func main() {
@@ -32,6 +34,36 @@ func main() {
 		slog.Error("config validation failed", "error", err)
 		os.Exit(1)
 	}
+
+	// OpenTelemetry tracing. When OTEL_EXPORTER_OTLP_ENDPOINT is unset
+	// (the default in dev / CI) Init returns a no-op shutdown closure
+	// and installs the SDK's no-op tracer — zero overhead. Production
+	// deployments set the standard OTLP env vars to route spans to a
+	// Jaeger / Honeycomb / Datadog / Tempo backend. The shutdown
+	// closure is invoked by runServer's 3-step graceful shutdown so
+	// pending spans are flushed before the process exits.
+	otelCfg := observability.LoadFromEnv()
+	if otelCfg.Environment == "" {
+		otelCfg.Environment = cfg.Env
+	}
+	otelInitCtx, otelInitCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	otelShutdown, err := observability.Init(otelInitCtx, otelCfg)
+	otelInitCancel()
+	if err != nil {
+		// Non-fatal: tracing failure must never block the server boot.
+		slog.Warn("otel init failed, continuing without tracing", "error", err)
+	}
+	// otelShutdown is also invoked by runServer's graceful-shutdown
+	// 3-step (commit 5) — the deferred call here is a defence-in-
+	// depth flush in case the program exits before reaching that path
+	// (panic, os.Exit upstream).
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := otelShutdown(ctx); err != nil {
+			slog.Warn("otel shutdown error", "error", err)
+		}
+	}()
 
 	// Bring up every backbone resource (DB, Redis, repos, output
 	// adapters, messaging fan-out, WS hub) — see wire_infra.go.
