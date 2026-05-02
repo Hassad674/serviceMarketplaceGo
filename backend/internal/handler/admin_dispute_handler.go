@@ -59,8 +59,8 @@ func (h *AdminDisputeHandler) GetAdminDispute(w http.ResponseWriter, r *http.Req
 	}
 
 	// Admin read on a dispute the admin is NOT a tenant of —
-	// system-actor surface, gated by RequireRole("admin") on the
-	// route.
+	// system-actor surface, gated by middleware.RequireRole("admin")
+	// + middleware.RequireAdmin on the route (see routes_admin.go).
 	ctx := system.WithSystemActor(r.Context())
 	detail, err := h.svc.GetDisputeForAdmin(ctx, disputeID)
 	if err != nil {
