@@ -133,15 +133,15 @@ func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*userdomain.Us
 // Compile-time check.
 var _ repository.UserRepository = (*mockUserRepo)(nil)
 
-// --- mockMessageRepo ---
+// mockMessageRepo implements the narrowed MessageReader the report
+// service consumes. The legacy 21-method stub was shrunk to the 12
+// reader methods — every dropped method belonged to MessageWriter /
+// MessageBroadcasterStore and was unused here.
 
 type mockMessageRepo struct {
 	getMessageFn func(ctx context.Context, id uuid.UUID) (*messagedomain.Message, error)
 }
 
-func (m *mockMessageRepo) FindOrCreateConversation(_ context.Context, _, _, _, _ uuid.UUID) (uuid.UUID, bool, error) {
-	return uuid.Nil, false, nil
-}
 func (m *mockMessageRepo) GetConversation(_ context.Context, _ uuid.UUID) (*messagedomain.Conversation, error) {
 	return nil, nil
 }
@@ -153,9 +153,6 @@ func (m *mockMessageRepo) IsParticipant(_ context.Context, _, _ uuid.UUID) (bool
 }
 func (m *mockMessageRepo) IsOrgAuthorizedForConversation(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
-}
-func (m *mockMessageRepo) CreateMessage(_ context.Context, _ *messagedomain.Message, _, _ uuid.UUID) error {
-	return nil
 }
 func (m *mockMessageRepo) GetMessage(ctx context.Context, id uuid.UUID) (*messagedomain.Message, error) {
 	if m.getMessageFn != nil {
@@ -173,15 +170,6 @@ func (m *mockMessageRepo) GetMessagesSinceSeq(_ context.Context, _ uuid.UUID, _ 
 func (m *mockMessageRepo) ListMessagesSinceTime(_ context.Context, _ uuid.UUID, _ time.Time, _ int) ([]*messagedomain.Message, error) {
 	return nil, nil
 }
-func (m *mockMessageRepo) UpdateMessage(_ context.Context, _ *messagedomain.Message) error {
-	return nil
-}
-func (m *mockMessageRepo) IncrementUnreadForRecipients(_ context.Context, _, _, _ uuid.UUID) error {
-	return nil
-}
-func (m *mockMessageRepo) MarkAsRead(_ context.Context, _, _ uuid.UUID, _ int) error {
-	return nil
-}
 func (m *mockMessageRepo) GetTotalUnread(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
 }
@@ -191,27 +179,12 @@ func (m *mockMessageRepo) GetTotalUnreadBatch(_ context.Context, _ []uuid.UUID) 
 func (m *mockMessageRepo) GetParticipantIDs(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
-func (m *mockMessageRepo) GetOrgMemberRecipients(_ context.Context, _, _ uuid.UUID) ([]uuid.UUID, error) {
-	return nil, nil
-}
-func (m *mockMessageRepo) UpdateMessageStatus(_ context.Context, _ uuid.UUID, _ messagedomain.MessageStatus) error {
-	return nil
-}
-func (m *mockMessageRepo) MarkMessagesAsRead(_ context.Context, _, _ uuid.UUID, _ int) error {
-	return nil
-}
 func (m *mockMessageRepo) GetContactIDs(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
-func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, _, _ string) error {
-	return nil
-}
-func (m *mockMessageRepo) UpdateMessageModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error {
-	return nil
-}
 
 // Compile-time check.
-var _ repository.MessageRepository = (*mockMessageRepo)(nil)
+var _ repository.MessageReader = (*mockMessageRepo)(nil)
 
 // --- Stripe account stubs (migration 040) ---
 func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {

@@ -17,6 +17,11 @@ import (
 )
 
 type Service struct {
+	// messages stays on the wide MessageRepository — the messaging
+	// service straddles all three segregated children (Reader for the
+	// many lookup paths, Writer for create / update / mark-read,
+	// BroadcasterStore for the WS fan-out helpers). Composing locally
+	// would reproduce the wide port verbatim.
 	messages repository.MessageRepository
 	users    repository.UserRepository
 	// orgs is narrowed to OrganizationReader — messaging only ever
