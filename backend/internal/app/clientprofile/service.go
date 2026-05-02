@@ -72,8 +72,11 @@ type PublicClientProfile struct {
 
 // ServiceDeps groups the repositories the service orchestrates. Every
 // dependency is a port interface so tests can inject minimal mocks.
+//
+// Organizations is narrowed to OrganizationReader — the public client
+// profile only ever resolves the org by id (FindByID).
 type ServiceDeps struct {
-	Organizations repository.OrganizationRepository
+	Organizations repository.OrganizationReader
 	Profiles      repository.ProfileRepository
 	Proposals     repository.ProposalRepository
 	Reviews       repository.ReviewRepository
@@ -81,7 +84,7 @@ type ServiceDeps struct {
 
 // Service owns the public client profile read use case.
 type Service struct {
-	organizations repository.OrganizationRepository
+	organizations repository.OrganizationReader
 	profiles      repository.ProfileRepository
 	proposals     repository.ProposalRepository
 	reviews       repository.ReviewRepository

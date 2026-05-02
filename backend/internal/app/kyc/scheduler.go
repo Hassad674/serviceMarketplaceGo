@@ -58,14 +58,23 @@ var tiers = []struct {
 	},
 }
 
+// kycSchedulerOrgs is the local composite the scheduler needs: it
+// reads the KYC-pending list (Reader) and persists the per-tier
+// notification stamps via SaveKYCNotificationState (StripeStore).
+// Composing locally keeps the wide port out of the dependency graph.
+type kycSchedulerOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationStripeStore
+}
+
 type SchedulerDeps struct {
-	Organizations repository.OrganizationRepository
+	Organizations kycSchedulerOrgs
 	Records       repository.PaymentRecordRepository
 	Notifications portservice.NotificationSender
 }
 
 type Scheduler struct {
-	orgs          repository.OrganizationRepository
+	orgs          kycSchedulerOrgs
 	records       repository.PaymentRecordRepository
 	notifications portservice.NotificationSender
 }

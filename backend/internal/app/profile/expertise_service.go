@@ -25,8 +25,11 @@ import (
 // (production), a successful SetExpertise flushes the cached read
 // path so the next list reflects reality immediately.
 type ExpertiseService struct {
-	expertise        repository.ExpertiseRepository
-	organizations    repository.OrganizationRepository
+	expertise repository.ExpertiseRepository
+	// organizations is narrowed to OrganizationReader — the service
+	// only resolves the org by id to read its type before SetExpertise
+	// gates the request.
+	organizations    repository.OrganizationReader
 	cacheInvalidator portservice.CacheInvalidatorByOrgID
 }
 
@@ -35,7 +38,7 @@ type ExpertiseService struct {
 // dependency graph at wiring time stays flat and obvious.
 func NewExpertiseService(
 	expertiseRepo repository.ExpertiseRepository,
-	orgRepo repository.OrganizationRepository,
+	orgRepo repository.OrganizationReader,
 ) *ExpertiseService {
 	return &ExpertiseService{
 		expertise:     expertiseRepo,

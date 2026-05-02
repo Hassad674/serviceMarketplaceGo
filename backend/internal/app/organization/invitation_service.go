@@ -30,7 +30,9 @@ type InvitationRateLimiter interface {
 // hashing at acceptance time), the email adapter, the rate limiter,
 // and the notification sender for the org_invitation_accepted event.
 type InvitationService struct {
-	orgs          repository.OrganizationRepository
+	// orgs is narrowed to OrganizationReader — invitations only read
+	// the org row to confirm existence + render the recipient email.
+	orgs          repository.OrganizationReader
 	members       repository.OrganizationMemberRepository
 	invitations   repository.OrganizationInvitationRepository
 	users         repository.UserRepository
@@ -44,7 +46,7 @@ type InvitationService struct {
 // InvitationServiceDeps groups constructor arguments. Eight fields
 // exceeds the project's 4-param rule, so we use a struct.
 type InvitationServiceDeps struct {
-	Orgs          repository.OrganizationRepository
+	Orgs          repository.OrganizationReader
 	Members       repository.OrganizationMemberRepository
 	Invitations   repository.OrganizationInvitationRepository
 	Users         repository.UserRepository

@@ -17,10 +17,12 @@ import (
 )
 
 type ServiceDeps struct {
-	Jobs          repository.JobRepository
-	Applications  repository.JobApplicationRepository
-	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
+	Jobs         repository.JobRepository
+	Applications repository.JobApplicationRepository
+	Users        repository.UserRepository
+	// Organizations is narrowed to OrganizationReader — the job feature
+	// only resolves the applicant's org by user id to gate KYC.
+	Organizations repository.OrganizationReader
 	Profiles      repository.ProfileRepository
 	Messages      service.MessageSender
 	JobViews      repository.JobViewRepository
@@ -28,11 +30,11 @@ type ServiceDeps struct {
 }
 
 type Service struct {
-	jobs                   repository.JobRepository
-	applications           repository.JobApplicationRepository
-	users                  repository.UserRepository
-	orgs                   repository.OrganizationRepository
-	profiles               repository.ProfileRepository
+	jobs         repository.JobRepository
+	applications repository.JobApplicationRepository
+	users        repository.UserRepository
+	orgs         repository.OrganizationReader
+	profiles     repository.ProfileRepository
 	messages               service.MessageSender
 	jobViews               repository.JobViewRepository
 	credits                repository.JobCreditRepository

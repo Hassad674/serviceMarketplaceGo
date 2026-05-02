@@ -73,10 +73,15 @@ type Service struct {
 }
 
 // ServiceDeps groups all dependencies for the payment service.
+//
+// Organizations is narrowed to payoutOrgs (Reader + Writer +
+// StripeStore composite) — that's the widest surface any sub-service
+// touches. Wallet only needs StripeStore, payout needs all three;
+// the composite is the union.
 type ServiceDeps struct {
 	Records       repository.PaymentRecordRepository
 	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
+	Organizations payoutOrgs
 	Stripe        service.StripeService
 	Notifications service.NotificationSender
 	FrontendURL   string

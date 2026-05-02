@@ -22,9 +22,12 @@ type ServiceDeps struct {
 	// work. In production wiring the concrete *postgres.UserRepository
 	// satisfies both Users (UserRepository) and UsersBatch
 	// (UserBatchReader), so the same instance is passed twice.
-	UsersBatch          repository.UserBatchReader
-	Organizations       repository.OrganizationRepository
-	Messages            service.MessageSender
+	UsersBatch repository.UserBatchReader
+	// Organizations is narrowed to proposalOrgs — proposal flows read
+	// the provider's org for KYC gating and stamp the first-earning
+	// timestamp on the StripeStore.
+	Organizations proposalOrgs
+	Messages      service.MessageSender
 	Storage             service.StorageService
 	Notifications       service.NotificationSender
 	Payments            service.PaymentProcessor            // nil if Stripe not configured
@@ -37,6 +40,15 @@ type ServiceDeps struct {
 	AutoCloseDelay    time.Duration // default 14 days
 }
 
+// proposalOrgs is the local composite the proposal service needs:
+// FindByUserID (Reader) for KYC gating on the create / action paths
+// and SetKYCFirstEarning (StripeStore) for the milestone-funding
+// success path. No segregated child covers both, so we compose locally.
+type proposalOrgs interface {
+	repository.OrganizationReader
+	repository.OrganizationStripeStore
+}
+
 type Service struct {
 	proposals            repository.ProposalRepository
 	milestones           repository.MilestoneRepository
@@ -44,7 +56,7 @@ type Service struct {
 	pendingEvents        repository.PendingEventRepository
 	users                repository.UserRepository
 	usersBatch           repository.UserBatchReader
-	orgs                 repository.OrganizationRepository
+	orgs                 proposalOrgs
 	messages             service.MessageSender
 	storage              service.StorageService
 	notifications        service.NotificationSender

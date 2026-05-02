@@ -53,7 +53,12 @@ type ServiceDeps struct {
 	// Organization team management (Phase 6). All four are optional
 	// at build time but must be set together for the admin team
 	// endpoints to work; otherwise the handlers return a 500.
-	Orgs           repository.OrganizationRepository
+	//
+	// Orgs is narrowed to OrganizationReader — admin only reads org
+	// rows (CountAll for stats, FindByID / FindByOwnerUserID for the
+	// team detail aggregate). All write paths go through the
+	// Membership / Invitation app services.
+	Orgs           repository.OrganizationReader
 	OrgMembers     repository.OrganizationMemberRepository
 	OrgInvitations repository.OrganizationInvitationRepository
 	Membership     *organizationapp.MembershipService
@@ -77,7 +82,7 @@ type Service struct {
 	broadcaster        portservice.MessageBroadcaster
 	adminNotifier      portservice.AdminNotifierService
 
-	orgs           repository.OrganizationRepository
+	orgs           repository.OrganizationReader
 	orgMembers     repository.OrganizationMemberRepository
 	orgInvitations repository.OrganizationInvitationRepository
 	membership     *organizationapp.MembershipService
