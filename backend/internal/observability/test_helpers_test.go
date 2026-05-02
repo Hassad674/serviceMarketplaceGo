@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
@@ -13,4 +14,15 @@ func newProvider(exp *tracetest.InMemoryExporter) *sdktrace.TracerProvider {
 		sdktrace.WithSyncer(exp),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
+}
+
+// attrMap flattens a slice of attribute.KeyValue into a map keyed by
+// the attribute name with the stringified value. Tests use this for
+// looking up specific attribute keys without iterating the slice.
+func attrMap(in []attribute.KeyValue) map[string]string {
+	out := make(map[string]string, len(in))
+	for _, kv := range in {
+		out[string(kv.Key)] = kv.Value.Emit()
+	}
+	return out
 }
