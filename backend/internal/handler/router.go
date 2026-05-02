@@ -195,17 +195,24 @@ func mountTopLevelHealth(r chi.Router, deps RouterDeps) {
 // mountV1Middleware installs the /api/v1-scoped mutation throttle.
 // The MutationOnly key short-circuits read traffic — those are
 // governed by the global IP-based limiter above. Anonymous mutations
-// (e.g. /auth/login, /auth/register) also short-circuit because
-// UserKey returns false without an authenticated context, so they
-// are governed by the brute-force service inside the auth handler
-// instead.
+// (login, register, password reset) fall back to the client IP via
+// UserOrIPKey so they still hit the 30/min cap; the brute-force
+// service inside the auth handler enforces a tighter per-email cap
+// on top of this.
+//
+// Order matters: the auth middleware that populates the user_id in
+// context is installed at each route group's mount site (after this
+// middleware in the chain). UserOrIPKey reads from r.Context() at
+// request time, AFTER auth has run, so authenticated requests get
+// the user_id key and unauthenticated ones get the IP key. This is
+// the per-request state, not a build-time check.
 func mountV1Middleware(r chi.Router, deps RouterDeps) {
 	if deps.RateLimiter == nil {
 		return
 	}
 	r.Use(deps.RateLimiter.Middleware(
 		middleware.DefaultMutationPolicy,
-		middleware.MutationOnly(middleware.UserKey()),
+		middleware.MutationOnly(middleware.UserOrIPKey(deps.RateLimiter)),
 	))
 }
 

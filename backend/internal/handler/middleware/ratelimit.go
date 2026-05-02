@@ -270,6 +270,34 @@ func UserKey() keyFn {
 	}
 }
 
+// UserOrIPKey returns a keyFn that throttles by authenticated user_id
+// when present, falling back to client IP when the request is
+// anonymous. Used by the P10 mutation rate limit: anonymous POST
+// /auth/login + /auth/register attempts must still hit the 30/min cap
+// to bound the request volume per source — using `UserKey` alone
+// would let unauthenticated mutation traffic fall back to the looser
+// 100/min global cap.
+//
+// The "user_id|ip" key namespace prefix prevents accidental collisions
+// between a UUID stringification and a synthetic IPv4-shaped UUID.
+func UserOrIPKey(rl *RateLimiter) keyFn {
+	if rl == nil {
+		// Nil rate limiter would be a wiring bug — degrade to
+		// user-only throttling so the route still functions.
+		return UserKey()
+	}
+	return func(r *http.Request) (string, bool) {
+		if userID, ok := GetUserID(r.Context()); ok && userID.String() != "" {
+			return "user:" + userID.String(), true
+		}
+		ip := rl.clientIP(r)
+		if ip == "" {
+			return "", false
+		}
+		return "ip:" + ip, true
+	}
+}
+
 // MutationOnly wraps a keyFn so the limiter only fires on mutating
 // HTTP methods (POST/PUT/PATCH/DELETE). Reads pass through
 // unthrottled which is correct for the mutation class — read traffic

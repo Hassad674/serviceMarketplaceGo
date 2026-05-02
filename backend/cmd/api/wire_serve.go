@@ -80,18 +80,46 @@ const (
 	workerDrainBudget   = 5 * time.Second
 )
 
+// buildHTTPServer constructs the *http.Server with the project's
+// timeout policy. Extracted from runServer so the slowloris guard and
+// the existing timeouts can be asserted in a unit test without spinning
+// up a real listener.
+//
+// Timeouts:
+//   - ReadHeaderTimeout 5s — PERF-FINAL-B-01 / P10 slowloris guard.
+//     Caps the time a client can take to send the request HEADERS;
+//     does NOT cover the body. Legitimate slow uploads still work
+//     because the body window is governed by ReadTimeout (15s) and,
+//     for chunked multipart uploads, by per-handler deadlines.
+//     Without this cap a malicious client can hold the connection
+//     open indefinitely, exhausting the server's connection pool.
+//   - ReadTimeout 15s — overall body window for non-streaming
+//     requests.
+//   - WriteTimeout 0 — long-lived WebSocket connections.
+//     Handler-level timeouts protect regular HTTP endpoints instead.
+//   - IdleTimeout 60s — keep-alive idle window.
+//
+// Any timeout change MUST be reflected in TestBuildHTTPServer_Timeouts
+// (cmd/api/wire_serve_test.go) — that test is the single source of
+// truth for the server's timeout configuration.
+func buildHTTPServer(cfg *config.Config, router http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,  // PERF-FINAL-B-01 / P10 slowloris guard
+		ReadTimeout:       15 * time.Second, // body window — does not affect WebSocket reads (handler-level)
+		WriteTimeout:      0,                // long-lived WebSocket; per-handler deadlines elsewhere
+		IdleTimeout:       60 * time.Second,
+	}
+}
+
 // runServer brings up the HTTP server and waits for SIGINT/SIGTERM
 // to drive the 3-step graceful shutdown documented above. Behaviour
 // is otherwise byte-identical to the legacy inline block in main.go:
-// ReadTimeout 15s, WriteTimeout 0 (long-lived WS), IdleTimeout 60s.
+// ReadHeaderTimeout 5s (slowloris guard), ReadTimeout 15s, WriteTimeout 0
+// (long-lived WS), IdleTimeout 60s.
 func runServer(deps serveDeps) {
-	srv := &http.Server{
-		Addr:         ":" + deps.Cfg.Port,
-		Handler:      deps.Router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0, // 0 to allow long-lived WebSocket connections.
-		IdleTimeout:  60 * time.Second,
-	}
+	srv := buildHTTPServer(deps.Cfg, deps.Router)
 
 	go func() {
 		slog.Info("server starting", "port", deps.Cfg.Port, "env", deps.Cfg.Env)

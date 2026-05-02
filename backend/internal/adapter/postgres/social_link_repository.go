@@ -38,7 +38,7 @@ func (r *SocialLinkRepository) ListByOrganizationPersona(
 		WHERE organization_id = $1 AND persona = $2
 		ORDER BY platform ASC`
 
-	rows, err := r.db.QueryContext(ctx, query, orgID, string(persona))
+	rows, err := Query(ctx, r.db, query, orgID, string(persona))
 	if err != nil {
 		return nil, fmt.Errorf("list social links: %w", err)
 	}
@@ -79,8 +79,8 @@ func (r *SocialLinkRepository) Upsert(ctx context.Context, link *profile.SocialL
 		ON CONFLICT (organization_id, persona, platform)
 		DO UPDATE SET url = $4, updated_at = now()`
 
-	_, err := r.db.ExecContext(
-		ctx, query,
+	_, err := Exec(
+		ctx, r.db, query,
 		link.OrganizationID, string(link.Persona), link.Platform, link.URL,
 	)
 	if err != nil {
@@ -100,7 +100,7 @@ func (r *SocialLinkRepository) Delete(
 	defer cancel()
 
 	query := `DELETE FROM social_links WHERE organization_id = $1 AND persona = $2 AND platform = $3`
-	_, err := r.db.ExecContext(ctx, query, orgID, string(persona), platform)
+	_, err := Exec(ctx, r.db, query, orgID, string(persona), platform)
 	if err != nil {
 		return fmt.Errorf("delete social link: %w", err)
 	}
