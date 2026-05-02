@@ -70,6 +70,20 @@ const queryGetConversation = `
 // proposal + call flows that anchor on user ids) and the other org's
 // metadata (used for display in the list).
 //
+// queryListConversationsFirst — P6 denormalized read.
+//
+// The legacy shape used a `LEFT JOIN LATERAL (SELECT ... FROM messages
+// ORDER BY seq DESC LIMIT 1)` which fired one index scan per row in
+// the result set — the textbook N+1. Migration 133 + the maintenance
+// in createMessageInTx hold the latest message preview directly on
+// the conversation row, so we now read the four denormalized columns
+// inline. EXPLAIN ANALYZE shows the plan collapses from "Nested Loop
+// Left Join → Limit on idx_messages_conversation_seq_unique (per row)"
+// to a flat Sort → Hash/Seq join with zero per-row subquery.
+//
+// COALESCE on last_message_seq keeps the API shape stable for empty
+// conversations (preserves the existing `0` default — see scan path).
+//
 // $1 = caller organization_id
 // $2 = caller user_id (for the operator's personal unread count)
 // $3 = limit
@@ -81,9 +95,9 @@ const queryListConversationsFirst = `
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
-		lm.content,
-		lm.created_at,
-		COALESCE(lm.seq, 0),
+		c.last_message_content_preview,
+		c.last_message_at,
+		COALESCE(c.last_message_seq, 0),
 		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
@@ -97,13 +111,6 @@ const queryListConversationsFirst = `
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
 	LEFT JOIN conversation_read_state crs
 		ON crs.conversation_id = c.id AND crs.user_id = $2
-	LEFT JOIN LATERAL (
-		SELECT content, created_at, seq
-		FROM messages
-		WHERE conversation_id = c.id
-		ORDER BY seq DESC
-		LIMIT 1
-	) lm ON TRUE
 	WHERE EXISTS (
 		SELECT 1
 		FROM conversation_participants cp_my
@@ -113,6 +120,13 @@ const queryListConversationsFirst = `
 	ORDER BY c.updated_at DESC, c.id DESC
 	LIMIT $3`
 
+// queryListConversationsWithCursor — same shape as the first-page
+// query, with the additional `(c.updated_at, c.id) < ($3, $4)` clause
+// to skip already-paged rows. `c.updated_at` is the same value as
+// `c.last_message_at` post-migration 133, but we keep the cursor on
+// updated_at because empty conversations (no messages yet) carry NULL
+// in last_message_at and would break ORDER BY.
+//
 // $1 = caller organization_id, $2 = caller user_id,
 // $3/$4 = cursor (updated_at, id), $5 = limit
 const queryListConversationsWithCursor = `
@@ -123,9 +137,9 @@ const queryListConversationsWithCursor = `
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
-		lm.content,
-		lm.created_at,
-		COALESCE(lm.seq, 0),
+		c.last_message_content_preview,
+		c.last_message_at,
+		COALESCE(c.last_message_seq, 0),
 		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
@@ -139,13 +153,6 @@ const queryListConversationsWithCursor = `
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
 	LEFT JOIN conversation_read_state crs
 		ON crs.conversation_id = c.id AND crs.user_id = $2
-	LEFT JOIN LATERAL (
-		SELECT content, created_at, seq
-		FROM messages
-		WHERE conversation_id = c.id
-		ORDER BY seq DESC
-		LIMIT 1
-	) lm ON TRUE
 	WHERE EXISTS (
 		SELECT 1
 		FROM conversation_participants cp_my
@@ -189,8 +196,32 @@ const queryInsertMessage = `
 	INSERT INTO messages (id, conversation_id, sender_id, content, msg_type, metadata, reply_to_id, seq, status, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
-const queryUpdateConversationTimestamp = `
-	UPDATE conversations SET updated_at = $2 WHERE id = $1`
+// queryUpdateConversationLastMessage denormalizes the just-inserted
+// message preview onto the conversation row. Maintained inside the
+// same transaction as the INSERT into messages (createMessageInTx)
+// so /api/v1/messaging/conversations can read the preview without
+// a per-conversation LATERAL subquery.
+//
+// $1 = conversation_id
+// $2 = message created_at (also bumps updated_at — same value to keep
+//      ORDER BY updated_at stable with the existing API contract)
+// $3 = message seq
+// $4 = message content (truncated to 100 chars via LEFT() — keeps
+//      truncation server-side so we don't ship full payloads)
+// $5 = message sender_id (NULL for system messages — mirrors mig 130)
+//
+// Decision (locked, see docs/plans/P6_brief.md): maintenance applicatif
+// in createMessageInTx, NOT a PG trigger. Writes are visible in code,
+// debuggable, and the SET LOCAL tenant context already covers the RLS
+// USING expression on the row.
+const queryUpdateConversationLastMessage = `
+	UPDATE conversations
+	SET updated_at                   = $2,
+	    last_message_seq             = $3,
+	    last_message_content_preview = LEFT($4, 100),
+	    last_message_at              = $2,
+	    last_message_sender_id       = $5
+	WHERE id = $1`
 
 const queryGetMessage = `
 	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,

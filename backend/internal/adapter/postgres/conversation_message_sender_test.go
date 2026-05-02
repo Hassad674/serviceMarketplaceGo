@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,8 +96,11 @@ func TestCreateMessage_SystemActorBindsNULL(t *testing.T) {
 			[]byte(nil), sql.NullString{}, 42, "sent", now, now,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(`UPDATE conversations SET updated_at = \$2 WHERE id = \$1`).
-		WithArgs(convID, now).
+	// P6: createMessageInTx now also denormalizes onto conversations.
+	// last_message_sender_id MUST bind as NULL for system-actor sends —
+	// same NULL contract as messages.sender_id.
+	mock.ExpectExec(`UPDATE conversations\s+SET updated_at\s+= \$2,\s+last_message_seq\s+= \$3,\s+last_message_content_preview = LEFT\(\$4, 100\),\s+last_message_at\s+= \$2,\s+last_message_sender_id\s+= \$5\s+WHERE id = \$1`).
+		WithArgs(convID, now, 42, "", nil).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -141,8 +145,10 @@ func TestCreateMessage_RealSenderBindsUUID(t *testing.T) {
 			[]byte(nil), sql.NullString{}, 7, "sent", now, now,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(`UPDATE conversations SET updated_at = \$2 WHERE id = \$1`).
-		WithArgs(convID, now).
+	// P6: real-sender path binds the sender uuid (not nil) to
+	// last_message_sender_id, mirroring messages.sender_id.
+	mock.ExpectExec(`UPDATE conversations\s+SET updated_at\s+= \$2,\s+last_message_seq\s+= \$3,\s+last_message_content_preview = LEFT\(\$4, 100\),\s+last_message_at\s+= \$2,\s+last_message_sender_id\s+= \$5\s+WHERE id = \$1`).
+		WithArgs(convID, now, 7, "hello", senderID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -151,3 +157,121 @@ func TestCreateMessage_RealSenderBindsUUID(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+// ---------------------------------------------------------------------------
+// P6 — denormalize last_message_* on conversations
+//
+// These tests pin three invariants of the new denormalized write path:
+//
+//   1. createMessageInTx fires a SINGLE UPDATE that bumps updated_at
+//      AND maintains last_message_seq / preview / at / sender_id —
+//      we no longer issue a separate `UPDATE updated_at` followed by
+//      a per-row LATERAL on read.
+//   2. The content payload is passed through to PG verbatim — server-
+//      side `LEFT($4, 100)` does the truncation so we never round-trip
+//      the full message body just to chop it.
+//   3. System-actor sends bind NULL on last_message_sender_id, exactly
+//      mirroring the messages.sender_id contract from migration 130.
+// ---------------------------------------------------------------------------
+
+func TestCreateMessage_DenormalizesLongContentVerbatim(t *testing.T) {
+	// Long content (> 100 chars) is passed through verbatim — the
+	// LEFT($4, 100) in the SQL string does the truncation server-side
+	// so the wire payload doesn't carry the trimmed body twice.
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewConversationRepository(db)
+	convID := uuid.New()
+	senderID := uuid.New()
+	now := time.Now().UTC()
+
+	// 250 chars — well past the 100-char preview limit. The bound
+	// argument is the full string; the LEFT() clipping is the
+	// database's responsibility.
+	longBody := strings.Repeat("abcdefghij", 25)
+	require.Equal(t, 250, len(longBody))
+
+	msg, mErr := message.NewMessage(message.NewMessageInput{
+		ConversationID: convID,
+		SenderID:       senderID,
+		Content:        longBody,
+		Type:           message.MessageTypeText,
+	})
+	require.NoError(t, mErr)
+	msg.CreatedAt = now
+	msg.UpdatedAt = now
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT id FROM conversations WHERE id = \$1 FOR UPDATE`).
+		WithArgs(convID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT COALESCE\(MAX\(seq\), 0\) \+ 1 FROM messages WHERE conversation_id = \$1`).
+		WithArgs(convID).
+		WillReturnRows(sqlmock.NewRows([]string{"next"}).AddRow(3))
+	mock.ExpectExec(`INSERT INTO messages`).
+		WithArgs(
+			msg.ID, convID, senderID, longBody, "text",
+			[]byte(nil), sql.NullString{}, 3, "sent", now, now,
+		).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	// $4 must bind the FULL longBody — the trimming is in the SQL
+	// string `LEFT($4, 100)`, not in Go. If we ever start trimming
+	// in Go, this matcher catches the regression.
+	mock.ExpectExec(`UPDATE conversations\s+SET updated_at\s+= \$2,\s+last_message_seq\s+= \$3,\s+last_message_content_preview = LEFT\(\$4, 100\),\s+last_message_at\s+= \$2,\s+last_message_sender_id\s+= \$5\s+WHERE id = \$1`).
+		WithArgs(convID, now, 3, longBody, senderID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	require.NoError(t, repo.CreateMessage(context.Background(), msg, uuid.Nil, uuid.Nil))
+	require.NoError(t, mock.ExpectationsWereMet(),
+		"long-content sends must bind the full body — server-side LEFT() does the trim")
+}
+
+func TestCreateMessage_NoSeparateUpdatedAtBump(t *testing.T) {
+	// Regression guard: there must be EXACTLY ONE UPDATE on
+	// conversations per insert (the merged last_message UPDATE),
+	// never the legacy `UPDATE conversations SET updated_at = $2`
+	// followed by a separate denormalization UPDATE. If a future
+	// refactor splits the write back into two statements, this test
+	// fires loudly because sqlmock stops at the first unmatched
+	// expectation.
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewConversationRepository(db)
+	convID := uuid.New()
+	senderID := uuid.New()
+	now := time.Now().UTC()
+
+	msg, mErr := message.NewMessage(message.NewMessageInput{
+		ConversationID: convID,
+		SenderID:       senderID,
+		Content:        "ping",
+		Type:           message.MessageTypeText,
+	})
+	require.NoError(t, mErr)
+	msg.CreatedAt = now
+	msg.UpdatedAt = now
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT id FROM conversations WHERE id = \$1 FOR UPDATE`).WithArgs(convID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT COALESCE\(MAX\(seq\), 0\) \+ 1 FROM messages WHERE conversation_id = \$1`).
+		WithArgs(convID).
+		WillReturnRows(sqlmock.NewRows([]string{"next"}).AddRow(11))
+	mock.ExpectExec(`INSERT INTO messages`).WithArgs(
+		msg.ID, convID, senderID, "ping", "text",
+		[]byte(nil), sql.NullString{}, 11, "sent", now, now,
+	).WillReturnResult(sqlmock.NewResult(0, 1))
+	// Single UPDATE — must include all five SET clauses.
+	mock.ExpectExec(`UPDATE conversations\s+SET updated_at\s+= \$2,\s+last_message_seq\s+= \$3,\s+last_message_content_preview = LEFT\(\$4, 100\),\s+last_message_at\s+= \$2,\s+last_message_sender_id\s+= \$5\s+WHERE id = \$1`).
+		WithArgs(convID, now, 11, "ping", senderID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	require.NoError(t, repo.CreateMessage(context.Background(), msg, uuid.Nil, uuid.Nil))
+	require.NoError(t, mock.ExpectationsWereMet(),
+		"createMessageInTx must issue exactly one merged UPDATE on conversations — never two")
+}
