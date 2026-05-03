@@ -47,10 +47,18 @@ func mountProposalRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) 
 			// milestone — a stale client view (someone else has
 			// moved the proposal forward) yields 409 Conflict
 			// instead of silently mutating the wrong milestone.
-			r.Post("/{id}/milestones/{mid}/fund", deps.Proposal.FundMilestone)
-			r.Post("/{id}/milestones/{mid}/submit", deps.Proposal.SubmitMilestone)
-			r.Post("/{id}/milestones/{mid}/approve", deps.Proposal.ApproveMilestone)
-			r.Post("/{id}/milestones/{mid}/reject", deps.Proposal.RejectMilestone)
+			//
+			// F.6 B2: idempotency middleware on every money-moving
+			// milestone route. /fund triggers a Stripe transfer; a
+			// 4G retry without idempotency double-funds the escrow.
+			// /submit, /approve, /reject move state forward and
+			// each fires side effects (release of escrow, Stripe
+			// payouts, notification fanout) — all of them must be
+			// retry-safe end-to-end.
+			r.With(idem).Post("/{id}/milestones/{mid}/fund", deps.Proposal.FundMilestone)
+			r.With(idem).Post("/{id}/milestones/{mid}/submit", deps.Proposal.SubmitMilestone)
+			r.With(idem).Post("/{id}/milestones/{mid}/approve", deps.Proposal.ApproveMilestone)
+			r.With(idem).Post("/{id}/milestones/{mid}/reject", deps.Proposal.RejectMilestone)
 			// Boundary cancel (no money in flight). Either side
 			// may initiate — the proposal service's
 			// requireOrgIsParticipant check handles auth.
