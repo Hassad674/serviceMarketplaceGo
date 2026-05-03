@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/secure_storage.dart';
+import 'idempotency_interceptor.dart';
 
 /// Provides the singleton [ApiClient] with JWT auth interceptors.
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -74,6 +75,12 @@ class ApiClient {
       ),
     );
 
+    // Idempotency stamping must run before auth header injection so the
+    // header lands on the request before Dio fans it out. The two
+    // interceptors are order-independent in practice (auth touches
+    // Authorization, idempotency touches Idempotency-Key), but keeping
+    // idempotency first makes the contract obvious to a reader.
+    _dio.interceptors.add(IdempotencyInterceptor());
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: _onRequest,
