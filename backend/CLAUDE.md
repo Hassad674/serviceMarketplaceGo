@@ -320,11 +320,21 @@ type WebSocketHub struct { /* gorilla/websocket hub */ }
   - `dto/request/` — incoming request structs with json tags
   - `dto/response/` — outgoing response structs + helpers
 
+**Body decoding convention (F.5 B1).** Every handler reading a JSON
+body must use `jsondec.DecodeBody(w, r, &req, maxBytes)` from
+`marketplace-backend/pkg/decode` — NEVER call
+`json.NewDecoder(r.Body).Decode(&req)` directly. The helper
+combines `http.MaxBytesReader` (DoS guard against unbounded bodies)
+with `DisallowUnknownFields` (rejects extra fields the struct does
+not declare) in a single line. Pick `maxBytes` based on the legitimate
+payload size (1-32 KiB typical). The `decode_sweep_test.go` guardrail
+fails the build if a handler reverts to the raw decoder pattern.
+
 ```go
 // CORRECT: handler is thin, delegates to app service
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
     var req request.RegisterRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+    if err := jsondec.DecodeBody(w, r, &req, 4<<10); err != nil {
         response.BadRequest(w, "invalid request body")
         return
     }

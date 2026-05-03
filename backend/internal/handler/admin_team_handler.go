@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/handler/dto/response"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -61,7 +61,8 @@ func (h *AdminHandler) ForceTransferOwnership(w http.ResponseWriter, r *http.Req
 	var body struct {
 		TargetUserID string `json:"target_user_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// F.5 B1: bound + reject unknown fields. Tiny ID-only payload.
+	if err := jsondec.DecodeBody(w, r, &body, 4<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", "malformed JSON body")
 		return
 	}
@@ -102,7 +103,8 @@ func (h *AdminHandler) ForceUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 	var body struct {
 		Role string `json:"role"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// F.5 B1: bound + reject unknown fields.
+	if err := jsondec.DecodeBody(w, r, &body, 4<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", "malformed JSON body")
 		return
 	}
