@@ -1,4 +1,4 @@
-.PHONY: run build test test-unit test-integration migrate-up migrate-down migrate-status seed seed-stripe mock lint tidy clean dev \
+.PHONY: run build test test-unit test-integration migrate-up migrate-down migrate-status seed seed-stripe mock lint tidy tidy-check clean dev \
 	reindex-bulk snapshot-typesense drift-check seed-search cover-backend fuzz-search perf-search
 
 # Run API server with .env loaded
@@ -52,6 +52,20 @@ lint:
 # Tidy dependencies
 tidy:
 	go mod tidy
+
+# Tidy check — fails when go.mod / go.sum are not in `tidy` form.
+# Contributors run this locally before committing; CI can wire it as
+# a one-liner gate. Does not modify the working tree on success.
+#   make tidy-check
+tidy-check:
+	@echo "verifying go.mod / go.sum are tidy"
+	@go mod tidy
+	@git diff --exit-code -- go.mod go.sum >/dev/null || { \
+		echo "ERROR: go.mod or go.sum is not tidy. Run 'make tidy' and commit the diff." >&2; \
+		git --no-pager diff -- go.mod go.sum >&2; \
+		exit 1; \
+	}
+	@echo "ok: go.mod and go.sum are tidy"
 
 # Clean build artifacts
 clean:
