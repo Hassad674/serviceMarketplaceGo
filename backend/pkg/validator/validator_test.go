@@ -45,13 +45,16 @@ func TestDecodeJSON_NilBody(t *testing.T) {
 }
 
 func TestDecodeJSON_EmptyBody(t *testing.T) {
+	// F.6 B3: an empty body now surfaces as "empty" (typed via io.EOF)
+	// instead of "invalid JSON". Handlers can map both to 400 — the
+	// new message is just more accurate.
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(""))
 
 	var dst struct{}
 	err := DecodeJSON(req, &dst)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid JSON")
+	assert.Contains(t, err.Error(), "empty")
 }
 
 func TestDecodeJSON_InvalidJSON(t *testing.T) {
@@ -76,8 +79,11 @@ func TestDecodeJSON_UnknownFieldsRejected(t *testing.T) {
 	}
 	err := DecodeJSON(req, &dst)
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid JSON")
+	require.Error(t, err)
+	// F.6 B3: unknown-field errors are now typed so handlers can
+	// branch on them. The wrapped message preserves the field name.
+	assert.ErrorIs(t, err, ErrUnknownField)
+	assert.Contains(t, err.Error(), "unknown_field")
 }
 
 func TestValidateRequired_AllFieldsPresent(t *testing.T) {
@@ -494,4 +500,99 @@ func TestInstance_IsSingleton(t *testing.T) {
 	a := instance()
 	b := instance()
 	assert.Same(t, a, b, "sync.Once must yield a single instance")
+}
+
+// ---------------------------------------------------------------------------
+// F.6 B3 — body cap, smuggling rejection, and valid-size acceptance.
+// ---------------------------------------------------------------------------
+
+func TestDecodeJSON_BodyOverDefaultCap_Returns413Class(t *testing.T) {
+	// Build a 1.5 MiB body that is otherwise valid JSON. The cap is
+	// 1 MiB (DefaultMaxBodyBytes), so this MUST trip ErrBodyTooLarge —
+	// closing the F.5 unbounded-body DoS surface for the helper.
+	huge := strings.Repeat("a", int(DefaultMaxBodyBytes)+(512<<10))
+	body := `{"name":"` + huge + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+
+	var dst struct {
+		Name string `json:"name"`
+	}
+	err := DecodeJSON(req, &dst)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrBodyTooLarge)
+}
+
+func TestDecodeJSON_RejectsTrailingExtraData(t *testing.T) {
+	// JSON-smuggling vector: two concatenated objects. Decoder accepts
+	// the first; our More() check rejects the rest. Without this guard
+	// an attacker could stash fields the validator never sees but the
+	// handler accidentally exposes via embedded structs.
+	body := `{"name":"first"}{"name":"second"}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+
+	var dst struct {
+		Name string `json:"name"`
+	}
+	err := DecodeJSON(req, &dst)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrUnexpectedExtraData)
+}
+
+func TestDecodeJSON_AcceptsValid100KiBBody(t *testing.T) {
+	// 100 KiB is well within the 1 MiB cap — must decode cleanly.
+	// Sanity-checks the cap is not ridiculously low.
+	desc := strings.Repeat("a", 100<<10)
+	body := `{"description":"` + desc + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+
+	var dst struct {
+		Description string `json:"description"`
+	}
+	err := DecodeJSON(req, &dst)
+
+	require.NoError(t, err)
+	assert.Equal(t, len(desc), len(dst.Description))
+}
+
+func TestDecodeJSONWithCap_CustomCapEnforced(t *testing.T) {
+	// A handler that legitimately wants a tighter cap (e.g. 1 KiB for
+	// a tiny enum-toggle endpoint) can dial it down. Anything past
+	// the cap MUST error.
+	body := `{"name":"` + strings.Repeat("x", 2048) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+
+	var dst struct {
+		Name string `json:"name"`
+	}
+	err := DecodeJSONWithCap(nil, req, &dst, 1024)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrBodyTooLarge)
+}
+
+func TestDecodeJSONWithCap_ZeroFallsBackToDefault(t *testing.T) {
+	// Passing 0 must NOT mean "unlimited" — it must fall back to the
+	// 1 MiB default. A typo at a call site that passes 0 should still
+	// be safe.
+	body := `{"name":"ok"}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+
+	var dst struct {
+		Name string `json:"name"`
+	}
+	err := DecodeJSONWithCap(nil, req, &dst, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, "ok", dst.Name)
+}
+
+func TestDecodeJSON_NilRequest_ReturnsEmptyError(t *testing.T) {
+	// Belt-and-suspenders: a nil *http.Request pointer must not panic.
+	// Returns the same "empty" error path as a nil body.
+	var dst struct{}
+	err := DecodeJSON(nil, &dst)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty")
 }

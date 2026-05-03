@@ -57,12 +57,21 @@ const nextConfig: NextConfig = {
   // beyond the backend default so the browser side gets the same
   // protection as the API side.
   async headers() {
+    // F.6 W5: 'unsafe-eval' is needed by Next/Turbopack's HMR runtime
+    // in development (it eval()s module factories on every fast-refresh
+    // cycle), but the compiled production bundle ships only static
+    // code. We split the script-src directive by NODE_ENV so production
+    // ships the tighter CSP without 'unsafe-eval' — closing one of the
+    // two CSP escapes flagged by the F.5 audit. 'unsafe-inline' is kept
+    // until we wire nonces (tracked as a separate follow-up).
+    const isProduction = process.env.NODE_ENV === "production";
+    const scriptSrc = isProduction
+      ? "script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com";
+
     const csp = [
       "default-src 'self'",
-      // Next 16 + React Server Components rely on inline runtime
-      // bootstraps; 'unsafe-inline' is required until we ship
-      // hash-based or nonce-based CSP (tracked as follow-up).
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com",
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.r2.dev http://localhost:9000 http://192.168.1.156:9000 https://*.stripe.com",
       "media-src 'self' blob: https://*.r2.cloudflarestorage.com https://*.r2.dev http://localhost:9000 http://192.168.1.156:9000",
