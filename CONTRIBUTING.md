@@ -60,6 +60,15 @@ cd ..
 
 ### Run the four apps
 
+> **First-time install matters.** Each frontend app keeps its own
+> `node_modules` — there is no monorepo hoisting. You MUST `cd` into
+> each directory and run `npm install` (or `flutter pub get` for
+> mobile) before any other command. Skipping this for `admin/` is the
+> single most common onboarding mistake — `npx vitest run` then fails
+> with "Failed to resolve import zustand" because `admin/package.json`
+> declares dependencies (zustand, others) that have not been resolved
+> yet.
+
 ```bash
 # Backend (8083 by default — see backend/.env)
 cd backend && make run
@@ -67,7 +76,7 @@ cd backend && make run
 # Web (Next.js, 3001)
 cd web && npm install && npm run dev
 
-# Admin (Vite + React, 5173)
+# Admin (Vite + React, 5173) — npm install is MANDATORY on first clone
 cd admin && npm install && npm run dev
 
 # Mobile (Flutter — connect a device first, then)
