@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../types/proposal.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Big icon + title + status pill block sitting at the top of the
 /// proposal detail screen.
@@ -83,38 +84,38 @@ class ProposalHeaderCard extends StatelessWidget {
     return switch (status) {
       ProposalStatus.pending => (
           l10n.proposalPending,
-          const Color(0xFFFEF3C7),
-          const Color(0xFF92400E),
+          AppPalette.amber100,
+          AppPalette.amber800,
         ),
       ProposalStatus.accepted => (
           l10n.proposalAccepted,
-          const Color(0xFFDCFCE7),
-          const Color(0xFF166534),
+          AppPalette.green100,
+          AppPalette.green800,
         ),
       ProposalStatus.declined => (
           l10n.proposalDeclined,
-          const Color(0xFFFEE2E2),
-          const Color(0xFF991B1B),
+          AppPalette.red100,
+          AppPalette.red800,
         ),
       ProposalStatus.withdrawn => (
           l10n.proposalWithdrawn,
-          const Color(0xFFF1F5F9),
-          const Color(0xFF475569),
+          AppPalette.slate100,
+          AppPalette.slate600,
         ),
       ProposalStatus.paid || ProposalStatus.active => (
           l10n.projectStatusActive,
-          const Color(0xFFDCFCE7),
-          const Color(0xFF166534),
+          AppPalette.green100,
+          AppPalette.green800,
         ),
       ProposalStatus.completionRequested => (
           l10n.proposalCompletionRequestedMessage,
-          const Color(0xFFFEF3C7),
-          const Color(0xFF92400E),
+          AppPalette.amber100,
+          AppPalette.amber800,
         ),
       ProposalStatus.completed => (
           l10n.projectStatusCompleted,
-          const Color(0xFFE0F2FE),
-          const Color(0xFF075985),
+          AppPalette.sky100,
+          AppPalette.sky800,
         ),
     };
   }

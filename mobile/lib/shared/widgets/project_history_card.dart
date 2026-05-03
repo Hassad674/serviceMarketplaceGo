@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/models/review.dart';
 import 'review_card_widget.dart';
+import '../../core/theme/app_palette.dart';
 
 /// Shared card rendering one completed project — amount pill + date
 /// header, optional title, embedded review (or "Awaiting review"
@@ -75,7 +76,7 @@ class ProjectHistoryCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE4E6), Color(0xFFFEF2F2)],
+                    colors: [AppPalette.rose100, AppPalette.red50],
                   ),
                   borderRadius: BorderRadius.circular(99),
                 ),
@@ -85,7 +86,7 @@ class ProjectHistoryCard extends StatelessWidget {
                     const Icon(
                       Icons.euro,
                       size: 13,
-                      color: Color(0xFFBE123C),
+                      color: AppPalette.rose700,
                     ),
                     const SizedBox(width: 3),
                     Text(
@@ -93,7 +94,7 @@ class ProjectHistoryCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFBE123C),
+                        color: AppPalette.rose700,
                       ),
                     ),
                   ],

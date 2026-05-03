@@ -7,6 +7,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../providers/job_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 void showApplyBottomSheet(BuildContext context, WidgetRef ref, String jobId) {
   showModalBottomSheet(
@@ -109,7 +110,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     final l10n = AppLocalizations.of(context)!;
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.applicationSent), backgroundColor: const Color(0xFFF43F5E)),
+        SnackBar(content: Text(l10n.applicationSent), backgroundColor: AppPalette.rose500),
       );
     } else {
       final msg = switch (result.statusCode) {
@@ -203,9 +204,9 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
                       value: _uploadProgress,
                       minHeight: 6,
                       backgroundColor:
-                          const Color(0xFFF43F5E).withValues(alpha: 0.12),
+                          AppPalette.rose500.withValues(alpha: 0.12),
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFF43F5E),
+                        AppPalette.rose500,
                       ),
                     ),
                   ),
@@ -246,7 +247,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
             width: double.infinity,
             child: FilledButton(
               onPressed: (_isSubmitting || _isUploading) ? null : _submit,
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF43F5E)),
+              style: FilledButton.styleFrom(backgroundColor: AppPalette.rose500),
               child: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Text(l10n.applySubmit),

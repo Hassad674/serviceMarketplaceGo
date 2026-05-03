@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_application_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Full-page detail screen for a job application / candidate.
 ///
@@ -254,7 +255,7 @@ class _ProfileHeader extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 30,
-          backgroundColor: const Color(0xFFFFF1F2),
+          backgroundColor: AppPalette.rose50,
           // 30 lp radius × 3x DPR = ~180 px. Cap at 192 to keep RAM
           // bounded across the whole candidate list (PERF-M-05).
           backgroundImage: photoUrl.isNotEmpty
@@ -268,7 +269,7 @@ class _ProfileHeader extends StatelessWidget {
               ? Text(
                   initials,
                   style: const TextStyle(
-                    color: Color(0xFFF43F5E),
+                    color: AppPalette.rose500,
                     fontWeight: FontWeight.w600,
                     fontSize: 20,
                   ),
@@ -330,7 +331,7 @@ class _OrgTypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isProvider ? const Color(0xFFFFF1F2) : Colors.blue.shade50,
+        color: isProvider ? AppPalette.rose50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -338,7 +339,7 @@ class _OrgTypeBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: isProvider ? const Color(0xFFF43F5E) : Colors.blue.shade700,
+          color: isProvider ? AppPalette.rose500 : Colors.blue.shade700,
         ),
       ),
     );
@@ -506,7 +507,7 @@ class _ActionButtons extends StatelessWidget {
             icon: const Icon(Icons.send, size: 18),
             label: const Text('Message'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFF43F5E),
+              backgroundColor: AppPalette.rose500,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(

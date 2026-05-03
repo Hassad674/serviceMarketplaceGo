@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Modal that lets the current Owner pick an Admin to receive
 /// ownership. Eligible targets are members with `role == 'admin'`
@@ -80,7 +81,7 @@ class _TransferOwnershipDialogState
                 Text(
                   _serverError!,
                   style: const TextStyle(
-                    color: Color(0xFFB91C1C),
+                    color: AppPalette.red700,
                     fontSize: 13,
                   ),
                 ),
@@ -142,7 +143,7 @@ class _TransferOwnershipDialogState
         const SizedBox(width: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFD97706),
+            backgroundColor: AppPalette.amber600,
             foregroundColor: Colors.white,
           ),
           onPressed: (_submitting || noEligible || _targetUserId == null)
@@ -221,13 +222,13 @@ class _Header extends StatelessWidget {
           height: 36,
           width: 36,
           decoration: const BoxDecoration(
-            color: Color(0xFFFEF3C7), // amber-100
+            color: AppPalette.amber100, // amber-100
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: const Icon(
             Icons.workspace_premium_outlined,
-            color: Color(0xFFB45309), // amber-700
+            color: AppPalette.amber700, // amber-700
             size: 18,
           ),
         ),
@@ -260,8 +261,8 @@ class _WarningBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB), // amber-50
-        border: Border.all(color: const Color(0xFFFCD34D)),
+        color: AppPalette.amber50, // amber-50
+        border: Border.all(color: AppPalette.amber300),
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       ),
       child: Row(
@@ -269,7 +270,7 @@ class _WarningBanner extends StatelessWidget {
         children: [
           const Icon(
             Icons.warning_amber_outlined,
-            color: Color(0xFFD97706),
+            color: AppPalette.amber600,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -277,7 +278,7 @@ class _WarningBanner extends StatelessWidget {
             child: Text(
               text,
               style: const TextStyle(
-                color: Color(0xFF92400E),
+                color: AppPalette.amber800,
                 fontSize: 13,
               ),
             ),
@@ -348,7 +349,7 @@ class _TargetTile extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               size: 20,
               color: selected
-                  ? const Color(0xFFD97706)
+                  ? AppPalette.amber600
                   : (appColors?.mutedForeground ?? Colors.grey),
             ),
             const SizedBox(width: 12),

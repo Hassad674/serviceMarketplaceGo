@@ -26,13 +26,13 @@ class _HeaderSection extends StatelessWidget {
             height: 40,
             width: 40,
             decoration: const BoxDecoration(
-              color: Color(0xFFFFE4E6),
+              color: AppPalette.rose100,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
             child: const Icon(
               Icons.auto_awesome_outlined,
-              color: Color(0xFFE11D48),
+              color: AppPalette.rose600,
               size: 20,
             ),
           ),
@@ -76,16 +76,16 @@ class _ReadOnlyBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppPalette.blue50,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: AppPalette.blue200),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.info_outline,
-            color: Color(0xFF1D4ED8),
+            color: AppPalette.blue700,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -97,14 +97,14 @@ class _ReadOnlyBanner extends StatelessWidget {
                   title,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1E3A8A),
+                    color: AppPalette.blue900,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF1E40AF),
+                    color: AppPalette.blue800,
                     height: 1.4,
                   ),
                 ),
@@ -295,7 +295,7 @@ class _GroupHeader extends StatelessWidget {
       child: Text(
         _groupLabel(l10n, groupKey).toUpperCase(),
         style: const TextStyle(
-          color: Color(0xFFE11D48),
+          color: AppPalette.rose600,
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,

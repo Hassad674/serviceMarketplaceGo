@@ -13,6 +13,7 @@ import '../widgets/proposal_action_buttons.dart';
 import '../widgets/proposal_detail_atoms.dart';
 import '../widgets/proposal_dispute_banner.dart';
 import '../widgets/proposal_header_card.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Displays all details for a proposal: title, description, amount, deadline,
 /// documents, status, and action buttons (accept/decline/modify/pay).
@@ -128,7 +129,7 @@ class _ProposalDetailBody extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: appColors?.muted ?? const Color(0xFFF1F5F9),
+                color: appColors?.muted ?? AppPalette.slate100,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               ),
               child: Text(

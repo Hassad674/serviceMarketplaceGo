@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/availability_pill.dart';
 import '../../../../shared/widgets/profile_identity_header.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Thin composition: [ProfileIdentityHeader] + teal-tinted
 /// [AvailabilityPill]. Puts the name/title/availability trio in
@@ -19,7 +20,7 @@ class ReferrerProfileHeader extends StatelessWidget {
 
   /// Referrer persona accent — teal-500 to distinguish from the
   /// freelance rose.
-  static const Color kAccent = Color(0xFF14B8A6);
+  static const Color kAccent = AppPalette.teal500;
 
   final String displayName;
   final String title;

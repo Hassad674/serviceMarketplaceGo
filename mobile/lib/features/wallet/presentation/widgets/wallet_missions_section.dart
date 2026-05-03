@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/wallet_entity.dart';
 import 'wallet_atoms.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Missions block: 3 balance cards (Escrow / Available / Transferred)
 /// + history list. The history rows are rendered by [WalletMissionTile].
@@ -34,7 +35,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.lock_outline,
                 label: 'Escrow',
                 amount: wallet.escrowAmount,
-                color: const Color(0xFFF59E0B),
+                color: AppPalette.amber500,
               ),
             ),
             const SizedBox(width: 8),
@@ -43,7 +44,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Available',
                 amount: wallet.availableAmount,
-                color: const Color(0xFF22C55E),
+                color: AppPalette.green500,
               ),
             ),
             const SizedBox(width: 8),
@@ -52,7 +53,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.send_outlined,
                 label: 'Transferred',
                 amount: wallet.transferredAmount,
-                color: const Color(0xFF2563EB),
+                color: AppPalette.blue600,
               ),
             ),
           ],
@@ -100,9 +101,9 @@ class WalletMissionTile extends StatelessWidget {
     final isInEscrow = !isFailed && !isCompleted;
 
     final Color accentColor = isFailed
-        ? const Color(0xFFEF4444)
+        ? AppPalette.red500
         : isInEscrow
-            ? const Color(0xFFF59E0B)
+            ? AppPalette.amber500
             : Colors.transparent;
 
     final title = record.proposalTitle.isNotEmpty
@@ -137,7 +138,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'In escrow — mission in progress',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFB45309),
+                      color: AppPalette.amber700,
                       fontWeight: FontWeight.w500,
                     ),
                   )
@@ -145,7 +146,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'Transfer failed',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFDC2626),
+                      color: AppPalette.red600,
                       fontWeight: FontWeight.w600,
                     ),
                   )
@@ -153,7 +154,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'Transferred',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF15803D),
+                      color: AppPalette.green700,
                     ),
                   ),
               ],
@@ -181,7 +182,7 @@ class WalletMissionTile extends StatelessWidget {
                   : const Icon(
                       Icons.refresh,
                       size: 20,
-                      color: Color(0xFFDC2626),
+                      color: AppPalette.red600,
                     ),
               visualDensity: VisualDensity.compact,
             ),

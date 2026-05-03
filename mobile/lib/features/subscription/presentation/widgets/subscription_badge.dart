@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/subscription.dart';
 import '../providers/subscription_providers.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Compact, clickable Premium pill surfaced in the drawer / header /
 /// profile strip. Mirrors the web `SubscriptionBadge` — the badge owns
@@ -67,9 +68,9 @@ _BadgeVariant _pickVariant(BuildContext context, Subscription? sub) {
     return const _BadgeVariant(
       label: 'Paiement échoué · gérer',
       semantics: 'Paiement Premium échoué, gérer l\'abonnement',
-      background: Color(0xFFFFEDD5), // orange-100
-      foreground: Color(0xFFC2410C), // orange-700
-      border: Color(0xFFFDBA74), // orange-300
+      background: AppPalette.orange100, // orange-100
+      foreground: AppPalette.orange700, // orange-700
+      border: AppPalette.orange300, // orange-300
       showIcon: false,
     );
   }
@@ -78,7 +79,7 @@ _BadgeVariant _pickVariant(BuildContext context, Subscription? sub) {
     return _BadgeVariant(
       label: 'Gérer l\'abonnement',
       semantics: 'Abonnement Premium actif, gérer',
-      background: const Color(0xFFFFF1F2), // rose-50
+      background: AppPalette.rose50, // rose-50
       foreground: primary,
       border: primary,
       showIcon: false,

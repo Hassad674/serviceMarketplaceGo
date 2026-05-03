@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Strong-confirmation dialog for self-leaving an organization.
 ///
@@ -101,8 +102,8 @@ class _LeaveOrganizationDialogState
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       icon: const CircleAvatar(
-        backgroundColor: Color(0xFFFEE2E2),
-        child: Icon(Icons.logout, color: Color(0xFFDC2626)),
+        backgroundColor: AppPalette.red100,
+        child: Icon(Icons.logout, color: AppPalette.red600),
       ),
       title: Text(l10n.teamLeaveDialogTitle),
       content: Column(
@@ -128,7 +129,7 @@ class _LeaveOrganizationDialogState
             Text(
               _serverError!,
               style: const TextStyle(
-                color: Color(0xFFB91C1C),
+                color: AppPalette.red700,
                 fontSize: 13,
               ),
             ),
@@ -142,7 +143,7 @@ class _LeaveOrganizationDialogState
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppPalette.red600,
             foregroundColor: Colors.white,
           ),
           onPressed: (!canSubmit || _submitting) ? null : _confirm,

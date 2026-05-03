@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/theme/app_palette.dart';
 
 /// Shape of a single link passed to the card. Kept intentionally
 /// light so each persona feature can re-use the widget without
@@ -35,12 +36,12 @@ class _PlatformMeta {
 }
 
 const _platforms = <_PlatformMeta>[
-  _PlatformMeta('linkedin', Icons.business, Color(0xFF0A66C2)),
-  _PlatformMeta('instagram', Icons.camera_alt, Color(0xFFE4405F)),
-  _PlatformMeta('youtube', Icons.play_circle_fill, Color(0xFFFF0000)),
-  _PlatformMeta('twitter', Icons.alternate_email, Color(0xFF1DA1F2)),
-  _PlatformMeta('github', Icons.code, Color(0xFF333333)),
-  _PlatformMeta('website', Icons.language, Color(0xFFF43F5E)),
+  _PlatformMeta('linkedin', Icons.business, AppPalette.linkedinBlue),
+  _PlatformMeta('instagram', Icons.camera_alt, AppPalette.instagramPink),
+  _PlatformMeta('youtube', Icons.play_circle_fill, AppPalette.pureRed),
+  _PlatformMeta('twitter', Icons.alternate_email, AppPalette.twitterBlue),
+  _PlatformMeta('github', Icons.code, AppPalette.gray800),
+  _PlatformMeta('website', Icons.language, AppPalette.rose500),
 ];
 
 String _platformLabel(String key, AppLocalizations l10n) {

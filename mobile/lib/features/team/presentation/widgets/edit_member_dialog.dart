@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Modal form to edit a team member's role and/or title.
 ///
@@ -232,13 +233,13 @@ class _Header extends StatelessWidget {
           height: 36,
           width: 36,
           decoration: const BoxDecoration(
-            color: Color(0xFFEDE9FE), // violet-100
+            color: AppPalette.violet100, // violet-100
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: const Icon(
             Icons.edit_outlined,
-            color: Color(0xFF6D28D9), // violet-700
+            color: AppPalette.violet700, // violet-700
             size: 18,
           ),
         ),
@@ -271,16 +272,16 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppPalette.red50,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: const Color(0xFFFCA5A5)),
+        border: Border.all(color: AppPalette.red300),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.error_outline,
-            color: Color(0xFFDC2626),
+            color: AppPalette.red600,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -288,7 +289,7 @@ class _ErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xFFB91C1C),
+                color: AppPalette.red700,
                 fontSize: 13,
               ),
             ),

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/current_month_aggregate.dart';
 import '../providers/invoicing_providers.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Compact card showing the running fee total for the current billing
 /// month. Sits above the wallet's withdraw block so providers always
@@ -58,13 +59,13 @@ class _CurrentMonthAggregateCardState
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFE4E6),
+                  color: AppPalette.rose100,
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 child: const Icon(
                   Icons.calendar_today_rounded,
                   size: 18,
-                  color: Color(0xFFBE123C),
+                  color: AppPalette.rose700,
                 ),
               ),
               const SizedBox(width: 12),
@@ -118,14 +119,14 @@ class _CurrentMonthAggregateCardState
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFBE123C),
+                          color: AppPalette.rose700,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(
                         _expanded ? Icons.expand_less : Icons.expand_more,
                         size: 18,
-                        color: const Color(0xFFBE123C),
+                        color: AppPalette.rose700,
                       ),
                     ],
                   ),

@@ -8,6 +8,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/opportunity_card.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class OpportunitiesScreen extends ConsumerWidget {
   const OpportunitiesScreen({super.key});
@@ -147,13 +148,13 @@ class _CreditsHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: hasNoCredits
-                ? const Color(0xFFFEF2F2)
-                : const Color(0xFFFFF1F2),
+                ? AppPalette.red50
+                : AppPalette.rose50,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: hasNoCredits
-                  ? const Color(0xFFFECACA)
-                  : const Color(0xFFFDA4AF),
+                  ? AppPalette.red200
+                  : AppPalette.rose300,
             ),
           ),
           child: Row(
@@ -161,8 +162,8 @@ class _CreditsHeader extends StatelessWidget {
               Icon(
                 Icons.confirmation_number_outlined,
                 color: hasNoCredits
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFFF43F5E),
+                    ? AppPalette.red500
+                    : AppPalette.rose500,
                 size: 22,
               ),
               const SizedBox(width: 10),
@@ -179,7 +180,7 @@ class _CreditsHeader extends StatelessWidget {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: hasNoCredits
-                              ? const Color(0xFFEF4444)
+                              ? AppPalette.red500
                               : theme.colorScheme.onSurface,
                         ),
                       ),
@@ -187,7 +188,7 @@ class _CreditsHeader extends StatelessWidget {
               IconButton(
                 onPressed: () => _showCreditsExplanation(context),
                 icon: const Icon(Icons.help_outline, size: 20),
-                color: const Color(0xFFF43F5E),
+                color: AppPalette.rose500,
                 tooltip: l10n.creditsHowItWorks,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -200,18 +201,18 @@ class _CreditsHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: AppPalette.red50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFEF4444)),
+                const Icon(Icons.warning_amber_rounded, size: 18, color: AppPalette.red500),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.noCreditsLeft,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFEF4444),
+                      color: AppPalette.red500,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -284,7 +285,7 @@ class _CreditsHeader extends StatelessWidget {
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFF43F5E),
+                      backgroundColor: AppPalette.rose500,
                     ),
                     child: Text(l10n.cancel),
                   ),
@@ -309,7 +310,7 @@ class _ExplanationRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: const Color(0xFFF43F5E)),
+        Icon(icon, size: 20, color: AppPalette.rose500),
         const SizedBox(width: 12),
         Expanded(
           child: Text(

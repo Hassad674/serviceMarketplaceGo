@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/theme/app_palette.dart';
 
 const drawerWorkspacePref = 'workspace_mode';
 
@@ -59,18 +60,18 @@ class _DrawerWorkspaceSwitchState extends State<DrawerWorkspaceSwitch> {
         : widget.l10n.drawerSwitchToReferrer;
     final icon = isRef ? Icons.swap_horiz : Icons.auto_awesome;
     final fgColor = isRef
-        ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669))
+        ? (isDark ? AppPalette.emerald300 : AppPalette.emerald600)
         : Colors.white;
     final bgDecor = isRef
         ? BoxDecoration(
             color: isDark
-                ? const Color(0xFF065F46).withValues(alpha: 0.25)
-                : const Color(0xFFECFDF5),
+                ? AppPalette.emerald800.withValues(alpha: 0.25)
+                : AppPalette.emerald50,
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           )
         : BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFF43F5E), Color(0xFF8B5CF6)],
+              colors: [AppPalette.rose500, AppPalette.violet500],
             ),
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           );

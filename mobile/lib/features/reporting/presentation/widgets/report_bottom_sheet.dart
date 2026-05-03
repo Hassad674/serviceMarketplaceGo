@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../data/report_repository_impl.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Reason options for reporting a message.
 const _messageReasons = [
@@ -217,11 +218,11 @@ class _ReportBottomSheetContentState
                         });
                       },
                 selectedColor:
-                    const Color(0xFFF43F5E).withValues(alpha: 0.15),
+                    AppPalette.rose500.withValues(alpha: 0.15),
                 labelStyle: TextStyle(
                   fontSize: 13,
                   color: selected
-                      ? const Color(0xFFF43F5E)
+                      ? AppPalette.rose500
                       : theme.colorScheme.onSurface,
                 ),
               );
@@ -257,7 +258,7 @@ class _ReportBottomSheetContentState
             child: ElevatedButton(
               onPressed: canSubmit ? _submit : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF43F5E),
+                backgroundColor: AppPalette.rose500,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

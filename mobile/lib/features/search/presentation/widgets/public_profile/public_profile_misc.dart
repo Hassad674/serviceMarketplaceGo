@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../review/presentation/providers/review_provider.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Vertical 16dp gap that hides itself when the previous block is
 /// not visible. Keeps the column tight when the profile collapses.
@@ -50,7 +51,7 @@ class PublicProfileSendMessageButton extends StatelessWidget {
             : const Icon(Icons.chat_outlined, size: 20),
         label: Text(l10n.messagingSendMessage),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF43F5E),
+          backgroundColor: AppPalette.rose500,
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
@@ -104,13 +105,13 @@ class PublicProfileOrgTypeBadge extends StatelessWidget {
   Color get _color {
     switch (orgType) {
       case 'agency':
-        return const Color(0xFF2563EB);
+        return AppPalette.blue600;
       case 'enterprise':
-        return const Color(0xFF8B5CF6);
+        return AppPalette.violet500;
       case 'provider_personal':
-        return const Color(0xFFF43F5E);
+        return AppPalette.rose500;
       default:
-        return const Color(0xFF64748B);
+        return AppPalette.slate500;
     }
   }
 }
@@ -133,7 +134,7 @@ class PublicProfileAverageRating extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star, color: Color(0xFFFBBF24), size: 16),
+            const Icon(Icons.star, color: AppPalette.amber400, size: 16),
             const SizedBox(width: 4),
             Text(
               avg.average.toStringAsFixed(1),

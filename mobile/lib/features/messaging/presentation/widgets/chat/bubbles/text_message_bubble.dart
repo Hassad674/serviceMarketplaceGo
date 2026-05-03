@@ -5,6 +5,7 @@ import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
 import '../message_context_menu.dart';
 import 'reply_preview_widget.dart';
+import '../../../../../../core/theme/app_palette.dart';
 
 /// Standard text bubble — rose for own messages, muted grey for received.
 ///
@@ -62,8 +63,8 @@ class TextMessageBubble extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isOwn
-                    ? const Color(0xFFF43F5E) // rose-500
-                    : (appColors?.muted ?? const Color(0xFFF1F5F9)),
+                    ? AppPalette.rose500 // rose-500
+                    : (appColors?.muted ?? AppPalette.slate100),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -114,7 +115,7 @@ class TextMessageBubble extends StatelessWidget {
                           color: isOwn
                               ? Colors.white.withValues(alpha: 0.7)
                               : (appColors?.mutedForeground ??
-                                  const Color(0xFF94A3B8)),
+                                  AppPalette.slate400),
                         ),
                       ),
                       if (isOwn) ...[
@@ -180,7 +181,7 @@ class _StatusIcon extends StatelessWidget {
         return const Icon(
           Icons.done_all,
           size: 12,
-          color: Color(0xFF3B82F6), // blue check marks
+          color: AppPalette.blue500, // blue check marks
         );
       default:
         return const SizedBox.shrink();

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// ReferralSystemMessageWidget renders a referral lifecycle event as an
 /// interactive card inside a conversation. Role-aware accept / reject /
@@ -51,14 +52,14 @@ class ReferralSystemMessageWidget extends ConsumerWidget {
     if (type == 'referral_intro_negotiated') {
       return (
         icon: Icons.swap_horiz_rounded,
-        color: const Color(0xFFF59E0B),
+        color: AppPalette.amber500,
         headline: 'Contre-proposition de taux',
       );
     }
     if (type == 'referral_intro_activated' || _newStatus == 'active') {
       return (
         icon: Icons.handshake_outlined,
-        color: const Color(0xFF10B981),
+        color: AppPalette.emerald500,
         headline: 'Mise en relation activée',
       );
     }
@@ -66,19 +67,19 @@ class ReferralSystemMessageWidget extends ConsumerWidget {
       if (_newStatus == 'expired') {
         return (
           icon: Icons.hourglass_bottom,
-          color: const Color(0xFF64748B),
+          color: AppPalette.slate500,
           headline: 'Mise en relation expirée',
         );
       }
       return (
         icon: Icons.cancel_outlined,
-        color: const Color(0xFF64748B),
+        color: AppPalette.slate500,
         headline: 'Mise en relation clôturée',
       );
     }
     return (
       icon: Icons.handshake_outlined,
-      color: const Color(0xFFF43F5E),
+      color: AppPalette.rose500,
       headline: "Nouvelle proposition d'apport d'affaires",
     );
   }
@@ -231,7 +232,7 @@ class _LegacyChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
+            color: AppPalette.rose500.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -240,7 +241,7 @@ class _LegacyChip extends StatelessWidget {
               const Icon(
                 Icons.handshake_outlined,
                 size: 16,
-                color: Color(0xFFF43F5E),
+                color: AppPalette.rose500,
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -249,7 +250,7 @@ class _LegacyChip extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFFF43F5E),
+                    color: AppPalette.rose500,
                   ),
                 ),
               ),
@@ -464,7 +465,7 @@ class _ReferralActionsInlineState
           return FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFF43F5E),
+              backgroundColor: AppPalette.rose500,
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               textStyle: const TextStyle(
@@ -479,8 +480,8 @@ class _ReferralActionsInlineState
           return OutlinedButton(
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFE11D48),
-              side: const BorderSide(color: Color(0xFFFECACA)),
+              foregroundColor: AppPalette.rose600,
+              side: const BorderSide(color: AppPalette.red200),
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               textStyle: const TextStyle(

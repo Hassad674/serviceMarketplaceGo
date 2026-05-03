@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/availability_status.dart';
 import '../providers/profile_tier1_providers.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Which availability slot this card owns. The direct variant is
 /// rendered on the freelance profile screen; the referrer variant
@@ -204,11 +205,11 @@ class AvailabilityBadge extends StatelessWidget {
 Color availabilityColor(AvailabilityStatus status) {
   switch (status) {
     case AvailabilityStatus.availableNow:
-      return const Color(0xFF22C55E); // green-500
+      return AppPalette.green500; // green-500
     case AvailabilityStatus.availableSoon:
-      return const Color(0xFFF59E0B); // amber-500
+      return AppPalette.amber500; // amber-500
     case AvailabilityStatus.notAvailable:
-      return const Color(0xFFEF4444); // red-500
+      return AppPalette.red500; // red-500
   }
 }
 

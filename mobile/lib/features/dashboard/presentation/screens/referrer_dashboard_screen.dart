@@ -6,9 +6,10 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 // Rose color constant for the search chip.
-const Color _rose500 = Color(0xFFF43F5E);
+const Color _rose500 = AppPalette.rose500;
 
 /// Referrer (business referrer) dashboard for providers with referrer mode.
 ///
@@ -91,7 +92,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 title: l10n.referrals,
                 value: '0',
                 subtitle: l10n.pendingResponse,
-                color: const Color(0xFF14B8A6), // teal-500
+                color: AppPalette.teal500, // teal-500
               ),
               const SizedBox(height: 12),
 
@@ -100,7 +101,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 title: l10n.activeMissions,
                 value: '0',
                 subtitle: l10n.activeContracts,
-                color: const Color(0xFFF59E0B), // amber-500
+                color: AppPalette.amber500, // amber-500
               ),
               const SizedBox(height: 12),
 
@@ -109,7 +110,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 title: l10n.completedMissions,
                 value: '0',
                 subtitle: l10n.totalHistory,
-                color: const Color(0xFF22C55E), // emerald-500
+                color: AppPalette.green500, // emerald-500
               ),
               const SizedBox(height: 12),
 
@@ -118,7 +119,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 title: l10n.commissions,
                 value: '0 EUR',
                 subtitle: l10n.totalEarned,
-                color: const Color(0xFFF43F5E), // rose-500
+                color: AppPalette.rose500, // rose-500
               ),
             ],
           ),
@@ -152,13 +153,13 @@ class _WelcomeBanner extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF14B8A6), // teal-500
-            Color(0xFF8B5CF6), // violet-500
+            AppPalette.teal500, // teal-500
+            AppPalette.violet500, // violet-500
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+            color: AppPalette.teal500.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),

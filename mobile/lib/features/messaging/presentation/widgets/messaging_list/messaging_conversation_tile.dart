@@ -4,11 +4,12 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/extensions.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../domain/entities/conversation_entity.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 const _roleColors = {
-  'agency': Color(0xFF2563EB), // blue-600
-  'provider_personal': Color(0xFFF43F5E), // rose-500
-  'enterprise': Color(0xFF8B5CF6), // purple-500
+  'agency': AppPalette.blue600, // blue-600
+  'provider_personal': AppPalette.rose500, // rose-500
+  'enterprise': AppPalette.violet500, // purple-500
 };
 
 /// Single conversation row — avatar + name + last message + unread
@@ -135,7 +136,7 @@ class _SubtitleRow extends StatelessWidget {
                   l10n.messagingTypingShort,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontStyle: FontStyle.italic,
-                    color: const Color(0xFFF43F5E),
+                    color: AppPalette.rose500,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -153,7 +154,7 @@ class _SubtitleRow extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFFF43F5E),
+              color: AppPalette.rose500,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -190,8 +191,8 @@ class _Avatar extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF43F5E), // rose-500
-                Color(0xFF8B5CF6), // purple-600
+                AppPalette.rose500, // rose-500
+                AppPalette.violet500, // purple-600
               ],
             ),
           ),
@@ -214,7 +215,7 @@ class _Avatar extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: const Color(0xFF22C55E), // emerald-500
+                color: AppPalette.green500, // emerald-500
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Theme.of(context).colorScheme.surface,

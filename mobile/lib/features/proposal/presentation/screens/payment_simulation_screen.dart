@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Simulates a payment flow for an accepted proposal.
 ///
@@ -211,13 +212,13 @@ class _PaymentSimulationScreenState
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+              color: AppPalette.green500.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.check_circle_outline,
               size: 48,
-              color: Color(0xFF22C55E),
+              color: AppPalette.green500,
             ),
           ),
           const SizedBox(height: 24),

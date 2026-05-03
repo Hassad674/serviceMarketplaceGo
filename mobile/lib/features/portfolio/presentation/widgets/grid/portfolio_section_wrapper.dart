@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Outer wrapper for the portfolio grid — header (title + count + add
 /// CTA) with a child block.
@@ -36,13 +37,13 @@ class PortfolioSectionWrapper extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE4E6), Color(0xFFFEF2F2)],
+                    colors: [AppPalette.rose100, AppPalette.red50],
                   ),
                 ),
                 child: const Icon(
                   Icons.work_outline,
                   size: 18,
-                  color: Color(0xFFE11D48),
+                  color: AppPalette.rose600,
                 ),
               ),
               const SizedBox(width: 12),
@@ -73,7 +74,7 @@ class PortfolioSectionWrapper extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFE11D48),
+                    backgroundColor: AppPalette.rose600,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,

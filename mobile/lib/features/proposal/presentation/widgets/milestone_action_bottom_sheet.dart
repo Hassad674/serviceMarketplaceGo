@@ -6,6 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../domain/repositories/proposal_repository.dart';
 import '../providers/proposal_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 // The three milestone actions exposed on the mobile detail screen.
 // `fund` is wired through but not currently triggered by the detail
@@ -201,7 +202,7 @@ class _MilestoneSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: appColors?.muted ?? const Color(0xFFF1F5F9),
+        color: appColors?.muted ?? AppPalette.slate100,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       ),
       child: Column(

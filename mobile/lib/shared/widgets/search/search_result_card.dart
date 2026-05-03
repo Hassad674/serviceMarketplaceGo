@@ -8,6 +8,7 @@ import '../../profile/flag_emoji.dart';
 import '../../profile/money_format.dart';
 import '../../search/search_document.dart';
 import '../availability_pill.dart';
+import '../../../core/theme/app_palette.dart';
 
 /// Mobile mirror of the web SearchResultCard. Consumes the frozen
 /// SearchDocument contract so the future Typesense swap is a single
@@ -148,7 +149,7 @@ class _InitialsBackdrop extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFFE4E6), Color(0xFFFFF1F2)],
+          colors: [AppPalette.rose100, AppPalette.rose50],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -159,7 +160,7 @@ class _InitialsBackdrop extends StatelessWidget {
         style: const TextStyle(
           fontSize: 42,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFF43F5E),
+          color: AppPalette.rose500,
         ),
       ),
     );
@@ -183,7 +184,7 @@ class _RatingBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star, size: 12, color: Color(0xFFFBBF24)),
+          const Icon(Icons.star, size: 12, color: AppPalette.amber400),
           const SizedBox(width: 3),
           Text(
             rating.average.toStringAsFixed(1),
@@ -358,7 +359,7 @@ class _TotalEarnedLine extends StatelessWidget {
       style: const TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w700,
-        color: Color(0xFFE11D48),
+        color: AppPalette.rose600,
       ),
     );
   }
@@ -390,7 +391,7 @@ class _PricingLine extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE4E6),
+              color: AppPalette.rose100,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
@@ -398,7 +399,7 @@ class _PricingLine extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFBE123C),
+                color: AppPalette.rose700,
               ),
             ),
           ),

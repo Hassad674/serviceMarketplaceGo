@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dispute_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Renders the historical decision of a dispute (resolved or cancelled)
 /// on the project detail screen, AFTER the dispute banner has gone away
@@ -41,9 +42,9 @@ class _ResolvedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const emeraldBorder = Color(0xFF6EE7B7); // emerald-300
-    const emeraldBg = Color(0xFFECFDF5); // emerald-50
-    const emeraldFg = Color(0xFF065F46); // emerald-800
+    const emeraldBorder = AppPalette.emerald300; // emerald-300
+    const emeraldBg = AppPalette.emerald50; // emerald-50
+    const emeraldFg = AppPalette.emerald800; // emerald-800
 
     final clientAmount = dispute.resolutionAmountClient ?? 0;
     final providerAmount = dispute.resolutionAmountProvider ?? 0;
@@ -170,9 +171,9 @@ class _CancelledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const slateBorder = Color(0xFFCBD5E1); // slate-300
-    const slateBg = Color(0xFFF8FAFC); // slate-50
-    const slateFg = Color(0xFF334155); // slate-700
+    const slateBorder = AppPalette.slate300; // slate-300
+    const slateBg = AppPalette.slate50; // slate-50
+    const slateFg = AppPalette.slate700; // slate-700
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -237,8 +238,8 @@ class _SplitCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const emeraldBorder = Color(0xFF6EE7B7);
-    const emeraldFg = Color(0xFF065F46);
+    const emeraldBorder = AppPalette.emerald300;
+    const emeraldFg = AppPalette.emerald800;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -275,7 +276,7 @@ class _SplitCell extends StatelessWidget {
             '$percent%',
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 11,
-              color: const Color(0xFF64748B),
+              color: AppPalette.slate500,
             ),
           ),
         ],

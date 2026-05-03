@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
+import '../../../../../../core/theme/app_palette.dart';
 
 /// Card rendered for `evaluation_request` system messages.
 ///
@@ -26,7 +27,7 @@ class EvaluationRequestBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    const color = Color(0xFF10B981); // emerald-500
+    const color = AppPalette.emerald500; // emerald-500
 
     final meta = message.metadata;
     final proposalId = meta?['proposal_id'] as String? ?? '';
@@ -79,7 +80,7 @@ class EvaluationRequestBubble extends StatelessWidget {
                           )
                       : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFF43F5E),
+                    backgroundColor: AppPalette.rose500,
                     foregroundColor: Colors.white,
                     textStyle: const TextStyle(
                       fontSize: 12,
