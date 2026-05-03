@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { Review } from "@/shared/types/review"
 
 // ProjectHistoryEntry is the public, cursor-paginated view of a
@@ -26,7 +27,7 @@ export type ProjectHistoryResponse = {
 async function fetchProjectHistory(
   orgId: string,
 ): Promise<ProjectHistoryResponse> {
-  return apiClient<ProjectHistoryResponse>(
+  return apiClient<Get<"/api/v1/profiles/{orgId}/project-history"> & ProjectHistoryResponse>(
     `/api/v1/profiles/${orgId}/project-history`,
   )
 }

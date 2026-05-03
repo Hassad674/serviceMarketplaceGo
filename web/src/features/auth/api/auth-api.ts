@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Post } from "@/shared/lib/api-paths"
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
 const API_URL = API_BASE_URL
@@ -73,14 +74,14 @@ export async function register(data: {
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
-  return apiClient<{ message: string }>("/api/v1/auth/forgot-password", {
+  return apiClient<Post<"/api/v1/auth/forgot-password"> & { message: string }>("/api/v1/auth/forgot-password", {
     method: "POST",
     body: { email },
   })
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-  return apiClient<{ message: string }>("/api/v1/auth/reset-password", {
+  return apiClient<Post<"/api/v1/auth/reset-password"> & { message: string }>("/api/v1/auth/reset-password", {
     method: "POST",
     body: { token, new_password: newPassword },
   })

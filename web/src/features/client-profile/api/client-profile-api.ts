@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Void } from "@/shared/lib/api-paths"
 import type { Review } from "@/shared/types/review"
 
 // Domain types for the client-profile feature. They map the backend
@@ -68,7 +69,7 @@ export type UpdateClientProfileInput = {
 export async function updateClientProfile(
   input: UpdateClientProfileInput,
 ): Promise<void> {
-  await apiClient<void>("/api/v1/profile/client", {
+  await apiClient<Void<"/api/v1/profile/client">>("/api/v1/profile/client", {
     method: "PUT",
     body: input,
   })
@@ -83,7 +84,7 @@ export async function updateClientProfile(
 export async function fetchPublicClientProfile(
   orgId: string,
 ): Promise<PublicClientProfile> {
-  return apiClient<PublicClientProfile>(`/api/v1/clients/${orgId}`)
+  return apiClient<Get<"/api/v1/clients/{orgId}"> & PublicClientProfile>(`/api/v1/clients/${orgId}`)
 }
 
 // MyClientProfile is the exact shape the private client-profile page

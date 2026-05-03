@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post } from "@/shared/lib/api-paths"
 
 import type {
   Referral,
@@ -17,15 +18,18 @@ const BASE = "/api/v1/referrals"
  */
 
 export async function getReferral(id: string): Promise<Referral> {
-  return apiClient<Referral>(`${BASE}/${id}`)
+  return apiClient<Get<"/api/v1/referrals/{id}"> & Referral>(`${BASE}/${id}`)
 }
 
 export async function respondToReferral(
   id: string,
   input: RespondReferralInput,
 ): Promise<Referral> {
-  return apiClient<Referral>(`${BASE}/${id}/respond`, {
-    method: "POST",
-    body: input,
-  })
+  return apiClient<Post<"/api/v1/referrals/{id}/respond"> & Referral>(
+    `${BASE}/${id}/respond`,
+    {
+      method: "POST",
+      body: input,
+    },
+  )
 }

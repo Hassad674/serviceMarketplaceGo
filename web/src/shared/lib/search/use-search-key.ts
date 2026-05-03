@@ -12,6 +12,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { SearchDocumentPersona } from "./typesense-client"
 
 /** SearchKeyResponse is the shape returned by GET /api/v1/search/key. */
@@ -68,5 +69,5 @@ export function useSearchKey(persona: SearchDocumentPersona | null): {
  * server-side callers that need the key outside React.
  */
 export async function fetchScopedKey(persona: SearchDocumentPersona): Promise<SearchKeyResponse> {
-  return apiClient<SearchKeyResponse>(`/api/v1/search/key?persona=${encodeURIComponent(persona)}`)
+  return apiClient<Get<"/api/v1/search/key"> & SearchKeyResponse>(`/api/v1/search/key?persona=${encodeURIComponent(persona)}`)
 }

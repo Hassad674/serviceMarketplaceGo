@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post, Put } from "@/shared/lib/api-paths"
 import type {
   BillingProfileSnapshot,
   CurrentMonthAggregate,
@@ -18,14 +19,14 @@ import type {
 
 /** GET /api/v1/me/billing-profile */
 export function fetchBillingProfile(): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>("/api/v1/me/billing-profile")
+  return apiClient<Get<"/api/v1/me/billing-profile"> & BillingProfileSnapshot>("/api/v1/me/billing-profile")
 }
 
 /** PUT /api/v1/me/billing-profile — partial saves are accepted server-side. */
 export function updateBillingProfile(
   input: UpdateBillingProfileInput,
 ): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>("/api/v1/me/billing-profile", {
+  return apiClient<Put<"/api/v1/me/billing-profile"> & BillingProfileSnapshot>("/api/v1/me/billing-profile", {
     method: "PUT",
     body: input,
   })
@@ -33,7 +34,7 @@ export function updateBillingProfile(
 
 /** POST /api/v1/me/billing-profile/sync-from-stripe */
 export function syncBillingProfileFromStripe(): Promise<BillingProfileSnapshot> {
-  return apiClient<BillingProfileSnapshot>(
+  return apiClient<Post<"/api/v1/me/billing-profile/sync-from-stripe"> & BillingProfileSnapshot>(
     "/api/v1/me/billing-profile/sync-from-stripe",
     { method: "POST" },
   )
@@ -41,12 +42,12 @@ export function syncBillingProfileFromStripe(): Promise<BillingProfileSnapshot> 
 
 /** POST /api/v1/me/billing-profile/validate-vat — VIES round-trip. */
 export function validateBillingProfileVAT(): Promise<VIESResult> {
-  return apiClient<VIESResult>("/api/v1/me/billing-profile/validate-vat", {
+  return apiClient<Post<"/api/v1/me/billing-profile/validate-vat"> & VIESResult>("/api/v1/me/billing-profile/validate-vat", {
     method: "POST",
   })
 }
 
 /** GET /api/v1/me/invoicing/current-month — running fee total. */
 export function fetchCurrentMonthAggregate(): Promise<CurrentMonthAggregate> {
-  return apiClient<CurrentMonthAggregate>("/api/v1/me/invoicing/current-month")
+  return apiClient<Get<"/api/v1/me/invoicing/current-month"> & CurrentMonthAggregate>("/api/v1/me/invoicing/current-month")
 }

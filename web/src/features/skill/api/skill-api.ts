@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post, Put } from "@/shared/lib/api-paths"
 import type {
   CatalogResponse,
   ProfileSkillResponse,
@@ -9,7 +10,7 @@ import type {
 // ordered skill list. `position` is significant: the frontend must
 // preserve ordering when rendering chips.
 export async function fetchProfileSkills(): Promise<ProfileSkillResponse[]> {
-  return apiClient<ProfileSkillResponse[]>("/api/v1/profile/skills")
+  return apiClient<Get<"/api/v1/profile/skills"> & ProfileSkillResponse[]>("/api/v1/profile/skills")
 }
 
 // PUT /api/v1/profile/skills — replaces the full list. The order of
@@ -19,7 +20,7 @@ export async function fetchProfileSkills(): Promise<ProfileSkillResponse[]> {
 export async function updateProfileSkills(
   skillTexts: string[],
 ): Promise<void> {
-  await apiClient<{ status: string }>("/api/v1/profile/skills", {
+  await apiClient<Put<"/api/v1/profile/skills"> & { status: string }>("/api/v1/profile/skills", {
     method: "PUT",
     body: { skill_texts: skillTexts },
   })
@@ -36,7 +37,7 @@ export async function fetchCatalog(
     expertise: expertiseKey,
     limit: String(limit),
   })
-  return apiClient<CatalogResponse>(`/api/v1/skills/catalog?${params.toString()}`)
+  return apiClient<Get<"/api/v1/skills/catalog"> & CatalogResponse>(`/api/v1/skills/catalog?${params.toString()}`)
 }
 
 // GET /api/v1/skills/autocomplete — prefix search across the whole
@@ -46,7 +47,7 @@ export async function searchSkillsAutocomplete(
   limit = 20,
 ): Promise<SkillResponse[]> {
   const params = new URLSearchParams({ q: query, limit: String(limit) })
-  return apiClient<SkillResponse[]>(
+  return apiClient<Get<"/api/v1/skills/autocomplete"> & SkillResponse[]>(
     `/api/v1/skills/autocomplete?${params.toString()}`,
   )
 }
@@ -58,7 +59,7 @@ export async function searchSkillsAutocomplete(
 export async function createUserSkill(
   displayText: string,
 ): Promise<SkillResponse> {
-  return apiClient<SkillResponse>("/api/v1/skills", {
+  return apiClient<Post<"/api/v1/skills"> & SkillResponse>("/api/v1/skills", {
     method: "POST",
     body: { display_text: displayText },
   })

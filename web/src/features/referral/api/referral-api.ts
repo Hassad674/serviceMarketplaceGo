@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post } from "@/shared/lib/api-paths"
 
 import type {
   CreateReferralInput,
@@ -33,7 +34,9 @@ function buildQuery(filter: ListReferralsFilter): string {
 export async function listMyReferrals(
   filter: ListReferralsFilter = {},
 ): Promise<ReferralListResponse> {
-  return apiClient<ReferralListResponse>(`${BASE}/me${buildQuery(filter)}`)
+  return apiClient<Get<"/api/v1/referrals/me"> & ReferralListResponse>(
+    `${BASE}/me${buildQuery(filter)}`,
+  )
 }
 
 // listIncomingReferrals fetches referrals where the current user is the
@@ -42,7 +45,9 @@ export async function listMyReferrals(
 export async function listIncomingReferrals(
   filter: ListReferralsFilter = {},
 ): Promise<ReferralListResponse> {
-  return apiClient<ReferralListResponse>(`${BASE}/incoming${buildQuery(filter)}`)
+  return apiClient<Get<"/api/v1/referrals/incoming"> & ReferralListResponse>(
+    `${BASE}/incoming${buildQuery(filter)}`,
+  )
 }
 
 // `getReferral` and `respondToReferral` are shared with the messaging
@@ -58,14 +63,16 @@ export {
 export async function createReferral(
   input: CreateReferralInput,
 ): Promise<Referral> {
-  return apiClient<Referral>(BASE, {
+  return apiClient<Post<"/api/v1/referrals"> & Referral>(BASE, {
     method: "POST",
     body: input,
   })
 }
 
 export async function listNegotiations(id: string): Promise<ReferralNegotiation[]> {
-  return apiClient<ReferralNegotiation[]>(`${BASE}/${id}/negotiations`)
+  return apiClient<Get<"/api/v1/referrals/{id}/negotiations"> & ReferralNegotiation[]>(
+    `${BASE}/${id}/negotiations`,
+  )
 }
 
 // listAttributions returns the proposals attributed during the
@@ -73,12 +80,16 @@ export async function listNegotiations(id: string): Promise<ReferralNegotiation[
 // commission stats. Commission amounts are absent for client viewers —
 // Modèle A confidentiality.
 export async function listAttributions(id: string): Promise<ReferralAttribution[]> {
-  return apiClient<ReferralAttribution[]>(`${BASE}/${id}/attributions`)
+  return apiClient<Get<"/api/v1/referrals/{id}/attributions"> & ReferralAttribution[]>(
+    `${BASE}/${id}/attributions`,
+  )
 }
 
 // listCommissions returns every commission row for a referral across
 // all attributions. Reserved for apporteur + provider parties — the
 // client receives 403 from this endpoint.
 export async function listCommissions(id: string): Promise<ReferralCommission[]> {
-  return apiClient<ReferralCommission[]>(`${BASE}/${id}/commissions`)
+  return apiClient<Get<"/api/v1/referrals/{id}/commissions"> & ReferralCommission[]>(
+    `${BASE}/${id}/commissions`,
+  )
 }

@@ -28,7 +28,7 @@
   },
   {
     "file": "src/features/account/hooks/use-notification-preferences.ts",
-    "line": 24,
+    "line": 25,
     "method": "GET",
     "path": "/api/v1/notifications/preferences",
     "rawPath": "/api/v1/notifications/preferences",
@@ -37,20 +37,20 @@
   },
   {
     "file": "src/features/account/hooks/use-notification-preferences.ts",
-    "line": 34,
+    "line": 35,
     "method": "PUT",
     "path": "/api/v1/notifications/preferences",
     "rawPath": "/api/v1/notifications/preferences",
-    "typeArg": "unknown",
+    "typeArg": "Put<\"/api/v1/notifications/preferences\">",
     "hasBody": true
   },
   {
     "file": "src/features/account/hooks/use-notification-preferences.ts",
-    "line": 49,
+    "line": 50,
     "method": "PATCH",
     "path": "/api/v1/notifications/preferences/bulk-email",
     "rawPath": "/api/v1/notifications/preferences/bulk-email",
-    "typeArg": "unknown",
+    "typeArg": "Patch<\"/api/v1/notifications/preferences/bulk-email\">",
     "hasBody": true
   },
   {
@@ -1404,6 +1404,24 @@
     "hasBody": false
   },
   {
+    "file": "src/shared/lib/api-paths.ts",
+    "line": 10,
+    "method": "GET",
+    "path": "/api/v1/auth/me",
+    "rawPath": "/api/v1/auth/me",
+    "typeArg": "Get<\"/api/v1/auth/me\"> & MeResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/api-paths.ts",
+    "line": 13,
+    "method": "GET",
+    "path": "/api/v1/auth/me",
+    "rawPath": "/api/v1/auth/me",
+    "typeArg": "Get<\"/api/v1/auth/me\">",
+    "hasBody": false
+  },
+  {
     "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
     "line": 21,
     "method": "GET",
@@ -1504,11 +1522,11 @@
   },
   {
     "file": "src/shared/lib/reporting/reporting-api.ts",
-    "line": 14,
+    "line": 15,
     "method": "POST",
     "path": "/api/v1/reports",
     "rawPath": "/api/v1/reports",
-    "typeArg": "unknown",
+    "typeArg": "Post<\"/api/v1/reports\">",
     "hasBody": true
   },
   {

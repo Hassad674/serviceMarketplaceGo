@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get, Put, Void } from "@/shared/lib/api-paths"
 // AvailabilityStatus mirrors the enum accepted by the freelance
 // profile backend. Matches shared/components/ui/availability-pill's
 // union so consumers never have to map between them.
@@ -75,13 +76,13 @@ export type FreelanceProfile = {
 }
 
 export async function getMyFreelanceProfile(): Promise<FreelanceProfile> {
-  return apiClient<FreelanceProfile>("/api/v1/freelance-profile")
+  return apiClient<Get<"/api/v1/freelance-profile"> & FreelanceProfile>("/api/v1/freelance-profile")
 }
 
 export async function getPublicFreelanceProfile(
   orgId: string,
 ): Promise<FreelanceProfile> {
-  return apiClient<FreelanceProfile>(`/api/v1/freelance-profiles/${orgId}`)
+  return apiClient<Get<"/api/v1/freelance-profiles/{orgID}"> & FreelanceProfile>(`/api/v1/freelance-profiles/${orgId}`)
 }
 
 export type UpdateFreelanceProfileInput = {
@@ -93,7 +94,7 @@ export type UpdateFreelanceProfileInput = {
 export async function updateFreelanceProfile(
   input: UpdateFreelanceProfileInput,
 ): Promise<FreelanceProfile> {
-  return apiClient<FreelanceProfile>("/api/v1/freelance-profile", {
+  return apiClient<Put<"/api/v1/freelance-profile"> & FreelanceProfile>("/api/v1/freelance-profile", {
     method: "PUT",
     body: input,
   })
@@ -102,7 +103,7 @@ export async function updateFreelanceProfile(
 export async function updateFreelanceAvailability(
   status: AvailabilityStatus,
 ): Promise<FreelanceProfile> {
-  return apiClient<FreelanceProfile>("/api/v1/freelance-profile/availability", {
+  return apiClient<Put<"/api/v1/freelance-profile/availability"> & FreelanceProfile>("/api/v1/freelance-profile/availability", {
     method: "PUT",
     body: { availability_status: status },
   })
@@ -111,7 +112,7 @@ export async function updateFreelanceAvailability(
 export async function updateFreelanceExpertise(
   domains: string[],
 ): Promise<FreelanceProfile> {
-  return apiClient<FreelanceProfile>("/api/v1/freelance-profile/expertise", {
+  return apiClient<Put<"/api/v1/freelance-profile/expertise"> & FreelanceProfile>("/api/v1/freelance-profile/expertise", {
     method: "PUT",
     body: { domains },
   })
@@ -122,7 +123,7 @@ export async function updateFreelanceExpertise(
 type PricingEnvelope<T> = { data: T }
 
 export async function getFreelancePricing(): Promise<FreelancePricing | null> {
-  const wrapped = await apiClient<PricingEnvelope<FreelancePricing | null>>(
+  const wrapped = await apiClient<Get<"/api/v1/freelance-profile/pricing"> & PricingEnvelope<FreelancePricing | null>>(
     "/api/v1/freelance-profile/pricing",
   )
   return wrapped.data
@@ -133,7 +134,7 @@ export type UpsertFreelancePricingInput = FreelancePricing
 export async function upsertFreelancePricing(
   input: UpsertFreelancePricingInput,
 ): Promise<FreelancePricing> {
-  const wrapped = await apiClient<PricingEnvelope<FreelancePricing>>(
+  const wrapped = await apiClient<Put<"/api/v1/freelance-profile/pricing"> & PricingEnvelope<FreelancePricing>>(
     "/api/v1/freelance-profile/pricing",
     { method: "PUT", body: input },
   )
@@ -141,7 +142,7 @@ export async function upsertFreelancePricing(
 }
 
 export async function deleteFreelancePricing(): Promise<void> {
-  await apiClient<void>("/api/v1/freelance-profile/pricing", {
+  await apiClient<Void<"/api/v1/freelance-profile/pricing">>("/api/v1/freelance-profile/pricing", {
     method: "DELETE",
   })
 }
