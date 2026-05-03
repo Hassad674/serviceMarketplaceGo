@@ -129,6 +129,47 @@ func TestAuthService_RefreshToken_ReplayedJTIReturnsUnauthorized(t *testing.T) {
 	assert.Equal(t, "jti-stolen", reuse.Metadata["jti"])
 }
 
+// TestRefresh_ReplayRevokesEntireFamily covers F.5 S2: per RFC OAuth
+// 2.1 §4.13.2, a detected refresh-token replay must revoke the
+// ENTIRE token family — not just the replayed token. We achieve that
+// by bumping users.session_version, which makes every existing
+// access token fail the middleware version check on its next request.
+//
+// The hard contract under test: after a replay is detected,
+// BumpSessionVersion is called for the offending user_id so the
+// attacker's parallel access tokens stop working immediately.
+func TestAuthService_RefreshToken_ReplayRevokesEntireFamily(t *testing.T) {
+	svc, blacklist, _, u, tokens := newRotationService(t)
+	users := svc.users.(*mockUserRepo)
+
+	// Pre-blacklist the JTI to simulate a replay attempt.
+	require.NoError(t, blacklist.Add(context.Background(), "jti-family-replay", time.Hour))
+
+	tokens.validateRefreshFn = func(_ string) (*service.TokenClaims, error) {
+		return &service.TokenClaims{
+			UserID:    u.ID,
+			JTI:       "jti-family-replay",
+			ExpiresAt: time.Now().Add(time.Hour),
+		}, nil
+	}
+
+	// Sanity: no bumps yet.
+	require.Empty(t, users.snapshotBumpCalls())
+
+	out, err := svc.RefreshToken(context.Background(), "replayed_token")
+	assert.ErrorIs(t, err, user.ErrUnauthorized)
+	assert.Nil(t, out)
+
+	// HARD CONTRACT: BumpSessionVersion was called for the user whose
+	// token was replayed. This is what invalidates every other access
+	// token already issued for that user — RFC 6749 §10.4 / OAuth 2.1
+	// §4.13.2 family revocation.
+	bumps := users.snapshotBumpCalls()
+	require.Len(t, bumps, 1, "F.5 S2: replay must trigger exactly one BumpSessionVersion call")
+	assert.Equal(t, u.ID, bumps[0],
+		"F.5 S2: bump must target the user whose token family was compromised")
+}
+
 func TestAuthService_RefreshToken_BlacklistReadFailureFailsOpen(t *testing.T) {
 	// SEC-06: a Redis blip on the blacklist read must NOT lock every
 	// user out — we trust the SessionVersion check on the next
