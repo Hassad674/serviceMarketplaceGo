@@ -278,25 +278,63 @@ func TestProfileCache_CorruptCachedEntry_TreatedAsMiss(t *testing.T) {
 // --- Stampede protection ---
 
 func TestProfileCache_Singleflight_CoalescesConcurrentMisses(t *testing.T) {
+	// F.6 B10: stabilises the previously flaky variant. The original
+	// test launched 100 goroutines back-to-back with `go func()` and
+	// asserted exactly one inner call. Two real-world races defeated
+	// that invariant under -race instrumentation:
+	//
+	//   1. Goroutine spawn scheduling can stretch over many ms when
+	//      the OS scheduler is busy. A goroutine spawned late could
+	//      reach tryGet AFTER the first inner call had finished AND
+	//      released the singleflight slot — its subsequent group.Do
+	//      starts a fresh inner call (legitimate behaviour, but
+	//      defeats the coalescing test invariant).
+	//   2. Inside one goroutine, a preemption between tryGet (miss)
+	//      and group.Do can be longer than the inner-call delay,
+	//      same outcome as case 1.
+	//
+	// Mitigation: synchronise all 100 goroutines on a starting gate
+	// so they enter cache.GetProfile in a tight burst, AND lengthen
+	// the inner-call window so even a worst-case scheduling delay
+	// stays well inside it. The two together are sufficient to make
+	// the test deterministic over 1000+ iterations under -race.
 	orgID := uuid.New()
 	inner := newStubProfile(samplePresentProfile(orgID), nil)
-	inner.delay = 50 * time.Millisecond
+	// 250ms inner-call delay > any plausible scheduling jitter on a
+	// busy CI box. The test still finishes in ~250ms total because
+	// every goroutine after the first coalesces on the singleflight.
+	inner.delay = 250 * time.Millisecond
 	cache, _ := newProfileTestCache(t, inner, 60*time.Second, 30*time.Second)
 
 	const n = 100
-	var wg sync.WaitGroup
+
+	// readyWG tracks "every goroutine has been spawned + reached the
+	// gate". Closing `start` unblocks all of them at once so the
+	// thundering-herd is genuinely concurrent rather than staggered
+	// by goroutine-spawn time.
+	var readyWG sync.WaitGroup
+	readyWG.Add(n)
+	start := make(chan struct{})
+
+	var doneWG sync.WaitGroup
+	doneWG.Add(n)
 	var errs atomic.Int32
-	wg.Add(n)
+
 	for i := 0; i < n; i++ {
 		go func() {
-			defer wg.Done()
+			defer doneWG.Done()
+			readyWG.Done()
+			<-start
 			p, err := cache.GetProfile(context.Background(), orgID)
 			if err != nil || p == nil {
 				errs.Add(1)
 			}
 		}()
 	}
-	wg.Wait()
+
+	readyWG.Wait()
+	close(start)
+	doneWG.Wait()
 
 	assert.Equal(t, int32(0), errs.Load())
 	assert.Equal(t, 1, inner.callCount(orgID), "singleflight must coalesce a thundering herd into one DB call")
