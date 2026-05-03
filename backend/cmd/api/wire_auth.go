@@ -86,8 +86,11 @@ func wireAuth(deps authDeps) authWiring {
 		deps.Redis, 3, time.Hour, 30*time.Minute,
 	)
 
+	// F.5 S7: brute-force IsLocked must fail-CLOSED in production so
+	// a Redis outage cannot bypass the per-email lockout.
 	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, deps.SessionSvc, deps.CookieCfg).
-		WithBruteForce(loginBruteForce, passwordResetThrottle)
+		WithBruteForce(loginBruteForce, passwordResetThrottle).
+		WithFailClosed(deps.Cfg.IsProduction())
 
 	return authWiring{
 		OrganizationSvc:       organizationSvc,

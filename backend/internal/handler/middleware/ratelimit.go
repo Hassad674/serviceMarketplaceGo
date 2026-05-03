@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -78,9 +79,20 @@ end
 // retired — any production deployment running multiple instances
 // must use the Redis-backed implementation so the quota is shared
 // across pods.
+//
+// F.5 S7 — failure-mode policy. A Redis blip in the rate-limiter
+// path used to fail-OPEN unconditionally, which silently disables
+// throttling on a partial outage. The `failClosedInProd` flag, set
+// from cfg.IsProduction() at wiring time, switches the policy to
+// fail-CLOSED in production: a Redis error returns 503 to the
+// client. In dev/test the legacy fail-OPEN behaviour is preserved
+// so a contributor's broken local Redis never blocks every
+// endpoint, but the error is logged at slog.Error level so the
+// operator sees it on the next test run.
 type RateLimiter struct {
-	client         *goredis.Client
-	trustedProxies []*net.IPNet
+	client           *goredis.Client
+	trustedProxies   []*net.IPNet
+	failClosedInProd bool
 }
 
 // NewRateLimiter returns a fresh limiter wired to the given Redis
@@ -89,8 +101,24 @@ type RateLimiter struct {
 // populated with the load balancer's CIDRs so downstream IPs are
 // honored. In dev with no upstream proxy, leave it empty so spoofed
 // XFF headers are ignored.
+//
+// Backwards-compatible signature for callers that don't yet pass a
+// production flag — those keep the legacy fail-OPEN behaviour. New
+// callers (cmd/api/main.go) should use NewRateLimiterWithPolicy.
 func NewRateLimiter(client *goredis.Client, trustedProxies []*net.IPNet) *RateLimiter {
 	return &RateLimiter{client: client, trustedProxies: trustedProxies}
+}
+
+// NewRateLimiterWithPolicy is the production-ready constructor. When
+// failClosedInProd is true, a Redis error in the throttle path is
+// surfaced as 503 Service Unavailable. When false, the request goes
+// through (with a slog.Error breadcrumb).
+func NewRateLimiterWithPolicy(client *goredis.Client, trustedProxies []*net.IPNet, failClosedInProd bool) *RateLimiter {
+	return &RateLimiter{
+		client:           client,
+		trustedProxies:   trustedProxies,
+		failClosedInProd: failClosedInProd,
+	}
 }
 
 // ParseTrustedProxies converts a comma-separated string of CIDRs into
@@ -247,10 +275,26 @@ func (rl *RateLimiter) Middleware(policy RateLimitPolicy, key keyFn) func(http.H
 			}
 			count, allowed, retry, err := rl.allow(r.Context(), policy, throttleKey)
 			if err != nil {
-				// Fail open + log via response writer would require the
-				// slog package here; we trade pristine logs for clean
-				// imports. The handler still serves the request, which
-				// is the safer behaviour during a Redis blip.
+				// F.5 S7 — fail policy is environment-aware:
+				//   * production : fail-CLOSED → 503. A Redis blip MUST
+				//     NOT silently disable throttling on a public API.
+				//   * dev/test    : fail-OPEN. A contributor with a broken
+				//     local Redis still gets a working app — the slog.Error
+				//     line surfaces the issue so they fix it.
+				if rl.failClosedInProd {
+					slog.Error("ratelimit: Redis error — failing closed",
+						"class", policy.Class,
+						"key", throttleKey,
+						"error", err)
+					response.Error(w, http.StatusServiceUnavailable,
+						"rate_limit_unavailable",
+						"throttling backend is degraded — retry shortly")
+					return
+				}
+				slog.Error("ratelimit: Redis error — failing open in non-prod",
+					"class", policy.Class,
+					"key", throttleKey,
+					"error", err)
 				next.ServeHTTP(w, r)
 				return
 			}
