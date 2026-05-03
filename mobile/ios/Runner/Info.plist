@@ -49,6 +49,14 @@
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to record voice messages and make audio calls.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>L'application a besoin de l'appareil photo pour les photos de profil et les pièces jointes des conversations.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>L'application a besoin d'accéder à votre galerie pour ajouter des photos de profil et des pièces jointes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>L'application a besoin de sauvegarder des images dans votre galerie.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>L'application a besoin d'accéder à vos documents pour les pièces jointes.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
