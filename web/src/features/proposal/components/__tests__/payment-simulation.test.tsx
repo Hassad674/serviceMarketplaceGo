@@ -69,7 +69,9 @@ vi.mock("lucide-react", async (importOriginal) => {
   return new Proxy(actual, {
     get(target, prop) {
       if (typeof prop === "string" && /^[A-Z]/.test(prop)) {
-        return () => <span data-testid={`icon-${prop}`} />
+        const IconStub = () => <span data-testid={`icon-${prop}`} />
+        IconStub.displayName = `IconStub(${prop})`
+        return IconStub
       }
       return Reflect.get(target, prop)
     },
