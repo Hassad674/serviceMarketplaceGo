@@ -21,7 +21,7 @@ class ProposalRepositoryImpl implements ProposalRepository {
       'title': data.title,
       'description': data.description,
       'amount': data.amount,
-      'documents': <dynamic>[],
+      'documents': <Object?>[],
     };
     if (data.deadline != null) {
       body['deadline'] = data.deadline;
@@ -62,7 +62,7 @@ class ProposalRepositoryImpl implements ProposalRepository {
       'title': data.title,
       'description': data.description,
       'amount': data.amount,
-      'documents': <dynamic>[],
+      'documents': <Object?>[],
     };
     if (data.deadline != null) {
       body['deadline'] = data.deadline;
@@ -116,19 +116,19 @@ class ProposalRepositoryImpl implements ProposalRepository {
     final raw = response.data;
 
     // Backend returns { "data": [...], "next_cursor": ..., "has_more": ... }
-    List<dynamic> items;
+    List<Object?> items;
     if (raw is Map<String, dynamic>) {
       if (raw.containsKey('data') && raw['data'] is List) {
-        items = raw['data'] as List<dynamic>;
+        items = raw['data'] as List<Object?>;
       } else {
-        items = <dynamic>[];
+        items = <Object?>[];
       }
     } else {
-      items = <dynamic>[];
+      items = <Object?>[];
     }
 
     return items
-        .map((e) => ProposalEntity.fromJson(e as Map<String, dynamic>))
+        .map((e) => ProposalEntity.fromJson(e! as Map<String, dynamic>))
         .toList();
   }
 
@@ -136,7 +136,7 @@ class ProposalRepositoryImpl implements ProposalRepository {
   ///
   /// Backend responses follow `{ "data": { ... }, "meta": { ... } }`.
   /// If the response is already flat (no envelope), returns as-is.
-  Map<String, dynamic> _extractData(dynamic raw) {
+  Map<String, dynamic> _extractData(Object? raw) {
     if (raw is Map<String, dynamic>) {
       if (raw.containsKey('data') && raw['data'] is Map<String, dynamic>) {
         return raw['data'] as Map<String, dynamic>;

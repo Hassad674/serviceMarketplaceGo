@@ -58,7 +58,7 @@ class Languages {
   int get hashCode =>
       Object.hash(Object.hashAll(professional), Object.hashAll(conversational));
 
-  static List<String> _parseList(dynamic raw) {
+  static List<String> _parseList(Object? raw) {
     if (raw is! List) return const <String>[];
     return raw
         .whereType<String>()

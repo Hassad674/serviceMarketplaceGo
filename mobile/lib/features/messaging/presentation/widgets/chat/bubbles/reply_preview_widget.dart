@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
+import '../../../../../../core/theme/app_palette.dart';
 
 /// Compact preview of the replied-to message rendered above the new
 /// bubble's content.
@@ -26,11 +27,11 @@ class ReplyPreviewWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         border: const Border(
-          left: BorderSide(color: Color(0xFFF43F5E), width: 2),
+          left: BorderSide(color: AppPalette.rose500, width: 2),
         ),
         color: isOwn
             ? Colors.white.withValues(alpha: 0.15)
-            : const Color(0xFFF43F5E).withValues(alpha: 0.08),
+            : AppPalette.rose500.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -41,7 +42,7 @@ class ReplyPreviewWidget extends StatelessWidget {
           fontSize: 12,
           color: isOwn
               ? Colors.white.withValues(alpha: 0.8)
-              : const Color(0xFF64748B),
+              : AppPalette.slate500,
         ),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,

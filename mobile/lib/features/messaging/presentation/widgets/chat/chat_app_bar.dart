@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/extensions.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../domain/entities/conversation_entity.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// AppBar for the chat screen showing avatar, name, and online/typing status.
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -88,8 +89,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFFF43F5E),
-                      Color(0xFF8B5CF6),
+                      AppPalette.rose500,
+                      AppPalette.violet500,
                     ],
                   ),
                 ),
@@ -112,7 +113,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E),
+                      color: AppPalette.green500,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: theme.colorScheme.surface,
@@ -145,7 +146,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     color: typingUserName != null
                         ? theme.colorScheme.primary
                         : online
-                            ? const Color(0xFF22C55E)
+                            ? AppPalette.green500
                             : theme
                                 .extension<AppColors>()
                                 ?.mutedForeground,
@@ -163,7 +164,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             Icons.videocam_outlined,
             size: 20,
             color: online
-                ? const Color(0xFFF43F5E)
+                ? AppPalette.rose500
                 : theme.extension<AppColors>()?.mutedForeground,
           ),
           onPressed: online ? onStartVideoCall : null,
@@ -176,7 +177,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             Icons.phone_outlined,
             size: 20,
             color: online
-                ? const Color(0xFF22C55E)
+                ? AppPalette.green500
                 : theme.extension<AppColors>()?.mutedForeground,
           ),
           onPressed: online ? onStartCall : null,

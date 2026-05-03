@@ -13,6 +13,7 @@ import '../widgets/pending_transfer_banner.dart';
 import '../widgets/role_permissions_editor.dart';
 import '../widgets/team_member_tile.dart';
 import '../widgets/transfer_ownership_dialog.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Team management screen — feature parity with the web page (R20).
 ///
@@ -141,7 +142,7 @@ class _OverflowMenu extends StatelessWidget {
                 const Icon(
                   Icons.workspace_premium_outlined,
                   size: 18,
-                  color: Color(0xFFB45309),
+                  color: AppPalette.amber700,
                 ),
                 const SizedBox(width: 8),
                 Text(l10n.teamTransferAction),
@@ -156,12 +157,12 @@ class _OverflowMenu extends StatelessWidget {
                 const Icon(
                   Icons.logout,
                   size: 18,
-                  color: Color(0xFFDC2626),
+                  color: AppPalette.red600,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   l10n.teamLeaveAction,
-                  style: const TextStyle(color: Color(0xFFDC2626)),
+                  style: const TextStyle(color: AppPalette.red600),
                 ),
               ],
             ),

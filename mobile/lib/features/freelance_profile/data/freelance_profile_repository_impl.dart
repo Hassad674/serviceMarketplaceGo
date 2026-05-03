@@ -30,7 +30,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<FreelanceProfile> getMy() async {
-    final response = await _api.get<dynamic>('/api/v1/freelance-profile');
+    final response = await _api.get('/api/v1/freelance-profile');
     final body = _unwrapMap(response.data);
     if (body == null) return FreelanceProfile.empty;
     return FreelanceProfile.fromJson(body);
@@ -38,7 +38,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<FreelanceProfile> getPublic(String organizationId) async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/freelance-profiles/$organizationId',
     );
     final body = _unwrapMap(response.data);
@@ -52,7 +52,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
     required String about,
     required String videoUrl,
   }) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/freelance-profile',
       data: <String, dynamic>{
         'title': title,
@@ -64,7 +64,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<void> updateAvailability(String wireValue) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/freelance-profile/availability',
       data: <String, dynamic>{'availability_status': wireValue},
     );
@@ -72,7 +72,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<void> updateExpertise(List<String> domains) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/freelance-profile/expertise',
       data: <String, dynamic>{'domains': domains},
     );
@@ -81,7 +81,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
   @override
   Future<FreelancePricing?> getPricing() async {
     final response =
-        await _api.get<dynamic>('/api/v1/freelance-profile/pricing');
+        await _api.get('/api/v1/freelance-profile/pricing');
     final body = _unwrapMap(response.data);
     if (body == null || body.isEmpty) return null;
     try {
@@ -93,7 +93,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<FreelancePricing> upsertPricing(FreelancePricing pricing) async {
-    final response = await _api.put<dynamic>(
+    final response = await _api.put(
       '/api/v1/freelance-profile/pricing',
       data: pricing.toUpdatePayload(),
     );
@@ -108,7 +108,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<void> deletePricing() async {
-    await _api.delete<dynamic>('/api/v1/freelance-profile/pricing');
+    await _api.delete('/api/v1/freelance-profile/pricing');
   }
 
   @override
@@ -119,7 +119,7 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
         filename: file.path.split('/').last,
       ),
     });
-    final response = await _api.upload<dynamic>(
+    final response = await _api.upload(
       '/api/v1/freelance-profile/video',
       data: formData,
     );
@@ -133,14 +133,14 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
 
   @override
   Future<void> deleteVideo() async {
-    await _api.delete<dynamic>('/api/v1/freelance-profile/video');
+    await _api.delete('/api/v1/freelance-profile/video');
   }
 
   // ---------------------------------------------------------------------------
   // Parsing helpers
   // ---------------------------------------------------------------------------
 
-  Map<String, dynamic>? _unwrapMap(dynamic raw) {
+  Map<String, dynamic>? _unwrapMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_palette.dart';
 
 /// Generic availability pill used by both freelance and referrer
 /// profile headers. Renders a colored badge based on a wire value
@@ -74,25 +75,25 @@ class AvailabilityPill extends StatelessWidget {
     switch (wireValue) {
       case 'available_soon':
         return const _PillTone(
-          background: Color(0xFFFFFBEB), // amber-50
-          border: Color(0xFFFDE68A), // amber-200
-          foreground: Color(0xFFB45309), // amber-700
-          dot: Color(0xFFF59E0B), // amber-500
+          background: AppPalette.amber50, // amber-50
+          border: AppPalette.amber200, // amber-200
+          foreground: AppPalette.amber700, // amber-700
+          dot: AppPalette.amber500, // amber-500
         );
       case 'not_available':
         return const _PillTone(
-          background: Color(0xFFFEF2F2), // red-50
-          border: Color(0xFFFECACA), // red-200
-          foreground: Color(0xFFB91C1C), // red-700
-          dot: Color(0xFFEF4444), // red-500
+          background: AppPalette.red50, // red-50
+          border: AppPalette.red200, // red-200
+          foreground: AppPalette.red700, // red-700
+          dot: AppPalette.red500, // red-500
         );
       case 'available_now':
       default:
         return const _PillTone(
-          background: Color(0xFFECFDF5), // emerald-50
-          border: Color(0xFFA7F3D0), // emerald-200
-          foreground: Color(0xFF047857), // emerald-700
-          dot: Color(0xFF10B981), // emerald-500
+          background: AppPalette.emerald50, // emerald-50
+          border: AppPalette.emerald200, // emerald-200
+          foreground: AppPalette.emerald700, // emerald-700
+          dot: AppPalette.emerald500, // emerald-500
         );
     }
   }

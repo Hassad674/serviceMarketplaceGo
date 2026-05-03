@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Renders the first frame of a video as a thumbnail.
 ///
@@ -76,7 +77,7 @@ class _PortfolioVideoThumbnailState extends State<PortfolioVideoThumbnail> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF334155), Color(0xFF0F172A)],
+          colors: [AppPalette.slate700, AppPalette.slate900],
         ),
       ),
     );

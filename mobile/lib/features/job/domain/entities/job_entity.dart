@@ -51,7 +51,7 @@ class JobEntity {
       creatorId: json['creator_id'] as String,
       title: json['title'] as String,
       description: (json['description'] as String?) ?? '',
-      skills: (json['skills'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
+      skills: (json['skills'] as List?)?.map((e) => e as String).toList() ?? [],
       applicantType: json['applicant_type'] as String,
       budgetType: json['budget_type'] as String,
       minBudget: json['min_budget'] as int,

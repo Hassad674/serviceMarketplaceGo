@@ -200,7 +200,7 @@ BillingProfileIncompleteException? tryDecodeBillingProfileIncomplete(
 
   final rawFields = raw['missing_fields'];
   final missing = <MissingField>[];
-  if (rawFields is List<dynamic>) {
+  if (rawFields is List) {
     for (final item in rawFields) {
       if (item is Map<String, dynamic>) {
         missing.add(

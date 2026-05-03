@@ -49,7 +49,7 @@ class ProfileSkill {
   @override
   int get hashCode => Object.hash(skillText, position);
 
-  static int _parseInt(dynamic raw) {
+  static int _parseInt(Object? raw) {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw) ?? 0;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Rendered inside `PortfolioSectionWrapper` when the user has no
 /// portfolio items yet — encourages them to upload their first.
@@ -16,16 +17,16 @@ class PortfolioEmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFFECDD3),
+          color: AppPalette.rose200,
           width: 2,
         ),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFF1F2),
-            Color(0xFFFFFFFF),
-            Color(0xFFFAF5FF),
+            AppPalette.rose50,
+            AppPalette.white,
+            AppPalette.violet50,
           ],
         ),
       ),
@@ -37,11 +38,11 @@ class PortfolioEmptyState extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [Color(0xFFF43F5E), Color(0xFFE11D48)],
+                colors: [AppPalette.rose500, AppPalette.rose600],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFE11D48).withValues(alpha: 0.3),
+                  color: AppPalette.rose600.withValues(alpha: 0.3),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -74,7 +75,7 @@ class PortfolioEmptyState extends StatelessWidget {
             icon: const Icon(Icons.auto_awesome, size: 16),
             label: const Text('Add your first project'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE11D48),
+              backgroundColor: AppPalette.rose600,
               foregroundColor: Colors.white,
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

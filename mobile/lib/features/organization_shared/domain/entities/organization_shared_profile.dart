@@ -127,12 +127,12 @@ class OrganizationSharedProfile {
         Object.hashAll(languagesConversational),
       );
 
-  static List<String> _parseStringList(dynamic raw) {
+  static List<String> _parseStringList(Object? raw) {
     if (raw is! List) return const <String>[];
     return raw.whereType<String>().toList(growable: false);
   }
 
-  static int? _readInt(dynamic raw) {
+  static int? _readInt(Object? raw) {
     if (raw == null) return null;
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();

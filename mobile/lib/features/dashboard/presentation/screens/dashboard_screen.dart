@@ -7,6 +7,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../notification/presentation/widgets/notification_badge.dart';
 import '../widgets/dashboard_atoms.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Main dashboard / home screen with role-based stats cards.
 ///
@@ -75,13 +76,13 @@ class _AgencyDashboard extends ConsumerWidget {
                     label: l10n.findFreelancers,
                     icon: Icons.person_search,
                     type: 'freelancer',
-                    color: const Color(0xFFF43F5E),
+                    color: AppPalette.rose500,
                   ),
                   DashboardSearchAction(
                     label: l10n.findReferrers,
                     icon: Icons.handshake_outlined,
                     type: 'referrer',
-                    color: const Color(0xFFF59E0B),
+                    color: AppPalette.amber500,
                   ),
                 ],
               ),
@@ -102,7 +103,7 @@ class _AgencyDashboard extends ConsumerWidget {
           title: l10n.activeMissions,
           value: '0',
           subtitle: l10n.activeContracts,
-          color: const Color(0xFF2563EB),
+          color: AppPalette.blue600,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -110,7 +111,7 @@ class _AgencyDashboard extends ConsumerWidget {
           title: l10n.unreadMessages,
           value: '0',
           subtitle: l10n.conversations,
-          color: const Color(0xFF8B5CF6),
+          color: AppPalette.violet500,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -118,7 +119,7 @@ class _AgencyDashboard extends ConsumerWidget {
           title: l10n.monthlyRevenue,
           value: '0 EUR',
           subtitle: l10n.thisMonth,
-          color: const Color(0xFF22C55E),
+          color: AppPalette.green500,
         ),
       ],
     );
@@ -166,19 +167,19 @@ class _EnterpriseDashboard extends ConsumerWidget {
                     label: l10n.findFreelancers,
                     icon: Icons.person_search,
                     type: 'freelancer',
-                    color: const Color(0xFFF43F5E),
+                    color: AppPalette.rose500,
                   ),
                   DashboardSearchAction(
                     label: l10n.findAgencies,
                     icon: Icons.business,
                     type: 'agency',
-                    color: const Color(0xFF2563EB),
+                    color: AppPalette.blue600,
                   ),
                   DashboardSearchAction(
                     label: l10n.findReferrers,
                     icon: Icons.handshake_outlined,
                     type: 'referrer',
-                    color: const Color(0xFFF59E0B),
+                    color: AppPalette.amber500,
                   ),
                 ],
               ),
@@ -199,7 +200,7 @@ class _EnterpriseDashboard extends ConsumerWidget {
           title: l10n.activeProjects,
           value: '0',
           subtitle: l10n.activeProjects,
-          color: const Color(0xFF2563EB),
+          color: AppPalette.blue600,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -207,7 +208,7 @@ class _EnterpriseDashboard extends ConsumerWidget {
           title: l10n.unreadMessages,
           value: '0',
           subtitle: l10n.conversations,
-          color: const Color(0xFF8B5CF6),
+          color: AppPalette.violet500,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -215,7 +216,7 @@ class _EnterpriseDashboard extends ConsumerWidget {
           title: l10n.totalBudget,
           value: '0 EUR',
           subtitle: l10n.spentThisMonth,
-          color: const Color(0xFF22C55E),
+          color: AppPalette.green500,
         ),
       ],
     );
@@ -283,7 +284,7 @@ class _ProviderDashboard extends ConsumerWidget {
           title: l10n.activeMissions,
           value: '0',
           subtitle: l10n.activeContracts,
-          color: const Color(0xFF2563EB),
+          color: AppPalette.blue600,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -291,7 +292,7 @@ class _ProviderDashboard extends ConsumerWidget {
           title: l10n.unreadMessages,
           value: '0',
           subtitle: l10n.conversations,
-          color: const Color(0xFF8B5CF6),
+          color: AppPalette.violet500,
         ),
         const SizedBox(height: 12),
         DashboardStatCard(
@@ -299,7 +300,7 @@ class _ProviderDashboard extends ConsumerWidget {
           title: l10n.monthlyRevenue,
           value: '0 EUR',
           subtitle: l10n.thisMonth,
-          color: const Color(0xFF22C55E),
+          color: AppPalette.green500,
         ),
       ],
     );

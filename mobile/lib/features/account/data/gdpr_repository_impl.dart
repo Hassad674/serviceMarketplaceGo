@@ -30,7 +30,7 @@ class GDPRRepositoryImpl implements GDPRRepository {
         final body = e.response?.data as Map<String, dynamic>?;
         final details = (body?['error'] as Map<String, dynamic>?)?['details']
             as Map<String, dynamic>?;
-        final list = (details?['blocked_orgs'] as List<dynamic>? ?? const [])
+        final list = (details?['blocked_orgs'] as List? ?? const [])
             .map((o) => BlockedOrg.fromJson(o as Map<String, dynamic>))
             .toList(growable: false);
         throw OwnerBlockedException(list);

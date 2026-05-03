@@ -462,12 +462,12 @@ class _ErrorState extends StatelessWidget {
 // JSON read helpers — defensive against null/loose types
 // ---------------------------------------------------------------------------
 
-String _readString(dynamic value) {
+String _readString(Object? value) {
   if (value is String) return value;
   return '';
 }
 
-int _readInt(dynamic value) {
+int _readInt(Object? value) {
   if (value == null) return 0;
   if (value is int) return value;
   if (value is double) return value.toInt();
@@ -475,7 +475,7 @@ int _readInt(dynamic value) {
   return 0;
 }
 
-double _readDouble(dynamic value) {
+double _readDouble(Object? value) {
   if (value == null) return 0;
   if (value is double) return value;
   if (value is int) return value.toDouble();

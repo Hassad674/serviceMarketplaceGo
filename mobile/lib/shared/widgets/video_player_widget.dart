@@ -1,6 +1,7 @@
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../../core/theme/app_palette.dart';
 
 /// Reusable in-app video player backed by [video_player] + [chewie].
 ///
@@ -51,8 +52,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           ),
         ),
         materialProgressColors: ChewieProgressColors(
-          playedColor: const Color(0xFFF43F5E),
-          handleColor: const Color(0xFFF43F5E),
+          playedColor: AppPalette.rose500,
+          handleColor: AppPalette.rose500,
           backgroundColor: Colors.grey.shade300,
           bufferedColor: Colors.grey.shade200,
         ),
@@ -134,7 +135,7 @@ class _LoadingPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Center(
-        child: CircularProgressIndicator(color: Color(0xFFF43F5E)),
+        child: CircularProgressIndicator(color: AppPalette.rose500),
       ),
     );
   }

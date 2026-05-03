@@ -13,6 +13,7 @@ import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../../data/dispute_uploader.dart';
 import '../../types/dispute.dart';
 import '../providers/dispute_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Form screen for opening a dispute on a proposal.
 ///
@@ -336,19 +337,19 @@ class _WarningBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
+        color: AppPalette.amber100,
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: const Color(0xFFFCD34D)),
+        border: Border.all(color: AppPalette.amber300),
       ),
       child: Row(
         children: [
           const Icon(Icons.warning_amber_rounded,
-              color: Color(0xFF92400E), size: 20),
+              color: AppPalette.amber800, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Color(0xFF92400E), fontSize: 13),
+              style: const TextStyle(color: AppPalette.amber800, fontSize: 13),
             ),
           ),
         ],

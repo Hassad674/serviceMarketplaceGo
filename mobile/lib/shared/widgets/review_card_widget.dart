@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/models/review.dart';
+import '../../core/theme/app_palette.dart';
 
 /// Shared widget that renders one review (stars, sub-criteria, comment,
 /// optional video). Used by the review list and by the project history
@@ -26,7 +27,7 @@ class ReviewCardWidget extends StatelessWidget {
                 for (int i = 1; i <= 5; i++)
                   Icon(
                     i <= review.globalRating ? Icons.star : Icons.star_border,
-                    color: const Color(0xFFFBBF24),
+                    color: AppPalette.amber400,
                     size: 16,
                   ),
                 const Spacer(),

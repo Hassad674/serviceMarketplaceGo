@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/wallet_entity.dart';
 import 'wallet_atoms.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Commissions block: 3 balance cards (Pending / Received / Clawed
 /// back) + history list. Hidden by the parent when commission summary
@@ -33,7 +34,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.schedule,
                 label: 'Pending',
                 amount: summary.pendingCents + summary.pendingKycCents,
-                color: const Color(0xFFF59E0B),
+                color: AppPalette.amber500,
               ),
             ),
             const SizedBox(width: 8),
@@ -42,7 +43,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.verified_outlined,
                 label: 'Received',
                 amount: summary.paidCents,
-                color: const Color(0xFF22C55E),
+                color: AppPalette.green500,
               ),
             ),
             const SizedBox(width: 8),
@@ -51,7 +52,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.undo,
                 label: 'Clawed back',
                 amount: summary.clawedBackCents,
-                color: const Color(0xFF2563EB),
+                color: AppPalette.blue600,
               ),
             ),
           ],
@@ -88,9 +89,9 @@ class WalletCommissionTile extends StatelessWidget {
     final isClawed = record.status == 'clawed_back';
 
     final Color accentColor = isPending
-        ? const Color(0xFFF59E0B)
+        ? AppPalette.amber500
         : isClawed
-            ? const Color(0xFF2563EB)
+            ? AppPalette.blue600
             : Colors.transparent;
 
     return Container(
@@ -174,19 +175,19 @@ class WalletCommissionTile extends StatelessWidget {
   ({String label, Color color}) _commissionChip(String status) {
     switch (status) {
       case 'paid':
-        return (label: 'Received', color: const Color(0xFF10B981));
+        return (label: 'Received', color: AppPalette.emerald500);
       case 'pending':
-        return (label: 'Pending', color: const Color(0xFFF59E0B));
+        return (label: 'Pending', color: AppPalette.amber500);
       case 'pending_kyc':
-        return (label: 'KYC required', color: const Color(0xFFEA580C));
+        return (label: 'KYC required', color: AppPalette.orange600);
       case 'clawed_back':
-        return (label: 'Clawed back', color: const Color(0xFF3B82F6));
+        return (label: 'Clawed back', color: AppPalette.blue500);
       case 'failed':
-        return (label: 'Failed', color: const Color(0xFFEF4444));
+        return (label: 'Failed', color: AppPalette.red500);
       case 'cancelled':
-        return (label: 'Cancelled', color: const Color(0xFF64748B));
+        return (label: 'Cancelled', color: AppPalette.slate500);
       default:
-        return (label: status, color: const Color(0xFF64748B));
+        return (label: status, color: AppPalette.slate500);
     }
   }
 }

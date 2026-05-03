@@ -119,7 +119,7 @@ class FreelancePricing {
         negotiable,
       );
 
-  static int? _readInt(dynamic raw) {
+  static int? _readInt(Object? raw) {
     if (raw == null) return null;
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();

@@ -107,11 +107,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     final initials = buildInitialsFromName(resolvedName);
 
     final expertiseDomains =
-        (widget.profile['expertise_domains'] as List<dynamic>?)
+        (widget.profile['expertise_domains'] as List?)
                 ?.whereType<String>()
                 .toList() ??
             const <String>[];
-    final skills = (widget.profile['skills'] as List<dynamic>?)
+    final skills = (widget.profile['skills'] as List?)
             ?.whereType<Map<String, dynamic>>()
             .toList() ??
         const <Map<String, dynamic>>[];
@@ -120,20 +120,20 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     final city = (widget.profile['city'] as String?) ?? '';
     final countryCode = (widget.profile['country_code'] as String?) ?? '';
     final workMode =
-        ((widget.profile['work_mode'] as List<dynamic>?) ?? const <dynamic>[])
+        ((widget.profile['work_mode'] as List?) ?? const <Object?>[])
             .whereType<String>()
             .toList(growable: false);
     final travelRadiusKm =
         readIntField(widget.profile['travel_radius_km']);
 
     final professionalLangs =
-        ((widget.profile['languages_professional'] as List<dynamic>?) ??
-                const <dynamic>[])
+        ((widget.profile['languages_professional'] as List?) ??
+                const <Object?>[])
             .whereType<String>()
             .toList(growable: false);
     final conversationalLangs =
-        ((widget.profile['languages_conversational'] as List<dynamic>?) ??
-                const <dynamic>[])
+        ((widget.profile['languages_conversational'] as List?) ??
+                const <Object?>[])
             .whereType<String>()
             .toList(growable: false);
 

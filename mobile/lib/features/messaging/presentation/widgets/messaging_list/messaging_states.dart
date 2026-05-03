@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Skeleton list rendered while conversations are loading.
 class ConversationListShimmer extends StatelessWidget {
@@ -12,9 +13,9 @@ class ConversationListShimmer extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final baseColor =
-        isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+        isDark ? AppPalette.slate800 : AppPalette.slate200;
     final highlightColor =
-        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
+        isDark ? AppPalette.slate700 : AppPalette.slate100;
 
     return Shimmer.fromColors(
       baseColor: baseColor,

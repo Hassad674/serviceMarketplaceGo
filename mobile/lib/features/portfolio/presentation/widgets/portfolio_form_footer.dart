@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Footer for the portfolio form: cancel + save buttons inside a SafeArea bar.
 class PortfolioFormFooter extends StatelessWidget {
@@ -43,7 +44,7 @@ class PortfolioFormFooter extends StatelessWidget {
               child: FilledButton(
                 onPressed: (saving || !canSave) ? null : onSave,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFE11D48),
+                  backgroundColor: AppPalette.rose600,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),

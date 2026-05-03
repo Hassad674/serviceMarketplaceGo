@@ -147,7 +147,7 @@ class ProviderSnapshot {
 
   factory ProviderSnapshot.fromJson(Map<String, dynamic> json) {
     return ProviderSnapshot(
-      expertiseDomains: ((json['expertise_domains'] as List<dynamic>?) ?? const [])
+      expertiseDomains: ((json['expertise_domains'] as List?) ?? const [])
           .map((e) => e as String)
           .toList(),
       yearsExperience: json['years_experience'] as int?,
@@ -158,7 +158,7 @@ class ProviderSnapshot {
       pricingCurrency: json['pricing_currency'] as String?,
       pricingType: json['pricing_type'] as String?,
       region: json['region'] as String?,
-      languages: ((json['languages'] as List<dynamic>?) ?? const [])
+      languages: ((json['languages'] as List?) ?? const [])
           .map((e) => e as String)
           .toList(),
       availabilityState: json['availability_state'] as String?,

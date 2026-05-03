@@ -63,7 +63,7 @@ class JobRepositoryImpl implements JobRepository {
     final response = await apiClient.get('/api/v1/jobs/mine');
     final raw = response.data;
     if (raw is Map<String, dynamic> && raw.containsKey('data')) {
-      return (raw['data'] as List<dynamic>).map((e) => JobEntity.fromJson(e as Map<String, dynamic>)).toList();
+      return (raw['data'] as List).map((e) => JobEntity.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }
@@ -89,7 +89,7 @@ class JobRepositoryImpl implements JobRepository {
     final response = await apiClient.get('/api/v1/jobs/open$params');
     final raw = response.data;
     if (raw is Map<String, dynamic> && raw.containsKey('data')) {
-      return (raw['data'] as List<dynamic>).map((e) => JobEntity.fromJson(e as Map<String, dynamic>)).toList();
+      return (raw['data'] as List).map((e) => JobEntity.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }
@@ -113,7 +113,7 @@ class JobRepositoryImpl implements JobRepository {
     final response = await apiClient.get('/api/v1/jobs/$jobId/applications$params');
     final raw = response.data;
     if (raw is Map<String, dynamic> && raw.containsKey('data')) {
-      return (raw['data'] as List<dynamic>).map((e) => ApplicationWithProfile.fromJson(e as Map<String, dynamic>)).toList();
+      return (raw['data'] as List).map((e) => ApplicationWithProfile.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }
@@ -124,7 +124,7 @@ class JobRepositoryImpl implements JobRepository {
     final response = await apiClient.get('/api/v1/jobs/applications/mine$params');
     final raw = response.data;
     if (raw is Map<String, dynamic> && raw.containsKey('data')) {
-      return (raw['data'] as List<dynamic>).map((e) => ApplicationWithJob.fromJson(e as Map<String, dynamic>)).toList();
+      return (raw['data'] as List).map((e) => ApplicationWithJob.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }
@@ -155,7 +155,7 @@ class JobRepositoryImpl implements JobRepository {
     return (data['credits'] as int?) ?? 0;
   }
 
-  Map<String, dynamic> _extractData(dynamic raw) {
+  Map<String, dynamic> _extractData(Object? raw) {
     if (raw is Map<String, dynamic>) {
       if (raw.containsKey('data') && raw['data'] is Map<String, dynamic>) return raw['data'] as Map<String, dynamic>;
       return raw;

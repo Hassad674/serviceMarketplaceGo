@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Role selection screen for registration.
 ///
@@ -68,7 +69,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 title: 'Agency / IT Services',
                 description:
                     'Manage your agency, providers, and missions',
-                accentColor: const Color(0xFF2563EB), // blue-600
+                accentColor: AppPalette.blue600, // blue-600
                 onTap: () => context.go(RoutePaths.registerAgency),
               ),
               const SizedBox(height: 16),
@@ -79,7 +80,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 title: 'Freelance / Business Referrer',
                 description:
                     'Offer your services or connect professionals together',
-                accentColor: const Color(0xFFF43F5E), // rose-500
+                accentColor: AppPalette.rose500, // rose-500
                 onTap: () => context.go(RoutePaths.registerProvider),
               ),
               const SizedBox(height: 16),
@@ -90,7 +91,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 title: 'Enterprise',
                 description:
                     'Post your projects and find the best providers',
-                accentColor: const Color(0xFF8B5CF6), // purple-500
+                accentColor: AppPalette.violet500, // purple-500
                 onTap: () => context.go(RoutePaths.registerEnterprise),
               ),
               const SizedBox(height: 32),

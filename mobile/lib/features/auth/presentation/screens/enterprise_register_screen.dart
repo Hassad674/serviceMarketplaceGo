@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Enterprise registration form.
 ///
@@ -77,7 +78,7 @@ class _EnterpriseRegisterScreenState
                 const _RoleBadge(
                   icon: Icons.corporate_fare,
                   label: 'Enterprise',
-                  color: Color(0xFF8B5CF6), // purple to match web
+                  color: AppPalette.violet500, // purple to match web
                 ),
                 const SizedBox(height: 24),
 

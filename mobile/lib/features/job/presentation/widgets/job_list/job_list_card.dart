@@ -10,6 +10,7 @@ import '../../../domain/entities/job_entity.dart';
 import '../../providers/job_provider.dart';
 import 'job_list_popup_menu.dart';
 import 'job_list_status_badge.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Compact card displayed for each job in the "My jobs" list.
 class JobListCard extends ConsumerWidget {
@@ -135,7 +136,7 @@ class JobListCard extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? l10n.jobReopenSuccess : l10n.unexpectedError),
-        backgroundColor: ok ? const Color(0xFF22C55E) : null,
+        backgroundColor: ok ? AppPalette.green500 : null,
       ),
     );
   }
@@ -170,7 +171,7 @@ class JobListCard extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? l10n.jobDeleteSuccess : l10n.unexpectedError),
-        backgroundColor: ok ? const Color(0xFF22C55E) : null,
+        backgroundColor: ok ? AppPalette.green500 : null,
       ),
     );
   }
@@ -209,7 +210,7 @@ class _Footer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFFF43F5E),
+              color: AppPalette.rose500,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(

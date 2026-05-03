@@ -77,12 +77,12 @@ class CatalogEntry {
   @override
   int get hashCode => skillText.hashCode;
 
-  static List<String> _parseStringList(dynamic raw) {
+  static List<String> _parseStringList(Object? raw) {
     if (raw is! List) return const <String>[];
     return List<String>.unmodifiable(raw.whereType<String>());
   }
 
-  static int _parseInt(dynamic raw) {
+  static int _parseInt(Object? raw) {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw) ?? 0;

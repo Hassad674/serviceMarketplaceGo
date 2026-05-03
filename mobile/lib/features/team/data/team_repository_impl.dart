@@ -31,7 +31,7 @@ class TeamRepositoryImpl implements TeamRepository {
       queryParameters: {'limit': 100},
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? const [];
+    final rawList = (body['data'] as List?) ?? const [];
     return rawList
         .cast<Map<String, dynamic>>()
         .map(TeamMember.fromJson)
@@ -158,7 +158,7 @@ class TeamRepositoryImpl implements TeamRepository {
       queryParameters: {'limit': 100},
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? const [];
+    final rawList = (body['data'] as List?) ?? const [];
     return rawList
         .cast<Map<String, dynamic>>()
         .map(PendingInvitation.fromJson)

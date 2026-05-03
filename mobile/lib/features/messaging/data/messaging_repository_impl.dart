@@ -54,7 +54,7 @@ class MessagingRepositoryImpl implements MessagingRepository {
       queryParameters: query,
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? [];
+    final rawList = (body['data'] as List?) ?? [];
     final conversations = rawList
         .cast<Map<String, dynamic>>()
         .map(ConversationEntity.fromJson)
@@ -81,7 +81,7 @@ class MessagingRepositoryImpl implements MessagingRepository {
       queryParameters: query,
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? [];
+    final rawList = (body['data'] as List?) ?? [];
     final messages = <MessageEntity>[];
     for (final raw in rawList) {
       try {

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/data/stripe_countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'billing_form_atoms.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// "Pays" dropdown — every Stripe-supported country grouped by region.
 /// Region headers render as disabled visual separators (Flutter has no
@@ -125,7 +126,7 @@ class BillingVatRow extends StatelessWidget {
               const Icon(
                 Icons.check_circle,
                 size: 14,
-                color: Color(0xFF22C55E),
+                color: AppPalette.green500,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -135,7 +136,7 @@ class BillingVatRow extends StatelessWidget {
                           '${DateFormat('dd/MM/yyyy').format(validatedAt!)}'
                       : 'Validé le ${DateFormat('dd/MM/yyyy').format(validatedAt!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF15803D),
+                    color: AppPalette.green700,
                   ),
                 ),
               ),

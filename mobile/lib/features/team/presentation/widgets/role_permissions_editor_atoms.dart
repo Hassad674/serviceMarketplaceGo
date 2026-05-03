@@ -70,7 +70,7 @@ class _PermissionRow extends StatelessWidget {
           Switch.adaptive(
             value: effectiveGranted,
             onChanged: canEdit ? (_) => onToggle() : null,
-            activeThumbColor: const Color(0xFFE11D48),
+            activeThumbColor: AppPalette.rose600,
           ),
         ],
       ),
@@ -90,9 +90,9 @@ class _StateBadge extends StatelessWidget {
         ? l10n.teamRolePermissionsStateGrantedOverride
         : l10n.teamRolePermissionsStateRevokedOverride;
     final color =
-        granted ? const Color(0xFF059669) : const Color(0xFFDC2626);
+        granted ? AppPalette.emerald600 : AppPalette.red600;
     final background =
-        granted ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2);
+        granted ? AppPalette.emerald100 : AppPalette.red100;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -121,13 +121,13 @@ class _PendingBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
+        color: AppPalette.amber100,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFFB45309),
+          color: AppPalette.amber700,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -158,7 +158,7 @@ class _SaveBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: const Border(
-          top: BorderSide(color: Color(0xFFE2E8F0)),
+          top: BorderSide(color: AppPalette.slate200),
         ),
       ),
       child: Row(
@@ -211,7 +211,7 @@ class _OwnerExclusiveSection extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: AppPalette.neutral50,
         border: Border.all(
           color: appColors?.border ?? theme.dividerColor,
           width: 1,
@@ -225,7 +225,7 @@ class _OwnerExclusiveSection extends StatelessWidget {
             children: [
               const Icon(
                 Icons.lock_outline,
-                color: Color(0xFF64748B),
+                color: AppPalette.slate500,
                 size: 16,
               ),
               const SizedBox(width: 8),
@@ -285,24 +285,24 @@ class _RoleIcon extends StatelessWidget {
     switch (role) {
       case 'owner':
         icon = Icons.workspace_premium_outlined;
-        background = const Color(0xFFFEF3C7);
-        foreground = const Color(0xFFB45309);
+        background = AppPalette.amber100;
+        foreground = AppPalette.amber700;
         break;
       case 'admin':
         icon = Icons.shield_outlined;
-        background = const Color(0xFFEDE9FE);
-        foreground = const Color(0xFF6D28D9);
+        background = AppPalette.violet100;
+        foreground = AppPalette.violet700;
         break;
       case 'member':
         icon = Icons.person_outline;
-        background = const Color(0xFFDBEAFE);
-        foreground = const Color(0xFF1D4ED8);
+        background = AppPalette.blue100;
+        foreground = AppPalette.blue700;
         break;
       case 'viewer':
       default:
         icon = Icons.visibility_outlined;
-        background = const Color(0xFFE2E8F0);
-        foreground = const Color(0xFF334155);
+        background = AppPalette.slate200;
+        foreground = AppPalette.slate700;
         break;
     }
     return Container(
@@ -358,22 +358,22 @@ class _ErrorCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppPalette.red50,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: const Color(0xFFFCA5A5)),
+        border: Border.all(color: AppPalette.red300),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.error_outline,
-            color: Color(0xFFDC2626),
+            color: AppPalette.red600,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               l10n.teamRolePermissionsLoadError,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFB91C1C),
+                color: AppPalette.red700,
                 fontWeight: FontWeight.w600,
               ),
             ),

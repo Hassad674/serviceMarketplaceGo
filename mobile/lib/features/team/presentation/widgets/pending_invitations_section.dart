@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/pending_invitation.dart';
 import '../providers/team_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Section displayed below the members list on the team screen.
 /// Mirrors the web `TeamInvitationsList` (R20 phase 2):
@@ -163,7 +164,7 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
             icon: const Icon(
               Icons.delete_outline,
               size: 18,
-              color: Color(0xFFDC2626),
+              color: AppPalette.red600,
             ),
             onPressed: _busy ? null : _cancel,
           ),
@@ -231,7 +232,7 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: AppPalette.red600,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -330,13 +331,13 @@ class _RoleChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
+        color: AppPalette.slate200,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFF334155),
+          color: AppPalette.slate700,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -354,13 +355,13 @@ class _MailAvatar extends StatelessWidget {
       height: 40,
       width: 40,
       decoration: const BoxDecoration(
-        color: Color(0xFFE0E7FF), // indigo-100
+        color: AppPalette.indigo100, // indigo-100
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: const Icon(
         Icons.mail_outline,
-        color: Color(0xFF4338CA), // indigo-700
+        color: AppPalette.indigo700, // indigo-700
         size: 18,
       ),
     );
@@ -443,7 +444,7 @@ class _LoadingSkeleton extends StatelessWidget {
           child: Container(
             height: 72,
             decoration: BoxDecoration(
-              color: appColors?.muted ?? const Color(0xFFF1F5F9),
+              color: appColors?.muted ?? AppPalette.slate100,
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
           ),

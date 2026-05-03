@@ -117,9 +117,9 @@ class ReferralRepositoryImpl implements ReferralRepository {
   /// _parseList accepts both the list-envelope shape `{items, next_cursor}`
   /// and a bare array, because the handler may evolve and we want the
   /// repository to stay tolerant.
-  List<Referral> _parseList(dynamic data) {
+  List<Referral> _parseList(Object? data) {
     if (data is Map<String, dynamic> && data['items'] is List) {
-      return (data['items'] as List<dynamic>)
+      return (data['items'] as List)
           .map((e) => Referral.fromJson(e as Map<String, dynamic>))
           .toList();
     }

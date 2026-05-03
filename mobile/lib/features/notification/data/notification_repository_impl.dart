@@ -33,7 +33,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
       queryParameters: query,
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? [];
+    final rawList = (body['data'] as List?) ?? [];
     return rawList
         .cast<Map<String, dynamic>>()
         .map(AppNotification.fromJson)
@@ -71,7 +71,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
       '/api/v1/notifications/preferences',
     );
     final body = response.data as Map<String, dynamic>;
-    final rawList = (body['data'] as List<dynamic>?) ?? [];
+    final rawList = (body['data'] as List?) ?? [];
     return rawList
         .cast<Map<String, dynamic>>()
         .map(NotificationPreference.fromJson)

@@ -27,7 +27,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   @override
   Future<void> updateLocation(Location location) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/profile/location',
       data: location.toUpdatePayload(),
     );
@@ -42,7 +42,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
       professional: professional,
       conversational: conversational,
     ).toUpdatePayload();
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/profile/languages',
       data: payload,
     );
@@ -61,7 +61,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
       if (direct != null) 'availability_status': direct.wire,
       if (referrer != null) 'referrer_availability_status': referrer.wire,
     };
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/profile/availability',
       data: payload,
     );
@@ -69,7 +69,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   @override
   Future<List<Pricing>> getPricing() async {
-    final response = await _api.get<dynamic>('/api/v1/profile/pricing');
+    final response = await _api.get('/api/v1/profile/pricing');
     final raw = _unwrapList(response.data);
     return raw
         .whereType<Map<String, dynamic>>()
@@ -79,7 +79,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   @override
   Future<Pricing> upsertPricing(Pricing pricing) async {
-    final response = await _api.put<dynamic>(
+    final response = await _api.put(
       '/api/v1/profile/pricing',
       data: pricing.toUpdatePayload(),
     );
@@ -95,7 +95,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   @override
   Future<void> deletePricing(PricingKind kind) async {
-    await _api.delete<dynamic>('/api/v1/profile/pricing/${kind.wire}');
+    await _api.delete('/api/v1/profile/pricing/${kind.wire}');
   }
 
   // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   /// Unwraps either `{ "data": X }` or a raw `X` payload and returns
   /// the map — or `null` when the shape is unrecognized.
-  Map<String, dynamic>? _unwrapMap(dynamic raw) {
+  Map<String, dynamic>? _unwrapMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;
@@ -115,12 +115,12 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
 
   /// Unwraps either `{ "data": [X, Y] }` or a raw list and returns
   /// it as a Dart list. Returns an empty list on unknown shapes.
-  List<dynamic> _unwrapList(dynamic raw) {
+  List<Object?> _unwrapList(Object? raw) {
     if (raw is List) return raw;
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is List) return data;
     }
-    return const <dynamic>[];
+    return const <Object?>[];
   }
 }

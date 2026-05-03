@@ -5,6 +5,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/wallet_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Hero card: title row, total earnings, Stripe status line, payout
 /// CTA, and quick links to billing profile + payment info screens.
@@ -83,12 +84,12 @@ class WalletHeroCard extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
+            color: AppPalette.rose500.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           ),
           child: const Icon(
             Icons.account_balance_wallet_outlined,
-            color: Color(0xFFF43F5E),
+            color: AppPalette.rose500,
             size: 20,
           ),
         ),
@@ -168,10 +169,10 @@ class WalletHeroCard extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF43F5E),
+          backgroundColor: AppPalette.rose500,
           foregroundColor: Colors.white,
           disabledBackgroundColor:
-              const Color(0xFFF43F5E).withValues(alpha: 0.4),
+              AppPalette.rose500.withValues(alpha: 0.4),
           disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
@@ -284,15 +285,15 @@ class WalletStripeStatusLine extends StatelessWidget {
     final String label;
     if (hasAccount && payoutsEnabled) {
       icon = Icons.check_circle;
-      color = const Color(0xFF22C55E);
+      color = AppPalette.green500;
       label = 'Stripe account ready — payouts enabled';
     } else if (hasAccount) {
       icon = Icons.warning_amber_rounded;
-      color = const Color(0xFFF59E0B);
+      color = AppPalette.amber500;
       label = 'Stripe account verifying';
     } else {
       icon = Icons.cancel;
-      color = const Color(0xFFEF4444);
+      color = AppPalette.red500;
       label = 'Stripe account not configured';
     }
 

@@ -77,7 +77,7 @@ class PendingTransfer {
   });
 }
 
-DateTime? _parseDate(dynamic raw) {
+DateTime? _parseDate(Object? raw) {
   if (raw is String && raw.isNotEmpty) {
     return DateTime.tryParse(raw);
   }

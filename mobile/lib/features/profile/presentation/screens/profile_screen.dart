@@ -62,7 +62,7 @@ class ProfileScreen extends ConsumerWidget {
       data: (p) => p['organization_id'] as String?,
     );
     final profileExpertise = profileAsync.whenOrNull(
-          data: (p) => (p['expertise_domains'] as List<dynamic>?)
+          data: (p) => (p['expertise_domains'] as List?)
               ?.whereType<String>()
               .toList(),
         ) ??

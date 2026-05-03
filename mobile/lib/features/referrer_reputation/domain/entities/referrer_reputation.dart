@@ -64,7 +64,7 @@ class ReferrerReputation {
   });
 
   factory ReferrerReputation.fromJson(Map<String, dynamic> json) {
-    final raw = (json['history'] as List<dynamic>?) ?? const [];
+    final raw = (json['history'] as List?) ?? const [];
     return ReferrerReputation(
       ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? 0.0,
       reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,

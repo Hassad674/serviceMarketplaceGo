@@ -25,7 +25,7 @@ class ApiException implements Exception {
   /// ```json
   /// { "error": "error_code", "message": "Human-readable message" }
   /// ```
-  factory ApiException.fromResponse(dynamic data, int statusCode) {
+  factory ApiException.fromResponse(Object? data, int statusCode) {
     if (data is Map<String, dynamic>) {
       // Backend flat format: {"error": "code_string", "message": "..."}
       if (data.containsKey('error') && data['error'] is String) {

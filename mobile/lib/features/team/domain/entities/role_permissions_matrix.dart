@@ -83,7 +83,7 @@ class RolePermissionsRow {
   }
 
   factory RolePermissionsRow.fromJson(Map<String, dynamic> json) {
-    final rawPerms = (json['permissions'] as List<dynamic>?) ?? const [];
+    final rawPerms = (json['permissions'] as List?) ?? const [];
     return RolePermissionsRow(
       role: (json['role'] as String?) ?? '',
       label: (json['label'] as String?) ?? '',
@@ -112,7 +112,7 @@ class RolePermissionsMatrix {
   }
 
   factory RolePermissionsMatrix.fromJson(Map<String, dynamic> json) {
-    final rawRoles = (json['roles'] as List<dynamic>?) ?? const [];
+    final rawRoles = (json['roles'] as List?) ?? const [];
     return RolePermissionsMatrix(
       roles: rawRoles
           .cast<Map<String, dynamic>>()
@@ -141,8 +141,8 @@ class RolePermissionsUpdateResult {
   });
 
   factory RolePermissionsUpdateResult.fromJson(Map<String, dynamic> json) {
-    final rawGranted = (json['granted_keys'] as List<dynamic>?) ?? const [];
-    final rawRevoked = (json['revoked_keys'] as List<dynamic>?) ?? const [];
+    final rawGranted = (json['granted_keys'] as List?) ?? const [];
+    final rawRevoked = (json['revoked_keys'] as List?) ?? const [];
     final rawMatrix = json['matrix'];
     return RolePermissionsUpdateResult(
       role: (json['role'] as String?) ?? '',

@@ -57,11 +57,11 @@ class Dispute {
   final String createdAt;
 
   factory Dispute.fromJson(Map<String, dynamic> json) {
-    final ev = (json['evidence'] as List<dynamic>?)
+    final ev = (json['evidence'] as List?)
             ?.map((e) => DisputeEvidence.fromJson(e as Map<String, dynamic>))
             .toList() ??
         const [];
-    final cps = (json['counter_proposals'] as List<dynamic>?)
+    final cps = (json['counter_proposals'] as List?)
             ?.map((c) => CounterProposal.fromJson(c as Map<String, dynamic>))
             .toList() ??
         const [];

@@ -13,7 +13,7 @@ class ProjectHistoryRepositoryImpl implements ProjectHistoryRepository {
     final response = await _api.get(
       '/api/v1/profiles/$orgId/project-history',
     );
-    final list = response.data['data'] as List<dynamic>? ?? [];
+    final list = response.data['data'] as List? ?? [];
     return list
         .map(
           (json) =>

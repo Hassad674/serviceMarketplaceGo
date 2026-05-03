@@ -10,33 +10,33 @@ class ReferrerSocialLinksRepository {
   final ApiClient _api;
 
   Future<List<Map<String, dynamic>>> listMine() async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/referrer-profile/social-links',
     );
     return _coerceList(response.data);
   }
 
   Future<List<Map<String, dynamic>>> listPublic(String organizationId) async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/referrer-profiles/$organizationId/social-links',
     );
     return _coerceList(response.data);
   }
 
   Future<void> upsert(String platform, String url) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/referrer-profile/social-links',
       data: <String, dynamic>{'platform': platform, 'url': url},
     );
   }
 
   Future<void> delete(String platform) async {
-    await _api.delete<dynamic>(
+    await _api.delete(
       '/api/v1/referrer-profile/social-links/$platform',
     );
   }
 
-  List<Map<String, dynamic>> _coerceList(dynamic data) {
+  List<Map<String, dynamic>> _coerceList(Object? data) {
     if (data is List) {
       return data.cast<Map<String, dynamic>>();
     }

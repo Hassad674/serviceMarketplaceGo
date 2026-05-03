@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// ReferralMissionsSection lists the proposals attributed to a
 /// referral during its exclusivity window, with proposal title +
@@ -127,13 +128,13 @@ class _SectionContainer extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
+                  color: AppPalette.rose500.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.business_center_outlined,
                   size: 16,
-                  color: Color(0xFFF43F5E),
+                  color: AppPalette.rose500,
                 ),
               ),
               const SizedBox(width: 10),
@@ -307,7 +308,7 @@ class _AttributionRow extends StatelessWidget {
                           child: FractionallySizedBox(
                             widthFactor: progress,
                             child: Container(
-                              color: const Color(0xFFF43F5E),
+                              color: AppPalette.rose500,
                             ),
                           ),
                         ),
@@ -354,21 +355,21 @@ class _AttributionRow extends StatelessWidget {
       case 'paid':
       case 'active':
       case 'completion_requested':
-        return (label: _labelFor(status), color: const Color(0xFF10B981));
+        return (label: _labelFor(status), color: AppPalette.emerald500);
       case 'completed':
-        return (label: 'Terminée', color: const Color(0xFF3B82F6));
+        return (label: 'Terminée', color: AppPalette.blue500);
       case 'pending':
       case 'accepted':
-        return (label: _labelFor(status), color: const Color(0xFFF59E0B));
+        return (label: _labelFor(status), color: AppPalette.amber500);
       case 'disputed':
-        return (label: 'En litige', color: const Color(0xFFEF4444));
+        return (label: 'En litige', color: AppPalette.red500);
       case 'declined':
       case 'withdrawn':
-        return (label: _labelFor(status), color: const Color(0xFF64748B));
+        return (label: _labelFor(status), color: AppPalette.slate500);
       default:
         return (
           label: status.isEmpty ? '—' : status,
-          color: const Color(0xFF64748B),
+          color: AppPalette.slate500,
         );
     }
   }
@@ -447,7 +448,7 @@ class _CommissionColumn extends StatelessWidget {
     final hasClawback = clawedBack > 0;
 
     final primaryColor = hasPaid
-        ? const Color(0xFFF43F5E)
+        ? AppPalette.rose500
         : Colors.grey.shade400;
 
     String? caption;
@@ -474,7 +475,7 @@ class _CommissionColumn extends StatelessWidget {
             '+ ${_formatEur(escrow)} en séquestre',
             style: const TextStyle(
               fontSize: 10,
-              color: Color(0xFFD97706),
+              color: AppPalette.amber600,
               fontWeight: FontWeight.w600,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
@@ -486,7 +487,7 @@ class _CommissionColumn extends StatelessWidget {
             '- ${_formatEur(clawedBack)} reprises',
             style: const TextStyle(
               fontSize: 10,
-              color: Color(0xFFDC2626),
+              color: AppPalette.red600,
               fontWeight: FontWeight.w600,
               fontFeatures: [FontFeature.tabularFigures()],
             ),

@@ -65,13 +65,13 @@ class ProposalEntity {
   double get amountInEuros => amount / 100.0;
 
   factory ProposalEntity.fromJson(Map<String, dynamic> json) {
-    final docs = (json['documents'] as List<dynamic>?)
+    final docs = (json['documents'] as List?)
             ?.map(
               (d) => ProposalDocumentEntity.fromJson(d as Map<String, dynamic>),
             )
             .toList() ??
         [];
-    final milestones = (json['milestones'] as List<dynamic>?)
+    final milestones = (json['milestones'] as List?)
             ?.map((m) => MilestoneEntity.fromJson(m as Map<String, dynamic>))
             .toList() ??
         [];

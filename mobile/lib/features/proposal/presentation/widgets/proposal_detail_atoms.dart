@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Centered error block with retry button — used by the proposal detail
 /// screen when the proposal fetch fails.
@@ -108,7 +109,7 @@ class ProposalDocumentTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: appColors?.muted ?? const Color(0xFFF1F5F9),
+          color: appColors?.muted ?? AppPalette.slate100,
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         ),
         child: Row(

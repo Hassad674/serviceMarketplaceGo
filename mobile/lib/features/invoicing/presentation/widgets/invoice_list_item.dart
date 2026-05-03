@@ -10,6 +10,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/repositories/invoicing_repository.dart';
 import '../providers/invoicing_providers.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Single row in the invoices list.
 ///
@@ -36,13 +37,13 @@ class InvoiceListItem extends ConsumerWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE4E6), // rose-100
+              color: AppPalette.rose100, // rose-100
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: const Icon(
               Icons.description_outlined,
               size: 18,
-              color: Color(0xFFBE123C), // rose-700
+              color: AppPalette.rose700, // rose-700
             ),
           ),
           const SizedBox(width: 12),

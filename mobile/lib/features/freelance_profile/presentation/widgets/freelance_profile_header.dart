@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/availability_pill.dart';
 import '../../../../shared/widgets/profile_identity_header.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Thin composition: [ProfileIdentityHeader] + freelance-tinted
 /// [AvailabilityPill]. Keeps the screen files short and puts the
@@ -18,7 +19,7 @@ class FreelanceProfileHeader extends StatelessWidget {
   });
 
   /// Freelance persona accent — rose-500 to match the primary tone.
-  static const Color kAccent = Color(0xFFF43F5E);
+  static const Color kAccent = AppPalette.rose500;
 
   final String displayName;
   final String title;

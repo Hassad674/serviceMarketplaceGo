@@ -56,7 +56,7 @@ class Location {
       countryCode: json['country_code'] as String? ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      workMode: ((json['work_mode'] as List?) ?? const <dynamic>[])
+      workMode: ((json['work_mode'] as List?) ?? const <Object?>[])
           .whereType<String>()
           .toList(growable: false),
       travelRadiusKm: _readInt(json['travel_radius_km']),
@@ -126,7 +126,7 @@ class Location {
         travelRadiusKm,
       );
 
-  static int? _readInt(dynamic raw) {
+  static int? _readInt(Object? raw) {
     if (raw == null) return null;
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();

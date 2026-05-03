@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../profile_tier1/domain/entities/pricing.dart';
 import '../../../../profile_tier1/domain/entities/pricing_kind.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Maps the legacy `pricing` array to a single [Pricing] row keyed by
 /// `direct`. Agencies only advertise a direct rate on the public
@@ -23,7 +24,7 @@ Pricing? pickDirectPricing(Map<String, dynamic> profile) {
   return null;
 }
 
-int? readIntField(dynamic value) {
+int? readIntField(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
   if (value is double) return value.toInt();
@@ -47,13 +48,13 @@ String workModeLabel(String key, AppLocalizations l10n) {
 Color publicProfileRoleColor(String? orgType) {
   switch (orgType) {
     case 'agency':
-      return const Color(0xFF2563EB);
+      return AppPalette.blue600;
     case 'enterprise':
-      return const Color(0xFF8B5CF6);
+      return AppPalette.violet500;
     case 'provider_personal':
-      return const Color(0xFFF43F5E);
+      return AppPalette.rose500;
     default:
-      return const Color(0xFF64748B);
+      return AppPalette.slate500;
   }
 }
 

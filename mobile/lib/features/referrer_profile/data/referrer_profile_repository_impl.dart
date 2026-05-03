@@ -28,7 +28,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<ReferrerProfile> getMy() async {
-    final response = await _api.get<dynamic>('/api/v1/referrer-profile');
+    final response = await _api.get('/api/v1/referrer-profile');
     final body = _unwrapMap(response.data);
     if (body == null) return ReferrerProfile.empty;
     return ReferrerProfile.fromJson(body);
@@ -36,7 +36,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<ReferrerProfile> getPublic(String organizationId) async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/referrer-profiles/$organizationId',
     );
     final body = _unwrapMap(response.data);
@@ -50,7 +50,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
     required String about,
     required String videoUrl,
   }) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/referrer-profile',
       data: <String, dynamic>{
         'title': title,
@@ -62,7 +62,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<void> updateAvailability(String wireValue) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/referrer-profile/availability',
       data: <String, dynamic>{'availability_status': wireValue},
     );
@@ -70,7 +70,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<void> updateExpertise(List<String> domains) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/referrer-profile/expertise',
       data: <String, dynamic>{'domains': domains},
     );
@@ -79,7 +79,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
   @override
   Future<ReferrerPricing?> getPricing() async {
     final response =
-        await _api.get<dynamic>('/api/v1/referrer-profile/pricing');
+        await _api.get('/api/v1/referrer-profile/pricing');
     final body = _unwrapMap(response.data);
     if (body == null || body.isEmpty) return null;
     try {
@@ -91,7 +91,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<ReferrerPricing> upsertPricing(ReferrerPricing pricing) async {
-    final response = await _api.put<dynamic>(
+    final response = await _api.put(
       '/api/v1/referrer-profile/pricing',
       data: pricing.toUpdatePayload(),
     );
@@ -106,7 +106,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<void> deletePricing() async {
-    await _api.delete<dynamic>('/api/v1/referrer-profile/pricing');
+    await _api.delete('/api/v1/referrer-profile/pricing');
   }
 
   @override
@@ -117,7 +117,7 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
         filename: file.path.split('/').last,
       ),
     });
-    final response = await _api.upload<dynamic>(
+    final response = await _api.upload(
       '/api/v1/referrer-profile/video',
       data: formData,
     );
@@ -131,10 +131,10 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
 
   @override
   Future<void> deleteVideo() async {
-    await _api.delete<dynamic>('/api/v1/referrer-profile/video');
+    await _api.delete('/api/v1/referrer-profile/video');
   }
 
-  Map<String, dynamic>? _unwrapMap(dynamic raw) {
+  Map<String, dynamic>? _unwrapMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;
