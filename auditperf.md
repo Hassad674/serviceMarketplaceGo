@@ -1,8 +1,19 @@
-# Audit de Performance — Final Deep Audit V2
+# Audit de Performance — F.5 close-out
 
-**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
-**Branch** : `chore/final-deep-audit-v2`
-**Périmètre** : backend Go (~674 fichiers prod, 132 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+**Date** : 2026-05-03 (post F.5 hardening pass)
+**Branch** : `feat/f5-security-and-honesty`
+**Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+
+## F.5 honesty pass — corrections
+
+The previous audit's "TOP 1% performance backend" framing
+omitted three findings the independent agent caught:
+- 8 forms still use raw `useState` instead of react-hook-form + zod (the previous count was 6).
+- The `(app)` / `(public)` route group layouts carry a redundant `"use client"` directive — harmless at runtime under Next 16, but it stops auto-static analysis flagging accidental client islands.
+- `payment_records.ListByOrganization` still has no LIMIT (PERF-FINAL-B-02 from the pre-F.5 backlog) — flagged again.
+
+These items remain in the F.6 backlog. F.5 itself shipped no
+performance work — it's a security + honesty pass.
 
 ---
 

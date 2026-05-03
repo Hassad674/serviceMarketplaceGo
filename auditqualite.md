@@ -1,8 +1,31 @@
-# Audit Qualité, DRY & Architecture — Final Deep Audit V2
+# Audit Qualité, DRY & Architecture — F.5 close-out
 
-**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
-**Branch** : `chore/final-deep-audit-v2`
-**Périmètre** : backend Go (~674 fichiers prod, 132 migrations) + web Next.js + admin Vite + mobile Flutter
+**Date** : 2026-05-03 (post F.5 hardening pass)
+**Branch** : `feat/f5-security-and-honesty`
+**Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + web Next.js + admin Vite + mobile Flutter
+
+## F.5 honesty pass — corrections to previous claims
+
+The independent adversarial audit catalogued ~14 cross-feature
+imports inside `internal/app/` (notably `moderation` is reached
+into by 6 services, and `proposal` is imported by `review` /
+`dispute` / `invoicing`). The earlier claim "Backend TOP 1% — 0
+cross-feature violations" was wrong by approximately 14 sites.
+
+The fix is structural: extract `moderation` and `proposal` as
+ports in `internal/port/` so dependents speak through interfaces.
+Tracked as F.6 backlog — not closed in F.5.
+
+The directional rule (`handler -> app -> domain <- port <-
+adapter`) still holds at every layer above; the cross-feature
+debt sits inside `app/` only. ADR-0006's backend caveat was
+updated in F.5 D3 to make this honest.
+
+Also flagged:
+- 26/33 mobile features bypass Clean Architecture (no domain layer in some features).
+- 38 backend migrations created tables without `IF NOT EXISTS` — cosmetic drift on partial pg_dump init, no runtime impact today.
+- Web has 8 forms still using raw `useState` instead of react-hook-form + zod (the previous audit said 6).
+- The `(app)` / `(public)` route group layouts still carry a redundant `"use client"` directive that no longer matters under Next 16, but a doc-cleanup PR is owed.
 
 ---
 

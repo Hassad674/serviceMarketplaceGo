@@ -1,7 +1,21 @@
-# Bugs à corriger — Final Deep Audit V2
+# Bugs à corriger — F.5 close-out
 
-**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
-**Branch** : `chore/final-deep-audit-v2`
+**Date** : 2026-05-03 (post F.5 hardening pass)
+**Branch** : `feat/f5-security-and-honesty`
+
+## F.5 close-out additions
+
+- **B1 (CLOSED)** — 13 handler call sites that decoded JSON bodies via raw `json.NewDecoder(r.Body).Decode(...)` now route through `pkg/decode.DecodeBody` (MaxBytesReader + DisallowUnknownFields). Guardrail test `decode_sweep_test.go` fails the build on regression.
+- **B12 (PATCH FILE — needs user action)** — `.github/workflows/ci.yml` and `security.yml` use `continue-on-error: true || true` and `-no-fail || true` everywhere, so ESLint / gosec never gate. The web-build job uses `NEXT_PUBLIC_API_URL: http://localhost:8080` (wrong port — backend is 8083). `mobile-analyze` covers 3 dirs out of ~33. Token can't push `.github/workflows/*`, so the diff is staged at `ci-hardening.patch.txt` (root of repo) for manual application via the GitHub UI.
+
+## NEW findings flagged in F.5 (non-blocking, F.6 backlog)
+
+The independent adversarial audit catalogued items beyond the 8 SEC ones already closed:
+- ~14 cross-feature imports inside `internal/app/` — `moderation` is depended-on by 6 services; `proposal` is imported by `review` / `dispute` / `invoicing`. These violate ADR-0006 inside the backend (the rule already holds at the harder `app -> domain <- port <- adapter` boundary). Tracked for resolution in F.6 (extraction of moderation / proposal as ports in `internal/port/`).
+- 26/33 mobile features bypass Clean Architecture (no domain layer in some features). Mobile parity work tracked separately.
+- 38 migrations created tables without `IF NOT EXISTS` — not a runtime bug today (each migration runs once), but cosmetic drift if a sibling DB is initialized from a partial pg_dump.
+
+
 
 ---
 
