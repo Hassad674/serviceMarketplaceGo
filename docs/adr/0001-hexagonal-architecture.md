@@ -72,12 +72,23 @@ violations at PR time.
   satisfies the existing `port/service.PaymentService` interface,
   then changing one line in `cmd/api/wire_payment.go`. No domain
   or app changes.
-- Unit tests on `internal/app` use generated mocks of the port
-  interfaces (`backend/mock/`). Tests run fast and exercise pure
+- Unit tests on `internal/app` use hand-written mocks living in
+  `mocks_test.go` files next to the service tests (the original
+  decision was a generated `backend/mock/` directory; that scheme
+  was abandoned in favor of co-located test doubles which keep the
+  test fixture-to-test ratio close to 1:1 and avoid the regen step
+  on every interface change). Tests run fast and exercise pure
   business logic.
 - Removing a feature is a folder delete + a few lines stripped
   from `cmd/api/wire_*.go`. The "delete the folder" invariant
-  (`CONTRIBUTING.md §3`) is achievable.
+  (`CONTRIBUTING.md §3`) is the **target**, not the current state:
+  an internal audit (F.5, 2026-05-03) catalogued ~14 cross-feature
+  imports inside the `internal/app` tree (notably moderation, used
+  by 6 services; proposal, depended-on by review/dispute/invoicing).
+  These violations are tracked in `auditqualite.md` for resolution
+  in F.6. The directional rule (handler → app → domain ← port ←
+  adapter) holds at every layer above; the cross-feature debt sits
+  inside `app/` only.
 - AI agents can scaffold a new feature predictably:
   `domain/foo/`, `port/repository/foo.go`, `app/foo/service.go`,
   `adapter/postgres/foo.go`, `handler/foo_handler.go`,

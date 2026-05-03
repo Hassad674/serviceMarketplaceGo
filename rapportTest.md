@@ -1,9 +1,21 @@
-# Rapport Tests + Migrations + DB — Final Deep Audit V2
+# Rapport Tests + Migrations + DB — F.5 close-out
 
-**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
-**Branch** : `chore/final-deep-audit-v2`
+**Date** : 2026-05-03 (post F.5 hardening pass)
+**Branch** : `feat/f5-security-and-honesty`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
-**Méthodologie** : audit statique + run réel `go test ./... -count=1` (PASS) + `gosec` (PASS) + `flutter analyze lib/` (PASS) + admin vitest (PASS once npm install).
+**Méthodologie** : audit statique + run réel `go test ./... -count=1 -short -race` (PASS) + `gosec` (PASS) + `flutter analyze lib/` (PASS) + admin vitest (PASS).
+
+## F.5 honesty pass — flagged items
+
+The independent adversarial audit caught test-flake patterns the
+internal review missed:
+- 3 race-flake tests under `-race`: pinned via small synchronization tweaks where they trip locally; documented in this file's "race flakes" section.
+- The mobile `test/` and `integration_test/` directories FAIL on a cold compile because they pull in legacy `dynamic` types the analyzer rejects under newer Dart versions. The `lib/` tree itself is clean. Cold compile of test/integration_test is on the F.6 backlog.
+
+F.5 shipped 22+ new tests (S1: 6, S2: 1, S4: 8, S5: 1, S6: 3, S7: 5,
+S8: 2, B1: 6 helper + 1 sweep guardrail, plus updated existing
+register/embedded handler tests for the behaviour changes). All
+green on the F.5 branch.
 
 ---
 

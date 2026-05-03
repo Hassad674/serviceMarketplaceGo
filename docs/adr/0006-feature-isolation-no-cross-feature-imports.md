@@ -122,6 +122,20 @@ We also document the **legitimate composition pattern** in
 - **Run-time check** (a wrapper around `import()`) — performance
   hit on every import. Rejected.
 
+## Backend caveat (F.5 honesty pass, 2026-05-03)
+
+The ESLint enforcement above ships only for `web/` and `admin/`.
+The backend (`backend/internal/app/`) follows the same convention
+through code review only — and an independent F.5 audit catalogued
+~14 cross-feature imports inside `internal/app` (notably
+`moderation` is reached into by 6 services, and `proposal` is
+imported by `review` / `dispute` / `invoicing`). These violations
+are real and tracked in `auditqualite.md` for resolution in F.6
+(extraction of moderation/proposal as ports in `internal/port/`).
+The rule still holds across the harder boundary
+(`app -> domain <- port <- adapter`); the gap sits inside `app/`
+only.
+
 ## References
 
 - `web/eslint.config.mjs` lines 90+ — the

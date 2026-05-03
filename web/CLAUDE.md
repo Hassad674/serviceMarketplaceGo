@@ -8,7 +8,7 @@
 - **API types**: Generated from backend OpenAPI schema via `openapi-typescript`
 - **API client**: `openapi-fetch` for type-safe HTTP calls; thin `apiClient` wrapper in `src/shared/lib/api-client.ts`
 - **Server state**: TanStack Query v5 for caching, refetching, optimistic updates
-- **Client state**: Zustand v5, used only for auth (no other global client state)
+- **Client state**: TanStack Query v5 owns server state; the few client-only signals (toasts, modal toggles) live in component-local state. **There is no Zustand store in `web/`.** Auth is handled exclusively via httpOnly session cookies + a TanStack Query `useMe()` query (see `src/shared/hooks/use-me.ts`). The earlier convention of a Zustand auth store (now corrected) lived in `admin/` only — see `admin/src/shared/stores/auth-store.ts`.
 - **Forms**: react-hook-form v7 + zod + @hookform/resolvers
 - **Icons**: lucide-react
 - **Styling utilities**: clsx + tailwind-merge (`cn()` in `src/shared/lib/utils.ts`), class-variance-authority for component variants
@@ -321,7 +321,7 @@ features/mission/
 | What | Where | Tool |
 |------|-------|------|
 | Server data (API responses) | `features/*/hooks/` | TanStack Query v5 |
-| Auth state | `shared/hooks/use-auth.ts` | Zustand v5 (persisted) |
+| Auth state | `shared/hooks/use-me.ts` | TanStack Query (httpOnly session cookie on the wire) |
 | Form state | Component-local | react-hook-form + zod |
 | Ephemeral UI state | Component-local | `useState` |
 
@@ -363,9 +363,9 @@ features/mission/
 
 ## Auth and Middleware
 
-- `src/middleware.ts` protects `/dashboard/*` routes — redirects to `/login` if no `access_token` cookie.
+- `src/middleware.ts` protects `/dashboard/*` routes — redirects to `/login` if no `session_id` cookie.
 - Public paths: `/`, `/login`, `/register`, `/agencies`, `/freelances`, `/projects`.
-- Auth state persisted in localStorage via Zustand persist middleware (key: `marketplace-auth`).
+- Auth state lives **server-side**: the API issues an `httpOnly` `session_id` cookie at login. The web app reads the user via a TanStack Query `useMe()` call backed by `GET /api/v1/auth/me`. There is **no Zustand store and no localStorage token** — those would defeat the httpOnly cookie's CSRF/XSS posture (audit `auditsecurite.md` SEC-FINAL-07).
 - User roles: `agency`, `enterprise`, `provider`.
 - Sidebar navigation adapts based on user role.
 
@@ -697,5 +697,4 @@ Google uses Core Web Vitals as a ranking factor:
 
 Every public page must have:
 - og:title, og:description, og:image, og:url, og:type
-- twitter:card, twitter:title, twitter:description
-- Images: 1200x630px for og:image (Facebook/LinkedIn), 400x400 for twitter summary
+- twitt
