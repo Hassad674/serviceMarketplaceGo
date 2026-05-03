@@ -1,0 +1,152 @@
+F.5 B12 — CI / security workflow hardening (manual application)
+================================================================
+
+Token used by F.5 cannot push `.github/workflows/*`. Apply these
+changes manually via the GitHub UI editor (or a follow-up PR
+authored by a token with the `workflows` scope).
+
+The intent: stop pretending the gate runs when it doesn't. Today
+ESLint, gosec, npm audit, and trivy uploads all use either
+`continue-on-error: true` or `|| true` — the build is green even
+when they would have blocked. CI without enforcement is theatre.
+
+Three categories of change:
+
+  A. Promote ESLint + gosec + npm audit to fail-on-error.
+  B. Fix the `web-build` job's API URL (8080 → 8083 — backend
+     port per backend/.env.example).
+  C. Expand the mobile-analyze coverage from 3 dirs to all of
+     `mobile/lib/`.
+
+Apply them as separate commits so a regression in one can be
+reverted without losing the others. The diff hunks below are
+ready to drop into the file via the GitHub UI editor.
+
+----------------------------------------------------------------
+A.1 — `.github/workflows/ci.yml` ESLint job (line ~158)
+
+BEFORE:
+
+      - name: eslint (advisory)
+        continue-on-error: true
+        # ESLint surfaces pre-existing React-Compiler + a11y violations
+        # in legacy features. Hard compile gate is `tsc --noEmit`; a
+        # dedicated cleanup PR will flip this back to fail-on-error.
+        run: |
+          if [ -f eslint.config.mjs ] || [ -f .eslintrc.json ]; then
+            npx eslint . || true
+          else
+            echo "::warning::no ESLint config found — skipping"
+          fi
+
+AFTER:
+
+      - name: eslint
+        # F.5 B12: hard gate — `continue-on-error: true || true` was
+        # CI theatre. The legacy `react-hooks/immutability` errors in
+        # `use-global-ws.ts:91-174` MUST be fixed in a precursor PR
+        # before merging this change. ESLint is now load-bearing.
+        run: |
+          if [ -f eslint.config.mjs ] || [ -f .eslintrc.json ]; then
+            npx eslint .
+          else
+            echo "::error::no ESLint config found — eslint.config.mjs is required"
+            exit 1
+          fi
+
+----------------------------------------------------------------
+A.2 — `.github/workflows/security.yml` gosec job (line ~64)
+
+BEFORE:
+
+          gosec -no-fail -fmt sarif -out gosec.sarif -exclude=G304,G404 ./... || true
+
+AFTER:
+
+          # F.5 B12: `gosec -no-fail || true` was CI theatre — every
+          # finding was logged but never blocked. Hard gate now: any
+          # gosec finding fails the build. The pre-F.5 baseline is
+          # 0 findings (verified 2026-05-03); a regression is a real
+          # signal to act on.
+          gosec -fmt sarif -out gosec.sarif -exclude=G304,G404 ./...
+
+----------------------------------------------------------------
+A.3 — `.github/workflows/security.yml` web-npm-audit job (line ~131)
+
+BEFORE:
+
+      - name: npm audit (advisory)
+        continue-on-error: true
+        # Dependabot PRs are the authoritative signal; this job is a
+        # weekly safety net. Pre-existing advisories in transitive deps
+        # would otherwise block unrelated PRs.
+        run: npm audit --audit-level=high || true
+
+AFTER:
+
+      - name: npm audit (HIGH or above)
+        # F.5 B12: hard gate at HIGH. The pre-F.5 admin lockfile had 2
+        # HIGH vite CVEs that this advisory job logged for weeks
+        # without ever blocking. F.5 S3 closed the admin HIGHs;
+        # any new HIGH must block until a contributor patches the
+        # lockfile or files an exception via a tracked issue.
+        run: npm audit --audit-level=high
+
+----------------------------------------------------------------
+B — `.github/workflows/ci.yml` web-build env (line ~226)
+
+BEFORE:
+
+          # Public env is safe to hardcode here; build must not require secrets.
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_TYPESENSE_HOST: http://localhost:8108
+
+AFTER:
+
+          # F.5 B12: backend listens on 8083 locally (see
+          # backend/.env.example). 8080 was a copy-paste from a long-
+          # retired port. CI runs against a stub URL; the value just
+          # needs to be valid + match the dev convention so a contributor
+          # debugging the build doesn't think the API really runs on 8080.
+          NEXT_PUBLIC_API_URL: http://localhost:8083
+          NEXT_PUBLIC_TYPESENSE_HOST: http://localhost:8108
+
+----------------------------------------------------------------
+C — `.github/workflows/ci.yml` mobile-analyze scope (line ~250)
+
+BEFORE:
+
+      - name: flutter analyze (scoped, errors only)
+        # Info-level lints (prefer_const_*, require_trailing_*) exist
+        # across legacy features. A dedicated lint-sweep PR will tighten
+        # this back to --fatal-infos once the backlog is cleared.
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/search \
+            lib/features/profile \
+            lib/shared/search
+
+AFTER:
+
+      - name: flutter analyze (errors only, every feature)
+        # F.5 B12: scope was 3 of ~33 features — most of mobile/lib/
+        # had ZERO analyser coverage in CI. The `--no-fatal-infos`
+        # exemption stays (info-level lints are tracked separately)
+        # so a single legacy info doesn't hold the gate, but errors
+        # and warnings are now enforced across `lib/`.
+        run: |
+          flutter analyze --no-fatal-infos lib/
+
+----------------------------------------------------------------
+Application order
+=================
+
+1. Land the ESLint pre-existing-errors fix first (a separate PR
+   with the 3 `use-global-ws.ts` errors corrected). Without that,
+   change A.1 turns CI red on the next push.
+2. Apply changes A.2, A.3, B, C in any order — they're independent.
+3. After all five hunks land, run a no-op PR to confirm the gate
+   actually fails the build when seeded with a synthetic ESLint
+   error (a `console.log` with `no-console` enabled, for example).
+   That confirms the fix actually fixes — verifying the gate is
+   the whole point of F.5 B12.

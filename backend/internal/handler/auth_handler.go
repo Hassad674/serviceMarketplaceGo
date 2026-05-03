@@ -25,6 +25,12 @@ type AuthHandler struct {
 	cookie        *CookieConfig
 	bruteForce    service.BruteForceService // SEC-07: optional. nil disables brute-force protection.
 	passwordReset service.BruteForceService // SEC-07: throttle password reset requests too. May be the same instance with a tighter policy.
+
+	// F.5 S7: failClosedInProd controls how a Redis-side
+	// brute-force-service error is handled. true (production) returns
+	// 503 so the lockout cannot be bypassed via a Redis outage; false
+	// (dev/test) preserves legacy fail-OPEN. Set via WithFailClosed.
+	failClosedInProd bool
 }
 
 func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
@@ -47,6 +53,16 @@ func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessi
 func (h *AuthHandler) WithBruteForce(loginGuard, passwordReset service.BruteForceService) *AuthHandler {
 	h.bruteForce = loginGuard
 	h.passwordReset = passwordReset
+	return h
+}
+
+// WithFailClosed (F.5 S7) makes a Redis error in the brute-force
+// IsLocked path return 503 to the client. Without this flag, an
+// attacker could bypass the lockout by triggering a Redis blip — the
+// handler's previous `err == nil && locked` pattern silently
+// swallowed the error. Toggled on for production, off for dev.
+func (h *AuthHandler) WithFailClosed(failClosedInProd bool) *AuthHandler {
+	h.failClosedInProd = failClosedInProd
 	return h
 }
 
@@ -120,6 +136,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// F.5 S5: anti-enumeration neutral response. The service returns
+	// SilentDuplicate=true when the email is already registered. The
+	// wire response is "202 Accepted with neutral message" — wire
+	// shape indistinguishable from a fresh registration. A probe
+	// cannot decide whether the email is taken via status code or
+	// payload (the legitimate owner gets a signal email; the probe
+	// learns nothing).
+	if output != nil && output.SilentDuplicate {
+		res.JSON(w, http.StatusAccepted, map[string]string{
+			"message": "Registration request received — check your email for confirmation.",
+		})
+		return
+	}
+
 	h.sendAuthResponse(w, r, http.StatusCreated, output)
 }
 
@@ -142,15 +172,33 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SEC-07: brute-force protection. Check the lockout BEFORE doing
-	// any password validation so a locked account cannot be probed for
-	// timing differences. A failure to reach Redis fails open (we
-	// trust the on-success short-circuit + the SessionVersion check)
-	// rather than block every login during a Redis blip.
+	// SEC-07 + F.5 S7: brute-force protection. Check the lockout
+	// BEFORE doing any password validation so a locked account cannot
+	// be probed for timing differences. Failure-mode policy is
+	// environment-aware:
+	//   * production : a Redis error returns 503 so the lockout cannot
+	//     be bypassed via a Redis outage. Without this guard, the
+	//     legacy `err == nil && locked` check silently swallowed the
+	//     error and let an attacker keep trying credentials at full
+	//     speed during the blip.
+	//   * dev/test    : fail-OPEN preserved (slog.Error breadcrumb so
+	//     the contributor sees their broken local Redis).
 	if h.bruteForce != nil {
-		if locked, err := h.bruteForce.IsLocked(r.Context(), req.Email); err == nil && locked {
+		locked, err := h.bruteForce.IsLocked(r.Context(), req.Email)
+		switch {
+		case err == nil && locked:
 			h.tooManyAttempts(w, r, h.bruteForce, req.Email)
 			return
+		case err != nil && h.failClosedInProd:
+			slog.Error("brute force IsLocked failed — failing closed",
+				"email", req.Email, "error", err)
+			res.Error(w, http.StatusServiceUnavailable,
+				"auth_unavailable",
+				"authentication backend is degraded — retry shortly")
+			return
+		case err != nil:
+			slog.Error("brute force IsLocked failed — failing open in non-prod",
+				"email", req.Email, "error", err)
 		}
 	}
 

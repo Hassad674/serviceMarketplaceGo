@@ -109,7 +109,12 @@ func TestAuthService_Register_AllRoles(t *testing.T) {
 	}
 }
 
-func TestAuthService_Register_EmailAlreadyExists(t *testing.T) {
+func TestAuthService_Register_EmailAlreadyExists_SilentDuplicate(t *testing.T) {
+	// F.5 S5: anti-enumeration. A duplicate registration must NOT
+	// leak the typed ErrEmailAlreadyExists to the caller — the service
+	// returns a SilentDuplicate output instead, and the handler maps
+	// it to a neutral 202 Accepted. A probe cannot tell a fresh
+	// registration apart from a duplicate via the response shape.
 	userRepo := &mockUserRepo{
 		existsByEmailFn: func(_ context.Context, _ string) (bool, error) {
 			return true, nil
@@ -120,8 +125,46 @@ func TestAuthService_Register_EmailAlreadyExists(t *testing.T) {
 
 	result, err := svc.Register(context.Background(), validRegisterInput())
 
-	assert.ErrorIs(t, err, user.ErrEmailAlreadyExists)
-	assert.Nil(t, result)
+	require.NoError(t, err, "duplicate must not leak via typed error")
+	require.NotNil(t, result, "duplicate must return a neutral output")
+	assert.True(t, result.SilentDuplicate, "duplicate flag must be set")
+	assert.Nil(t, result.User, "no user payload on duplicate")
+	assert.Empty(t, result.AccessToken, "no access token on duplicate")
+	assert.Empty(t, result.RefreshToken, "no refresh token on duplicate")
+}
+
+// TestAuthService_Register_DoesNotEnumerate hardens F.5 S5: a duplicate
+// registration MUST send a security-signal email to the legitimate
+// owner of the address, and MUST NOT leak any field that distinguishes
+// it from a fresh registration on the wire.
+func TestAuthService_Register_DoesNotEnumerate(t *testing.T) {
+	mockEmail := &mockEmailService{}
+	userRepo := &mockUserRepo{
+		existsByEmailFn: func(_ context.Context, _ string) (bool, error) {
+			return true, nil
+		},
+	}
+	svc := newTestService(userRepo, nil, nil, nil, mockEmail)
+
+	out, err := svc.Register(context.Background(), validRegisterInput())
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.True(t, out.SilentDuplicate)
+
+	// Security signal email was dispatched to the legitimate owner.
+	require.Len(t, mockEmail.notifications, 1, "duplicate must trigger one signal email")
+	notif := mockEmail.notifications[0]
+	assert.Equal(t, validRegisterInput().Email, notif.To)
+	assert.NotEmpty(t, notif.Subject)
+	assert.NotEmpty(t, notif.HTML)
+
+	// Wire-shape check: the public-facing fields MUST be empty so the
+	// handler emits a neutral 202 — distinguishable only via mock
+	// inspection, never via the API response.
+	assert.Empty(t, out.AccessToken)
+	assert.Empty(t, out.RefreshToken)
+	assert.Nil(t, out.OrganizationID)
+	assert.Empty(t, out.OrgRole)
 }
 
 func TestAuthService_Register_WeakPassword(t *testing.T) {

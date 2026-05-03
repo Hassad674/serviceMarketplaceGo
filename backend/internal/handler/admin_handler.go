@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"math"
@@ -17,6 +16,7 @@ import (
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -126,7 +126,9 @@ func (h *AdminHandler) SuspendUser(w http.ResponseWriter, r *http.Request) {
 		Reason    string  `json:"reason"`
 		ExpiresAt *string `json:"expires_at"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// F.5 B1: bound + reject unknown fields. Suspend payload is tiny —
+	// 16 KiB cap is plenty even with a long reason and an RFC3339 ts.
+	if err := jsondec.DecodeBody(w, r, &body, 16<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
 		return
 	}
@@ -185,7 +187,8 @@ func (h *AdminHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Reason string `json:"reason"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// F.5 B1: bound + reject unknown fields. Ban reason is short text.
+	if err := jsondec.DecodeBody(w, r, &body, 16<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
 		return
 	}
@@ -366,7 +369,8 @@ func (h *AdminHandler) ResolveReport(w http.ResponseWriter, r *http.Request) {
 		Status    string `json:"status"`
 		AdminNote string `json:"admin_note"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// F.5 B1: bound + reject unknown fields.
+	if err := jsondec.DecodeBody(w, r, &body, 16<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
 		return
 	}

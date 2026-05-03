@@ -43,12 +43,38 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 	// fails open (we trust the SessionVersion + token signature checks
 	// to catch a real compromise) so a Redis blip does not lock every
 	// user out of the app.
+	//
+	// F.5 S2: per RFC OAuth 2.1 §4.13.2 ("Refresh Token Replay
+	// Detection"), a detected replay must invalidate the entire
+	// refresh-token family — both the legitimate session AND any other
+	// access tokens already issued. We achieve that by bumping
+	// session_version on the user row: every existing access token
+	// becomes invalid on its next request because the middleware
+	// version check fails. The bump happens BEFORE we return the 401
+	// so the attacker's parallel access tokens stop working
+	// immediately — not just on the next refresh.
 	if s.refreshBlacklist != nil && claims.JTI != "" {
 		blacklisted, err := s.refreshBlacklist.Has(ctx, claims.JTI)
 		if err != nil {
 			slog.Warn("refresh blacklist read failed", "jti", claims.JTI, "error", err)
 		} else if blacklisted {
 			s.recordTokenReuse(ctx, claims.UserID, claims.JTI)
+			// Best-effort bump — failures are logged but the 401 still
+			// fires. The next refresh attempt will retry the bump
+			// implicitly (signature path), and the recordTokenReuse
+			// audit row is the SOC's primary forensic trail.
+			if _, bumpErr := s.users.BumpSessionVersion(ctx, claims.UserID); bumpErr != nil {
+				slog.Warn("auth: bump session_version on refresh-replay failed",
+					"user_id", claims.UserID, "error", bumpErr)
+			}
+			// Belt + braces — purge any active web session row too so
+			// the cookie path is invalidated immediately as well.
+			if s.sessionSvc != nil {
+				if err := s.sessionSvc.DeleteByUserID(ctx, claims.UserID); err != nil {
+					slog.Warn("auth: delete sessions on refresh-replay failed",
+						"user_id", claims.UserID, "error", err)
+				}
+			}
 			return nil, user.ErrUnauthorized
 		}
 	}
@@ -305,6 +331,55 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	})
 
 	return nil
+}
+
+// notifyDuplicateRegistrationAttempt sends a best-effort "someone
+// tried to register your account" signal email to the legitimate
+// owner of the address, plus an audit row. Used by Register() (F.5 S5)
+// when the email is already taken — instead of leaking that fact to
+// the API caller via a 409, the service silently informs the real
+// user and returns an indistinguishable "neutral success" output.
+//
+// Email + audit failures are logged at WARN and swallowed — a probe
+// should not be able to detect a Redis blip from the response shape,
+// and the security signal is best-effort by definition (the address
+// is already in use, so the user can still sign in via the normal
+// flow).
+func (s *Service) notifyDuplicateRegistrationAttempt(ctx context.Context, emailAddr string) {
+	// Audit row first — written regardless of email service availability,
+	// so a SOC investigation can correlate registration probes even when
+	// the email transport is degraded.
+	if s.audits != nil {
+		entry, err := audit.NewEntry(audit.NewEntryInput{
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			Metadata: map[string]any{
+				"email":  emailAddr,
+				"reason": "register_duplicate_silent",
+			},
+		})
+		if err != nil {
+			slog.Warn("audit: build register_duplicate entry failed", "error", err)
+		} else if logErr := s.audits.Log(ctx, entry); logErr != nil {
+			slog.Warn("audit: insert register_duplicate failed", "error", logErr)
+		}
+	}
+
+	if s.email == nil {
+		return
+	}
+	subject := "Tentative d'inscription avec votre adresse email"
+	html := "<p>Bonjour,</p>" +
+		"<p>Quelqu'un vient d'essayer de créer un compte sur la plateforme avec votre adresse email. " +
+		"Votre compte existant n'a pas été modifié.</p>" +
+		"<p>Si vous êtes à l'origine de cette tentative, vous pouvez l'ignorer ou vous connecter " +
+		"directement via la page de connexion.</p>" +
+		"<p>Si ce n'est pas vous, nous vous recommandons de vérifier que votre mot de passe est " +
+		"toujours sûr (option \"Mot de passe oublié\" sur la page de connexion).</p>"
+	if err := s.email.SendNotification(ctx, emailAddr, subject, html); err != nil {
+		slog.Warn("auth: send duplicate-registration notification failed",
+			"error", err)
+	}
 }
 
 // moderateDisplayName runs the synchronous blocking gate against the

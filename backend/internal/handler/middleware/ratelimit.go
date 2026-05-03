@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -78,9 +79,20 @@ end
 // retired — any production deployment running multiple instances
 // must use the Redis-backed implementation so the quota is shared
 // across pods.
+//
+// F.5 S7 — failure-mode policy. A Redis blip in the rate-limiter
+// path used to fail-OPEN unconditionally, which silently disables
+// throttling on a partial outage. The `failClosedInProd` flag, set
+// from cfg.IsProduction() at wiring time, switches the policy to
+// fail-CLOSED in production: a Redis error returns 503 to the
+// client. In dev/test the legacy fail-OPEN behaviour is preserved
+// so a contributor's broken local Redis never blocks every
+// endpoint, but the error is logged at slog.Error level so the
+// operator sees it on the next test run.
 type RateLimiter struct {
-	client         *goredis.Client
-	trustedProxies []*net.IPNet
+	client           *goredis.Client
+	trustedProxies   []*net.IPNet
+	failClosedInProd bool
 }
 
 // NewRateLimiter returns a fresh limiter wired to the given Redis
@@ -89,8 +101,24 @@ type RateLimiter struct {
 // populated with the load balancer's CIDRs so downstream IPs are
 // honored. In dev with no upstream proxy, leave it empty so spoofed
 // XFF headers are ignored.
+//
+// Backwards-compatible signature for callers that don't yet pass a
+// production flag — those keep the legacy fail-OPEN behaviour. New
+// callers (cmd/api/main.go) should use NewRateLimiterWithPolicy.
 func NewRateLimiter(client *goredis.Client, trustedProxies []*net.IPNet) *RateLimiter {
 	return &RateLimiter{client: client, trustedProxies: trustedProxies}
+}
+
+// NewRateLimiterWithPolicy is the production-ready constructor. When
+// failClosedInProd is true, a Redis error in the throttle path is
+// surfaced as 503 Service Unavailable. When false, the request goes
+// through (with a slog.Error breadcrumb).
+func NewRateLimiterWithPolicy(client *goredis.Client, trustedProxies []*net.IPNet, failClosedInProd bool) *RateLimiter {
+	return &RateLimiter{
+		client:           client,
+		trustedProxies:   trustedProxies,
+		failClosedInProd: failClosedInProd,
+	}
 }
 
 // ParseTrustedProxies converts a comma-separated string of CIDRs into
@@ -133,6 +161,15 @@ func ParseTrustedProxies(raw string) ([]*net.IPNet, error) {
 // from a trusted proxy CIDR, the leftmost public IP from
 // X-Forwarded-For is honored; otherwise XFF is ignored to prevent
 // spoofing.
+//
+// F.5 S6 — IPv6 /64 normalisation. An IPv6 attacker with a routed /64
+// has 2^64 distinct addresses. Without normalisation, the rate
+// limiter sees each address as a separate slot and is effectively
+// disabled. We mask the IPv6 IP to the network's /64 (the smallest
+// allocation block any reasonable ISP hands out) so the throttle
+// applies per-network rather than per-address. IPv4 keeps its full
+// /32 because abuse from a single IPv4 is the only granular signal
+// available — anything coarser would over-throttle shared NATs.
 func (rl *RateLimiter) clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -143,19 +180,43 @@ func (rl *RateLimiter) clientIP(r *http.Request) string {
 		return host
 	}
 	if !rl.isTrustedProxy(remote) {
-		return remote.String()
+		return normaliseIPForLimiter(remote)
 	}
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff == "" {
-		return remote.String()
+		return normaliseIPForLimiter(remote)
 	}
 	for _, candidate := range strings.Split(xff, ",") {
 		candidate = strings.TrimSpace(candidate)
 		if ip := net.ParseIP(candidate); ip != nil {
-			return ip.String()
+			return normaliseIPForLimiter(ip)
 		}
 	}
-	return remote.String()
+	return normaliseIPForLimiter(remote)
+}
+
+// normaliseIPForLimiter returns a key that buckets IPv6 traffic per
+// /64 prefix and IPv4 per /32 (i.e. the address itself). The
+// returned string is stable across processes — built from
+// net.IP.Mask + textual rendering, not from a private hash — so
+// distributed Redis keys collide cross-instance as expected.
+func normaliseIPForLimiter(ip net.IP) string {
+	if ip == nil {
+		return ""
+	}
+	if v4 := ip.To4(); v4 != nil {
+		// IPv4: keep per-address granularity. /32 mask.
+		return v4.String()
+	}
+	// Treat anything that is NOT a v4-in-v6 mapping as IPv6 and apply
+	// the /64 prefix — high 8 bytes only.
+	prefix := ip.Mask(net.CIDRMask(64, 128))
+	if prefix == nil {
+		return ip.String()
+	}
+	// Tag with a "/64" suffix so an IPv6 prefix never collides with an
+	// IPv4 string, AND so the key is human-grepable in Redis.
+	return prefix.String() + "/64"
 }
 
 func (rl *RateLimiter) isTrustedProxy(ip net.IP) bool {
@@ -214,10 +275,26 @@ func (rl *RateLimiter) Middleware(policy RateLimitPolicy, key keyFn) func(http.H
 			}
 			count, allowed, retry, err := rl.allow(r.Context(), policy, throttleKey)
 			if err != nil {
-				// Fail open + log via response writer would require the
-				// slog package here; we trade pristine logs for clean
-				// imports. The handler still serves the request, which
-				// is the safer behaviour during a Redis blip.
+				// F.5 S7 — fail policy is environment-aware:
+				//   * production : fail-CLOSED → 503. A Redis blip MUST
+				//     NOT silently disable throttling on a public API.
+				//   * dev/test    : fail-OPEN. A contributor with a broken
+				//     local Redis still gets a working app — the slog.Error
+				//     line surfaces the issue so they fix it.
+				if rl.failClosedInProd {
+					slog.Error("ratelimit: Redis error — failing closed",
+						"class", policy.Class,
+						"key", throttleKey,
+						"error", err)
+					response.Error(w, http.StatusServiceUnavailable,
+						"rate_limit_unavailable",
+						"throttling backend is degraded — retry shortly")
+					return
+				}
+				slog.Error("ratelimit: Redis error — failing open in non-prod",
+					"class", policy.Class,
+					"key", throttleKey,
+					"error", err)
 				next.ServeHTTP(w, r)
 				return
 			}

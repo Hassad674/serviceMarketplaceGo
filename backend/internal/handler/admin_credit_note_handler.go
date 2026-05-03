@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	invoicingapp "marketplace-backend/internal/app/invoicing"
 	domain "marketplace-backend/internal/domain/invoicing"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -114,7 +114,8 @@ func (h *AdminCreditNoteHandler) parseInvoiceID(w http.ResponseWriter, r *http.R
 
 func (h *AdminCreditNoteHandler) decodeAndValidate(w http.ResponseWriter, r *http.Request) (adminCreditNoteRequest, bool) {
 	var req adminCreditNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Credit-note body is small.
+	if err := jsondec.DecodeBody(w, r, &req, 16<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "request body must be valid JSON")
 		return req, false
 	}

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	appsub "marketplace-backend/internal/app/subscription"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/middleware"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -125,7 +125,8 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req subscribeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Subscribe payload is tiny.
+	if err := jsondec.DecodeBody(w, r, &req, 4<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON payload")
 		return
 	}
@@ -206,7 +207,8 @@ func (h *SubscriptionHandler) ToggleAutoRenew(w http.ResponseWriter, r *http.Req
 	}
 
 	var req toggleAutoRenewRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Single-bool payload.
+	if err := jsondec.DecodeBody(w, r, &req, 1<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON payload")
 		return
 	}
@@ -233,7 +235,8 @@ func (h *SubscriptionHandler) ChangeCycle(w http.ResponseWriter, r *http.Request
 	}
 
 	var req changeCycleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Tiny enum payload.
+	if err := jsondec.DecodeBody(w, r, &req, 1<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON payload")
 		return
 	}

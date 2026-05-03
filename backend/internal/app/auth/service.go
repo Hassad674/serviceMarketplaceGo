@@ -72,6 +72,17 @@ type AuthOutput struct {
 	// and invited operators). Nil / empty for Providers.
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// SilentDuplicate is true when Register() was called with an email
+	// already in use. To prevent email enumeration (F.5 S5) the service
+	// returns a "successful-looking" output with no User and no tokens
+	// — only this flag set. The handler MUST translate it to a neutral
+	// 202 Accepted response so a probe cannot distinguish a fresh
+	// registration from a duplicate via timing or status code. A
+	// security email is sent to the legitimate account owner so the
+	// real user gets a signal that someone tried to (re)register their
+	// address.
+	SilentDuplicate bool
 }
 
 type Service struct {
@@ -197,7 +208,17 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 		return nil, fmt.Errorf("failed to check email: %w", err)
 	}
 	if exists {
-		return nil, user.ErrEmailAlreadyExists
+		// F.5 S5: anti-enumeration. Returning ErrEmailAlreadyExists here
+		// would let an attacker probe which addresses are registered
+		// just by hitting /register. Instead we send a "someone tried
+		// to register your account" signal email to the legitimate
+		// owner, log an audit event, and return a SilentDuplicate
+		// output. The handler maps that to a neutral 202 response so
+		// the wire shape is indistinguishable from a successful
+		// registration. The legitimate flow stays unblocked — the
+		// real user knows their address is already registered.
+		s.notifyDuplicateRegistrationAttempt(ctx, email.String())
+		return &AuthOutput{SilentDuplicate: true}, nil
 	}
 
 	hashedPassword, err := s.hasher.Hash(input.Password)

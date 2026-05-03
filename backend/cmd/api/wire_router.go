@@ -39,7 +39,11 @@ func wireRateLimiter(deps rateLimiterDeps) *middleware.RateLimiter {
 		slog.Error("invalid TRUSTED_PROXIES", "error", err)
 		os.Exit(1)
 	}
-	return middleware.NewRateLimiter(deps.Redis, trustedProxies)
+	// F.5 S7: fail-CLOSED in production. A Redis blip used to silently
+	// disable throttling — the predicate switches the policy so a
+	// production outage returns 503 to the client instead of leaving
+	// the API unprotected.
+	return middleware.NewRateLimiterWithPolicy(deps.Redis, trustedProxies, deps.Cfg.IsProduction())
 }
 
 // wsHandlerDeps captures the dependencies the WebSocket handler

@@ -1,9 +1,33 @@
-# Audit de Sécurité — Final Deep Audit V2
+# Audit de Sécurité — F.5 close-out
 
-**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
-**Branch** : `chore/final-deep-audit-v2`
-**Périmètre** : backend Go (~674 fichiers prod, 132 migrations), web Next.js, admin Vite, mobile Flutter
-**Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS audit + supply chain check + actual gosec run.
+**Date** : 2026-05-03 (post F.5 hardening pass)
+**Branch** : `feat/f5-security-and-honesty`
+**Périmètre** : backend Go (~674 fichiers prod, 135 migrations), web Next.js, admin Vite, mobile Flutter
+**Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS audit + supply chain check + actual gosec run + adversarial review by an independent Claude agent.
+
+## F.5 close-out — what shipped (8 items)
+
+The independent adversarial audit flagged 8 NEW security gaps the
+internal audits missed. F.5 closed all 8:
+
+| ID | Severity | Closure summary |
+|----|----------|-----------------|
+| S1 | HIGH | Migration 135 adds explicit `WITH CHECK` on the 8 tenant-scoped tables that had USING-only policies — un-blocks the BYPASSRLS → NOBYPASSRLS rotation tracked in `docs/rls.md`. Tested via `internal/adapter/postgres/rls_with_check_test.go` with 6 cases (own-tenant accept, foreign-tenant reject on conversations / invoice / notifications / payment_records, metadata sanity on all 9 policies, audit_logs unconditional WITH CHECK preserved). |
+| S2 | HIGH | Refresh-token replay now revokes the entire token family per RFC OAuth 2.1 §4.13.2: `RefreshToken()` calls `BumpSessionVersion(userID)` and purges all sessions on detected reuse — the attacker's parallel access tokens stop working immediately. Tested via `refresh_rotation_test.go::TestAuthService_RefreshToken_ReplayRevokesEntireFamily`. |
+| S3 | HIGH (admin) | `admin/package-lock.json` had 2 HIGH vite CVEs (GHSA-4w7w-66w2-5vf9, GHSA-v2wj-q39q-566r, GHSA-p9ff-h696-f583). `npm audit fix` closes them with a non-breaking transitive bump. Post-fix admin reports 0 vulnerabilities. Web's remaining `next` HIGH (GHSA-mq59-m269-xvcx) is documented in the PR description: the only fix path is `next@16.2.4` which ships empty top-level `.d.ts` files and breaks ~94 typed imports — user decides whether to take the breakage. |
+| S4 | HIGH | 5 sites in `embedded_handler.go` returned `err.Error()` to the client. New `classifyStripeError`, `classifyJSONDecodeError`, `classifyDBError` helpers replace each leak with a stable user-safe code+message. Raw error goes to `slog.Error` only. Tested in `stripe_error_sanitizer_test.go` (8 cases, including a leak-detector that fails the build if shapes like `pq:`, `dial tcp`, or `context deadline` ever surface in the sanitized message). |
+| S5 | MEDIUM | `/auth/register` no longer enumerates registered emails. The service returns `AuthOutput{SilentDuplicate: true}` on a duplicate; the handler maps to a neutral 202 Accepted with a generic message, indistinguishable on the wire from a fresh registration. The legitimate owner receives a security-signal email out-of-band. Tested in `service_test.go::TestAuthService_Register_DoesNotEnumerate`. |
+| S6 | MEDIUM | IPv6 rate-limit keys are now masked to `/64`. An attacker with a routed `/64` (2^64 addresses) used to trivially defeat the throttle. `normaliseIPForLimiter` keeps IPv4 at `/32` to avoid over-throttling shared NATs. Tested in `ratelimit_ipv6_test.go` (3 cases, 65 IPv6 addresses in one /64 hit one bucket). |
+| S7 | MEDIUM | Rate-limit + brute-force IsLocked now fail-CLOSED in production (503) on Redis error, fail-OPEN in dev (with `slog.Error`). An attacker who triggered a Redis blip used to bypass both throttles silently. `WithFailClosed(cfg.IsProduction())` is wired in `wire_router.go` + `wire_auth.go`. Tested in `ratelimit_failclosed_test.go` (3 cases) + `auth_handler_bruteforce_failclosed_test.go` (2 cases). |
+| S8 | MEDIUM | `verifySessionVersion` lookup error now fail-CLOSED in production (503), fail-OPEN in dev (snapshot trust). An attacker who triggered a DB outage used to bypass session-version revocation. `AuthWithFailClosed(cfg.IsProduction())` is wired in `router.go`. Tested in `auth_failclosed_test.go` (2 cases). |
+
+Plus **B1** (cross-cutting): 13 handler call sites that decoded JSON
+bodies via raw `json.NewDecoder(r.Body).Decode(...)` now route through
+`pkg/decode.DecodeBody` (MaxBytesReader + DisallowUnknownFields). A
+`decode_sweep_test.go` guardrail fails the build on regression to the
+raw pattern.
+
+---
 
 ---
 
@@ -200,8 +224,11 @@
 
 ## Verdict for OPEN-SOURCE publication
 
-**TOP 1% confirmed on Security after closing 3 HIGH fixes (~1 day total).**
+After F.5 closes S1-S8 + B1, the security posture is:
 
-The remaining 5 MEDIUM + 4 LOW are best-practice polish — none are exploitable, none expose user data, none weaken the existing 4-layer access control + RLS + webhook idempotency + magic-byte upload + brute force + refresh rotation defense-in-depth posture.
+- **Top 5% solo OSS / Top 10-15% vs funded SaaS** (independent adversarial audit verdict).
+- Real attack surface closed: RLS WITH CHECK, refresh family revocation, fail-CLOSED-in-prod policies for ratelimit / brute-force / session-version, IPv6 normalisation, register email-enum mitigation, Stripe error sanitisation, body-cap + unknown-field rejection sweep.
+- **Battle-test pending** — production traffic, chaos engineering, and SLO documents are post-launch goals, not current claims.
+- Remaining items (5 MEDIUM + 4 LOW from the pre-F.5 backlog) are best-practice polish — none are exploitable, none expose user data, none weaken the defense-in-depth posture.
 
-For comparison: this codebase has more security hardening than 95% of paid commerce SaaS platforms I've audited. The combination of {gosec clean + RLS + audit append-only + refresh rotation + brute force atomic + webhook idempotency dual-layer + SSRF guard + magic-byte uploads + mobile secure storage} is **bank-grade**.
+The combination of {gosec clean + RLS WITH CHECK + audit append-only via REVOKE + refresh rotation with family revocation + brute force atomic Lua + webhook idempotency dual-layer + SSRF guard + magic-byte uploads + mobile secure storage + IPv6 /64 normalisation + fail-CLOSED Redis policies + Stripe error sanitisation} is senior-grade engineering. The "bank-grade" framing the previous audit used was over-stated — this is **senior-grade open-source engineering for a B2B marketplace**, not a regulated payment processor's hardening posture. Honest framing matters more than flattery.

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -11,6 +10,7 @@ import (
 	invoicingapp "marketplace-backend/internal/app/invoicing"
 	domain "marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/handler/middleware"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -109,7 +109,10 @@ func (h *BillingProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req updateBillingProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Address + tax IDs payload
+	// is small — 32 KiB is generous for the legitimate flow and rejects
+	// the unbounded-body DoS surface.
+	if err := jsondec.DecodeBody(w, r, &req, 32<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON payload")
 		return
 	}

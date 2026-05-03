@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -153,7 +153,9 @@ func (h *SkillHandler) PutMyProfileSkills(w http.ResponseWriter, r *http.Request
 	}
 
 	var req request.PutProfileSkillsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Skills array per profile is
+	// short (max ~30 short strings) — 32 KiB amply covers it.
+	if err := jsondec.DecodeBody(w, r, &req, 32<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid request body")
 		return
 	}
@@ -188,7 +190,8 @@ func (h *SkillHandler) PutMyProfileSkills(w http.ResponseWriter, r *http.Request
 // caller's declared expertise domains are inherited automatically.
 func (h *SkillHandler) CreateUserSkill(w http.ResponseWriter, r *http.Request) {
 	var req request.CreateSkillRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// F.5 B1: bound + reject unknown fields. Single short string payload.
+	if err := jsondec.DecodeBody(w, r, &req, 4<<10); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid request body")
 		return
 	}

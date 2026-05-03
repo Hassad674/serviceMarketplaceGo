@@ -3,10 +3,10 @@ package handler
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"time"
 
+	jsondec "marketplace-backend/pkg/decode"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -98,7 +98,8 @@ func (h *HealthHandler) AddWord(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Word string `json:"word"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Word == "" {
+	// F.5 B1: bound + reject unknown fields. Test endpoint, single-word.
+	if err := jsondec.DecodeBody(w, r, &req, 1<<10); err != nil || req.Word == "" {
 		res.Error(w, http.StatusBadRequest, "invalid_request", "word is required")
 		return
 	}
