@@ -24,8 +24,14 @@ func mountAuthRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http
 }
 
 func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.Handler) {
+	idem := idempotencyMiddleware(deps)
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", deps.Auth.Register)
+		// SEC-FINAL-02 idempotency on /register: while email-uniqueness
+		// already prevents true double-creation, a retry today still
+		// triggers a second password hash (CPU) + a second welcome
+		// email + a second audit-log row. The middleware caches the
+		// first 2xx response so retries land on a stable replay.
+		r.With(idem).Post("/register", deps.Auth.Register)
 		r.Post("/login", deps.Auth.Login)
 		r.Post("/refresh", deps.Auth.Refresh)
 		r.Post("/forgot-password", deps.Auth.ForgotPassword)
@@ -52,10 +58,14 @@ func mountInvitationRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler
 	r.Get("/invitations/validate", deps.Invitation.Validate)
 	r.Post("/invitations/accept", deps.Invitation.Accept)
 
+	idem := idempotencyMiddleware(deps)
 	r.Route("/organizations/{orgID}/invitations", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
-		r.Post("/", deps.Invitation.Send)
+		// SEC-FINAL-02 idempotency on Send so a flaky network retry
+		// does not deliver a duplicate invitation email or an extra
+		// pending invitation row.
+		r.With(idem).Post("/", deps.Invitation.Send)
 		r.Get("/", deps.Invitation.List)
 		r.Post("/{invID}/resend", deps.Invitation.Resend)
 		r.Delete("/{invID}", deps.Invitation.Cancel)

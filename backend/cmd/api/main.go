@@ -766,6 +766,10 @@ func main() {
 		OrgOverridesResolver: orgOverridesAdapter{repo: infra.OrganizationRepo},
 		Metrics:              metrics,
 		RateLimiter:          httpRateLimiter,
+		// SEC-FINAL-02: idempotency middleware on the 6 critical
+		// mutation POSTs (proposals create + pay, jobs create,
+		// disputes open, auth/register, team invitations).
+		IdempotencyCache: middleware.NewRedisIdempotencyCache(infra.Redis),
 	})
 
 	// Run server + drive 3-step graceful shutdown — see wire_serve.go.

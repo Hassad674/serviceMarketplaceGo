@@ -17,6 +17,7 @@ func mountJobRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http.
 	if deps.Job == nil {
 		return
 	}
+	idem := idempotencyMiddleware(deps)
 	r.Route("/jobs", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
@@ -35,8 +36,10 @@ func mountJobRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http.
 			}
 		})
 
-		// Create
-		r.With(middleware.RequirePermission(organization.PermJobsCreate)).Post("/", deps.Job.CreateJob)
+		// Create — SEC-FINAL-02 idempotency middleware so a network
+		// blip retry does not publish duplicate jobs.
+		r.With(middleware.RequirePermission(organization.PermJobsCreate), idem).
+			Post("/", deps.Job.CreateJob)
 
 		// Edit
 		r.Group(func(r chi.Router) {
