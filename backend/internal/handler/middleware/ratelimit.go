@@ -133,6 +133,15 @@ func ParseTrustedProxies(raw string) ([]*net.IPNet, error) {
 // from a trusted proxy CIDR, the leftmost public IP from
 // X-Forwarded-For is honored; otherwise XFF is ignored to prevent
 // spoofing.
+//
+// F.5 S6 — IPv6 /64 normalisation. An IPv6 attacker with a routed /64
+// has 2^64 distinct addresses. Without normalisation, the rate
+// limiter sees each address as a separate slot and is effectively
+// disabled. We mask the IPv6 IP to the network's /64 (the smallest
+// allocation block any reasonable ISP hands out) so the throttle
+// applies per-network rather than per-address. IPv4 keeps its full
+// /32 because abuse from a single IPv4 is the only granular signal
+// available — anything coarser would over-throttle shared NATs.
 func (rl *RateLimiter) clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -143,19 +152,43 @@ func (rl *RateLimiter) clientIP(r *http.Request) string {
 		return host
 	}
 	if !rl.isTrustedProxy(remote) {
-		return remote.String()
+		return normaliseIPForLimiter(remote)
 	}
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff == "" {
-		return remote.String()
+		return normaliseIPForLimiter(remote)
 	}
 	for _, candidate := range strings.Split(xff, ",") {
 		candidate = strings.TrimSpace(candidate)
 		if ip := net.ParseIP(candidate); ip != nil {
-			return ip.String()
+			return normaliseIPForLimiter(ip)
 		}
 	}
-	return remote.String()
+	return normaliseIPForLimiter(remote)
+}
+
+// normaliseIPForLimiter returns a key that buckets IPv6 traffic per
+// /64 prefix and IPv4 per /32 (i.e. the address itself). The
+// returned string is stable across processes — built from
+// net.IP.Mask + textual rendering, not from a private hash — so
+// distributed Redis keys collide cross-instance as expected.
+func normaliseIPForLimiter(ip net.IP) string {
+	if ip == nil {
+		return ""
+	}
+	if v4 := ip.To4(); v4 != nil {
+		// IPv4: keep per-address granularity. /32 mask.
+		return v4.String()
+	}
+	// Treat anything that is NOT a v4-in-v6 mapping as IPv6 and apply
+	// the /64 prefix — high 8 bytes only.
+	prefix := ip.Mask(net.CIDRMask(64, 128))
+	if prefix == nil {
+		return ip.String()
+	}
+	// Tag with a "/64" suffix so an IPv6 prefix never collides with an
+	// IPv4 string, AND so the key is human-grepable in Redis.
+	return prefix.String() + "/64"
 }
 
 func (rl *RateLimiter) isTrustedProxy(ip net.IP) bool {
