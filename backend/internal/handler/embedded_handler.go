@@ -137,7 +137,8 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 			if jsonErr := json.Unmarshal(body, &req); jsonErr != nil {
 				slog.Warn("embedded: invalid JSON body",
 					"org_id", orgID, "error", jsonErr.Error())
-				res.Error(w, http.StatusBadRequest, "invalid_json", jsonErr.Error())
+				code, msg := classifyJSONDecodeError()
+				res.Error(w, http.StatusBadRequest, code, msg)
 				return
 			}
 		}
@@ -163,21 +164,25 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	accountID, err := h.resolveStripeAccount(ctx, orgID, req.Country, profileURL)
 	if err != nil {
 		slog.Error("embedded: resolve stripe account", "org_id", orgID, "error", err)
-		// Detect Stripe cross-border country restriction and surface a
-		// user-friendly 400 with a specific code.
-		if strings.Contains(err.Error(), "cannot be created by platforms in") {
-			res.Error(w, http.StatusBadRequest, "country_not_supported",
-				"Ce pays n'est pas disponible depuis notre plateforme. Contactez notre support si vous pensez que c'est une erreur.")
-			return
+		// F.5 S4: classifyStripeError detects the cross-border guard
+		// (country_not_supported) AND any Stripe SDK error code, and
+		// returns a sanitized message in every other case. The raw
+		// err.Error() never reaches the client.
+		code, msg := classifyStripeError(err)
+		status := http.StatusInternalServerError
+		if code == "country_not_supported" {
+			status = http.StatusBadRequest
 		}
-		res.Error(w, http.StatusInternalServerError, "stripe_account_error", err.Error())
+		res.Error(w, status, code, msg)
 		return
 	}
 
 	sessionSecret, expiresAt, err := createOnboardingSession(accountID)
 	if err != nil {
 		slog.Error("embedded: create account session", "account_id", accountID, "error", err)
-		res.Error(w, http.StatusInternalServerError, "stripe_session_error", err.Error())
+		// F.5 S4: sanitized Stripe error.
+		code, msg := classifyStripeError(err)
+		res.Error(w, http.StatusInternalServerError, code, msg)
 		return
 	}
 
@@ -205,7 +210,9 @@ func (h *EmbeddedHandler) ResetAccount(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.orgs.ClearStripeAccount(ctx, orgID); err != nil {
 		slog.Error("embedded: reset account", "org_id", orgID, "error", err)
-		res.Error(w, http.StatusInternalServerError, "db_error", err.Error())
+		// F.5 S4: sanitized DB error.
+		code, msg := classifyDBError()
+		res.Error(w, http.StatusInternalServerError, code, msg)
 		return
 	}
 
@@ -232,7 +239,10 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 			res.Error(w, http.StatusNotFound, "no_account", "no stripe account for this organization yet")
 			return
 		}
-		res.Error(w, http.StatusInternalServerError, "lookup_error", err.Error())
+		// F.5 S4: sanitized DB error.
+		slog.Error("embedded: lookup account", "org_id", orgID, "error", err)
+		code, msg := classifyDBError()
+		res.Error(w, http.StatusInternalServerError, code, msg)
 		return
 	}
 	if accountID == "" {
@@ -243,7 +253,9 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 	acct, err := account.GetByID(accountID, nil)
 	if err != nil {
 		slog.Error("embedded: retrieve account", "account_id", accountID, "error", err)
-		res.Error(w, http.StatusInternalServerError, "stripe_error", err.Error())
+		// F.5 S4: sanitized Stripe error.
+		code, msg := classifyStripeError(err)
+		res.Error(w, http.StatusInternalServerError, code, msg)
 		return
 	}
 
