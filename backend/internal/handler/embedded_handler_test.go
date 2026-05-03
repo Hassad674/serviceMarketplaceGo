@@ -300,7 +300,11 @@ func TestGetAccountStatus_DBError_Returns500(t *testing.T) {
 	h.GetAccountStatus(rec, makeRequestWithUser("GET", "/account-status", nil, uuid.New()))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "lookup_error")
+	// F.5 S4: the raw err.Error() must NOT reach the response. The
+	// sanitized code is "db_error".
+	assert.Contains(t, rec.Body.String(), "db_error")
+	assert.NotContains(t, rec.Body.String(), "connection lost",
+		"F.5 S4: raw error text must never leak to the client")
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +330,12 @@ func TestCreateAccountSession_NoBody_NoExistingAccount_Returns500(t *testing.T) 
 	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", nil, uuid.New()))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, strings.ToLower(rec.Body.String()), "country is required")
+	// F.5 S4: sanitized — body must NOT contain "country is required"
+	// (raw err.Error() leak). The sanitized response surfaces a generic
+	// stripe_error code.
+	assert.Contains(t, rec.Body.String(), "stripe_error")
+	assert.NotContains(t, rec.Body.String(), "country is required",
+		"F.5 S4: raw error text must never leak to the client")
 }
 
 func TestCreateAccountSession_EmptyBody_MissingCountry_Returns500(t *testing.T) {
@@ -338,7 +347,10 @@ func TestCreateAccountSession_EmptyBody_MissingCountry_Returns500(t *testing.T) 
 	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, strings.ToLower(rec.Body.String()), "country is required")
+	// F.5 S4: sanitized — see TestCreateAccountSession_NoBody_NoExistingAccount.
+	assert.Contains(t, rec.Body.String(), "stripe_error")
+	assert.NotContains(t, rec.Body.String(), "country is required",
+		"F.5 S4: raw error text must never leak to the client")
 }
 
 
@@ -404,9 +416,12 @@ func TestCreateAccountSession_WhitespaceOnlyBody_TreatedAsNoBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
 
-	// We made it past parsing — into the "country required" path.
+	// We made it past parsing — into the "country required" path. F.5 S4:
+	// the user-facing message is sanitized to a generic stripe_error.
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, strings.ToLower(rec.Body.String()), "country is required")
+	assert.Contains(t, rec.Body.String(), "stripe_error")
+	assert.NotContains(t, rec.Body.String(), "country is required",
+		"F.5 S4: raw error text must never leak to the client")
 	// resolveStripeAccount was invoked (passed parsing).
 	assert.Equal(t, 1, store.getCalls)
 }

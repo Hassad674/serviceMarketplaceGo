@@ -120,6 +120,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// F.5 S5: anti-enumeration neutral response. The service returns
+	// SilentDuplicate=true when the email is already registered. The
+	// wire response is "202 Accepted with neutral message" — wire
+	// shape indistinguishable from a fresh registration. A probe
+	// cannot decide whether the email is taken via status code or
+	// payload (the legitimate owner gets a signal email; the probe
+	// learns nothing).
+	if output != nil && output.SilentDuplicate {
+		res.JSON(w, http.StatusAccepted, map[string]string{
+			"message": "Registration request received — check your email for confirmation.",
+		})
+		return
+	}
+
 	h.sendAuthResponse(w, r, http.StatusCreated, output)
 }
 

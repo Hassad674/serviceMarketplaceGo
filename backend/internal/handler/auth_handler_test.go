@@ -61,7 +61,12 @@ func TestAuthHandler_Register(t *testing.T) {
 			wantStatus: http.StatusCreated,
 		},
 		{
-			name: "email already exists",
+			// F.5 S5: anti-enumeration. A duplicate email MUST NOT
+			// surface a 409 — that would let an attacker probe which
+			// addresses are registered. The handler emits a neutral
+			// 202 Accepted with a generic message; the legitimate
+			// owner receives a security signal email out-of-band.
+			name: "email already exists silent (S5)",
 			body: map[string]string{
 				"email": "exists@example.com", "password": "Password1!",
 				"first_name": "John", "last_name": "Doe", "role": "provider",
@@ -72,8 +77,7 @@ func TestAuthHandler_Register(t *testing.T) {
 					return true, nil
 				}
 			},
-			wantStatus: http.StatusConflict,
-			wantCode:   "email_exists",
+			wantStatus: http.StatusAccepted,
 		},
 		{
 			name:       "missing required fields",

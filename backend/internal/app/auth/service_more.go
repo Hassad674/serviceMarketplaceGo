@@ -307,6 +307,55 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	return nil
 }
 
+// notifyDuplicateRegistrationAttempt sends a best-effort "someone
+// tried to register your account" signal email to the legitimate
+// owner of the address, plus an audit row. Used by Register() (F.5 S5)
+// when the email is already taken — instead of leaking that fact to
+// the API caller via a 409, the service silently informs the real
+// user and returns an indistinguishable "neutral success" output.
+//
+// Email + audit failures are logged at WARN and swallowed — a probe
+// should not be able to detect a Redis blip from the response shape,
+// and the security signal is best-effort by definition (the address
+// is already in use, so the user can still sign in via the normal
+// flow).
+func (s *Service) notifyDuplicateRegistrationAttempt(ctx context.Context, emailAddr string) {
+	// Audit row first — written regardless of email service availability,
+	// so a SOC investigation can correlate registration probes even when
+	// the email transport is degraded.
+	if s.audits != nil {
+		entry, err := audit.NewEntry(audit.NewEntryInput{
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			Metadata: map[string]any{
+				"email":  emailAddr,
+				"reason": "register_duplicate_silent",
+			},
+		})
+		if err != nil {
+			slog.Warn("audit: build register_duplicate entry failed", "error", err)
+		} else if logErr := s.audits.Log(ctx, entry); logErr != nil {
+			slog.Warn("audit: insert register_duplicate failed", "error", logErr)
+		}
+	}
+
+	if s.email == nil {
+		return
+	}
+	subject := "Tentative d'inscription avec votre adresse email"
+	html := "<p>Bonjour,</p>" +
+		"<p>Quelqu'un vient d'essayer de créer un compte sur la plateforme avec votre adresse email. " +
+		"Votre compte existant n'a pas été modifié.</p>" +
+		"<p>Si vous êtes à l'origine de cette tentative, vous pouvez l'ignorer ou vous connecter " +
+		"directement via la page de connexion.</p>" +
+		"<p>Si ce n'est pas vous, nous vous recommandons de vérifier que votre mot de passe est " +
+		"toujours sûr (option \"Mot de passe oublié\" sur la page de connexion).</p>"
+	if err := s.email.SendNotification(ctx, emailAddr, subject, html); err != nil {
+		slog.Warn("auth: send duplicate-registration notification failed",
+			"error", err)
+	}
+}
+
 // moderateDisplayName runs the synchronous blocking gate against the
 // user's public-facing identity. Returns nil when the moderation
 // orchestrator is not wired (test scenarios) or when the content

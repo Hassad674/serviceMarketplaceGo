@@ -301,6 +301,14 @@ func (m *mockAuditRepo) Snapshot() []*audit.Entry {
 
 type mockEmailService struct {
 	sendPasswordResetFn func(ctx context.Context, to string, resetURL string) error
+	// notifications captures every SendNotification call so tests can
+	// assert side-effect emails were dispatched (e.g. F.5 S5
+	// duplicate-registration security signal).
+	notifications []sentNotification
+}
+
+type sentNotification struct {
+	To, Subject, HTML string
 }
 
 func (m *mockEmailService) SendPasswordReset(ctx context.Context, to string, resetURL string) error {
@@ -310,7 +318,8 @@ func (m *mockEmailService) SendPasswordReset(ctx context.Context, to string, res
 	return nil
 }
 
-func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) error {
+func (m *mockEmailService) SendNotification(_ context.Context, to, subject, html string) error {
+	m.notifications = append(m.notifications, sentNotification{To: to, Subject: subject, HTML: html})
 	return nil
 }
 
