@@ -68,11 +68,20 @@ type IdempotencyCache interface {
 // Location specifically — to avoid leaking Set-Cookie / Authorization
 // when a future caller replays under a different identity. Body bytes
 // are stored verbatim so the response is byte-identical to the first.
+//
+// RequestBodyHash is the sha256 of the original request body bytes. On
+// replay the middleware recomputes the hash from the incoming request
+// and compares: a mismatch is a Stripe-spec body-conflict and yields
+// 409 Conflict instead of replaying a stale answer. Empty for cached
+// entries written before F.6 B1 — those simply replay without the
+// conflict check (safe because the legacy behaviour is what the cache
+// previously promised).
 type IdempotentResponse struct {
-	Status      int               `json:"status"`
-	ContentType string            `json:"content_type"`
-	Body        []byte            `json:"body"`
-	Headers     map[string]string `json:"headers,omitempty"`
+	Status          int               `json:"status"`
+	ContentType     string            `json:"content_type"`
+	Body            []byte            `json:"body"`
+	Headers         map[string]string `json:"headers,omitempty"`
+	RequestBodyHash string            `json:"request_body_hash,omitempty"`
 }
 
 // captureRecorder is an http.ResponseWriter that buffers everything the
@@ -155,7 +164,29 @@ func IdempotencyWithTTL(cache IdempotencyCache, ttl time.Duration) func(http.Han
 				return
 			}
 
-			fullKey := buildCacheKey(r.Context(), rawKey)
+			// Read + restore the request body so the downstream
+			// handler still sees it. We bound the read at 1 MiB
+			// (idempotencyBodyReadCap) — anything larger trips the
+			// pkg/decode size guard and would have failed anyway, so
+			// we cap here to keep memory pressure deterministic.
+			bodyBytes, readErr := readAndRestoreBody(r)
+			if readErr != nil {
+				// Body read failure is a transport-layer issue. The
+				// handler will see the same problem and surface its
+				// own error — fall through without caching.
+				slog.Warn("idempotency: body read failed, executing handler",
+					"error", readErr, "path", r.URL.Path)
+				next.ServeHTTP(w, r)
+				return
+			}
+			bodyHash := hashBody(bodyBytes)
+
+			// Cache key now binds (scope, method, path, rawKey). Two
+			// requests under the same Idempotency-Key but different
+			// methods or paths get distinct cache entries — the body
+			// hash is checked on replay (below) to honour the Stripe
+			// spec contract: same key + different body = 409 Conflict.
+			fullKey := buildCacheKey(r.Context(), r.Method, r.URL.Path, rawKey)
 
 			// Cache lookup. A transport failure must NEVER block the
 			// request — log and fall through to a normal execution.
@@ -164,6 +195,15 @@ func IdempotencyWithTTL(cache IdempotencyCache, ttl time.Duration) func(http.Han
 				slog.Warn("idempotency: cache get failed, executing handler",
 					"error", err, "key", rawKey)
 			} else if cached != nil {
+				// Stripe-spec body-conflict check: same key, different
+				// body → 409 Conflict. The cached entry's RequestBodyHash
+				// is empty for legacy entries written before F.6 B1; we
+				// skip the check there to avoid spurious 409s during a
+				// rolling deploy.
+				if cached.RequestBodyHash != "" && cached.RequestBodyHash != bodyHash {
+					writeIdempotencyConflict(w)
+					return
+				}
 				replayCachedResponse(w, cached)
 				return
 			}
@@ -186,10 +226,11 @@ func IdempotencyWithTTL(cache IdempotencyCache, ttl time.Duration) func(http.Han
 			}
 
 			snap := IdempotentResponse{
-				Status:      rec.status,
-				ContentType: rec.Header().Get("Content-Type"),
-				Body:        bytes.Clone(rec.body.Bytes()),
-				Headers:     captureSafeHeaders(rec.Header()),
+				Status:          rec.status,
+				ContentType:     rec.Header().Get("Content-Type"),
+				Body:            bytes.Clone(rec.body.Bytes()),
+				Headers:         captureSafeHeaders(rec.Header()),
+				RequestBodyHash: bodyHash,
 			}
 			// SetNX-style: a concurrent first executor may have raced
 			// us — discard the loser's response silently so subsequent
@@ -207,16 +248,75 @@ func IdempotencyWithTTL(cache IdempotencyCache, ttl time.Duration) func(http.Han
 	}
 }
 
+// idempotencyBodyReadCap bounds how many bytes we will buffer for the
+// hash. 1 MiB matches pkg/decode.DefaultMaxBodyBytes — handlers that
+// legitimately accept larger payloads (file uploads) do not currently
+// pass through this middleware.
+const idempotencyBodyReadCap = 1 << 20
+
+// readAndRestoreBody reads the entire request body up to the cap and
+// restores r.Body so the downstream handler still sees the bytes.
+// Returns (nil, nil) for an absent body — that is normal for endpoints
+// like /auth/refresh-token where the body is empty.
+func readAndRestoreBody(r *http.Request) ([]byte, error) {
+	if r.Body == nil || r.Body == http.NoBody {
+		return nil, nil
+	}
+	limited := io.LimitReader(r.Body, idempotencyBodyReadCap+1)
+	buf, err := io.ReadAll(limited)
+	if cerr := r.Body.Close(); cerr != nil && err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(buf)) > idempotencyBodyReadCap {
+		// We read past the cap — the request is too big for our
+		// idempotency comparison to be meaningful. Restore the
+		// truncated body anyway so the handler can decide what to
+		// do (typically pkg/decode will return 413).
+		r.Body = io.NopCloser(bytes.NewReader(buf))
+		return buf, nil
+	}
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+	return buf, nil
+}
+
+// hashBody returns the hex-encoded sha256 of the request body bytes.
+// Empty body hashes to the sha256 of the empty string — that is the
+// canonical anchor so a body-less request that retries with another
+// body-less request still matches.
+func hashBody(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+// writeIdempotencyConflict emits the structured 409 response for the
+// Stripe-spec body-conflict case (same key, different body). The error
+// code matches the convention used by other middleware errors so the
+// frontend can branch on a stable string.
+func writeIdempotencyConflict(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_, _ = w.Write([]byte(`{"error":"idempotency_key_conflict","message":"Same Idempotency-Key was used with a different body"}`))
+}
+
 // buildCacheKey scopes the key under the authenticated user (or "anon"
 // for unauth flows like /auth/register) so two unrelated clients
-// reusing the same client-side UUID don't collide. The Redis key is
-// hashed to keep it bounded regardless of the user-supplied length.
-func buildCacheKey(ctx context.Context, rawKey string) string {
+// reusing the same client-side UUID don't collide. Method and path are
+// included so the same key reused on a different endpoint produces a
+// distinct cache entry — F.6 B1 closes the bug where a same-key call
+// to a different verb / path was silently colliding with a previous
+// 2xx response and replaying the wrong answer.
+//
+// The key is hashed to keep it bounded regardless of the user-supplied
+// length and to avoid leaking raw key material into Redis logs.
+func buildCacheKey(ctx context.Context, method, path, rawKey string) string {
 	scope := "anon"
 	if uid, ok := GetUserID(ctx); ok {
 		scope = uid.String()
 	}
-	combined := scope + ":" + rawKey
+	combined := scope + ":" + method + ":" + path + ":" + rawKey
 	sum := sha256.Sum256([]byte(combined))
 	return "idempotency:" + hex.EncodeToString(sum[:])
 }
