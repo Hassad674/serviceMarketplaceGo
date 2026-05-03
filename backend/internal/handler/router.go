@@ -105,12 +105,24 @@ type RouterDeps struct {
 func NewRouter(deps RouterDeps) chi.Router {
 	// Single auth middleware reused on every authenticated route group.
 	// Constructed once here and passed down to each mount<Name> so the
-	// 4-arg call site is not repeated across the package.
-	auth := middleware.Auth(
+	// 5-arg call site is not repeated across the package.
+	//
+	// F.5 S8 — failClosedInProd routes a DB/Redis incident in the
+	// session-version lookup to a 503 in production instead of letting
+	// the middleware fall back to the JWT/cookie snapshot. Without
+	// this, an attacker who triggered the upstream incident bypassed
+	// permission revocation. cfg may be nil in tests; we treat that as
+	// dev/test (fail-OPEN preserved).
+	failClosedInProd := false
+	if deps.Config != nil {
+		failClosedInProd = deps.Config.IsProduction()
+	}
+	auth := middleware.AuthWithFailClosed(
 		deps.TokenService,
 		deps.SessionService,
 		deps.UserRepo,
 		deps.OrgOverridesResolver,
+		failClosedInProd,
 	)
 	r := chi.NewRouter()
 

@@ -64,6 +64,29 @@ func Auth(
 	sessionVersions SessionVersionChecker,
 	overridesResolver OrgOverridesResolver,
 ) func(http.Handler) http.Handler {
+	// Backwards-compatible factory — keeps every test-only call site
+	// working unchanged. New production code paths should use
+	// AuthWithFailClosed instead so a DB/Redis incident cannot
+	// bypass session-version revocation.
+	return AuthWithFailClosed(tokenService, sessionService, sessionVersions, overridesResolver, false)
+}
+
+// AuthWithFailClosed is the production-ready factory.
+//
+// F.5 S8 — when failClosedInProd is true, a transient lookup failure
+// (DB outage / Redis blip while resolving session_version) returns
+// 503 to the client instead of trusting the snapshot. Without this
+// flag the middleware fell open: an attacker who triggered the
+// upstream incident bypassed permission revocation. In dev/test the
+// legacy "trust snapshot" behaviour is preserved so a contributor's
+// broken local DB does not lock out everyone.
+func AuthWithFailClosed(
+	tokenService service.TokenService,
+	sessionService service.SessionService,
+	sessionVersions SessionVersionChecker,
+	overridesResolver OrgOverridesResolver,
+	failClosedInProd bool,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Strategy 1: Session cookie (web clients)
@@ -84,6 +107,20 @@ func Auth(
 					case sessionVersionRevoked:
 						response.Error(w, http.StatusUnauthorized, "session_revoked", "session has been revoked — please sign in again")
 						return
+					case sessionVersionLookupFailed:
+						if failClosedInProd {
+							// F.5 S8: production fails CLOSED so an
+							// attacker cannot bypass session_version
+							// revocation by triggering a DB/Redis
+							// incident. The slog.Error breadcrumb in
+							// verifySessionVersion already logged the
+							// upstream cause.
+							response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
+								"authentication backend is degraded — retry shortly")
+							return
+						}
+						// Dev/test: trust the cookie's snapshot so a
+						// broken local DB does not lock everyone out.
 					}
 					ctx := context.WithValue(r.Context(), ContextKeyUserID, session.UserID)
 					ctx = context.WithValue(ctx, ContextKeyRole, session.Role)
@@ -119,6 +156,16 @@ func Auth(
 						case sessionVersionRevoked:
 							response.Error(w, http.StatusUnauthorized, "session_revoked", "token has been revoked — please sign in again")
 							return
+						case sessionVersionLookupFailed:
+							if failClosedInProd {
+								// F.5 S8: production fails CLOSED so an
+								// attacker cannot bypass session_version
+								// revocation via a DB/Redis incident.
+								response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
+									"authentication backend is degraded — retry shortly")
+								return
+							}
+							// Dev/test: trust the JWT's snapshot.
 						}
 						ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
 						ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
@@ -144,25 +191,29 @@ func Auth(
 	}
 }
 
-// sessionVersionOutcome is the tri-state result of a session_version
-// check: the carried version matches the DB, the carried version is
-// stale (explicit revoke), or the user row no longer exists at all
-// (account deleted — e.g. operator left their org).
+// sessionVersionOutcome is the result of a session_version
+// check. The middleware branches on it to issue the right HTTP
+// response.
 type sessionVersionOutcome int
 
 const (
 	sessionVersionMatch sessionVersionOutcome = iota
 	sessionVersionRevoked
 	sessionVersionUserGone
+	// F.5 S8 — sessionVersionLookupFailed signals a transient
+	// upstream failure (DB outage, Redis blip). The middleware maps
+	// this to 503 in production and to "trust snapshot" in dev.
+	sessionVersionLookupFailed
 )
 
 // verifySessionVersion returns sessionVersionMatch when the carried
 // version matches the current DB value (or when the checker is nil —
 // acceptable in dev/tests), sessionVersionUserGone when the backing
-// user row has been deleted, and sessionVersionRevoked when the
-// version was explicitly bumped. Transient errors (DB unreachable,
-// Redis blip) fall through to sessionVersionMatch to avoid locking
-// everyone out; the operator can tighten this to fail-closed if needed.
+// user row has been deleted, sessionVersionRevoked when the version
+// was explicitly bumped, and sessionVersionLookupFailed when the
+// resolver itself errors out (DB unreachable, Redis blip). The
+// caller decides how to handle the latter (F.5 S8 fail-closed in
+// production).
 func verifySessionVersion(
 	ctx context.Context,
 	checker SessionVersionChecker,
@@ -181,10 +232,11 @@ func verifySessionVersion(
 			// client clears state and logs the user out. R16 fix.
 			return sessionVersionUserGone
 		}
-		// Fail-open on transient errors. A persistent inability to reach
-		// the source would cause fake "session valid" for everyone, but
-		// that's less severe than locking everyone out.
-		return sessionVersionMatch
+		// Transient error — let the caller decide. Production should
+		// return 503 (F.5 S8); dev can keep trusting the snapshot.
+		slog.Error("auth: session_version lookup failed",
+			"user_id", userID, "error", err)
+		return sessionVersionLookupFailed
 	}
 	if current == carriedVersion {
 		return sessionVersionMatch
