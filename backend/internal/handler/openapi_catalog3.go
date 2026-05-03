@@ -183,7 +183,7 @@ func catalogueGDPR(c map[string]routeSpec) {
 		Tags: []string{"gdpr"}, Summary: "Cancel a pending account deletion",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
-	c["GET /api/v1/me/export"] = routeSpec{
+	c["GET /api/v1/me/export/"] = routeSpec{
 		Tags: []string{"gdpr"}, Summary: "Export my personal data (RGPD right of access)",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}

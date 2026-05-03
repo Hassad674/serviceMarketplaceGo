@@ -74,19 +74,28 @@ func BuildOpenAPIDocument(router chi.Router) OpenAPIDocument {
 		op := operationFor(method, route, registry)
 
 		methodKey := strings.ToLower(method)
-		if _, ok := paths[oapiPath]; !ok {
-			paths[oapiPath] = map[string]any{}
-		}
-		// Path-level parameters (collected once per path) — OpenAPI
-		// allows operations to inherit them.
-		if existing, ok := paths[oapiPath]["parameters"]; !ok {
-			if params := pathParamsFor(route); len(params) > 0 {
-				paths[oapiPath]["parameters"] = params
+		registerPath := func(p string) {
+			if _, ok := paths[p]; !ok {
+				paths[p] = map[string]any{}
 			}
-		} else {
-			_ = existing
+			if _, ok := paths[p]["parameters"]; !ok {
+				if params := pathParamsFor(route); len(params) > 0 {
+					paths[p]["parameters"] = params
+				}
+			}
+			paths[p][methodKey] = op
 		}
-		paths[oapiPath][methodKey] = op
+		registerPath(oapiPath)
+		// chi's `r.Route("/x", func(r) { r.Get("/", h) })` registers
+		// the canonical path as `/x/` (trailing slash) but ALSO accepts
+		// requests to `/x` (no slash) — both return 200. Expose the
+		// alias in the OpenAPI document so consumers that historically
+		// hit the un-slashed form (the entire web app does) get a
+		// matching path entry. Without this, `paths["/api/v1/profile"]`
+		// would be undefined even though the runtime call works.
+		if alt := alternateSlashPath(oapiPath); alt != "" {
+			registerPath(alt)
+		}
 		return nil
 	})
 
@@ -125,6 +134,25 @@ func BuildOpenAPIDocument(router chi.Router) OpenAPIDocument {
 			"schemas": registry.export(),
 		},
 	}
+}
+
+// alternateSlashPath returns a sibling path with the trailing slash
+// flipped — `/foo/` ↔ `/foo`. Used to expose both forms in the
+// OpenAPI document because chi's r.Route group + r.Get("/") accepts
+// callers using either form. Returns "" when no alternate makes sense
+// (root paths, paths with no slash to flip, or query-string-bearing
+// paths the OpenAPI doc never describes).
+//
+// We do NOT flip when the path is the bare root "/" — there is no
+// alternate.
+func alternateSlashPath(p string) string {
+	if p == "" || p == "/" {
+		return ""
+	}
+	if strings.HasSuffix(p, "/") {
+		return strings.TrimRight(p, "/")
+	}
+	return p + "/"
 }
 
 // chiPathToOpenAPI converts a chi route template to an OpenAPI path

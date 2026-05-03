@@ -291,9 +291,18 @@ func defaultSuccessStatus(method string) string {
 // catalogueLookup returns the curated routeSpec for a (method, route)
 // pair. Hits the dense map produced by buildCatalogue() — the cost is
 // one map lookup per route at boot time.
+//
+// chi reports `r.Route("/x", func(r) { r.Get("/", h) })` as `/x/` but
+// the catalogue may key the entry on `/x` (or vice-versa). Try both
+// trailing-slash variants before reporting a miss.
 func catalogueLookup(method, route string) (routeSpec, bool) {
 	if spec, ok := catalogue[method+" "+route]; ok {
 		return spec, true
+	}
+	if alt := alternateSlashPath(route); alt != "" {
+		if spec, ok := catalogue[method+" "+alt]; ok {
+			return spec, true
+		}
 	}
 	return routeSpec{}, false
 }
