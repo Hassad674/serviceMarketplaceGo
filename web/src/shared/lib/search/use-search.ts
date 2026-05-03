@@ -1,5 +1,6 @@
-import type { Get } from "@/shared/lib/api-paths"
 "use client"
+
+import type { Get } from "@/shared/lib/api-paths"
 
 /**
  * use-search.ts is the TanStack Query hook the listing pages use
