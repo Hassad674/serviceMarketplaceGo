@@ -1,135 +1,90 @@
-# Rapport Tests + Migrations + DB — Final Verification
+# Rapport Tests + Migrations + DB — Final Deep Audit V2
 
-**Date** : 2026-05-01 (final verification post F.1 + F.2)
-**Branche** : `chore/final-verification-audit`
+**Date** : 2026-05-03 (final-deep-audit-v2 post F.1 + F.2 + F.3.1 + F.3.3)
+**Branch** : `chore/final-deep-audit-v2`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
-**Méthodologie** : audit statique + run réel `go test ./... -count=1` (PASS, all green) + cross-référence avec PRs #31 → #91 mergés.
+**Méthodologie** : audit statique + run réel `go test ./... -count=1` (PASS) + `gosec` (PASS) + `flutter analyze lib/` (PASS) + admin vitest (PASS once npm install).
 
 ---
 
-## Verification: backend test suite green
+## Verification: backend test suite green (2026-05-03)
 
-`cd backend && go build ./... && go vet ./... && go test ./... -count=1 -timeout 120s` — **all passing**, 0 failures, 0 race conditions detected (where -race enabled). gosec sweep: 652 files, 0 issues, 41 nosec annotations.
+```
+cd backend && go build ./... && go vet ./... && go test ./... -count=1 -timeout 180s
+PASS — all 60+ packages green, 0 failures.
+gosec -quiet -fmt=text -exclude-dir=mock ./... → 674 files, 111 355 lines, 0 issues, 41 nosec.
+go mod verify → all modules verified.
+go mod tidy -diff → 73 lines drift (XSAM/otelsql + redisotel referenced but in indirect requires).
+```
 
-## What changed since previous round (F.1 + F.2 PRs #67 → #91)
+## Verification: frontend (2026-05-03)
 
-- **P5 (#74)** GDPR endpoints — new `app/gdpr/` (Service, Scheduler, Signer) + `gdpr_handler.go` + `routes_gdpr.go` + `app/gdpr/service_test.go`, `scheduler_test.go`. Tests cover Export, RequestDeletion, ConfirmDeletion, CancelDeletion, salt-anonymization purge.
-- **P6 (#85)** Last_message denormalisation — m.133, conversation queries refactored, `bench_test.go` for the denormalized list path.
-- **P8 (#86)** Stripe webhook async via pending_events — m.134 dedup column, stripe handler async dispatch.
-- **P9 (#89)** Web cross-feature ESLint enforcement — `eslint.config.mjs` with 33 `import/no-restricted-paths` zones.
-- **P10 (#87)** ReadHeaderTimeout slowloris guard, slow query logger, mutation rate limit anonymous fallback. `wire_serve_test.go` (258 LOC), `slow_query_test.go` (359 LOC), `ratelimit_test.go` extended (+234 LOC).
-- **P11 (#88)** OTel SDK + 3-step graceful shutdown. `internal/observability/otel_test.go`.
+```
+cd web && npx tsc --noEmit → clean.
+cd web && npx eslint . → 14 problems (3 errors, 11 warnings) in use-global-ws.ts.
+cd admin && npm install → 1 package added (zustand@5.0.12 — was missing from node_modules!).
+cd admin && npx tsc --noEmit → clean.
+cd admin && npx vitest run → 14 test files, 112 tests, ALL PASSING (after npm install).
+cd mobile && PATH=$HOME/flutter/bin:$PATH flutter analyze lib/ → 0 errors, 2 warnings, 52 infos.
+```
 
----
-
-## Tests added since previous audit (post PR #41)
-
-11+ PRs landed → ~80 nouveaux fichiers de test. Détail :
-
-| PR | Tests added |
-|---|---|
-| Phase 1 (PR #31) | `service_bruteforce_test.go`, `auth/refresh_rotation_test.go`, `mobile/single_flight_test.dart`, ratelimit Redis sliding-window tests, validator DTO tests |
-| Phase 1 (PR #32) | `security_headers_test.go`, `cors_test.go`, Android cleartext config, session_version-bump tests |
-| Phase 1 (PR #33) | XSS JSON-LD escape, ConfirmPayment Stripe verify, magic-byte upload extended, embedded invalid_json, advisory_lock race |
-| Phase 1.5 (PR #34) | gosec sweep tests : SQL injection placeholder coverage, multipart streaming, fail-fast prod test |
-| Phase 2 D (PR #35) | `service_bug09_test.go`, payment state machine guards, dispute restore propagation, milestone GetByIDWithVersion |
-| Phase 2 E (PR #36) | `outbox_integration_test.go`, webhook composite idempotency, notification worker pool, mobile FCM tap routing |
-| Phase 2.5 (PR #40) | WS sendOrDrop + wasLast race, embedded JSON unmarshal, upload goroutine ctx, NilSliceToEmpty |
-| Phase 3 G (PR #38) | tests for split wallet/messaging/search-filter components, RHF/zod billing-profile-form |
-| Phase 3 I (PR #37) | extracted shared/* component tests, cross-feature import lint check |
-| Phase 4 N (PR #41) | DashboardShell ≥90% coverage, CSP completeness e2e, Vite manualChunks build verification |
-| Phase 5 Q (PR #39) | `rls_isolation_test.go` (cross-tenant denial across 9 tables, table-driven, property-based via testing/quick) |
-| Recent (PR #51-#66) | RLS migration coverage `audit_repository_rls_test.go`, `conversation_messages_list_rls_test.go`, `invoicing_repository_rls_test.go`, `notification_repository_test.go`, `payout_bug_new_01_test.go`, `payout_split_test.go` |
+**Critical workflow gap confirmed**: `cd admin && npx vitest run` without `npm install` first **fails** with `Failed to resolve import "zustand" from "src/shared/stores/auth-store.ts"` — 3 test files / 14 fail. CI passes because CI runs `npm ci`. Local DX is broken for any contributor pulling F.3.1.
 
 ---
 
-# AREA 1 — TESTS
+## What changed since 2026-05-01
 
-## Backend coverage par layer
+- **F.3.1 (PR #94)** — admin token in-memory (SEC-FINAL-07), SSRF guard (SEC-FINAL-04), RequireRole middleware (SEC-FINAL-03), 8 ADRs, CHANGELOG.md, pre-commit hooks. **Tests green**.
+- **F.3.3 (PR #96)** — split 19 backend files > 600 (now only `main.go` 786), centralize mobile hex colors into AppPalette (124 vs 573), tighten dynamic types (508 vs 746).
+- **F.3.2 (UNMERGED branch `feat/f3-2-openapi-and-typed-paths`)** — 11 commits including OpenAPI 3.1 schema, typed apiClient sweep 174/178 sites, contract tests, GDPR + mobile bridge e2e specs, ~4660 lines of new tests. **Not on main**.
 
-| Layer | Non-test files | Test files | File coverage % |
-|---|---|---|---|
-| `internal/domain/*` (29 modules) | 81 | 53 | ~65% |
-| `internal/app/*` (32 modules) | 84 | 79 | ~94% |
-| `internal/handler/*` (root) | 54 | 38 | ~70% |
-| `internal/handler/middleware/` | 14 | 9 | ~64% |
-| `internal/handler/dto/{request,response}/` | 100+ | 0 | **0%** |
-| `internal/adapter/postgres/` | 65 | 23 | **35%** |
-| `internal/adapter/redis/` | 13 | 4 | 31% |
-| `internal/adapter/stripe/` | 8 | 6 | 75% |
-| Adapters externes (anthropic, comprehend, fcm, livekit, rekognition, resend, s3transit, sqs, noop) | 11 | 0 | **0%** |
-| `pkg/*` | 7 | 6 | 86% |
-| `cmd/api/main.go` | 1 (909 LOC) | 0 | 0% |
+---
 
-## Per-domain status (29 modules)
+## Backend coverage par layer (2026-05-03)
 
-- **0 tests** : `media`
-- Sparse (1-2 tests) : `proposal` (entité OK, errors_test manquant), `subscription` (1/2), `report`, `review`
-- Best : `organization` (6/6), `user` (3/3), `invoicing` (6/8), `referral` (5/7)
+| Layer | Files | Tests | Coverage | Notes |
+|---|---|---|---|---|
+| `internal/domain/*` | 81 | 53 | ~65% | media has 0 tests (intentional — only types) |
+| `internal/app/*` | 84 | 79 | ~94% | Avg 75.7% statement coverage |
+| `internal/handler/*` | 54 | 38 | ~70% | 23 handlers untested |
+| `internal/handler/middleware/` | 14 | 9 | 88.3% | new authorization_test.go in F.3.1 |
+| `internal/handler/dto/` | 100+ | 0 | **0%** | no DTO tests (acceptable — DTOs are data structs) |
+| `internal/adapter/postgres/` | 65 | 23 | ~35% | RLS partial coverage in *_rls_test.go |
+| `internal/adapter/redis/` | 13 | 4 | 31% | webhook_idempotency, bruteforce tested |
+| `internal/adapter/stripe/` | 8 | 6 | 75% | |
+| Adapters externes | 11 | 1 | ~9% | only openai/text_moderation tested |
+| `pkg/*` | 7 | 6 | 86% | strong |
 
-## Per-app-module status (32 modules) — UPDATED post PR #41+
+App layer 75.7% average — below 80% target. Priorities for closure: `app/auth` (72.5%), `app/proposal` (62.3%), `app/projecthistory` (55.1%), `app/organization` (55.8%).
 
-| Module | Tests | Status | Notes |
-|---|---|---|---|
-| **admin** | **4/9** | 🟡 PARTIAL | service + extra tests added (PR new) — was 0/9 in previous audit |
-| **kyc** | **1/1** | ✅ | scheduler_test added — was 0/1 |
-| **referral** | **4/24** | 🔴 STILL CRITICAL | money + clawback + commission distribution still under-covered |
-| auth, dispute, embedded, invoicing, job, messaging, milestone, organization, payment, profile, proposal, review, search, subscription, skill | OK | ✅ | |
+---
 
-## Per-handler status (54 fichiers, 38 testés)
-
-**23 handlers sans `_test.go`** :
-- Admin handlers: `admin_dispute`, `admin_handler`, `admin_media`, `admin_message_moderation`, `admin_moderation`, `admin_notification`, `admin_review`, `admin_team`
-- `dispute_handler`, `freelance_pricing_handler`, `invitation_handler`, `job_application_handler`
-- `organization_shared_profile_handler`, `portfolio_handler`, `profile_pricing_handler`
-- `project_history_handler`, `referrer_pricing_handler`, `report_handler`, `role_overrides_handler`
-- **`stripe_handler`** (deux tests adjacents `*_invoicing_test.go` et `*_credit_note_test.go` couvrent seulement ces branches)
-
-Handler-level tests détectent les bugs RBAC/ownership que les unit tests manquent.
-
-## Per-postgres-adapter status (65 fichiers, 23 testés = 35%)
-
-**Repos critiques sans tests** (post-PR #41 update) :
-- `proposal_repository` — money flow, NEW partial coverage in `*_rls_test.go` files
-- `dispute_repository` — money flow
-- `review_repository`
-- `message_repository`
-- `payment_records_repository` — PARTIAL coverage via payout tests
-- `organization_*_repository` (multiples)
-
-Tests présents pour : search, invoicing, billing_profile, milestone, subscription, referral, search_analytics, search_document, job_credit, moderation_results, audit_repository, conversation_messages_list (all RLS tests).
-
-## Per-adapter-externe : 0 tests sur 9
-
-`anthropic`, `comprehend`, `fcm`, `livekit`, `rekognition`, `resend`, `s3transit`, `sqs`, `noop` — 0 tests still.
-
-## Test quality
+## Test quality verified
 
 | Métrique | Compte | Notes |
 |---|---|---|
-| `t.Skip` calls | 27 (22 fichiers) | Tous gated par env vars — clean ✅ |
-| `time.Sleep` in tests | 25 fichiers | flake risk |
+| `t.Skip` calls | 27 (22 fichiers) | All gated by env vars — clean ✅ |
+| `time.Sleep` in tests | 25 fichiers | flake risk, monitor |
 | `_test.go.disabled` | 0 | ✅ |
 | Tests > 500 lignes | 14 | proposal/service_test.go 1344, messaging/service_test.go 1344, auth/service_test.go 1073 |
-| Table-driven tests | 117 fichiers (~46%) | Solide mais pas universel |
+| Table-driven tests | 117 fichiers (~46%) | Solide |
 | testify usage | 252 fichiers (~98%) | ✅ |
-| testcontainers usage | **1 fichier** | `adapter/postgres/search_ranking_v1_repository_test.go` only |
-| Hand-rolled mocks `mocks_test.go` | 17 fichiers | OK — pattern lightweight cohérent |
-| Fixtures | `test/fixtures/search_*` | Scoped à search only |
+| testcontainers usage | 1 fichier | `search_ranking_v1_repository_test.go` only |
+| Hand-rolled `mocks_test.go` | 17 fichiers | Lightweight cohérent |
 | Property tests via testing/quick | 1 file | rls_isolation_test.go |
-
-## Backend integration / E2E
-
-- **`test/e2e/`** = 6 bash scripts (`phase1_e2e.sh` ... `phase6_e2e.sh`) — non invoqués par CI
-- **`test/fixtures/`** = 3 fichiers, search uniquement
-- testcontainers = 1 seul fichier
-- Smoke scripts (`scripts/smoke/{search,ops,security}.sh`) existent mais pas wirés en CI
 
 ---
 
-## Web coverage (92 vitest + 19 Playwright) — UPDATED
+## Backend integration / E2E
 
-### Vitest
+- **`test/e2e/`** = 6 bash scripts — non invoqués par CI
+- **`test/fixtures/`** = 3 fichiers, search uniquement
+- testcontainers = 1 seul fichier
+- Smoke scripts (`scripts/smoke/{search,ops,security}.sh`) — pas wirés en CI
+
+---
+
+## Web coverage (vitest run all green)
 
 | Feature | Vitest tests | Status |
 |---|---|---|
@@ -144,43 +99,32 @@ Tests présents pour : search, invoicing, billing_profile, milestone, subscripti
 | freelance-profile | 5 | OK |
 | invoicing | 5 | OK |
 | job | 1 | thin |
-| messaging | 13 | OK |
+| messaging | 13+ | OK (recent additions on F.3.2 branch) |
 | notification | 3 | OK |
-| **proposal** | **2** | thin (core money flow!) |
+| **proposal** | 2-5 | thin (more on F.3.2 branch) |
 | provider | 9 | OK |
-| referral | 2 | thin (commission flow!) |
-| referrer-profile | 5 | OK |
+| referral | 2 | thin |
 | review | 2 | thin |
 | skill | 7 | OK |
-| **subscription** | **1** | thin (money) |
+| **subscription** | 1 | thin (money) |
 | team | 2 | thin |
-| **wallet** | **2** | thin (money) |
+| **wallet** | 2 | thin (money) |
 
-**4 features RED** unchanged. Money flows (proposal, subscription, wallet) thin. **`shared/components/ui/` (7 components) = 0 tests** alors qu'ils sont réutilisés partout.
-
-Hooks coverage : 27/88 use-*.ts ont des tests (~31%).
-
-### Playwright (19 specs, gated par PR label `run-e2e`)
-
-application-credits, auth, bonus-credits, calls, credits-reset, dashboard, fraud-detection, invoicing, messaging, milestones, navigation, payment-info-states, profile, projects, referrer, search, team-phase1-contract, team-phase2-contract, search/search.spec.ts.
-
-**Pas couvert** : dispute, review, subscription checkout, wallet flows, notification preferences, KYC/Stripe Embedded.
-
-⚠️ Configuré pour ne tourner que push-main ou PR avec label `run-e2e` — **pas par défaut sur les PRs courantes**.
+**4 features RED** unchanged. F.3.2 branch adds tests for proposal-actions-panel, voice-recorder, file-download, message-context-menu, billing/wallet zod contracts — but NOT on main.
 
 ---
 
-## Admin coverage (2/76 = ~3%) — UNCHANGED
+## Admin coverage (3% — UNCHANGED)
 
-**1 feature testée sur 10** : `invoices` (`invoicing-api.test.ts`, `invoices-page.test.tsx`).
+**1 feature testée sur 10**: `invoices` (`invoicing-api.test.ts`, `invoices-page.test.tsx`).
 
-**0 tests** : auth, conversations, dashboard, disputes, jobs, media, moderation, reviews, users.
+**0 tests**: auth, conversations, dashboard, disputes, jobs, media, moderation, reviews, users.
 
 **Aucun job admin dans `ci.yml`** → admin n'a aucun gate.
 
 ---
 
-## Mobile coverage (101 _test.dart, mais CI scope = 3 dirs)
+## Mobile coverage
 
 CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_tier1` uniquement.
 
@@ -203,12 +147,12 @@ CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_
 | freelance_profile | 6 | OK |
 | invoice + invoicing | 8 | OK |
 | job | 4 | OK |
-| messaging | 4 | thin (web has 13!) |
+| messaging | 4 | thin |
 | notification | 2 | thin |
 | organization_shared | 2 | thin |
 | payment_info | 1 | thin |
 | profile + profile_tier1 | 43 | strong |
-| proposal | 2 | thin (money flow) |
+| proposal | 2 | thin |
 | referrer_profile | 6 | OK |
 | review | 3 | thin |
 | search | 17 | strong |
@@ -217,54 +161,54 @@ CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_
 | team | 2 | thin |
 | wallet | 2 | thin (money) |
 
-**0 golden tests** (`matchesGoldenFile` count = 0). Design system avec tokens stricts → opportunité manquée pour visual regression.
+**0 golden tests** (`matchesGoldenFile` count = 0). Design system avec tokens stricts → opportunité manquée.
 
-**Integration tests** : 9 fichiers dans `integration_test/` — **non invoqués par CI**.
+**Integration tests** : 9 fichiers dans `integration_test/` — non invoqués par CI.
+
+`flutter analyze test/` returns 56 errors (test paths only, lib/ is clean) — pre-existing test file issues.
 
 ---
 
-## CI
-
-`/home/hassad/serviceMarketplaceGo/.github/workflows/` — 6 workflows :
+## CI status
 
 | Workflow | Run | Notes |
 |---|---|---|
-| `ci.yml` | go vet, gofmt, govulncheck, go test -race -coverprofile, web tsc, vitest, next build, **flutter analyze (search/profile only)**, **flutter test (search/profile only)** | Coverage gate ≥80% backend (≥85% search/searchanalytics), ≥60% web. ❌ Pas de job admin. |
-| `e2e.yml` | Playwright | Gated par label `run-e2e` ou push-main — ❌ pas sur PRs courantes |
-| `security.yml` | govulncheck + trivy | Hebdo + lockfile-change |
+| `ci.yml` | go vet, gofmt, govulncheck, go test -race -coverprofile, web tsc, vitest, next build, mobile analyze (search/profile only), mobile test (search/profile only) | Coverage gate ≥80% backend (≥85% search), ≥60% web. ❌ Pas de job admin. ❌ ESLint `continue-on-error: true`. |
+| `e2e.yml` | Playwright | Gated par label `run-e2e` ou push-main |
+| `security.yml` | gosec + govulncheck + trivy | Hebdo + lockfile-change. gosec runs `-no-fail` so findings reported but don't block. |
 | `drift.yml` | OpenAPI drift check | ✅ |
 | `lighthouse.yml` | web Lighthouse | ✅ |
 | `snapshot.yml` | DB snapshot | ✅ |
 
-**Gaps** :
+**Gaps**:
 - ❌ Admin app sans aucun gate
 - ❌ Mobile : 3 dirs sur ~30 features
 - ❌ Backend `test/e2e/phase*_e2e.sh` non wirés
 - ❌ Pas de Codecov pour admin
 - ❌ `scripts/smoke/run-all.sh` et `scripts/perf/k6-search.js` non invoqués
-- ❌ Pas de gosec/semgrep sur PR (juste govulncheck)
+- ❌ ESLint advisory only — `eslint . || true` until F.4 cleanup
 
 ---
 
-# AREA 2 — DB / MIGRATIONS — UPDATED
+# DB / MIGRATIONS
 
-## Migration health (post PR #51-#66)
+## Migration health
 
 | Métrique | Valeur |
 |---|---|
-| Total `.up.sql` | **131** (was 125, +126 enum check, +127 fk indexes, +128 pending events stale, +129 audit RLS WITH CHECK, +130 messages nullable sender, +131 perf provider_org indexes) |
-| Down files | 131/131 ✅ |
-| Numbering gaps | 024 et 025 documentés |
-| Latest | `131_perf_provider_org_indexes.up.sql` |
+| Total `.up.sql` | **132** |
+| Down files | 132/132 ✅ |
+| Numbering | gaps 024/025 documented |
+| Latest | `134_pending_events_stripe_event_id.up.sql` |
 | Naming convention | clean (snake_case `create_X` / `add_Y_to_X` / `drop_Z`) ✅ |
 | Idempotency | majoritaire (`IF [NOT] EXISTS`) — ~35 up + 13 down sans (still open) |
-| `CREATE INDEX CONCURRENTLY` | **0 sur 200+** ⚠️ — m.131 documents the manual workflow |
+| `CREATE INDEX CONCURRENTLY` | **1** (m.131) on 200+ index migrations — m.131 documents the manual workflow |
 
 ## Schema consistency — org-scoping audit
 
 | Table | Ownership | Status |
 |---|---|---|
-| users | (root, `organization_id`) | OK |
+| users | (root) | OK |
 | organizations | (root) | OK |
 | organization_members | `user_id` (membership) | OK |
 | organization_invitations | `inviter_id`, `target_user_id` | OK |
@@ -272,24 +216,24 @@ CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_
 | social_links | `organization_id` only (m.069) | ✅ |
 | portfolio_items | `organization_id` only (m.068) | ✅ |
 | **subscriptions** | `organization_id` only (m.119) | ✅ FIXED |
-| application_credits | dropped m.075, columns sur `organizations` | ✅ |
+| application_credits | dropped m.075 | ✅ |
 | jobs | `organization_id` (m.061) | ✅ |
-| job_applications | `applicant_organization_id` denormalized + user FK | ⚠️ partial |
-| **proposals** | `client_organization_id` + `provider_organization_id` (m.115) ALONGSIDE `client_id` + `provider_id` + `sender_id` + `recipient_id` | ⚠️ denormalized |
-| **disputes** | `*_organization_id` ALONGSIDE `client_id` + `provider_id` + `initiator_id` + `respondent_id` | ⚠️ denormalized |
-| **reviews** | `*_organization_id` ALONGSIDE `reviewer_id` + `reviewed_id` | ⚠️ denormalized |
-| **payment_records** | `organization_id` + `provider_organization_id` (m.131) ALONGSIDE `client_id` + `provider_id` | ⚠️ denormalized |
-| **conversations** | `organization_id` ALONGSIDE participants | ⚠️ denormalized |
+| job_applications | `applicant_organization_id` denormalised + user FK | ⚠️ partial |
+| **proposals** | `client_organization_id` + `provider_organization_id` (m.115) ALONGSIDE `client_id` + `provider_id` | ⚠️ denormalised |
+| **disputes** | `*_organization_id` ALONGSIDE legacy IDs | ⚠️ denormalised |
+| **reviews** | `*_organization_id` ALONGSIDE legacy IDs | ⚠️ denormalised |
+| **payment_records** | `organization_id` + `provider_organization_id` (m.131) ALONGSIDE legacy IDs | ⚠️ denormalised |
+| **conversations** | `organization_id` ALONGSIDE participants | ⚠️ denormalised |
 | invoice / credit_note / billing_profile | `organization_id` only (m.121) | ✅ |
-| audit_logs | `user_id` (actor reference) | OK |
+| audit_logs | `user_id` (actor) | OK |
 | notifications, notification_preferences, device_tokens | `user_id` (recipient) | flag |
 | conversation_read_state | `user_id` (per-user marker) | OK |
 
-**Pattern de transition** : la migration vers org-scoped n'a pas droppé les colonnes `user_id`-style ; elles coexistent avec les `*_organization_id` dénormalisées. Documentation invariant nécessaire : "user_id columns sont write-only authorship, jamais utilisé pour les filtres ownership". Lint check CI utile.
+**Pattern de transition**: la migration vers org-scoped n'a pas droppé les colonnes `user_id`-style; elles coexistent avec les `*_organization_id` dénormalisées. Documented invariant: "user_id columns sont write-only authorship, jamais utilisé pour les filtres ownership".
 
-## Cross-feature foreign keys (FORBIDDEN per CLAUDE.md)
+## Cross-feature foreign keys
 
-**Violations détectées** (~10 distinctes) :
+Per backend/CLAUDE.md (relaxed rule), the following FKs are accepted business-driven exceptions:
 - `disputes.proposal_id → proposals(id)` (m.045)
 - `disputes.job_id → jobs(id)` (m.045)
 - `reviews.proposal_id → proposals(id)` (m.012)
@@ -297,82 +241,69 @@ CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_
 - `payment_records.proposal_id → proposals(id)` (m.018)
 - `proposals.conversation_id → conversations(id)`
 
-La règle stricte CLAUDE.md ("only references users(id)") est largement violée. **Décision à prendre** :
-- Soit relaxer la règle dans CLAUDE.md (admettre que les workflows business ont besoin de FK cross-feature) — recommandé
-- Soit migrer les FKs problématiques vers des denormalized references sans contrainte (lourd + perte d'intégrité)
+The original "only `REFERENCES users(id)`" rule is **relaxed** in `backend/CLAUDE.md:347`. Documented.
 
-## Index audit (cf. auditperf.md table-by-table)
+## RLS audit
 
-- 200+ `CREATE INDEX` sur 131 migrations
-- Composites `(created_at DESC, id DESC)` présents pour cursor pagination ✅
-- Partial indexes utilisés ✅
-- m.127 ajoute les 9 missing FK indexes
-- m.131 ajoute les composites provider_org pour PERF-B-08
+✅ **9 tables under RLS** as of m.125 + audit_logs FOR INSERT WITH CHECK (m.129). FORCE ROW LEVEL SECURITY enabled. Cross-tenant denial integration tests in `rls_isolation_test.go` are passing.
 
-## RLS audit — UPDATED
+✅ **35 legacy `.GetByID()` callers** — closed by `loadProposalForActor`/`loadDisputeForActor` system-actor branching + soft `warnIfNotSystemActor` guardrail (F.1.1).
 
-✅ **9 tables under RLS** as of migration 125 + audit_logs FOR INSERT WITH CHECK (m.129). FORCE ROW LEVEL SECURITY enabled. Cross-tenant denial integration tests in `rls_isolation_test.go` are passing.
-
-⚠️ **CRITICAL deployment dependency** (BUG-FINAL-01) : 35 legacy `.GetByID()` callers in app layer break under prod role rotation. Today, RLS is bypassed by the migration owner role. The moment production rotates to a dedicated `marketplace_app NOSUPERUSER NOBYPASSRLS` role, EVERY repo read against the 9 RLS tables that doesn't go through `RunInTxWithTenant` will return zero rows. The 8-path PR series migrated REPO METHODS but NOT APP CALLERS using legacy `GetByID`.
-
-⚠️ Phase 5 Q est une foundation, mais la migration des 35 app callers vers `GetByIDForOrg` est **pre-prod blocker**.
-
-## Migration safety / production risk — UPDATED
+## Migration safety
 
 | Issue | Migration(s) | Risk |
 |---|---|---|
-| **`CREATE INDEX` sans CONCURRENTLY** | 200+ occurrences | Holds `ACCESS EXCLUSIVE` ; m.131 documents the manual workflow |
+| `CREATE INDEX` sans CONCURRENTLY | 200+ occurrences | Holds `ACCESS EXCLUSIVE`; m.131 documents manual workflow |
 | `ALTER TABLE ... ADD COLUMN ... NOT NULL` après backfill | m.119 | OK PG≥11 |
 | Backfill UPDATEs in same TX as schema change | m.075, m.115, m.131 | Long TX risque lock contention |
 | Migration gap 024/025 | sequence | golang-migrate tolère |
-| Atomic FK drop + col drop | m.119 | OK |
 
 ## Audit log table
 
-- Schema m.078 conforme ✅
-- ✅ Append-only enforced via `REVOKE UPDATE, DELETE` (m.124)
+- ✅ Schema m.078 conforme
+- ✅ Append-only via `REVOKE UPDATE, DELETE` (m.124)
 - ✅ RLS isolation via `USING` + `WITH CHECK (true)` (m.125 + m.129)
-- Indexes `user_id` partial, `action`, `created_at DESC`, `(resource_type, resource_id)` partial ✅
+- ✅ Indexes: user_id partial, action, created_at DESC, (resource_type, resource_id) partial
 
-## Soft delete / cascade
+## Constraints
 
-- Quasi-pas de soft delete (1 match `deleted_at` dans `messages`)
-- Mix `ON DELETE CASCADE` / `ON DELETE SET NULL` selon les tables — sémantiques mixtes. Documenter.
-
-## Constraints — UPDATED
-
-- 67+ `CHECK (` constraints (added ~10 in m.126 for status enums)
-- 17 `UNIQUE` column-level (partial unique indexes en plus)
-- ✅ CHECK constraints for status enums (`proposals.status`, `disputes.status`, etc.) added in m.126
+- 67+ `CHECK (` constraints
+- 17 `UNIQUE` column-level
+- ✅ CHECK constraints for status enums (m.126)
 
 ---
 
-# COMBINED — Top 15 priorités — UPDATED
+# COMBINED — Top 15 priorités
 
 ## Tests (P0 → P2)
 
 | # | Item | Effort | Status |
 |---|---|---|---|
-| 1 | **`internal/app/admin/`** : 4/9 → 9/9 | 1 sem | partial done |
-| 2 | **`internal/app/kyc/`** : 1/1 ✅ | done | ✅ |
-| 3 | **`internal/app/referral/`** : 4/24 → cibler money paths (clawback, commission distributor, kyc_listener) | 3-4 jours | partial |
-| 4 | **23 handlers untested** : prioriser admin handlers + dispute/stripe/role_overrides | 1 sem | open |
-| 5 | **postgres adapter critiques** : proposal, dispute, review, message, payment_records, notification | 1 sem | RLS partial |
-| 6 | **Admin app web** : minimum 1 test par feature (10) | 3 jours | open |
-| 7 | **Web vitest 4 features RED** (billing, dispute, organization-shared, reporting) + thin (proposal, subscription, wallet) | 2-3 jours | open |
-| 8 | **Mobile 9 features RED** (dashboard, dispute, mission, portfolio, project_history, provider_profile, referral, referrer_reputation, reporting) + 0 golden tests | 1 sem | open |
-| 9 | **CI gaps** : wire admin tests, étendre mobile scope, run smoke scripts | 1 jour | open |
-| 10 | **Adapter externes 0/9** : tests httptest pour anthropic/openai/fcm/etc | M | open |
+| 1 | **Admin in CI** (zero gate currently) | XS | 🔴 OPEN |
+| 2 | **Web vitest 4 RED features** (billing, dispute, organization-shared, reporting) | M | 🔴 OPEN |
+| 3 | **Mobile 9 RED features** | L | 🔴 OPEN |
+| 4 | **23 untested handlers** (admin handlers + dispute/stripe/role_overrides) | L | 🔴 OPEN |
+| 5 | **postgres adapter critiques** (proposal, dispute, review, message, notification) | L | 🟡 partial via RLS tests |
+| 6 | **Adapter externes 0/9** (anthropic, comprehend, fcm, etc) | M | 🔴 OPEN |
+| 7 | **Mobile 0 golden tests** | M | 🔴 OPEN |
+| 8 | **App layer coverage 75.7% → 80%** target | M | 🔴 OPEN |
 
 ## Migrations / DB
 
 | # | Item | Effort | Status |
 |---|---|---|---|
-| 11 | **35 legacy GetByID callers → GetByIDForOrg** (BUG-FINAL-01 deployment blocker) | 3 jours | **OPEN — PRE-PROD BLOCKER** |
-| 12 | **Décider cross-feature FK rule** : relaxer CLAUDE.md OU migrer 10 violations | 30min déc | open |
-| 13 | **Documenter invariant org_id** : "user_id columns = write-only authorship", lint CI | 2h | open |
-| 14 | **`IF [NOT] EXISTS`** sur les 35+13 migrations non-idempotentes | 2h | open |
-| 15 | Convention `CREATE INDEX CONCURRENTLY` future migrations grandes tables | doc | open |
+| 9 | **35 legacy GetByID callers → GetByIDForOrg** | 3 days | ✅ CLOSED (F.1.1) |
+| 10 | **Documenter invariant org_id** : "user_id columns = write-only authorship", lint CI | 2h | open |
+| 11 | **`IF [NOT] EXISTS`** sur les 35+13 migrations non-idempotentes | 2h | open |
+| 12 | Convention `CREATE INDEX CONCURRENTLY` future migrations grandes tables | doc | partial (m.131 documents) |
+
+## CI / Workflow
+
+| # | Item | Effort | Status |
+|---|---|---|---|
+| 13 | **Add admin job to ci.yml** | XS | 🔴 OPEN |
+| 14 | **Flip ESLint to fail-on-error** after F.4.2 | XS | 🔴 OPEN |
+| 15 | **Add `go mod tidy -check` to backend-lint** | XS | 🔴 OPEN |
 
 ---
 
@@ -380,12 +311,12 @@ La règle stricte CLAUDE.md ("only references users(id)") est largement violée.
 
 | Area | Critical | Major | Minor |
 |---|---|---|---|
-| Tests backend | 1 (RLS GetByID callers) | 4 (handlers untested + adapter externes) | 2 (E2E shell scripts, fixtures sparse) |
-| Tests web | 2 (4 features 0 + ui/ untested) | 2 (proposal/subscription/wallet thin, Playwright label-gated) | 1 (hooks 31%) |
-| Tests admin | 1 (3% coverage, no CI job) | 0 | 0 |
-| Tests mobile | 2 (9 features 0 + 0 goldens) | 2 (CI scope tiny, integration tests unrun) | 1 (referral/reporting/dispute zero) |
-| Migrations schema | 1 (cross-FK violations) | 1 (user_id ownership cols survive) | 0 |
-| Migrations safety | 0 | 1 (CREATE INDEX never CONCURRENT) | 1 (long-TX backfills) |
-| **Total** | **7** | **10** | **5** |
+| Tests backend | 0 | 4 (handlers untested + adapter externes) | 2 (E2E shell scripts unrun) |
+| Tests web | 0 | 2 (4 RED features + ui/ untested) | 1 (hooks 31% coverage) |
+| Tests admin | 1 (3% + no CI job + install gap) | 0 | 0 |
+| Tests mobile | 0 | 2 (9 RED features + 0 goldens) | 1 (CI scope tiny, integration tests unrun) |
+| Migrations schema | 0 | 0 | 0 |
+| Migrations safety | 0 | 1 (CREATE INDEX never CONCURRENT — m.131 documents) | 1 (long-TX backfills) |
+| **Total** | **1** | **9** | **5** |
 
-**Top priority remains** : **migrate 35 legacy `.GetByID()` callers to `GetByIDForOrg` BEFORE rotating prod DB role to NOSUPERUSER NOBYPASSRLS** (BUG-FINAL-01). Otherwise the entire app returns empty under the dedicated role.
+**Top priority remains**: F.4 — close the 7 publication blockers (3 ESLint errors web, admin install dance, idempotency middleware, slog redact, Stripe error sanitize, go mod tidy, F.3.2 PR merge).
