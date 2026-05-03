@@ -5,6 +5,7 @@
 // / etc.) to render the right inline message + action.
 import { apiClient, API_BASE_URL } from "@/shared/lib/api-client"
 
+import type { Get, Post } from "@/shared/lib/api-paths"
 export type RequestDeletionResponse = {
   email_sent_to: string
   expires_at: string // RFC3339
@@ -49,7 +50,7 @@ export type OwnerBlockedDetails = {
  *   .status === 401                            → unauthenticated
  */
 export function requestDeletion(password: string): Promise<RequestDeletionResponse> {
-  return apiClient<RequestDeletionResponse>("/api/v1/me/account/request-deletion", {
+  return apiClient<Post<"/api/v1/me/account/request-deletion"> & RequestDeletionResponse>("/api/v1/me/account/request-deletion", {
     method: "POST",
     body: { password, confirm: true },
   })
@@ -63,7 +64,7 @@ export function requestDeletion(password: string): Promise<RequestDeletionRespon
  * tampered with.
  */
 export function confirmDeletion(token: string): Promise<ConfirmDeletionResponse> {
-  return apiClient<ConfirmDeletionResponse>(
+  return apiClient<Get<"/api/v1/me/account/confirm-deletion"> & ConfirmDeletionResponse>(
     "/api/v1/me/account/confirm-deletion?token=" + encodeURIComponent(token),
     { method: "GET" },
   )
@@ -78,7 +79,7 @@ export function confirmDeletion(token: string): Promise<ConfirmDeletionResponse>
  * navigated to directly without going through the email link.
  */
 export function cancelDeletion(): Promise<CancelDeletionResponse> {
-  return apiClient<CancelDeletionResponse>("/api/v1/me/account/cancel-deletion", {
+  return apiClient<Post<"/api/v1/me/account/cancel-deletion"> & CancelDeletionResponse>("/api/v1/me/account/cancel-deletion", {
     method: "POST",
   })
 }

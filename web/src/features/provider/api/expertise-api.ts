@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Put } from "@/shared/lib/api-paths"
 // Backend wraps the response body in a `data` envelope specifically for
 // this endpoint — existing profile endpoints return flat objects, so we
 // normalize here and expose only the meaningful payload to callers.
@@ -18,7 +19,7 @@ export type UpdateExpertiseResult = {
 export async function updateExpertiseDomains(
   domains: string[],
 ): Promise<UpdateExpertiseResult> {
-  const response = await apiClient<UpdateExpertiseResponse>(
+  const response = await apiClient<Put<"/api/v1/profile/expertise"> & UpdateExpertiseResponse>(
     "/api/v1/profile/expertise",
     {
       method: "PUT",

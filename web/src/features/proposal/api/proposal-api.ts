@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post, Void } from "@/shared/lib/api-paths"
 import type {
   ProposalResponse,
   ProjectListResponse,
@@ -43,14 +44,14 @@ export type ModifyProposalData = {
 }
 
 export function createProposal(data: CreateProposalData): Promise<ProposalResponse> {
-  return apiClient<ProposalResponse>("/api/v1/proposals", {
+  return apiClient<Post<"/api/v1/proposals"> & ProposalResponse>("/api/v1/proposals", {
     method: "POST",
     body: data,
   })
 }
 
 export function getProposal(id: string): Promise<ProposalResponse> {
-  return apiClient<ProposalResponse>(`/api/v1/proposals/${id}`)
+  return apiClient<Get<"/api/v1/proposals/{id}"> & ProposalResponse>(`/api/v1/proposals/${id}`)
 }
 
 // `acceptProposal` and `declineProposal` are shared with the
@@ -60,27 +61,27 @@ export function getProposal(id: string): Promise<ProposalResponse> {
 export { acceptProposal, declineProposal } from "@/shared/lib/proposal/proposal-actions-api"
 
 export function modifyProposal(id: string, data: ModifyProposalData): Promise<ProposalResponse> {
-  return apiClient<ProposalResponse>(`/api/v1/proposals/${id}/modify`, {
+  return apiClient<Post<"/api/v1/proposals/{id}/modify"> & ProposalResponse>(`/api/v1/proposals/${id}/modify`, {
     method: "POST",
     body: data,
   })
 }
 
 export function initiatePayment(id: string): Promise<PaymentIntentResponse> {
-  return apiClient<PaymentIntentResponse>(`/api/v1/proposals/${id}/pay`, { method: "POST" })
+  return apiClient<Post<"/api/v1/proposals/{id}/pay"> & PaymentIntentResponse>(`/api/v1/proposals/${id}/pay`, { method: "POST" })
 }
 
 export function confirmPayment(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/confirm-payment`, { method: "POST" })
+  return apiClient<Void<"/api/v1/proposals/{id}/confirm-payment">>(`/api/v1/proposals/${id}/confirm-payment`, { method: "POST" })
 }
 
 export function listProjects(cursor?: string): Promise<ProjectListResponse> {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<ProjectListResponse>(`/api/v1/projects${params}`)
+  return apiClient<Get<"/api/v1/projects"> & ProjectListResponse>(`/api/v1/projects${params}`)
 }
 
 export function getUploadURL(filename: string, contentType: string): Promise<UploadURLResponse> {
-  return apiClient<UploadURLResponse>("/api/v1/messaging/upload-url", {
+  return apiClient<Post<"/api/v1/messaging/upload-url"> & UploadURLResponse>("/api/v1/messaging/upload-url", {
     method: "POST",
     body: { filename, content_type: contentType },
   })
@@ -94,33 +95,33 @@ export function fundMilestone(
   proposalID: string,
   milestoneID: string,
 ): Promise<PaymentIntentResponse> {
-  return apiClient<PaymentIntentResponse>(
+  return apiClient<Post<"/api/v1/proposals/{id}/milestones/{mid}/fund"> & PaymentIntentResponse>(
     `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/fund`,
     { method: "POST" },
   )
 }
 
 export function submitMilestone(proposalID: string, milestoneID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/proposals/{id}/milestones/{mid}/submit">>(
     `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/submit`,
     { method: "POST" },
   )
 }
 
 export function approveMilestone(proposalID: string, milestoneID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/proposals/{id}/milestones/{mid}/approve">>(
     `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/approve`,
     { method: "POST" },
   )
 }
 
 export function rejectMilestone(proposalID: string, milestoneID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/proposals/{id}/milestones/{mid}/reject">>(
     `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/reject`,
     { method: "POST" },
   )
 }
 
 export function cancelProposal(proposalID: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${proposalID}/cancel`, { method: "POST" })
+  return apiClient<Void<"/api/v1/proposals/{id}/cancel">>(`/api/v1/proposals/${proposalID}/cancel`, { method: "POST" })
 }

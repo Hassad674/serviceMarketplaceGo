@@ -1,4 +1,5 @@
 import { apiClient, ApiError } from "@/shared/lib/api-client"
+import type { Get, Patch, Post } from "@/shared/lib/api-paths"
 import type {
   BillingCycle,
   CyclePreview,
@@ -22,7 +23,7 @@ import type {
 
 /** POST /api/v1/subscriptions — start a new Premium checkout. */
 export function subscribe(input: SubscribeInput): Promise<SubscribeResponse> {
-  return apiClient<SubscribeResponse>("/api/v1/subscriptions", {
+  return apiClient<Post<"/api/v1/subscriptions"> & SubscribeResponse>("/api/v1/subscriptions", {
     method: "POST",
     body: input,
   })
@@ -36,7 +37,7 @@ export function subscribe(input: SubscribeInput): Promise<SubscribeResponse> {
  */
 export async function getMySubscription(): Promise<Subscription | null> {
   try {
-    return await apiClient<Subscription>("/api/v1/subscriptions/me")
+    return await apiClient<Get<"/api/v1/subscriptions/me"> & Subscription>("/api/v1/subscriptions/me")
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null
     throw err
@@ -45,7 +46,7 @@ export async function getMySubscription(): Promise<Subscription | null> {
 
 /** PATCH /api/v1/subscriptions/me/auto-renew — flip cancel_at_period_end. */
 export function toggleAutoRenew(autoRenew: boolean): Promise<Subscription> {
-  return apiClient<Subscription>("/api/v1/subscriptions/me/auto-renew", {
+  return apiClient<Patch<"/api/v1/subscriptions/me/auto-renew"> & Subscription>("/api/v1/subscriptions/me/auto-renew", {
     method: "PATCH",
     body: { auto_renew: autoRenew },
   })
@@ -56,7 +57,7 @@ export function toggleAutoRenew(autoRenew: boolean): Promise<Subscription> {
  * Both directions are supported. Stripe applies an immediate proration.
  */
 export function changeCycle(billingCycle: BillingCycle): Promise<Subscription> {
-  return apiClient<Subscription>("/api/v1/subscriptions/me/billing-cycle", {
+  return apiClient<Patch<"/api/v1/subscriptions/me/billing-cycle"> & Subscription>("/api/v1/subscriptions/me/billing-cycle", {
     method: "PATCH",
     body: { billing_cycle: billingCycle },
   })
@@ -69,7 +70,7 @@ export function changeCycle(billingCycle: BillingCycle): Promise<Subscription> {
  */
 export async function getStats(): Promise<SubscriptionStats | null> {
   try {
-    return await apiClient<SubscriptionStats>("/api/v1/subscriptions/me/stats")
+    return await apiClient<Get<"/api/v1/subscriptions/me/stats"> & SubscriptionStats>("/api/v1/subscriptions/me/stats")
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null
     throw err
@@ -87,7 +88,7 @@ export async function getStats(): Promise<SubscriptionStats | null> {
  */
 export function getCyclePreview(billingCycle: BillingCycle): Promise<CyclePreview> {
   const qs = new URLSearchParams({ billing_cycle: billingCycle }).toString()
-  return apiClient<CyclePreview>(`/api/v1/subscriptions/me/cycle-preview?${qs}`)
+  return apiClient<Get<"/api/v1/subscriptions/me/cycle-preview"> & CyclePreview>(`/api/v1/subscriptions/me/cycle-preview?${qs}`)
 }
 
 /**
@@ -97,6 +98,6 @@ export function getCyclePreview(billingCycle: BillingCycle): Promise<CyclePrevie
  * tab — we never embed Stripe's portal in an iframe.
  */
 export async function getPortalURL(): Promise<string> {
-  const payload = await apiClient<{ url: string }>("/api/v1/subscriptions/portal")
+  const payload = await apiClient<Get<"/api/v1/subscriptions/portal"> & { url: string }>("/api/v1/subscriptions/portal")
   return payload.url
 }

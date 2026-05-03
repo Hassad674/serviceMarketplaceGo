@@ -141,7 +141,25 @@ func NewRouter(deps RouterDeps) chi.Router {
 		mountTestRoutes(r, deps)
 	})
 
+	mountOpenAPIRoutes(r)
+
 	return r
+}
+
+// mountOpenAPIRoutes exposes the OpenAPI 3.1 schema describing the
+// rest of the router. The handler is registered AFTER every other
+// mount so chi.Walk inside ServeOpenAPIHandler sees the complete
+// route tree at boot time. The schema is built once and cached for
+// the lifetime of the process; consumers (web/admin/mobile generators)
+// hit this endpoint to derive their typed client.
+//
+// Both /api/openapi.json and /api/v1/openapi.json are exposed so
+// `npm run generate-api` works regardless of whether the consumer
+// expects the v1-prefixed path.
+func mountOpenAPIRoutes(r chi.Router) {
+	handler := ServeOpenAPIHandler(r)
+	r.Get("/api/openapi.json", handler)
+	r.Get("/api/v1/openapi.json", handler)
 }
 
 // mountGlobalMiddleware installs the request-scoped middlewares that

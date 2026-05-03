@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { Review } from "@/shared/types/review"
 
 export type ProjectHistoryEntry = {
@@ -21,7 +22,7 @@ export async function fetchProjectHistory(
   cursor?: string,
 ): Promise<ProjectHistoryResponse> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<ProjectHistoryResponse>(
+  return apiClient<Get<"/api/v1/profiles/{orgId}/project-history"> & ProjectHistoryResponse>(
     `/api/v1/profiles/${orgId}/project-history${qs}`,
   )
 }

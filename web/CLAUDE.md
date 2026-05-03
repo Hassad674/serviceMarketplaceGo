@@ -332,31 +332,18 @@ features/mission/
 
 ## API Client
 
-- Types are **generated, never hand-written** — run `npm run generate-api` to regenerate from backend OpenAPI schema.
-- The generated types file is `src/shared/types/api.d.ts` (gitignored, generated on demand).
-- Use `apiClient<T>()` from `src/shared/lib/api-client.ts` for all HTTP calls.
+- Types are **generated, never hand-written** — run `npm run generate-api` to regenerate from the backend OpenAPI schema (`http://localhost:8083/api/openapi.json`).
+- For offline regeneration (no running backend) use `npm run generate-api:offline`, which reads `backend/internal/handler/testdata/openapi.golden.json` directly.
+- The generated types file is `src/shared/types/api.d.ts` and **is committed to the repo** (since F.3.2). Reviewers can diff the contract alongside backend changes; CI does not regenerate.
+- Use `apiClient<T>()` from `src/shared/lib/api-client.ts` for all HTTP calls. `T` should reference the typed shape via `paths["/api/v1/..."]["method"]["responses"]["200"]["content"]["application/json"]` — see the `Get<P>` / `Post<P>` helpers in `src/shared/lib/api-paths.ts` for ergonomics.
 - The `ApiError` class provides structured error handling with `status`, `code`, and `message`.
-- API base URL: `NEXT_PUBLIC_API_URL` env var (defaults to `http://localhost:8080`).
+- API base URL: `NEXT_PUBLIC_API_URL` env var (defaults to same-origin in production, `http://localhost:8083` in dev).
 
-### Follow-up: typed `apiClient<paths[...]>(path)` migration (P9 deferred)
+### Regenerating after a backend change
 
-The `npm run generate-api` script targets `http://localhost:8080/api/v1/openapi.json`,
-but the backend currently does not expose that route — `api.d.ts` is therefore
-empty/missing in dev. The P9 plan called for migrating every `apiClient<T>("/api/v1/...")`
-call site from a string-literal path to a typed `apiClient<paths["/api/v1/..."]>(path)`
-shape, but this is gated on the backend exposing OpenAPI first.
-
-Tracking:
-1. Backend: add an OpenAPI 3.1 endpoint at `/api/openapi.json` (and `/api/v1/openapi.json`).
-   Either annotate handlers (e.g. `swaggo/swag`) or build the schema in code from the
-   chi router. Existing snapshot at `scripts/ci/openapi-schema.snapshot.json`
-   suggests the path was planned at `/api/openapi.json`.
-2. Web: update `package.json`'s `generate-api` script to point at the live URL,
-   commit the resulting `src/shared/types/api.d.ts`, then sweep all `apiClient<T>`
-   call sites to use `paths[...]` typing. ~74 sites in `src/`.
-
-Until then, paths stay as string literals — the change is pure typing improvement,
-not behaviour, and is safe to defer behind the OpenAPI exposure work.
+1. Make the backend change + update `internal/handler/testdata/openapi.golden.json` via `go test ./internal/handler/ -run TestOpenAPISchemaShape_Snapshot -update-openapi-golden`.
+2. `cd web && npm run generate-api:offline` to regenerate `api.d.ts` from the new golden.
+3. Commit both the backend golden and the new `api.d.ts` together so the contract change is atomic.
 
 ---
 

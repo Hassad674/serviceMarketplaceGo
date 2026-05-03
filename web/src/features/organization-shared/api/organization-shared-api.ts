@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get, Put } from "@/shared/lib/api-paths"
 // WorkMode mirrors the backend "work_mode" enum. Duplicated here (vs
 // re-exporting from shared) so the org-shared feature stays the
 // canonical writer of the shared columns — consumers import types
@@ -29,7 +30,7 @@ export type OrganizationSharedProfile = {
 type Envelope<T> = { data: T }
 
 export async function getOrganizationShared(): Promise<OrganizationSharedProfile> {
-  const wrapped = await apiClient<Envelope<OrganizationSharedProfile>>(
+  const wrapped = await apiClient<Get<"/api/v1/organization/shared"> & Envelope<OrganizationSharedProfile>>(
     "/api/v1/organization/shared",
   )
   return wrapped.data
@@ -47,7 +48,7 @@ export type UpdateOrganizationLocationInput = {
 export async function updateOrganizationLocation(
   input: UpdateOrganizationLocationInput,
 ): Promise<OrganizationSharedProfile> {
-  const wrapped = await apiClient<Envelope<OrganizationSharedProfile>>(
+  const wrapped = await apiClient<Put<"/api/v1/organization/location"> & Envelope<OrganizationSharedProfile>>(
     "/api/v1/organization/location",
     { method: "PUT", body: input },
   )
@@ -62,7 +63,7 @@ export type UpdateOrganizationLanguagesInput = {
 export async function updateOrganizationLanguages(
   input: UpdateOrganizationLanguagesInput,
 ): Promise<OrganizationSharedProfile> {
-  const wrapped = await apiClient<Envelope<OrganizationSharedProfile>>(
+  const wrapped = await apiClient<Put<"/api/v1/organization/languages"> & Envelope<OrganizationSharedProfile>>(
     "/api/v1/organization/languages",
     { method: "PUT", body: input },
   )
@@ -76,7 +77,7 @@ export type UpdateOrganizationPhotoInput = {
 export async function updateOrganizationPhoto(
   input: UpdateOrganizationPhotoInput,
 ): Promise<OrganizationSharedProfile> {
-  const wrapped = await apiClient<Envelope<OrganizationSharedProfile>>(
+  const wrapped = await apiClient<Put<"/api/v1/organization/photo"> & Envelope<OrganizationSharedProfile>>(
     "/api/v1/organization/photo",
     { method: "PUT", body: input },
   )

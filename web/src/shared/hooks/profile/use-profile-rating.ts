@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { AverageRating } from "@/shared/types/review"
 
 type AverageRatingResponse = { data: AverageRating }
@@ -14,7 +15,7 @@ export function useProfileRating(orgId: string | undefined) {
   return useQuery({
     queryKey: ["profiles", "org", orgId, "average-rating"],
     queryFn: () =>
-      apiClient<AverageRatingResponse>(`/api/v1/reviews/average/${orgId}`),
+      apiClient<Get<"/api/v1/reviews/average/{orgId}"> & AverageRatingResponse>(`/api/v1/reviews/average/${orgId}`),
     staleTime: 2 * 60 * 1000,
     enabled: Boolean(orgId),
     select: (res) => res.data,

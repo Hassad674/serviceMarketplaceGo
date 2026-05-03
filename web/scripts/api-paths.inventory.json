@@ -1,0 +1,1604 @@
+[
+  {
+    "file": "src/features/account/api/gdpr.ts",
+    "line": 53,
+    "method": "POST",
+    "path": "/api/v1/me/account/request-deletion",
+    "rawPath": "/api/v1/me/account/request-deletion",
+    "typeArg": "Post<\"/api/v1/me/account/request-deletion\"> & RequestDeletionResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/account/api/gdpr.ts",
+    "line": 67,
+    "method": "GET",
+    "path": "/api/v1/me/account/confirm-deletion?token=",
+    "rawPath": "/api/v1/me/account/confirm-deletion?token=",
+    "typeArg": "Get<\"/api/v1/me/account/confirm-deletion\"> & ConfirmDeletionResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/account/api/gdpr.ts",
+    "line": 82,
+    "method": "POST",
+    "path": "/api/v1/me/account/cancel-deletion",
+    "rawPath": "/api/v1/me/account/cancel-deletion",
+    "typeArg": "Post<\"/api/v1/me/account/cancel-deletion\"> & CancelDeletionResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/account/hooks/use-notification-preferences.ts",
+    "line": 25,
+    "method": "GET",
+    "path": "/api/v1/notifications/preferences",
+    "rawPath": "/api/v1/notifications/preferences",
+    "typeArg": "Get<\"/api/v1/notifications/preferences\"> & NotificationPreferencesResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/account/hooks/use-notification-preferences.ts",
+    "line": 35,
+    "method": "PUT",
+    "path": "/api/v1/notifications/preferences",
+    "rawPath": "/api/v1/notifications/preferences",
+    "typeArg": "Put<\"/api/v1/notifications/preferences\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/account/hooks/use-notification-preferences.ts",
+    "line": 50,
+    "method": "PATCH",
+    "path": "/api/v1/notifications/preferences/bulk-email",
+    "rawPath": "/api/v1/notifications/preferences/bulk-email",
+    "typeArg": "Patch<\"/api/v1/notifications/preferences/bulk-email\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/auth/api/auth-api.ts",
+    "line": 77,
+    "method": "POST",
+    "path": "/api/v1/auth/forgot-password",
+    "rawPath": "/api/v1/auth/forgot-password",
+    "typeArg": "Post<\"/api/v1/auth/forgot-password\"> & { message: string }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/auth/api/auth-api.ts",
+    "line": 84,
+    "method": "POST",
+    "path": "/api/v1/auth/reset-password",
+    "rawPath": "/api/v1/auth/reset-password",
+    "typeArg": "Post<\"/api/v1/auth/reset-password\"> & { message: string }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/call/api/call-api.ts",
+    "line": 15,
+    "method": "POST",
+    "path": "/api/v1/calls/initiate",
+    "rawPath": "/api/v1/calls/initiate",
+    "typeArg": "InitiateCallResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/call/api/call-api.ts",
+    "line": 22,
+    "method": "POST",
+    "path": "/api/v1/calls/:param/accept",
+    "rawPath": "/api/v1/calls/${callId}/accept",
+    "typeArg": "AcceptCallResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/call/api/call-api.ts",
+    "line": 28,
+    "method": "POST",
+    "path": "/api/v1/calls/:param/decline",
+    "rawPath": "/api/v1/calls/${callId}/decline",
+    "typeArg": "void",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/call/api/call-api.ts",
+    "line": 34,
+    "method": "POST",
+    "path": "/api/v1/calls/:param/end",
+    "rawPath": "/api/v1/calls/${callId}/end",
+    "typeArg": "void",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/client-profile/api/client-profile-api.ts",
+    "line": 72,
+    "method": "PUT",
+    "path": "/api/v1/profile/client",
+    "rawPath": "/api/v1/profile/client",
+    "typeArg": "Void<\"/api/v1/profile/client\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/client-profile/api/client-profile-api.ts",
+    "line": 87,
+    "method": "GET",
+    "path": "/api/v1/clients/:param",
+    "rawPath": "/api/v1/clients/${orgId}",
+    "typeArg": "Get<\"/api/v1/clients/{orgId}\"> & PublicClientProfile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 22,
+    "method": "POST",
+    "path": "/api/v1/disputes",
+    "rawPath": "/api/v1/disputes",
+    "typeArg": "Post<\"/api/v1/disputes\"> & DisputeResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 29,
+    "method": "GET",
+    "path": "/api/v1/disputes/:param",
+    "rawPath": "/api/v1/disputes/${id}",
+    "typeArg": "Get<\"/api/v1/disputes/{id}\"> & DisputeResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 33,
+    "method": "POST",
+    "path": "/api/v1/disputes/:param/counter-propose",
+    "rawPath": "/api/v1/disputes/${disputeId}/counter-propose",
+    "typeArg": "Post<\"/api/v1/disputes/{id}/counter-propose\"> & { id: string }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 40,
+    "method": "POST",
+    "path": "/api/v1/disputes/:param/counter-proposals/:param/respond",
+    "rawPath": "/api/v1/disputes/${disputeId}/counter-proposals/${cpId}/respond",
+    "typeArg": "Post<\"/api/v1/disputes/{id}/counter-proposals/{cpId}/respond\"> & { status: string }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 49,
+    "method": "POST",
+    "path": "/api/v1/disputes/:param/cancel",
+    "rawPath": "/api/v1/disputes/${id}/cancel",
+    "typeArg": "Post<\"/api/v1/disputes/{id}/cancel\"> & CancelDisputeResult",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/dispute/api/dispute-api.ts",
+    "line": 58,
+    "method": "POST",
+    "path": "/api/v1/disputes/:param/cancellation/respond",
+    "rawPath": "/api/v1/disputes/${id}/cancellation/respond",
+    "typeArg": "Post<\"/api/v1/disputes/{id}/cancellation/respond\"> & { status: \"cancelled\" | \"refused\" }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 79,
+    "method": "GET",
+    "path": "/api/v1/freelance-profile",
+    "rawPath": "/api/v1/freelance-profile",
+    "typeArg": "Get<\"/api/v1/freelance-profile\"> & FreelanceProfile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 85,
+    "method": "GET",
+    "path": "/api/v1/freelance-profiles/:param",
+    "rawPath": "/api/v1/freelance-profiles/${orgId}",
+    "typeArg": "Get<\"/api/v1/freelance-profiles/{orgID}\"> & FreelanceProfile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 97,
+    "method": "PUT",
+    "path": "/api/v1/freelance-profile",
+    "rawPath": "/api/v1/freelance-profile",
+    "typeArg": "Put<\"/api/v1/freelance-profile\"> & FreelanceProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 106,
+    "method": "PUT",
+    "path": "/api/v1/freelance-profile/availability",
+    "rawPath": "/api/v1/freelance-profile/availability",
+    "typeArg": "Put<\"/api/v1/freelance-profile/availability\"> & FreelanceProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 115,
+    "method": "PUT",
+    "path": "/api/v1/freelance-profile/expertise",
+    "rawPath": "/api/v1/freelance-profile/expertise",
+    "typeArg": "Put<\"/api/v1/freelance-profile/expertise\"> & FreelanceProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 126,
+    "method": "GET",
+    "path": "/api/v1/freelance-profile/pricing",
+    "rawPath": "/api/v1/freelance-profile/pricing",
+    "typeArg": "Get<\"/api/v1/freelance-profile/pricing\"> & PricingEnvelope<FreelancePricing | null>",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 137,
+    "method": "PUT",
+    "path": "/api/v1/freelance-profile/pricing",
+    "rawPath": "/api/v1/freelance-profile/pricing",
+    "typeArg": "Put<\"/api/v1/freelance-profile/pricing\"> & PricingEnvelope<FreelancePricing>",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-profile-api.ts",
+    "line": 145,
+    "method": "DELETE",
+    "path": "/api/v1/freelance-profile/pricing",
+    "rawPath": "/api/v1/freelance-profile/pricing",
+    "typeArg": "Void<\"/api/v1/freelance-profile/pricing\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-social-links-api.ts",
+    "line": 20,
+    "method": "GET",
+    "path": "/api/v1/freelance-profile/social-links",
+    "rawPath": "/api/v1/freelance-profile/social-links",
+    "typeArg": "Get<\"/api/v1/freelance-profile/social-links\"> & FreelanceSocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-social-links-api.ts",
+    "line": 28,
+    "method": "GET",
+    "path": "/api/v1/freelance-profiles/:param/social-links",
+    "rawPath": "/api/v1/freelance-profiles/${orgId}/social-links",
+    "typeArg": "Get<\"/api/v1/freelance-profiles/{orgId}/social-links\"> & FreelanceSocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-social-links-api.ts",
+    "line": 37,
+    "method": "PUT",
+    "path": "/api/v1/freelance-profile/social-links",
+    "rawPath": "/api/v1/freelance-profile/social-links",
+    "typeArg": "Void<\"/api/v1/freelance-profile/social-links\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/freelance-profile/api/freelance-social-links-api.ts",
+    "line": 46,
+    "method": "DELETE",
+    "path": "/api/v1/freelance-profile/social-links/:param",
+    "rawPath": "/api/v1/freelance-profile/social-links/${platform}",
+    "typeArg": "Void<\"/api/v1/freelance-profile/social-links/{platform}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/invoicing/api/invoicing-api.ts",
+    "line": 32,
+    "method": "GET",
+    "path": "/api/v1/me/invoices:param",
+    "rawPath": "/api/v1/me/invoices${qs}",
+    "typeArg": "Get<\"/api/v1/me/invoices\"> & InvoicesPage",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 21,
+    "method": "POST",
+    "path": "/api/v1/jobs",
+    "rawPath": "/api/v1/jobs",
+    "typeArg": "Post<\"/api/v1/jobs\"> & JobResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 28,
+    "method": "PUT",
+    "path": "/api/v1/jobs/:param",
+    "rawPath": "/api/v1/jobs/${id}",
+    "typeArg": "Put<\"/api/v1/jobs/{id}\"> & JobResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 35,
+    "method": "GET",
+    "path": "/api/v1/jobs/:param",
+    "rawPath": "/api/v1/jobs/${id}",
+    "typeArg": "Get<\"/api/v1/jobs/{id}\"> & JobResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 40,
+    "method": "GET",
+    "path": "/api/v1/jobs/mine:param",
+    "rawPath": "/api/v1/jobs/mine${params}",
+    "typeArg": "Get<\"/api/v1/jobs/mine\"> & JobWithCountsListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 44,
+    "method": "POST",
+    "path": "/api/v1/jobs/:param/close",
+    "rawPath": "/api/v1/jobs/${id}/close",
+    "typeArg": "Void<\"/api/v1/jobs/{id}/close\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 48,
+    "method": "POST",
+    "path": "/api/v1/jobs/:param/reopen",
+    "rawPath": "/api/v1/jobs/${id}/reopen",
+    "typeArg": "Void<\"/api/v1/jobs/{id}/reopen\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 52,
+    "method": "DELETE",
+    "path": "/api/v1/jobs/:param",
+    "rawPath": "/api/v1/jobs/${id}",
+    "typeArg": "Void<\"/api/v1/jobs/{id}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 56,
+    "method": "POST",
+    "path": "/api/v1/jobs/:param/mark-viewed",
+    "rawPath": "/api/v1/jobs/${id}/mark-viewed",
+    "typeArg": "Void<\"/api/v1/jobs/{id}/mark-viewed\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-api.ts",
+    "line": 60,
+    "method": "GET",
+    "path": "/api/v1/jobs/credits",
+    "rawPath": "/api/v1/jobs/credits",
+    "typeArg": "Get<\"/api/v1/jobs/credits\"> & { credits: number }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 21,
+    "method": "GET",
+    "path": "/api/v1/jobs/open:param",
+    "rawPath": "/api/v1/jobs/open${query ? `?${query}` : \"\"}",
+    "typeArg": "Get<\"/api/v1/jobs/open\"> & JobListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 25,
+    "method": "POST",
+    "path": "/api/v1/jobs/:param/apply",
+    "rawPath": "/api/v1/jobs/${jobId}/apply",
+    "typeArg": "Post<\"/api/v1/jobs/{id}/apply\"> & JobApplicationResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 32,
+    "method": "DELETE",
+    "path": "/api/v1/jobs/applications/:param",
+    "rawPath": "/api/v1/jobs/applications/${applicationId}",
+    "typeArg": "Void<\"/api/v1/jobs/applications/{applicationId}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 39,
+    "method": "GET",
+    "path": "/api/v1/jobs/:param/applications:param",
+    "rawPath": "/api/v1/jobs/${jobId}/applications${params}",
+    "typeArg": "Get<\"/api/v1/jobs/{id}/applications\"> & ApplicationListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 44,
+    "method": "GET",
+    "path": "/api/v1/jobs/applications/mine:param",
+    "rawPath": "/api/v1/jobs/applications/mine${params}",
+    "typeArg": "Get<\"/api/v1/jobs/applications/mine\"> & MyApplicationListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 48,
+    "method": "POST",
+    "path": "/api/v1/jobs/:param/applications/:param/contact",
+    "rawPath": "/api/v1/jobs/${jobId}/applications/${applicantId}/contact",
+    "typeArg": "Post<\"/api/v1/jobs/{id}/applications/{applicantId}/contact\"> & { conversation_id: string }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/job/api/job-application-api.ts",
+    "line": 54,
+    "method": "GET",
+    "path": "/api/v1/jobs/:param/has-applied",
+    "rawPath": "/api/v1/jobs/${jobId}/has-applied",
+    "typeArg": "Get<\"/api/v1/jobs/{id}/has-applied\"> & { has_applied: boolean }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 18,
+    "method": "GET",
+    "path": "/api/v1/messaging/conversations/:param/messages:param",
+    "rawPath": "/api/v1/messaging/conversations/${conversationId}/messages${params}",
+    "typeArg": "Get<\"/api/v1/messaging/conversations/{id}/messages\"> & MessageListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 44,
+    "method": "POST",
+    "path": "/api/v1/messaging/conversations/:param/messages",
+    "rawPath": "/api/v1/messaging/conversations/${conversationId}/messages",
+    "typeArg": "Post<\"/api/v1/messaging/conversations/{id}/messages\"> & Message",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 54,
+    "method": "POST",
+    "path": "/api/v1/messaging/conversations",
+    "rawPath": "/api/v1/messaging/conversations",
+    "typeArg": "Post<\"/api/v1/messaging/conversations\"> & StartConversationResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 61,
+    "method": "POST",
+    "path": "/api/v1/messaging/conversations/:param/read",
+    "rawPath": "/api/v1/messaging/conversations/${conversationId}/read",
+    "typeArg": "Void<\"/api/v1/messaging/conversations/{id}/read\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 68,
+    "method": "PUT",
+    "path": "/api/v1/messaging/messages/:param",
+    "rawPath": "/api/v1/messaging/messages/${messageId}",
+    "typeArg": "Put<\"/api/v1/messaging/messages/{id}\"> & Message",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 75,
+    "method": "DELETE",
+    "path": "/api/v1/messaging/messages/:param",
+    "rawPath": "/api/v1/messaging/messages/${messageId}",
+    "typeArg": "Void<\"/api/v1/messaging/messages/{id}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 81,
+    "method": "POST",
+    "path": "/api/v1/messaging/upload-url",
+    "rawPath": "/api/v1/messaging/upload-url",
+    "typeArg": "Post<\"/api/v1/messaging/upload-url\"> & PresignedURLResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/messaging/api/messaging-api.ts",
+    "line": 88,
+    "method": "GET",
+    "path": "/api/v1/messaging/unread-count",
+    "rawPath": "/api/v1/messaging/unread-count",
+    "typeArg": "Get<\"/api/v1/messaging/unread-count\"> & UnreadCountResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 13,
+    "method": "GET",
+    "path": "/api/v1/notifications?:param",
+    "rawPath": "/api/v1/notifications?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/notifications\"> & NotificationListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 17,
+    "method": "GET",
+    "path": "/api/v1/notifications/unread-count",
+    "rawPath": "/api/v1/notifications/unread-count",
+    "typeArg": "Get<\"/api/v1/notifications/unread-count\"> & UnreadCountResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 21,
+    "method": "POST",
+    "path": "/api/v1/notifications/:param/read",
+    "rawPath": "/api/v1/notifications/${id}/read",
+    "typeArg": "Void<\"/api/v1/notifications/{id}/read\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 25,
+    "method": "POST",
+    "path": "/api/v1/notifications/read-all",
+    "rawPath": "/api/v1/notifications/read-all",
+    "typeArg": "Void<\"/api/v1/notifications/read-all\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 29,
+    "method": "DELETE",
+    "path": "/api/v1/notifications/:param",
+    "rawPath": "/api/v1/notifications/${id}",
+    "typeArg": "Void<\"/api/v1/notifications/{id}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 33,
+    "method": "GET",
+    "path": "/api/v1/notifications/preferences",
+    "rawPath": "/api/v1/notifications/preferences",
+    "typeArg": "Get<\"/api/v1/notifications/preferences\"> & { data: NotificationPreference[] }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 37,
+    "method": "PUT",
+    "path": "/api/v1/notifications/preferences",
+    "rawPath": "/api/v1/notifications/preferences",
+    "typeArg": "Void<\"/api/v1/notifications/preferences\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/notification/api/notification-api.ts",
+    "line": 44,
+    "method": "POST",
+    "path": "/api/v1/notifications/device-token",
+    "rawPath": "/api/v1/notifications/device-token",
+    "typeArg": "Void<\"/api/v1/notifications/device-token\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/organization-shared/api/organization-shared-api.ts",
+    "line": 33,
+    "method": "GET",
+    "path": "/api/v1/organization/shared",
+    "rawPath": "/api/v1/organization/shared",
+    "typeArg": "Get<\"/api/v1/organization/shared\"> & Envelope<OrganizationSharedProfile>",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/organization-shared/api/organization-shared-api.ts",
+    "line": 51,
+    "method": "PUT",
+    "path": "/api/v1/organization/location",
+    "rawPath": "/api/v1/organization/location",
+    "typeArg": "Put<\"/api/v1/organization/location\"> & Envelope<OrganizationSharedProfile>",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/organization-shared/api/organization-shared-api.ts",
+    "line": 66,
+    "method": "PUT",
+    "path": "/api/v1/organization/languages",
+    "rawPath": "/api/v1/organization/languages",
+    "typeArg": "Put<\"/api/v1/organization/languages\"> & Envelope<OrganizationSharedProfile>",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/organization-shared/api/organization-shared-api.ts",
+    "line": 80,
+    "method": "PUT",
+    "path": "/api/v1/organization/photo",
+    "rawPath": "/api/v1/organization/photo",
+    "typeArg": "Put<\"/api/v1/organization/photo\"> & Envelope<OrganizationSharedProfile>",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 47,
+    "method": "POST",
+    "path": "/api/v1/proposals",
+    "rawPath": "/api/v1/proposals",
+    "typeArg": "Post<\"/api/v1/proposals\"> & ProposalResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 54,
+    "method": "GET",
+    "path": "/api/v1/proposals/:param",
+    "rawPath": "/api/v1/proposals/${id}",
+    "typeArg": "Get<\"/api/v1/proposals/{id}\"> & ProposalResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 64,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/modify",
+    "rawPath": "/api/v1/proposals/${id}/modify",
+    "typeArg": "Post<\"/api/v1/proposals/{id}/modify\"> & ProposalResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 71,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/pay",
+    "rawPath": "/api/v1/proposals/${id}/pay",
+    "typeArg": "Post<\"/api/v1/proposals/{id}/pay\"> & PaymentIntentResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 75,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/confirm-payment",
+    "rawPath": "/api/v1/proposals/${id}/confirm-payment",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/confirm-payment\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 80,
+    "method": "GET",
+    "path": "/api/v1/projects:param",
+    "rawPath": "/api/v1/projects${params}",
+    "typeArg": "Get<\"/api/v1/projects\"> & ProjectListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 84,
+    "method": "POST",
+    "path": "/api/v1/messaging/upload-url",
+    "rawPath": "/api/v1/messaging/upload-url",
+    "typeArg": "Post<\"/api/v1/messaging/upload-url\"> & UploadURLResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 98,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/milestones/:param/fund",
+    "rawPath": "/api/v1/proposals/${proposalID}/milestones/${milestoneID}/fund",
+    "typeArg": "Post<\"/api/v1/proposals/{id}/milestones/{mid}/fund\"> & PaymentIntentResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 105,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/milestones/:param/submit",
+    "rawPath": "/api/v1/proposals/${proposalID}/milestones/${milestoneID}/submit",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/milestones/{mid}/submit\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 112,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/milestones/:param/approve",
+    "rawPath": "/api/v1/proposals/${proposalID}/milestones/${milestoneID}/approve",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/milestones/{mid}/approve\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 119,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/milestones/:param/reject",
+    "rawPath": "/api/v1/proposals/${proposalID}/milestones/${milestoneID}/reject",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/milestones/{mid}/reject\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/proposal/api/proposal-api.ts",
+    "line": 126,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/cancel",
+    "rawPath": "/api/v1/proposals/${proposalID}/cancel",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/cancel\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/expertise-api.ts",
+    "line": 22,
+    "method": "PUT",
+    "path": "/api/v1/profile/expertise",
+    "rawPath": "/api/v1/profile/expertise",
+    "typeArg": "Put<\"/api/v1/profile/expertise\"> & UpdateExpertiseResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 59,
+    "method": "GET",
+    "path": "/api/v1/portfolio/org/:param?limit=30",
+    "rawPath": "/api/v1/portfolio/org/${orgId}?limit=30",
+    "typeArg": "Get<\"/api/v1/portfolio/org/{orgId}\"> & PortfolioListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 67,
+    "method": "GET",
+    "path": "/api/v1/portfolio/:param",
+    "rawPath": "/api/v1/portfolio/${id}",
+    "typeArg": "Get<\"/api/v1/portfolio/{id}\"> & { data: PortfolioItem }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 73,
+    "method": "POST",
+    "path": "/api/v1/portfolio",
+    "rawPath": "/api/v1/portfolio",
+    "typeArg": "Post<\"/api/v1/portfolio\"> & { data: PortfolioItem }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 83,
+    "method": "PUT",
+    "path": "/api/v1/portfolio/:param",
+    "rawPath": "/api/v1/portfolio/${id}",
+    "typeArg": "Put<\"/api/v1/portfolio/{id}\"> & { data: PortfolioItem }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 90,
+    "method": "DELETE",
+    "path": "/api/v1/portfolio/:param",
+    "rawPath": "/api/v1/portfolio/${id}",
+    "typeArg": "Void<\"/api/v1/portfolio/{id}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/portfolio-api.ts",
+    "line": 94,
+    "method": "PUT",
+    "path": "/api/v1/portfolio/reorder",
+    "rawPath": "/api/v1/portfolio/reorder",
+    "typeArg": "Void<\"/api/v1/portfolio/reorder\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 88,
+    "method": "GET",
+    "path": "/api/v1/profile",
+    "rawPath": "/api/v1/profile",
+    "typeArg": "Get<\"/api/v1/profile\"> & Profile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 94,
+    "method": "PUT",
+    "path": "/api/v1/profile",
+    "rawPath": "/api/v1/profile",
+    "typeArg": "Put<\"/api/v1/profile\"> & Profile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 118,
+    "method": "PUT",
+    "path": "/api/v1/profile/location",
+    "rawPath": "/api/v1/profile/location",
+    "typeArg": "Void<\"/api/v1/profile/location\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 132,
+    "method": "PUT",
+    "path": "/api/v1/profile/languages",
+    "rawPath": "/api/v1/profile/languages",
+    "typeArg": "Void<\"/api/v1/profile/languages\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 146,
+    "method": "PUT",
+    "path": "/api/v1/profile/availability",
+    "rawPath": "/api/v1/profile/availability",
+    "typeArg": "Void<\"/api/v1/profile/availability\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 153,
+    "method": "GET",
+    "path": "/api/v1/profile/pricing",
+    "rawPath": "/api/v1/profile/pricing",
+    "typeArg": "Get<\"/api/v1/profile/pricing\"> & Pricing[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 157,
+    "method": "PUT",
+    "path": "/api/v1/profile/pricing",
+    "rawPath": "/api/v1/profile/pricing",
+    "typeArg": "Void<\"/api/v1/profile/pricing\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/profile-api.ts",
+    "line": 164,
+    "method": "DELETE",
+    "path": "/api/v1/profile/pricing/:param",
+    "rawPath": "/api/v1/profile/pricing/${kind}",
+    "typeArg": "Void<\"/api/v1/profile/pricing/{kind}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/project-history-api.ts",
+    "line": 25,
+    "method": "GET",
+    "path": "/api/v1/profiles/:param/project-history:param",
+    "rawPath": "/api/v1/profiles/${orgId}/project-history${qs}",
+    "typeArg": "Get<\"/api/v1/profiles/{orgId}/project-history\"> & ProjectHistoryResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/social-links-api.ts",
+    "line": 13,
+    "method": "GET",
+    "path": "/api/v1/profile/social-links",
+    "rawPath": "/api/v1/profile/social-links",
+    "typeArg": "Get<\"/api/v1/profile/social-links\"> & SocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/social-links-api.ts",
+    "line": 17,
+    "method": "GET",
+    "path": "/api/v1/profiles/:param/social-links",
+    "rawPath": "/api/v1/profiles/${orgId}/social-links",
+    "typeArg": "Get<\"/api/v1/profiles/{orgId}/social-links\"> & SocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/api/social-links-api.ts",
+    "line": 21,
+    "method": "PUT",
+    "path": "/api/v1/profile/social-links",
+    "rawPath": "/api/v1/profile/social-links",
+    "typeArg": "Void<\"/api/v1/profile/social-links\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/provider/api/social-links-api.ts",
+    "line": 28,
+    "method": "DELETE",
+    "path": "/api/v1/profile/social-links/:param",
+    "rawPath": "/api/v1/profile/social-links/${platform}",
+    "typeArg": "Void<\"/api/v1/profile/social-links/{platform}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/components/public-profile.tsx",
+    "line": 35,
+    "method": "GET",
+    "path": "/api/v1/profiles/:param",
+    "rawPath": "/api/v1/profiles/${orgId}",
+    "typeArg": "Get<\"/api/v1/profiles/{orgId}\"> & Profile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/provider/hooks/use-profile-rating.ts",
+    "line": 16,
+    "method": "GET",
+    "path": "/api/v1/reviews/average/:param",
+    "rawPath": "/api/v1/reviews/average/${orgId}",
+    "typeArg": "Get<\"/api/v1/reviews/average/{orgId}\"> & AverageRatingResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referral/api/referral-api.ts",
+    "line": 37,
+    "method": "GET",
+    "path": ":param/me:param",
+    "rawPath": "${BASE}/me${buildQuery(filter)}",
+    "typeArg": "Get<\"/api/v1/referrals/me\"> & ReferralListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referral/api/referral-api.ts",
+    "line": 48,
+    "method": "GET",
+    "path": ":param/incoming:param",
+    "rawPath": "${BASE}/incoming${buildQuery(filter)}",
+    "typeArg": "Get<\"/api/v1/referrals/incoming\"> & ReferralListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referral/api/referral-api.ts",
+    "line": 73,
+    "method": "GET",
+    "path": ":param/:param/negotiations",
+    "rawPath": "${BASE}/${id}/negotiations",
+    "typeArg": "Get<\"/api/v1/referrals/{id}/negotiations\"> & ReferralNegotiation[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referral/api/referral-api.ts",
+    "line": 83,
+    "method": "GET",
+    "path": ":param/:param/attributions",
+    "rawPath": "${BASE}/${id}/attributions",
+    "typeArg": "Get<\"/api/v1/referrals/{id}/attributions\"> & ReferralAttribution[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referral/api/referral-api.ts",
+    "line": 92,
+    "method": "GET",
+    "path": ":param/:param/commissions",
+    "rawPath": "${BASE}/${id}/commissions",
+    "typeArg": "Get<\"/api/v1/referrals/{id}/commissions\"> & ReferralCommission[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 59,
+    "method": "GET",
+    "path": "/api/v1/referrer-profile",
+    "rawPath": "/api/v1/referrer-profile",
+    "typeArg": "Get<\"/api/v1/referrer-profile\"> & ReferrerProfile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 65,
+    "method": "GET",
+    "path": "/api/v1/referrer-profiles/:param",
+    "rawPath": "/api/v1/referrer-profiles/${orgId}",
+    "typeArg": "Get<\"/api/v1/referrer-profiles/{orgID}\"> & ReferrerProfile",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 77,
+    "method": "PUT",
+    "path": "/api/v1/referrer-profile",
+    "rawPath": "/api/v1/referrer-profile",
+    "typeArg": "Put<\"/api/v1/referrer-profile\"> & ReferrerProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 86,
+    "method": "PUT",
+    "path": "/api/v1/referrer-profile/availability",
+    "rawPath": "/api/v1/referrer-profile/availability",
+    "typeArg": "Put<\"/api/v1/referrer-profile/availability\"> & ReferrerProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 95,
+    "method": "PUT",
+    "path": "/api/v1/referrer-profile/expertise",
+    "rawPath": "/api/v1/referrer-profile/expertise",
+    "typeArg": "Put<\"/api/v1/referrer-profile/expertise\"> & ReferrerProfile",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 106,
+    "method": "GET",
+    "path": "/api/v1/referrer-profile/pricing",
+    "rawPath": "/api/v1/referrer-profile/pricing",
+    "typeArg": "Get<\"/api/v1/referrer-profile/pricing\"> & PricingEnvelope<ReferrerPricing | null>",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 117,
+    "method": "PUT",
+    "path": "/api/v1/referrer-profile/pricing",
+    "rawPath": "/api/v1/referrer-profile/pricing",
+    "typeArg": "Put<\"/api/v1/referrer-profile/pricing\"> & PricingEnvelope<ReferrerPricing>",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-profile-api.ts",
+    "line": 125,
+    "method": "DELETE",
+    "path": "/api/v1/referrer-profile/pricing",
+    "rawPath": "/api/v1/referrer-profile/pricing",
+    "typeArg": "Void<\"/api/v1/referrer-profile/pricing\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-social-links-api.ts",
+    "line": 20,
+    "method": "GET",
+    "path": "/api/v1/referrer-profile/social-links",
+    "rawPath": "/api/v1/referrer-profile/social-links",
+    "typeArg": "Get<\"/api/v1/referrer-profile/social-links\"> & ReferrerSocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-social-links-api.ts",
+    "line": 28,
+    "method": "GET",
+    "path": "/api/v1/referrer-profiles/:param/social-links",
+    "rawPath": "/api/v1/referrer-profiles/${orgId}/social-links",
+    "typeArg": "Get<\"/api/v1/referrer-profiles/{orgId}/social-links\"> & ReferrerSocialLink[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-social-links-api.ts",
+    "line": 37,
+    "method": "PUT",
+    "path": "/api/v1/referrer-profile/social-links",
+    "rawPath": "/api/v1/referrer-profile/social-links",
+    "typeArg": "Void<\"/api/v1/referrer-profile/social-links\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/referrer-profile/api/referrer-social-links-api.ts",
+    "line": 46,
+    "method": "DELETE",
+    "path": "/api/v1/referrer-profile/social-links/:param",
+    "rawPath": "/api/v1/referrer-profile/social-links/${platform}",
+    "typeArg": "Void<\"/api/v1/referrer-profile/social-links/{platform}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/referrer-profile/api/reputation-api.ts",
+    "line": 50,
+    "method": "GET",
+    "path": "/api/v1/referrer-profiles/:param/reputation:param",
+    "rawPath": "/api/v1/referrer-profiles/${orgId}/reputation${suffix}",
+    "typeArg": "Get<\"/api/v1/referrer-profiles/{orgID}/reputation\"> & ReferrerReputation",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/skill/api/skill-api.ts",
+    "line": 13,
+    "method": "GET",
+    "path": "/api/v1/profile/skills",
+    "rawPath": "/api/v1/profile/skills",
+    "typeArg": "Get<\"/api/v1/profile/skills\"> & ProfileSkillResponse[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/skill/api/skill-api.ts",
+    "line": 23,
+    "method": "PUT",
+    "path": "/api/v1/profile/skills",
+    "rawPath": "/api/v1/profile/skills",
+    "typeArg": "Put<\"/api/v1/profile/skills\"> & { status: string }",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/skill/api/skill-api.ts",
+    "line": 40,
+    "method": "GET",
+    "path": "/api/v1/skills/catalog?:param",
+    "rawPath": "/api/v1/skills/catalog?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/skills/catalog\"> & CatalogResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/skill/api/skill-api.ts",
+    "line": 50,
+    "method": "GET",
+    "path": "/api/v1/skills/autocomplete?:param",
+    "rawPath": "/api/v1/skills/autocomplete?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/skills/autocomplete\"> & SkillResponse[]",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/skill/api/skill-api.ts",
+    "line": 62,
+    "method": "POST",
+    "path": "/api/v1/skills",
+    "rawPath": "/api/v1/skills",
+    "typeArg": "Post<\"/api/v1/skills\"> & SkillResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 26,
+    "method": "POST",
+    "path": "/api/v1/subscriptions",
+    "rawPath": "/api/v1/subscriptions",
+    "typeArg": "Post<\"/api/v1/subscriptions\"> & SubscribeResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 40,
+    "method": "GET",
+    "path": "/api/v1/subscriptions/me",
+    "rawPath": "/api/v1/subscriptions/me",
+    "typeArg": "Get<\"/api/v1/subscriptions/me\"> & Subscription",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 49,
+    "method": "PATCH",
+    "path": "/api/v1/subscriptions/me/auto-renew",
+    "rawPath": "/api/v1/subscriptions/me/auto-renew",
+    "typeArg": "Patch<\"/api/v1/subscriptions/me/auto-renew\"> & Subscription",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 60,
+    "method": "PATCH",
+    "path": "/api/v1/subscriptions/me/billing-cycle",
+    "rawPath": "/api/v1/subscriptions/me/billing-cycle",
+    "typeArg": "Patch<\"/api/v1/subscriptions/me/billing-cycle\"> & Subscription",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 73,
+    "method": "GET",
+    "path": "/api/v1/subscriptions/me/stats",
+    "rawPath": "/api/v1/subscriptions/me/stats",
+    "typeArg": "Get<\"/api/v1/subscriptions/me/stats\"> & SubscriptionStats",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 91,
+    "method": "GET",
+    "path": "/api/v1/subscriptions/me/cycle-preview?:param",
+    "rawPath": "/api/v1/subscriptions/me/cycle-preview?${qs}",
+    "typeArg": "Get<\"/api/v1/subscriptions/me/cycle-preview\"> & CyclePreview",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/subscription/api/subscription-api.ts",
+    "line": 101,
+    "method": "GET",
+    "path": "/api/v1/subscriptions/portal",
+    "rawPath": "/api/v1/subscriptions/portal",
+    "typeArg": "Get<\"/api/v1/subscriptions/portal\"> & { url: string }",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 28,
+    "method": "GET",
+    "path": "/api/v1/organizations/:param/members?limit=100",
+    "rawPath": "/api/v1/organizations/${orgID}/members?limit=100",
+    "typeArg": "Get<\"/api/v1/organizations/{orgID}/members\"> & TeamMembersListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 38,
+    "method": "PATCH",
+    "path": "/api/v1/organizations/:param/members/:param",
+    "rawPath": "/api/v1/organizations/${orgID}/members/${userID}",
+    "typeArg": "Patch<\"/api/v1/organizations/{orgID}/members/{userID}\"> & TeamMember",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 45,
+    "method": "DELETE",
+    "path": "/api/v1/organizations/:param/members/:param",
+    "rawPath": "/api/v1/organizations/${orgID}/members/${userID}",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/members/{userID}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 52,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/leave",
+    "rawPath": "/api/v1/organizations/${orgID}/leave",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/leave\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 67,
+    "method": "GET",
+    "path": "/api/v1/organizations/role-definitions",
+    "rawPath": "/api/v1/organizations/role-definitions",
+    "typeArg": "Get<\"/api/v1/organizations/role-definitions\"> & RoleDefinitionsResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 83,
+    "method": "GET",
+    "path": "/api/v1/organizations/:param/role-permissions",
+    "rawPath": "/api/v1/organizations/${orgID}/role-permissions",
+    "typeArg": "Get<\"/api/v1/organizations/{orgID}/role-permissions\"> & RolePermissionsMatrixResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 96,
+    "method": "PATCH",
+    "path": "/api/v1/organizations/:param/role-permissions",
+    "rawPath": "/api/v1/organizations/${orgID}/role-permissions",
+    "typeArg": "Patch<\"/api/v1/organizations/{orgID}/role-permissions\"> & UpdateRolePermissionsResponse",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 110,
+    "method": "GET",
+    "path": "/api/v1/organizations/:param/invitations?limit=100",
+    "rawPath": "/api/v1/organizations/${orgID}/invitations?limit=100",
+    "typeArg": "Get<\"/api/v1/organizations/{orgID}/invitations\"> & TeamInvitationsListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 119,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/invitations",
+    "rawPath": "/api/v1/organizations/${orgID}/invitations",
+    "typeArg": "Post<\"/api/v1/organizations/{orgID}/invitations\"> & TeamInvitation",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 126,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/invitations/:param/resend",
+    "rawPath": "/api/v1/organizations/${orgID}/invitations/${invitationID}/resend",
+    "typeArg": "Post<\"/api/v1/organizations/{orgID}/invitations/{invID}/resend\"> & TeamInvitation",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 133,
+    "method": "DELETE",
+    "path": "/api/v1/organizations/:param/invitations/:param",
+    "rawPath": "/api/v1/organizations/${orgID}/invitations/${invitationID}",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/invitations/{invID}\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 147,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/transfer",
+    "rawPath": "/api/v1/organizations/${orgID}/transfer",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/transfer\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 154,
+    "method": "DELETE",
+    "path": "/api/v1/organizations/:param/transfer",
+    "rawPath": "/api/v1/organizations/${orgID}/transfer",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/transfer\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 161,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/transfer/accept",
+    "rawPath": "/api/v1/organizations/${orgID}/transfer/accept",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/transfer/accept\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 168,
+    "method": "POST",
+    "path": "/api/v1/organizations/:param/transfer/decline",
+    "rawPath": "/api/v1/organizations/${orgID}/transfer/decline",
+    "typeArg": "Void<\"/api/v1/organizations/{orgID}/transfer/decline\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 184,
+    "method": "GET",
+    "path": "/api/v1/invitations/validate?token=:param",
+    "rawPath": "/api/v1/invitations/validate?token=${encodeURIComponent(token)}",
+    "typeArg": "Get<\"/api/v1/invitations/validate\"> & InvitationPreview",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/team/api/team-api.ts",
+    "line": 194,
+    "method": "POST",
+    "path": "/api/v1/invitations/accept",
+    "rawPath": "/api/v1/invitations/accept",
+    "typeArg": "Post<\"/api/v1/invitations/accept\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/features/wallet/api/wallet-api.ts",
+    "line": 58,
+    "method": "GET",
+    "path": "/api/v1/wallet",
+    "rawPath": "/api/v1/wallet",
+    "typeArg": "Get<\"/api/v1/wallet\"> & WalletOverview",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/wallet/api/wallet-api.ts",
+    "line": 62,
+    "method": "POST",
+    "path": "/api/v1/wallet/payout",
+    "rawPath": "/api/v1/wallet/payout",
+    "typeArg": "Post<\"/api/v1/wallet/payout\"> & PayoutResult",
+    "hasBody": false
+  },
+  {
+    "file": "src/features/wallet/api/wallet-api.ts",
+    "line": 75,
+    "method": "POST",
+    "path": "/api/v1/wallet/transfers/:param/retry",
+    "rawPath": "/api/v1/wallet/transfers/${recordId}/retry",
+    "typeArg": "Post<\"/api/v1/wallet/transfers/{record_id}/retry\"> & PayoutResult",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/hooks/profile/use-profile-rating.ts",
+    "line": 18,
+    "method": "GET",
+    "path": "/api/v1/reviews/average/:param",
+    "rawPath": "/api/v1/reviews/average/${orgId}",
+    "typeArg": "Get<\"/api/v1/reviews/average/{orgId}\"> & AverageRatingResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/hooks/profile/use-project-history.ts",
+    "line": 30,
+    "method": "GET",
+    "path": "/api/v1/profiles/:param/project-history",
+    "rawPath": "/api/v1/profiles/${orgId}/project-history",
+    "typeArg": "Get<\"/api/v1/profiles/{orgId}/project-history\"> & ProjectHistoryResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/hooks/use-unread-count.ts",
+    "line": 24,
+    "method": "GET",
+    "path": "/api/v1/messaging/unread-count",
+    "rawPath": "/api/v1/messaging/unread-count",
+    "typeArg": "Get<\"/api/v1/messaging/unread-count\"> & UnreadCountResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/api-paths.ts",
+    "line": 10,
+    "method": "GET",
+    "path": "/api/v1/auth/me",
+    "rawPath": "/api/v1/auth/me",
+    "typeArg": "Get<\"/api/v1/auth/me\"> & MeResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/api-paths.ts",
+    "line": 13,
+    "method": "GET",
+    "path": "/api/v1/auth/me",
+    "rawPath": "/api/v1/auth/me",
+    "typeArg": "Get<\"/api/v1/auth/me\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
+    "line": 22,
+    "method": "GET",
+    "path": "/api/v1/me/billing-profile",
+    "rawPath": "/api/v1/me/billing-profile",
+    "typeArg": "Get<\"/api/v1/me/billing-profile\"> & BillingProfileSnapshot",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
+    "line": 29,
+    "method": "PUT",
+    "path": "/api/v1/me/billing-profile",
+    "rawPath": "/api/v1/me/billing-profile",
+    "typeArg": "Put<\"/api/v1/me/billing-profile\"> & BillingProfileSnapshot",
+    "hasBody": true
+  },
+  {
+    "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
+    "line": 37,
+    "method": "POST",
+    "path": "/api/v1/me/billing-profile/sync-from-stripe",
+    "rawPath": "/api/v1/me/billing-profile/sync-from-stripe",
+    "typeArg": "Post<\"/api/v1/me/billing-profile/sync-from-stripe\"> & BillingProfileSnapshot",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
+    "line": 45,
+    "method": "POST",
+    "path": "/api/v1/me/billing-profile/validate-vat",
+    "rawPath": "/api/v1/me/billing-profile/validate-vat",
+    "typeArg": "Post<\"/api/v1/me/billing-profile/validate-vat\"> & VIESResult",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/billing-profile/billing-profile-api.ts",
+    "line": 52,
+    "method": "GET",
+    "path": "/api/v1/me/invoicing/current-month",
+    "rawPath": "/api/v1/me/invoicing/current-month",
+    "typeArg": "Get<\"/api/v1/me/invoicing/current-month\"> & CurrentMonthAggregate",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/billing/billing-api.ts",
+    "line": 27,
+    "method": "GET",
+    "path": "/api/v1/billing/fee-preview?:param",
+    "rawPath": "/api/v1/billing/fee-preview?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/billing/fee-preview\"> & FeePreview",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/messaging/conversations-api.ts",
+    "line": 15,
+    "method": "GET",
+    "path": "/api/v1/messaging/conversations:param",
+    "rawPath": "/api/v1/messaging/conversations${params}",
+    "typeArg": "Get<\"/api/v1/messaging/conversations\"> & ConversationListResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/proposal/proposal-actions-api.ts",
+    "line": 14,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/accept",
+    "rawPath": "/api/v1/proposals/${id}/accept",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/accept\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/proposal/proposal-actions-api.ts",
+    "line": 19,
+    "method": "POST",
+    "path": "/api/v1/proposals/:param/decline",
+    "rawPath": "/api/v1/proposals/${id}/decline",
+    "typeArg": "Void<\"/api/v1/proposals/{id}/decline\">",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/referral/referral-api.ts",
+    "line": 21,
+    "method": "GET",
+    "path": ":param/:param",
+    "rawPath": "${BASE}/${id}",
+    "typeArg": "Get<\"/api/v1/referrals/{id}\"> & Referral",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/referral/referral-api.ts",
+    "line": 28,
+    "method": "POST",
+    "path": ":param/:param/respond",
+    "rawPath": "${BASE}/${id}/respond",
+    "typeArg": "Post<\"/api/v1/referrals/{id}/respond\"> & Referral",
+    "hasBody": true
+  },
+  {
+    "file": "src/shared/lib/reporting/reporting-api.ts",
+    "line": 15,
+    "method": "POST",
+    "path": "/api/v1/reports",
+    "rawPath": "/api/v1/reports",
+    "typeArg": "Post<\"/api/v1/reports\">",
+    "hasBody": true
+  },
+  {
+    "file": "src/shared/lib/review/review-api.ts",
+    "line": 38,
+    "method": "GET",
+    "path": "/api/v1/reviews/average/:param",
+    "rawPath": "/api/v1/reviews/average/${userId}",
+    "typeArg": "Get<\"/api/v1/reviews/average/{orgId}\"> & { data: AverageRating }",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/review/review-api.ts",
+    "line": 42,
+    "method": "GET",
+    "path": "/api/v1/reviews/can-review/:param",
+    "rawPath": "/api/v1/reviews/can-review/${proposalId}",
+    "typeArg": "Get<\"/api/v1/reviews/can-review/{proposalId}\"> & { data: CanReviewResponse }",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/review/review-api.ts",
+    "line": 46,
+    "method": "POST",
+    "path": "/api/v1/reviews",
+    "rawPath": "/api/v1/reviews",
+    "typeArg": "Post<\"/api/v1/reviews\"> & { data: Review }",
+    "hasBody": true
+  },
+  {
+    "file": "src/shared/lib/search/search-api.ts",
+    "line": 90,
+    "method": "GET",
+    "path": "/api/v1/profiles/search?:param",
+    "rawPath": "/api/v1/profiles/search?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/profiles/search\"> & SearchResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/search/search-api.ts",
+    "line": 98,
+    "method": "GET",
+    "path": "/api/v1/profiles/:param",
+    "rawPath": "/api/v1/profiles/${orgId}",
+    "typeArg": "Get<\"/api/v1/profiles/{orgId}\"> & PublicProfileSummary",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/search/use-search-key.ts",
+    "line": 72,
+    "method": "GET",
+    "path": "/api/v1/search/key?persona=:param",
+    "rawPath": "/api/v1/search/key?persona=${encodeURIComponent(persona)}",
+    "typeArg": "Get<\"/api/v1/search/key\"> & SearchKeyResponse",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/search/use-search.ts",
+    "line": 247,
+    "method": "GET",
+    "path": "/api/v1/search?:param",
+    "rawPath": "/api/v1/search?${params.toString()}",
+    "typeArg": "Get<\"/api/v1/search\"> & BackendSearchPage",
+    "hasBody": false
+  },
+  {
+    "file": "src/shared/lib/upload.ts",
+    "line": 22,
+    "method": "POST",
+    "path": "/api/v1/messaging/upload-url",
+    "rawPath": "/api/v1/messaging/upload-url",
+    "typeArg": "Post<\"/api/v1/messaging/upload-url\"> & PresignedURLResponse",
+    "hasBody": true
+  }
+]
