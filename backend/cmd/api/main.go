@@ -13,6 +13,7 @@ import (
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/observability"
 )
 
@@ -20,12 +21,20 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Setup structured logger
+	// Setup structured logger. SlogReplaceAttr is wired globally so
+	// every emitted attribute passes through the redaction pipeline
+	// (SEC-FINAL-13). A future `slog.Info(..., "headers", r.Header)`
+	// would otherwise leak Bearer tokens — the handler boundary now
+	// scrubs them before any sink (stdout / file / OTLP) sees the
+	// payload.
 	logLevel := slog.LevelInfo
 	if cfg.IsDevelopment() {
 		logLevel = slog.LevelDebug
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:       logLevel,
+		ReplaceAttr: middleware.SlogReplaceAttr,
+	}))
 	slog.SetDefault(logger)
 
 	// Fail-fast in production when secrets are missing or use the
