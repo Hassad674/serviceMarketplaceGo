@@ -167,7 +167,7 @@ entire folder and its lines in `main.go`, does everything else still
 compile?" If the answer is no, refactor until it does.
 
 The repo includes a contract test that asserts isolation
-(`web/e2e/contract-isolation.spec.ts`). Adding a cross-feature import
+(`web/e2e/refactor-isolation.spec.ts`). Adding a cross-feature import
 will fail CI.
 
 ---
