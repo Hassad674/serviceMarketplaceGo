@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -574,6 +575,224 @@ func TestNewRedisIdempotencyCache_NilClientPanics(t *testing.T) {
 // ---------------------------------------------------------------------------
 // 13. captureSafeHeaders unit — covers the allow-list directly.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 14. F.6 B1 — same key + different body → 409 Conflict (Stripe spec).
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_SameKeyDifferentBody_Returns409(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "stable-key-mismatch"
+
+	// First call seeds the cache with body A.
+	req1 := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(`{"amount":100}`))
+	req1.Header.Set(IdempotencyHeader, key)
+	req1 = withUserContext(req1, uid)
+	rec1 := httptest.NewRecorder()
+	h.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("first call: status %d, want 201", rec1.Code)
+	}
+
+	// Second call: same key, DIFFERENT body. Must yield 409 + structured error.
+	req2 := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(`{"amount":999}`))
+	req2.Header.Set(IdempotencyHeader, key)
+	req2 = withUserContext(req2, uid)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusConflict {
+		t.Fatalf("body-mismatch replay must return 409 Conflict, got %d", rec2.Code)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("conflict path must NOT execute the handler: got %d invocations, want 1", got)
+	}
+	if !strings.Contains(rec2.Body.String(), "idempotency_key_conflict") {
+		t.Fatalf("conflict body must include the structured error code, got %q", rec2.Body.String())
+	}
+	if rec2.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("conflict response must declare application/json")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 15. F.6 B1 — same key + IDENTICAL body → replay (existing behaviour intact).
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_SameKeySameBody_StillReplays(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "stable-key-match"
+	body := `{"amount":100,"description":"hello"}`
+
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(body))
+		req.Header.Set(IdempotencyHeader, key)
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("iter %d: status %d, want 201", i, rec.Code)
+		}
+	}
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("identical-body replays must skip the handler: got %d, want 1", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 16. F.6 B1 — same key + same body but different METHOD → both cached separately.
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_DifferentMethodSameKey_DoesNotCollide(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "shared-key-different-methods"
+	body := `{"amount":100}`
+
+	// Emulate one POST and one PUT under the same key/path/body.
+	for _, method := range []string{"POST", "PUT"} {
+		req := httptest.NewRequest(method, "/api/v1/proposals", strings.NewReader(body))
+		req.Header.Set(IdempotencyHeader, key)
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("method %s: status %d, want 201", method, rec.Code)
+		}
+	}
+
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("different methods must produce different cache entries: got %d invocations, want 2", got)
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if got := len(cache.store); got != 2 {
+		t.Fatalf("cache must hold one entry per method, got %d", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 17. F.6 B1 — same key + same body but different PATH → both cached separately.
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_DifferentPathSameKey_DoesNotCollide(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "shared-key-different-paths"
+	body := `{"amount":100}`
+
+	for _, path := range []string{"/api/v1/proposals", "/api/v1/jobs"} {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Header.Set(IdempotencyHeader, key)
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("path %s: status %d, want 201", path, rec.Code)
+		}
+	}
+
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("different paths must produce different cache entries: got %d invocations, want 2", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 18. F.6 B1 — handler still receives the body bytes (read+restore is transparent).
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_BodyReachesHandlerUnchanged(t *testing.T) {
+	cache := newFakeCache()
+	mw := Idempotency(cache)
+	var receivedBody []byte
+	echoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		receivedBody = bodyBytes
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"echoed":true}`))
+	})
+	h := mw(echoHandler)
+
+	want := `{"hello":"world","number":42}`
+	req := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(want))
+	req.Header.Set(IdempotencyHeader, "echo-key")
+	req = withUserContext(req, uuid.New())
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status: got %d, want 201", rec.Code)
+	}
+	if string(receivedBody) != want {
+		t.Fatalf("handler did not receive original body bytes: got %q, want %q", receivedBody, want)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 19. F.6 B1 — legacy cache entries (no RequestBodyHash) replay without 409.
+// ---------------------------------------------------------------------------
+
+func TestIdempotency_LegacyCacheEntry_ReplaysWithoutBodyCheck(t *testing.T) {
+	// Simulate an entry written before F.6 B1 — RequestBodyHash empty.
+	// A new request with any body must replay (not 409). This is the
+	// rolling-deploy safety net.
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "legacy-key"
+
+	// Pre-seed the cache with a legacy snapshot (no body hash).
+	legacyKey := buildCacheKey(
+		context.WithValue(context.Background(), ContextKeyUserID, uid),
+		"POST", "/api/v1/proposals", key,
+	)
+	cache.store[legacyKey] = IdempotentResponse{
+		Status:      http.StatusCreated,
+		ContentType: "application/json",
+		Body:        []byte(`{"legacy":true}`),
+		// RequestBodyHash deliberately omitted.
+	}
+
+	// New request with a different body — must still replay, not 409.
+	req := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(`{"new":"payload"}`))
+	req.Header.Set(IdempotencyHeader, key)
+	req = withUserContext(req, uid)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("legacy replay status: got %d, want 201", rec.Code)
+	}
+	if rec.Header().Get(IdempotentReplayedHeader) != "true" {
+		t.Fatalf("legacy replay must still set Idempotent-Replayed: true")
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("legacy replay must not invoke handler: got %d invocations", got)
+	}
+}
 
 func TestCaptureSafeHeaders_AllowListOnly(t *testing.T) {
 	h := http.Header{}
