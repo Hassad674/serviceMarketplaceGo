@@ -93,6 +93,14 @@ type RouterDeps struct {
 	// Optional for tests; production wiring always passes a non-nil
 	// instance so the global / mutation / upload classes are enforced.
 	RateLimiter *middleware.RateLimiter
+
+	// IdempotencyCache backs the SEC-FINAL-02 Idempotency-Key middleware
+	// on the 6 critical mutation POSTs (proposals/create + pay,
+	// jobs/create, disputes/open, auth/register, team invitations).
+	// Optional — nil disables idempotency wiring (tests + worktrees
+	// without Redis still boot). Production always passes a non-nil
+	// instance.
+	IdempotencyCache middleware.IdempotencyCache
 }
 
 // NewRouter assembles the chi router for the marketplace API.

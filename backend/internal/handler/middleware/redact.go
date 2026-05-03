@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"encoding/json"
+	"log/slog"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -91,4 +93,70 @@ func RedactJSON(v any) string {
 		return "[UNSERIALISABLE]"
 	}
 	return Redact(string(b))
+}
+
+// sensitiveSlogAttrKeys lists attribute keys whose values must always
+// be redacted regardless of type. The check is case-insensitive so
+// any casing variant (`Authorization`, `authorization`, `AUTHORIZATION`)
+// is caught. Adding a new key here adds a global redaction.
+var sensitiveSlogAttrKeys = map[string]struct{}{
+	"authorization":      {},
+	"cookie":             {},
+	"set-cookie":         {},
+	"x-api-key":          {},
+	"proxy-authorization": {},
+	"password":           {},
+	"passwd":             {},
+	"secret":             {},
+	"token":              {},
+	"refresh_token":      {},
+	"access_token":       {},
+	"api_key":            {},
+	"apikey":             {},
+	"client_secret":      {},
+	"jwt":                {},
+}
+
+// SlogReplaceAttr is a `slog.HandlerOptions.ReplaceAttr` callback that
+// runs every emitted attribute through the redaction pipeline. Wiring
+// it on the global slog handler closes SEC-FINAL-13: any future
+// `slog.Info(..., "headers", r.Header)` or `slog.Error(..., "body", v)`
+// emission is sanitised at the handler boundary, so a regression in
+// caller code can't leak Bearer tokens / passwords / API keys.
+//
+// Behaviour:
+//   - Attribute keys listed in sensitiveSlogAttrKeys → value replaced
+//     by "[REDACTED]" (preserves the key for log structure).
+//   - http.Header values → routed through RedactHeaders (preserves
+//     non-sensitive headers, redacts sensitive ones).
+//   - String values → routed through Redact so embedded Bearer tokens
+//     / sk- keys / emails inside free-form text are caught.
+//   - All other values → passed through unchanged.
+//
+// The signature is the canonical
+// `func(groups []string, a slog.Attr) slog.Attr` so it can be plugged
+// directly into `slog.HandlerOptions{ReplaceAttr: ...}`.
+func SlogReplaceAttr(_ []string, a slog.Attr) slog.Attr {
+	// Whole-attribute redaction by key name.
+	if _, sensitive := sensitiveSlogAttrKeys[strings.ToLower(a.Key)]; sensitive {
+		return slog.String(a.Key, "[REDACTED]")
+	}
+
+	// http.Header is a common source of accidental leakage — every
+	// instance gets its sensitive headers stripped via RedactHeaders.
+	if hdr, ok := a.Value.Any().(http.Header); ok {
+		return slog.Any(a.Key, RedactHeaders(hdr))
+	}
+	if hdr, ok := a.Value.Any().(map[string][]string); ok {
+		return slog.Any(a.Key, RedactHeaders(hdr))
+	}
+
+	// String values — route through Redact so embedded patterns
+	// (Bearer tokens, sk- keys, emails) are caught even when the
+	// attribute key itself is innocent (e.g. "msg", "error", "url").
+	if a.Value.Kind() == slog.KindString {
+		return slog.String(a.Key, Redact(a.Value.String()))
+	}
+
+	return a
 }

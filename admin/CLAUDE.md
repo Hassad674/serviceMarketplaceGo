@@ -777,12 +777,23 @@ Minimum compliance: **WCAG 2.1 Level AA**.
 
 ## Commands
 
+> **First-time setup:** the admin app keeps its own `node_modules` (no
+> root install, no monorepo hoisting). After cloning the repo you MUST
+> run `npm install` from inside `admin/` before any other command —
+> otherwise `npm run dev`, `npm run build`, or `npx vitest run` will
+> fail with "Failed to resolve import zustand" (or similar) because
+> the dependencies declared in `admin/package.json` (zustand, etc.) are
+> not yet present in `admin/node_modules/`.
+
 ```bash
+cd admin
+npm install          # FIRST run only — installs admin-local dependencies
 npm run dev          # Dev server on port 5174
 npm run build        # TypeScript type-check (tsc -b) + Vite production build
 npm run preview      # Preview production build locally
 npm run lint         # ESLint
 npm run generate-api # Generate types from backend OpenAPI schema at localhost:8080
+npx vitest run       # Run unit tests (uses vitest, mock-driven)
 ```
 
 ---

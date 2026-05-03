@@ -17,11 +17,16 @@ func mountProposalRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) 
 	if deps.Proposal == nil {
 		return
 	}
+	idem := idempotencyMiddleware(deps)
 	r.Route("/proposals", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
 		r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/{id}", deps.Proposal.GetProposal)
-		r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/", deps.Proposal.CreateProposal)
+		// SEC-FINAL-02: idempotency middleware on Create + Pay so
+		// a network blip retry does not produce duplicate proposals
+		// or duplicate Stripe payment intents.
+		r.With(middleware.RequirePermission(organization.PermProposalsCreate), idem).
+			Post("/", deps.Proposal.CreateProposal)
 		r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/{id}/modify", deps.Proposal.ModifyProposal)
 		// Respond actions (accept, decline, pay, complete flow)
 		r.Group(func(r chi.Router) {
@@ -32,7 +37,7 @@ func mountProposalRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) 
 			// backward compatibility — they delegate to the same
 			// proposal service methods as the new milestone-explicit
 			// routes below).
-			r.Post("/{id}/pay", deps.Proposal.PayProposal)
+			r.With(idem).Post("/{id}/pay", deps.Proposal.PayProposal)
 			r.Post("/{id}/confirm-payment", deps.Proposal.ConfirmPayment)
 			r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
 			r.Post("/{id}/complete", deps.Proposal.CompleteProposal)

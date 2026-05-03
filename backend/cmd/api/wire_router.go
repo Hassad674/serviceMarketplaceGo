@@ -133,6 +133,7 @@ type routerDepsBundle struct {
 	OrgOverridesResolver  middleware.OrgOverridesResolver
 	Metrics               *handler.Metrics
 	RateLimiter           *middleware.RateLimiter
+	IdempotencyCache      middleware.IdempotencyCache
 }
 
 // wireRouter forwards the bundled handlers to handler.NewRouter. A
@@ -198,5 +199,6 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		OrgOverridesResolver: b.OrgOverridesResolver,
 		Metrics:              b.Metrics,
 		RateLimiter:          b.RateLimiter,
+		IdempotencyCache:     b.IdempotencyCache,
 	})
 }

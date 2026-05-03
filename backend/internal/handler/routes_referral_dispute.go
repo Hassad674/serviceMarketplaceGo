@@ -39,6 +39,7 @@ func mountDisputeRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 	if deps.Dispute == nil {
 		return
 	}
+	idem := idempotencyMiddleware(deps)
 	r.Route("/disputes", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
@@ -51,7 +52,10 @@ func mountDisputeRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 		// Write (disputes are proposal-level actions)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequirePermission(organization.PermProposalsRespond))
-			r.Post("/", deps.Dispute.OpenDispute)
+			// SEC-FINAL-02 idempotency on the OpenDispute creation
+			// POST so a retry on flaky network does not open a
+			// second dispute against the same proposal.
+			r.With(idem).Post("/", deps.Dispute.OpenDispute)
 			r.Post("/{id}/counter-propose", deps.Dispute.CounterPropose)
 			r.Post("/{id}/counter-proposals/{cpId}/respond", deps.Dispute.RespondToCounter)
 			r.Post("/{id}/cancel", deps.Dispute.CancelDispute)

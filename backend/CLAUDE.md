@@ -1077,6 +1077,29 @@ If a Go test or implementation is stuck:
 
 ---
 
+## Dependency hygiene — `go mod tidy`
+
+`go.mod` and `go.sum` MUST always be in `tidy` form on `main`. Drift
+between source imports and the require block leads to surprise CI
+breakage on contributor machines that resolve modules differently.
+
+Convention for contributors:
+
+1. **Before every commit that touches Go imports**, run
+   `make tidy-check` (or `cd backend && go mod tidy && git diff --exit-code -- go.mod go.sum`).
+2. If the check fails, run `make tidy` to update `go.mod` / `go.sum`,
+   review the diff, and include it in the same commit.
+3. **Never commit a tidy diff that contains an unrelated dependency
+   bump.** If `tidy` proposes upgrading a transitive dep, that is a
+   separate concern — extract it to its own `chore(deps): ...` PR.
+4. CI runs `make tidy-check` so a non-tidy `go.mod` blocks the merge.
+
+`make tidy-check` exits non-zero with the diff printed to stderr when
+the working tree is not tidy, making it CI-friendly without needing a
+GitHub Actions workflow change.
+
+---
+
 ## Commands
 
 ```bash
@@ -1092,6 +1115,7 @@ make seed             # Seed initial data
 make mock             # Generate mocks (placeholder)
 make lint             # Run go vet
 make tidy             # go mod tidy
+make tidy-check       # CI-friendly: fails when go.mod/go.sum drifts from tidy
 make clean            # Remove build artifacts
 make dev              # Alias for make run
 ```
