@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Displays the list of projects (proposals that are paid/active/completed).
 ///
@@ -264,32 +265,32 @@ class _StatusBadge extends StatelessWidget {
       case 'active':
         return (
           l10n.projectStatusActive,
-          const Color(0xFFDCFCE7),
-          const Color(0xFF166534),
+          AppPalette.green100,
+          AppPalette.green800,
         );
       case 'disputed':
         return (
           l10n.projectStatusDisputed,
-          const Color(0xFFFFEDD5), // orange-100
-          const Color(0xFFC2410C), // orange-700
+          AppPalette.orange100, // orange-100
+          AppPalette.orange700, // orange-700
         );
       case 'completed':
         return (
           l10n.projectStatusCompleted,
-          const Color(0xFFE0F2FE),
-          const Color(0xFF075985),
+          AppPalette.sky100,
+          AppPalette.sky800,
         );
       case 'accepted':
         return (
           l10n.proposalAccepted,
-          const Color(0xFFFEF3C7),
-          const Color(0xFF92400E),
+          AppPalette.amber100,
+          AppPalette.amber800,
         );
       default:
         return (
           status,
-          const Color(0xFFF1F5F9),
-          const Color(0xFF475569),
+          AppPalette.slate100,
+          AppPalette.slate600,
         );
     }
   }

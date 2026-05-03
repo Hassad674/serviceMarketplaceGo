@@ -6,6 +6,7 @@ import 'package:record/record.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Bottom input bar for composing and sending messages.
 ///
@@ -53,7 +54,7 @@ class MessageInputBar extends StatefulWidget {
 
 class _MessageInputBarState extends State<MessageInputBar>
     with SingleTickerProviderStateMixin {
-  static const _primaryColor = Color(0xFFF43F5E);
+  static const _primaryColor = AppPalette.rose500;
 
   final AudioRecorder _recorder = AudioRecorder();
   bool _isRecording = false;
@@ -215,7 +216,7 @@ class _MessageInputBarState extends State<MessageInputBar>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: appColors?.muted ?? const Color(0xFFF1F5F9),
+        color: appColors?.muted ?? AppPalette.slate100,
         border: Border(
           top: BorderSide(
             color: appColors?.border ?? theme.dividerColor,
@@ -275,14 +276,14 @@ class _MessageInputBarState extends State<MessageInputBar>
   ) {
     final isDark = theme.brightness == Brightness.dark;
     final barBg = isDark
-        ? const Color(0xFF4C0519).withValues(alpha: 0.4) // rose-950/40
-        : const Color(0xFFFEE2E2); // red-100
+        ? AppPalette.rose950.withValues(alpha: 0.4) // rose-950/40
+        : AppPalette.red100; // red-100
     final cancelBg = isDark
         ? Colors.white.withValues(alpha: 0.12)
         : Colors.white.withValues(alpha: 0.8);
     final timerColor = isDark
-        ? const Color(0xFFF87171) // red-400
-        : const Color(0xFFEF4444); // red-500
+        ? AppPalette.red400 // red-400
+        : AppPalette.red500; // red-500
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -305,7 +306,7 @@ class _MessageInputBarState extends State<MessageInputBar>
               child: Icon(
                 Icons.delete_outline,
                 size: 20,
-                color: appColors?.mutedForeground ?? const Color(0xFF64748B),
+                color: appColors?.mutedForeground ?? AppPalette.slate500,
               ),
             ),
           ),
@@ -324,7 +325,7 @@ class _MessageInputBarState extends State<MessageInputBar>
                     width: 10,
                     height: 10,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFEF4444),
+                      color: AppPalette.red500,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -385,7 +386,7 @@ class _MessageInputBarState extends State<MessageInputBar>
             Icons.attach_file,
             size: 20,
             color: disabled
-                ? (appColors?.mutedForeground ?? const Color(0xFF94A3B8))
+                ? (appColors?.mutedForeground ?? AppPalette.slate400)
                     .withValues(alpha: 0.4)
                 : appColors?.mutedForeground,
           ),
@@ -416,7 +417,7 @@ class _MessageInputBarState extends State<MessageInputBar>
                   ? (widget.disabledHint ?? l10n.permissionDeniedSend)
                   : l10n.messagingWriteMessage,
               filled: true,
-              fillColor: appColors?.muted ?? const Color(0xFFF1F5F9),
+              fillColor: appColors?.muted ?? AppPalette.slate100,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 10,
@@ -461,13 +462,13 @@ class _MessageInputBarState extends State<MessageInputBar>
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: appColors?.muted ?? const Color(0xFFF1F5F9),
+        color: appColors?.muted ?? AppPalette.slate100,
         shape: BoxShape.circle,
       ),
       child: Icon(
         Icons.send,
         size: 18,
-        color: appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+        color: appColors?.mutedForeground ?? AppPalette.slate400,
       ),
     );
   }
@@ -529,13 +530,13 @@ class _MessageInputBarState extends State<MessageInputBar>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: appColors?.muted ?? const Color(0xFFF1F5F9),
+              color: appColors?.muted ?? AppPalette.slate100,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.send,
               size: 18,
-              color: appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+              color: appColors?.mutedForeground ?? AppPalette.slate400,
             ),
           ),
         );

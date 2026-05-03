@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Identity card at the top of the profile screen: avatar, name, email, role.
 class ProfileHeaderCard extends StatelessWidget {
@@ -183,13 +184,13 @@ class ProfileRoleBadge extends StatelessWidget {
   Color _roleColor(String? role) {
     switch (role) {
       case 'agency':
-        return const Color(0xFF2563EB);
+        return AppPalette.blue600;
       case 'enterprise':
-        return const Color(0xFF8B5CF6);
+        return AppPalette.violet500;
       case 'provider':
-        return const Color(0xFFF43F5E);
+        return AppPalette.rose500;
       default:
-        return const Color(0xFF64748B);
+        return AppPalette.slate500;
     }
   }
 }

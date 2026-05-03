@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_palette.dart';
 
 /// Single drawer navigation item descriptor.
 ///
@@ -31,9 +32,9 @@ class DrawerItem {
 /// Role badge background+foreground colors — matches web sidebar
 /// `ROLE_COLORS`.
 const drawerRoleBadgeColors = {
-  'agency': (Color(0xFFDBEAFE), Color(0xFF1D4ED8)), // blue-100, blue-700
-  'enterprise': (Color(0xFFF3E8FF), Color(0xFF7E22CE)), // purple-100, purple-700
-  'provider': (Color(0xFFFFE4E6), Color(0xFFBE123C)), // rose-100, rose-700
+  'agency': (AppPalette.blue100, AppPalette.blue700), // blue-100, blue-700
+  'enterprise': (AppPalette.purple100, AppPalette.purple700), // purple-100, purple-700
+  'provider': (AppPalette.rose100, AppPalette.rose700), // rose-100, rose-700
 };
 
 /// Primary navigation entries (top section of the drawer).

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Compact header for the client profile — avatar + company name +
 /// 4 key stats (total spent, review count, average rating, projects
@@ -208,13 +209,13 @@ class _OrgTypeBadge extends StatelessWidget {
   (String, Color) _style(String type) {
     switch (type) {
       case 'agency':
-        return ('Agency', const Color(0xFF2563EB));
+        return ('Agency', AppPalette.blue600);
       case 'enterprise':
-        return ('Enterprise', const Color(0xFF8B5CF6));
+        return ('Enterprise', AppPalette.violet500);
       case 'provider_personal':
-        return ('Freelance', const Color(0xFFF43F5E));
+        return ('Freelance', AppPalette.rose500);
       default:
-        return (type, const Color(0xFF64748B));
+        return (type, AppPalette.slate500);
     }
   }
 }
@@ -274,7 +275,7 @@ class _StatsGrid extends StatelessWidget {
                 : '—',
             labelColor: labelColor,
             icon: averageRating > 0 ? Icons.star : null,
-            iconColor: const Color(0xFFFBBF24),
+            iconColor: AppPalette.amber400,
           ),
         ),
         Expanded(

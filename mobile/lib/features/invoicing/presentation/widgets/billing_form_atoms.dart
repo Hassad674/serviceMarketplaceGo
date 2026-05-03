@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Visual section card with a bold title, optional subtitle, and an
 /// arbitrary [child] body. Shared by every section of the billing form.
@@ -131,10 +132,10 @@ class BillingRadioTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFFFFE4E6)
+              ? AppPalette.rose100
               : theme.colorScheme.surface,
           border: Border.all(
-            color: selected ? const Color(0xFFF43F5E) : theme.dividerColor,
+            color: selected ? AppPalette.rose500 : theme.dividerColor,
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         ),
@@ -146,7 +147,7 @@ class BillingRadioTile extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               size: 18,
               color: selected
-                  ? const Color(0xFFF43F5E)
+                  ? AppPalette.rose500
                   : theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 10),
@@ -156,7 +157,7 @@ class BillingRadioTile extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
-                    ? const Color(0xFFBE123C)
+                    ? AppPalette.rose700
                     : theme.colorScheme.onSurface,
               ),
             ),

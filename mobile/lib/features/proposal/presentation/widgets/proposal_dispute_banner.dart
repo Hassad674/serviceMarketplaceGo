@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
 import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
 import '../../../dispute/presentation/widgets/dispute_resolution_card.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Wraps the active dispute banner with the proposal-specific callbacks
 /// (open counter-proposal, accept/reject counter, cancel, etc.).
@@ -179,16 +180,16 @@ class ProposalReportProblemButton extends StatelessWidget {
       child: OutlinedButton.icon(
         icon: const Icon(
           Icons.warning_amber_rounded,
-          color: Color(0xFFEA580C),
+          color: AppPalette.orange600,
           size: 18,
         ),
         label: Text(
           l10n.disputeReportProblem,
-          style: const TextStyle(color: Color(0xFFC2410C)),
+          style: const TextStyle(color: AppPalette.orange700),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFF7ED),
-          side: const BorderSide(color: Color(0xFFFDBA74)),
+          backgroundColor: AppPalette.orange50,
+          side: const BorderSide(color: AppPalette.orange300),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusSm),

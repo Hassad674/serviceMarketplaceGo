@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// ReferralStatusChip renders the referral status as a colour-coded pill.
 /// Tones mirror the web feature: amber for pending, emerald for active,
@@ -55,30 +56,30 @@ class ReferralStatusChip extends StatelessWidget {
   static _Palette _paletteFor(String status) {
     if (status.startsWith('pending_')) {
       return const _Palette(
-        background: Color(0xFFFEF3C7),
-        border: Color(0xFFFCD34D),
-        foreground: Color(0xFFB45309),
+        background: AppPalette.amber100,
+        border: AppPalette.amber300,
+        foreground: AppPalette.amber700,
       );
     }
     if (status == 'active') {
       return const _Palette(
-        background: Color(0xFFD1FAE5),
-        border: Color(0xFF6EE7B7),
-        foreground: Color(0xFF047857),
+        background: AppPalette.emerald100,
+        border: AppPalette.emerald300,
+        foreground: AppPalette.emerald700,
       );
     }
     if (status == 'terminated') {
       return const _Palette(
-        background: Color(0xFFF1F5F9),
-        border: Color(0xFFCBD5E1),
-        foreground: Color(0xFF334155),
+        background: AppPalette.slate100,
+        border: AppPalette.slate300,
+        foreground: AppPalette.slate700,
       );
     }
     // rejected / expired / cancelled
     return const _Palette(
-      background: Color(0xFFFFE4E6),
-      border: Color(0xFFFDA4AF),
-      foreground: Color(0xFFBE123C),
+      background: AppPalette.rose100,
+      border: AppPalette.rose300,
+      foreground: AppPalette.rose700,
     );
   }
 }

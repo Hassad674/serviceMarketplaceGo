@@ -8,6 +8,7 @@ import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
 import 'edit_member_dialog.dart';
 import 'remove_member_dialog.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Single member row in the mobile team list. Shows an initials
 /// avatar, the resolved display name, the email (when available),
@@ -148,12 +149,12 @@ class _MemberActionsMenu extends StatelessWidget {
               const Icon(
                 Icons.person_remove_outlined,
                 size: 18,
-                color: Color(0xFFDC2626),
+                color: AppPalette.red600,
               ),
               const SizedBox(width: 8),
               Text(
                 l10n.teamMemberRemove,
-                style: const TextStyle(color: Color(0xFFDC2626)),
+                style: const TextStyle(color: AppPalette.red600),
               ),
             ],
           ),
@@ -176,14 +177,14 @@ class _Avatar extends StatelessWidget {
       height: 40,
       width: 40,
       decoration: const BoxDecoration(
-        color: Color(0xFFFFE4E6), // rose-100
+        color: AppPalette.rose100, // rose-100
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
         style: const TextStyle(
-          color: Color(0xFFE11D48), // rose-600
+          color: AppPalette.rose600, // rose-600
           fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
@@ -250,24 +251,24 @@ class _RoleBadge extends StatelessWidget {
     switch (role) {
       case 'owner':
         return const _BadgeColors(
-          background: Color(0xFFFEF3C7), // amber-100
-          foreground: Color(0xFFB45309), // amber-700
+          background: AppPalette.amber100, // amber-100
+          foreground: AppPalette.amber700, // amber-700
         );
       case 'admin':
         return const _BadgeColors(
-          background: Color(0xFFEDE9FE), // violet-100
-          foreground: Color(0xFF6D28D9), // violet-700
+          background: AppPalette.violet100, // violet-100
+          foreground: AppPalette.violet700, // violet-700
         );
       case 'member':
         return const _BadgeColors(
-          background: Color(0xFFDBEAFE), // blue-100
-          foreground: Color(0xFF1D4ED8), // blue-700
+          background: AppPalette.blue100, // blue-100
+          foreground: AppPalette.blue700, // blue-700
         );
       case 'viewer':
       default:
         return const _BadgeColors(
-          background: Color(0xFFE2E8F0), // slate-200
-          foreground: Color(0xFF334155), // slate-700
+          background: AppPalette.slate200, // slate-200
+          foreground: AppPalette.slate700, // slate-700
         );
     }
   }

@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
 import '../providers/team_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Banner shown at the TOP of the team screen whenever an ownership
 /// transfer is pending on the operator's organization.
@@ -206,7 +207,7 @@ class _PendingTransferBannerState extends ConsumerState<PendingTransferBanner> {
           FilledButton(
             style: destructive
                 ? FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
+                    backgroundColor: AppPalette.red600,
                     foregroundColor: Colors.white,
                   )
                 : null,
@@ -248,7 +249,7 @@ class _TargetBanner extends StatelessWidget {
           Expanded(
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD97706),
+                backgroundColor: AppPalette.amber600,
                 foregroundColor: Colors.white,
               ),
               onPressed: busy ? null : onAccept,
@@ -269,8 +270,8 @@ class _TargetBanner extends StatelessWidget {
           Expanded(
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF92400E),
-                side: const BorderSide(color: Color(0xFFFCD34D)),
+                foregroundColor: AppPalette.amber800,
+                side: const BorderSide(color: AppPalette.amber300),
               ),
               onPressed: busy ? null : onDecline,
               icon: const Icon(Icons.close, size: 18),
@@ -305,8 +306,8 @@ class _InitiatorBanner extends StatelessWidget {
         alignment: Alignment.centerRight,
         child: OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF92400E),
-            side: const BorderSide(color: Color(0xFFFCD34D)),
+            foregroundColor: AppPalette.amber800,
+            side: const BorderSide(color: AppPalette.amber300),
           ),
           onPressed: busy ? null : onCancel,
           icon: busy
@@ -363,8 +364,8 @@ class _Shell extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB), // amber-50
-        border: Border.all(color: const Color(0xFFFCD34D)),
+        color: AppPalette.amber50, // amber-50
+        border: Border.all(color: AppPalette.amber300),
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       ),
       child: Column(
@@ -374,7 +375,7 @@ class _Shell extends StatelessWidget {
             children: [
               const Icon(
                 Icons.workspace_premium_outlined,
-                color: Color(0xFFB45309),
+                color: AppPalette.amber700,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -382,7 +383,7 @@ class _Shell extends StatelessWidget {
                 child: Text(
                   title,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF92400E),
+                    color: AppPalette.amber800,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -393,7 +394,7 @@ class _Shell extends StatelessWidget {
           Text(
             body,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF92400E),
+              color: AppPalette.amber800,
             ),
           ),
           if (formattedExpiry != null) ...[
@@ -401,7 +402,7 @@ class _Shell extends StatelessWidget {
             Text(
               l10n.teamPendingTransferExpiresOn(formattedExpiry),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF92400E),
+                color: AppPalette.amber800,
                 fontStyle: FontStyle.italic,
               ),
             ),

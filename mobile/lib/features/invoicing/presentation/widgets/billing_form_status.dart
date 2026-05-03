@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/missing_field.dart';
 import '_missing_fields_copy.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Amber warning banner that lists the missing required fields above
 /// the form whenever the snapshot has `isComplete = false`.
@@ -18,9 +19,9 @@ class BillingMissingBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
+        color: AppPalette.orange50,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: const Color(0xFFFCD34D)),
+        border: Border.all(color: AppPalette.amber300),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,7 +29,7 @@ class BillingMissingBanner extends StatelessWidget {
           const Icon(
             Icons.warning_amber_rounded,
             size: 18,
-            color: Color(0xFF92400E),
+            color: AppPalette.amber800,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -39,7 +40,7 @@ class BillingMissingBanner extends StatelessWidget {
                   'Quelques informations restent à compléter',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF92400E),
+                    color: AppPalette.amber800,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -51,7 +52,7 @@ class BillingMissingBanner extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         color:
-                            const Color(0xFF92400E).withValues(alpha: 0.9),
+                            AppPalette.amber800.withValues(alpha: 0.9),
                       ),
                     ),
                   ),
@@ -101,7 +102,7 @@ class BillingStripeSyncRow extends StatelessWidget {
                         const Icon(
                           Icons.check_circle,
                           size: 14,
-                          color: Color(0xFF22C55E),
+                          color: AppPalette.green500,
                         ),
                         const SizedBox(width: 6),
                         Expanded(

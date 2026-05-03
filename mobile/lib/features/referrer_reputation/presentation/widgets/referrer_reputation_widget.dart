@@ -6,6 +6,7 @@ import '../../../../shared/widgets/profile_display_card_shell.dart';
 import '../../../../shared/widgets/review_card_widget.dart';
 import '../../domain/entities/referrer_reputation.dart';
 import '../providers/referrer_reputation_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Apporteur reputation surface: dedicated rating (distinct from the
 /// freelance rating) + history of attributed missions. Visual grammar
@@ -181,7 +182,7 @@ class _ReputationHeader extends StatelessWidget {
             const Icon(
               Icons.star_rounded,
               size: 18,
-              color: Color(0xFFF59E0B),
+              color: AppPalette.amber500,
             ),
             const SizedBox(width: 6),
             Text(
@@ -347,8 +348,8 @@ class _StatusBadge extends StatelessWidget {
       case 'completed':
         return (
           l10n.reputationStatusCompleted,
-          const Color(0xFFD1FAE5),
-          const Color(0xFF047857),
+          AppPalette.emerald100,
+          AppPalette.emerald700,
         );
       case 'disputed':
         return (
@@ -362,8 +363,8 @@ class _StatusBadge extends StatelessWidget {
       case 'completion_requested':
         return (
           l10n.reputationStatusActive,
-          const Color(0xFFDBEAFE),
-          const Color(0xFF1D4ED8),
+          AppPalette.blue100,
+          AppPalette.blue700,
         );
       case 'pending':
         return (

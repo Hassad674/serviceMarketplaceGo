@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../domain/entities/job_application_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Builds 1- or 2-letter initials from a display name. Returns "?" for
 /// empty or whitespace-only names.
@@ -62,7 +63,7 @@ class CandidateCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: const Color(0xFFFFF1F2),
+                    backgroundColor: AppPalette.rose50,
                     // 24 lp radius × 3x DPR = ~144 px raster. Cap
                     // disk + memory cache at 128 (PERF-M-05).
                     backgroundImage: profile.photoUrl.isNotEmpty
@@ -76,7 +77,7 @@ class CandidateCard extends StatelessWidget {
                         ? Text(
                             initials,
                             style: const TextStyle(
-                              color: Color(0xFFF43F5E),
+                              color: AppPalette.rose500,
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
                             ),
@@ -107,7 +108,7 @@ class CandidateCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: profile.orgType == 'provider_personal'
-                                    ? const Color(0xFFFFF1F2)
+                                    ? AppPalette.rose50
                                     : Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -119,7 +120,7 @@ class CandidateCard extends StatelessWidget {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                   color: profile.orgType == 'provider_personal'
-                                      ? const Color(0xFFF43F5E)
+                                      ? AppPalette.rose500
                                       : Colors.blue.shade700,
                                 ),
                               ),

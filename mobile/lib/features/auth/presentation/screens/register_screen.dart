@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Provider (freelance) registration form.
 ///
@@ -78,7 +79,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const _RoleBadge(
                   icon: Icons.person,
                   label: 'Freelance / Business Referrer',
-                  color: Color(0xFFF43F5E),
+                  color: AppPalette.rose500,
                 ),
                 const SizedBox(height: 24),
 

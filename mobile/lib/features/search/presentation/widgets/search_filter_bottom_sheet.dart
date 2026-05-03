@@ -20,6 +20,7 @@ import 'filter_sections/filter_primitives.dart';
 import 'filter_sections/location_section.dart';
 import 'filter_sections/price_range_section.dart';
 import 'filter_sections/skills_chip_input.dart';
+import '../../../../core/theme/app_palette.dart';
 
 export '../../../../shared/search/search_filters.dart';
 
@@ -445,7 +446,7 @@ class _RatingSection extends StatelessWidget {
             icon: Icon(
               selected ? Icons.star : Icons.star_border,
               color: selected
-                  ? const Color(0xFFFBBF24)
+                  ? AppPalette.amber400
                   : Theme.of(context).disabledColor,
             ),
           );

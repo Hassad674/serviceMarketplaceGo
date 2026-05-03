@@ -19,6 +19,7 @@ import 'routes/dashboard_routes.dart';
 import 'routes/payment_routes.dart';
 import 'routes/profile_routes.dart';
 import 'routes/team_routes.dart';
+import '../theme/app_palette.dart';
 
 // Re-export DashboardScreen so existing imports of `app_router.dart` for
 // the symbol keep compiling without requiring a callsite change.
@@ -389,7 +390,7 @@ class _ShellBottomNav extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: const Color(0xFFF43F5E),
+            backgroundColor: AppPalette.rose500,
             child: const Icon(Icons.chat_outlined),
           )
         : const Icon(Icons.chat_outlined);
@@ -402,7 +403,7 @@ class _ShellBottomNav extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: const Color(0xFFF43F5E),
+            backgroundColor: AppPalette.rose500,
             child: const Icon(Icons.chat),
           )
         : const Icon(Icons.chat);

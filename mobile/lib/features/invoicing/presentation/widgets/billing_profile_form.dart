@@ -10,6 +10,7 @@ import 'billing_form_status.dart';
 import 'billing_section_address.dart';
 import 'billing_section_fiscal.dart';
 import 'billing_section_legal_identity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 // EU member states whose VAT numbers can be validated through VIES.
 // Domain predicate kept separate from the country selector list — the
@@ -221,13 +222,13 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
               child: Text(
                 _saveSuccess!,
                 style:
-                    const TextStyle(color: Color(0xFF22C55E), fontSize: 13),
+                    const TextStyle(color: AppPalette.green500, fontSize: 13),
               ),
             ),
           ElevatedButton(
             onPressed: _saving ? null : _onSave,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF43F5E),
+              backgroundColor: AppPalette.rose500,
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 48),
               shape: RoundedRectangleBorder(

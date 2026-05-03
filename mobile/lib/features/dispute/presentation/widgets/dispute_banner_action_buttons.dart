@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Green CTA used to accept a counter-proposal or cancellation request.
 class DisputeAcceptButton extends StatelessWidget {
@@ -20,7 +21,7 @@ class DisputeAcceptButton extends StatelessWidget {
       icon: const Icon(Icons.check_circle, size: 16),
       label: Text(label),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF16A34A),
+        backgroundColor: AppPalette.green600,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
@@ -48,8 +49,8 @@ class DisputeRejectButton extends StatelessWidget {
       icon: const Icon(Icons.cancel, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFDC2626),
-        side: const BorderSide(color: Color(0xFFFCA5A5)),
+        foregroundColor: AppPalette.red600,
+        side: const BorderSide(color: AppPalette.red300),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         ),
@@ -76,7 +77,7 @@ class DisputeCounterButton extends StatelessWidget {
       icon: const Icon(Icons.swap_horiz, size: 16),
       label: Text(label),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFD97706),
+        backgroundColor: AppPalette.amber600,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),

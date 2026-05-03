@@ -8,6 +8,7 @@ import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/apply_bottom_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class OpportunityDetailScreen extends ConsumerWidget {
   const OpportunityDetailScreen({super.key, required this.jobId});
@@ -84,7 +85,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const Icon(Icons.euro, color: Color(0xFFF43F5E)),
+                        const Icon(Icons.euro, color: AppPalette.rose500),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +129,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
-                      backgroundColor: const Color(0xFFFFF1F2),
+                      backgroundColor: AppPalette.rose50,
                     )).toList(),
                   ),
                   const SizedBox(height: 16),
@@ -160,7 +161,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                     Text(
                       l10n.permissionDenied,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFFEF4444),
+                        color: AppPalette.red500,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -169,7 +170,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                     Text(
                       l10n.noCreditsCannotApply,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFFEF4444),
+                        color: AppPalette.red500,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -178,7 +179,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   FilledButton(
                     onPressed: isDisabled ? null : () => showApplyBottomSheet(context, ref, jobId),
                     style: FilledButton.styleFrom(
-                      backgroundColor: isDisabled ? Colors.grey : const Color(0xFFF43F5E),
+                      backgroundColor: isDisabled ? Colors.grey : AppPalette.rose500,
                       minimumSize: const Size.fromHeight(48),
                     ),
                     child: Text(alreadyApplied ? l10n.alreadyApplied : l10n.applyAction),

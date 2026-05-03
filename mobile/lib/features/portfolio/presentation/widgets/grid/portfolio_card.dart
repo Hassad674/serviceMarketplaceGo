@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/portfolio_item.dart';
 import '../portfolio_video_thumbnail.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Compact tile rendered inside the portfolio grid — cover, media
 /// counts, optional edit/delete actions.
@@ -34,7 +35,7 @@ class PortfolioCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: const Color(0xFF0F172A),
+          color: AppPalette.slate900,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.08),
@@ -133,14 +134,14 @@ class PortfolioCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
+          colors: [AppPalette.slate200, AppPalette.slate300],
         ),
       ),
       child: const Center(
         child: Icon(
           Icons.image_outlined,
           size: 36,
-          color: Color(0xFF94A3B8),
+          color: AppPalette.slate400,
         ),
       ),
     );
@@ -241,8 +242,8 @@ class _BottomTitle extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              Color(0xCC000000),
-              Color(0xF2000000),
+              AppPalette.black80,
+              AppPalette.black95,
             ],
           ),
         ),
@@ -294,7 +295,7 @@ class _CardActionButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 16,
-          color: destructive ? Colors.red : const Color(0xFF334155),
+          color: destructive ? Colors.red : AppPalette.slate700,
         ),
       ),
     );

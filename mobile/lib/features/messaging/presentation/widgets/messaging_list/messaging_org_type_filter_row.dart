@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Horizontal filter row at the top of the conversations list — All
 /// / Agency / Freelancer / Enterprise pills.
@@ -19,13 +20,13 @@ class MessagingOrgTypeFilterRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final filters = [
       ('all', l10n.messagingAllRoles, null),
-      ('agency', l10n.messagingAgency, const Color(0xFF2563EB)),
+      ('agency', l10n.messagingAgency, AppPalette.blue600),
       (
         'provider_personal',
         l10n.messagingFreelancer,
-        const Color(0xFFF43F5E),
+        AppPalette.rose500,
       ),
-      ('enterprise', l10n.messagingEnterprise, const Color(0xFF8B5CF6)),
+      ('enterprise', l10n.messagingEnterprise, AppPalette.violet500),
     ];
 
     return SingleChildScrollView(

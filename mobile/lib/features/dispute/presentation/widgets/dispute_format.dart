@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Pure formatting helpers for the dispute banner. Extracted so a
 /// new dispute reason or status string requires only a single edit
@@ -11,15 +12,15 @@ Color disputeStatusColor(String status) {
   switch (status) {
     case 'open':
     case 'negotiation':
-      return const Color(0xFFEA580C); // orange-600
+      return AppPalette.orange600; // orange-600
     case 'escalated':
-      return const Color(0xFFDC2626); // red-600
+      return AppPalette.red600; // red-600
     case 'resolved':
-      return const Color(0xFF16A34A); // green-600
+      return AppPalette.green600; // green-600
     case 'cancelled':
-      return const Color(0xFF64748B); // slate-500
+      return AppPalette.slate500; // slate-500
     default:
-      return const Color(0xFFEA580C);
+      return AppPalette.orange600;
   }
 }
 

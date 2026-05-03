@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_entity.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class OpportunityCard extends ConsumerWidget {
   const OpportunityCard({super.key, required this.job, this.hasApplied = false});
@@ -97,8 +98,8 @@ class OpportunityCard extends ConsumerWidget {
                   runSpacing: 4,
                   children: job.skills.take(3).map((s) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(12)),
-                    child: Text(s, style: const TextStyle(fontSize: 11, color: Color(0xFFF43F5E), fontWeight: FontWeight.w500)),
+                    decoration: BoxDecoration(color: AppPalette.rose50, borderRadius: BorderRadius.circular(12)),
+                    child: Text(s, style: const TextStyle(fontSize: 11, color: AppPalette.rose500, fontWeight: FontWeight.w500)),
                   )).toList(),
                 ),
               ],

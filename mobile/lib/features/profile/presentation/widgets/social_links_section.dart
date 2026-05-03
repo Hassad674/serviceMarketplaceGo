@@ -6,6 +6,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../providers/social_links_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Platform metadata used to render icons and labels.
 class _PlatformMeta {
@@ -16,12 +17,12 @@ class _PlatformMeta {
 }
 
 const _platforms = [
-  _PlatformMeta('linkedin', Icons.business, Color(0xFF0A66C2)),
-  _PlatformMeta('instagram', Icons.camera_alt, Color(0xFFE4405F)),
-  _PlatformMeta('youtube', Icons.play_circle_fill, Color(0xFFFF0000)),
-  _PlatformMeta('twitter', Icons.alternate_email, Color(0xFF1DA1F2)),
-  _PlatformMeta('github', Icons.code, Color(0xFF333333)),
-  _PlatformMeta('website', Icons.language, Color(0xFFF43F5E)),
+  _PlatformMeta('linkedin', Icons.business, AppPalette.linkedinBlue),
+  _PlatformMeta('instagram', Icons.camera_alt, AppPalette.instagramPink),
+  _PlatformMeta('youtube', Icons.play_circle_fill, AppPalette.pureRed),
+  _PlatformMeta('twitter', Icons.alternate_email, AppPalette.twitterBlue),
+  _PlatformMeta('github', Icons.code, AppPalette.gray800),
+  _PlatformMeta('website', Icons.language, AppPalette.rose500),
 ];
 
 String _platformLabel(String key, AppLocalizations l10n) {

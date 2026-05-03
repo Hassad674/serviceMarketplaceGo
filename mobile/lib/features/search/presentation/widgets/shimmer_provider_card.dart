@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Skeleton loading card matching [ProviderCard] layout.
 ///
@@ -14,11 +15,11 @@ class ShimmerProviderCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final baseColor = isDark
-        ? const Color(0xFF1E293B)
-        : const Color(0xFFE2E8F0);
+        ? AppPalette.slate800
+        : AppPalette.slate200;
     final highlightColor = isDark
-        ? const Color(0xFF334155)
-        : const Color(0xFFF1F5F9);
+        ? AppPalette.slate700
+        : AppPalette.slate100;
 
     return Shimmer.fromColors(
       baseColor: baseColor,

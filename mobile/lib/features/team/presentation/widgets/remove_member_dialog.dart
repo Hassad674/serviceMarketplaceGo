@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Destructive confirmation dialog for `Remove member`.
 ///
@@ -93,8 +94,8 @@ class _RemoveMemberDialogState extends ConsumerState<RemoveMemberDialog> {
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       icon: const CircleAvatar(
-        backgroundColor: Color(0xFFFEE2E2),
-        child: Icon(Icons.person_remove_outlined, color: Color(0xFFDC2626)),
+        backgroundColor: AppPalette.red100,
+        child: Icon(Icons.person_remove_outlined, color: AppPalette.red600),
       ),
       title: Text(l10n.teamRemoveMemberDialogTitle),
       content: Column(
@@ -110,7 +111,7 @@ class _RemoveMemberDialogState extends ConsumerState<RemoveMemberDialog> {
             Text(
               _serverError!,
               style: const TextStyle(
-                color: Color(0xFFB91C1C),
+                color: AppPalette.red700,
                 fontSize: 13,
               ),
             ),
@@ -124,7 +125,7 @@ class _RemoveMemberDialogState extends ConsumerState<RemoveMemberDialog> {
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppPalette.red600,
             foregroundColor: Colors.white,
           ),
           onPressed: _submitting ? null : _confirm,

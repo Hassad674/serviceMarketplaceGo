@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'portfolio_video_thumbnail.dart';
+import '../../../../core/theme/app_palette.dart';
 
 const int kPortfolioMaxMedia = 8;
 
@@ -129,13 +130,13 @@ class _PortfolioEmptyMediaUploader extends StatelessWidget {
                       height: 56,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFFFE4E6), Color(0xFFFEF2F2)],
+                          colors: [AppPalette.rose100, AppPalette.red50],
                         ),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
                         Icons.add_photo_alternate_outlined,
-                        color: Color(0xFFE11D48),
+                        color: AppPalette.rose600,
                         size: 26,
                       ),
                     ),
@@ -274,7 +275,7 @@ class _PortfolioMediaThumb extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            color: const Color(0xFF0F172A),
+            color: AppPalette.slate900,
             // PERF-M-09: brut Image.network re-downloads on every
             // rebuild and decodes the original 2-4 MB JPEG. The form
             // tile is ~120 lp wide on phones — 360 raster pixels is
@@ -301,7 +302,7 @@ class _PortfolioMediaThumb extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFFE11D48),
+                    color: AppPalette.rose600,
                     width: 2,
                   ),
                 ),
@@ -317,7 +318,7 @@ class _PortfolioMediaThumb extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF43F5E), Color(0xFFE11D48)],
+                  colors: [AppPalette.rose500, AppPalette.rose600],
                 ),
                 borderRadius: BorderRadius.circular(99),
               ),
@@ -379,7 +380,7 @@ class _PortfolioMediaThumb extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 decoration: BoxDecoration(
                   color: media.thumbnailUrl.isNotEmpty
-                      ? const Color(0xFFE11D48).withValues(alpha: 0.92)
+                      ? AppPalette.rose600.withValues(alpha: 0.92)
                       : Colors.black.withValues(alpha: 0.7),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(12),

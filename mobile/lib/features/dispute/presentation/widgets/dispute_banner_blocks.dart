@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dispute_entity.dart';
 import 'dispute_format.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Card showing the most recent pending counter-proposal split.
 class DisputeProposalSummary extends StatelessWidget {
@@ -134,9 +135,9 @@ class DisputeEscalatedNegotiationOpenBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const orangeBorder = Color(0xFFFED7AA); // orange-200
-    const orangeBg = Color(0xFFFFF7ED); // orange-50
-    const orangeFg = Color(0xFF9A3412); // orange-800
+    const orangeBorder = AppPalette.orange200; // orange-200
+    const orangeBg = AppPalette.orange50; // orange-50
+    const orangeFg = AppPalette.orange800; // orange-800
 
     return Container(
       width: double.infinity,
@@ -168,9 +169,9 @@ class DisputeRefusedProposalBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const redBorder = Color(0xFFFCA5A5); // red-300
-    const redBg = Color(0xFFFEF2F2); // red-50
-    const redFg = Color(0xFFB91C1C); // red-700
+    const redBorder = AppPalette.red300; // red-300
+    const redBg = AppPalette.red50; // red-50
+    const redFg = AppPalette.red700; // red-700
 
     final clientStr = formatEur(proposal.amountClient);
     final providerStr = formatEur(proposal.amountProvider);
@@ -229,9 +230,9 @@ class DisputeCancellationRequestBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const amberBorder = Color(0xFFFCD34D); // amber-300
-    const amberBg = Color(0xFFFFFBEB); // amber-50
-    const amberFg = Color(0xFF92400E); // amber-800
+    const amberBorder = AppPalette.amber300; // amber-300
+    const amberBg = AppPalette.amber50; // amber-50
+    const amberFg = AppPalette.amber800; // amber-800
 
     return Container(
       width: double.infinity,

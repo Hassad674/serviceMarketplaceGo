@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../l10n/app_localizations.dart';
+import '../../../../../../core/theme/app_palette.dart';
 
 /// Bubble shown in place of a deleted message — italic placeholder
 /// text behind a muted border.
@@ -23,7 +24,7 @@ class DeletedMessageBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: appColors?.muted ?? const Color(0xFFF1F5F9),
+            color: appColors?.muted ?? AppPalette.slate100,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: appColors?.border ?? theme.dividerColor,

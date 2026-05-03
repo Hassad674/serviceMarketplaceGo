@@ -5,6 +5,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/missing_field.dart';
 import '_missing_fields_copy.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Opens the gate modal explaining that the billing profile is
 /// incomplete and routing to `/settings/billing-profile`.
@@ -86,10 +87,10 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED), // amber-50
+              color: AppPalette.orange50, // amber-50
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               border: Border.all(
-                color: const Color(0xFFFCD34D), // amber-300
+                color: AppPalette.amber300, // amber-300
                 width: 1,
               ),
             ),
@@ -99,7 +100,7 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                 const Icon(
                   Icons.warning_amber_rounded,
                   size: 18,
-                  color: Color(0xFF92400E), // amber-800
+                  color: AppPalette.amber800, // amber-800
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -109,7 +110,7 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                             'complète les informations suivantes. Elles '
                             'apparaîtront sur tes factures.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF92400E),
+                      color: AppPalette.amber800,
                       fontSize: 13,
                     ),
                   ),
@@ -153,7 +154,7 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward, size: 16),
                   label: const Text('Compléter mon profil'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF43F5E),
+                    backgroundColor: AppPalette.rose500,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -191,7 +192,7 @@ class _MissingList extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF43F5E),
+                  color: AppPalette.rose500,
                   shape: BoxShape.circle,
                 ),
               ),

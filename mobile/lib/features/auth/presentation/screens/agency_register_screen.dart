@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Agency registration form.
 ///
@@ -76,7 +77,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                 const _RoleBadge(
                   icon: Icons.business,
                   label: 'Agency / IT Services',
-                  color: Color(0xFF2563EB),
+                  color: AppPalette.blue600,
                 ),
                 const SizedBox(height: 24),
 

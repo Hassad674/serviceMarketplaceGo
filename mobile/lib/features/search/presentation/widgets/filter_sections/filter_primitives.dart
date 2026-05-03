@@ -9,15 +9,16 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/app_palette.dart';
 
 /// Rose-500 — the marketplace primary color. Kept local to the
 /// filter sheet so we do not accidentally couple unrelated widgets
 /// to a hardcoded constant — consumers should always prefer
 /// `Theme.of(context).colorScheme.primary`. Used here only because
 /// AppColors does not expose a `primary` slot.
-const Color kFilterRose500 = Color(0xFFF43F5E);
-const Color kFilterRose100 = Color(0xFFFFE4E6);
-const Color kFilterRose700 = Color(0xFFBE123C);
+const Color kFilterRose500 = AppPalette.rose500;
+const Color kFilterRose100 = AppPalette.rose100;
+const Color kFilterRose700 = AppPalette.rose700;
 
 /// Section shell with a 12 px caps header + the sub-widget. Spacing
 /// matches the 4 px design grid (8/16/20 increments only).

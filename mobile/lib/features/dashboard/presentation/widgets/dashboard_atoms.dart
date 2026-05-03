@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Gradient rose-to-purple welcome banner shown at the top of every
 /// role-specific dashboard. Renders the localised "welcome back" line,
@@ -28,13 +29,13 @@ class DashboardWelcomeBanner extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFF43F5E), // rose-500
-            Color(0xFF8B5CF6), // violet-500
+            AppPalette.rose500, // rose-500
+            AppPalette.violet500, // violet-500
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF43F5E).withValues(alpha: 0.3),
+            color: AppPalette.rose500.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
