@@ -205,7 +205,7 @@ class ClientProfile {
 
 final DateTime _epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
-int _readInt(dynamic value) {
+int _readInt(Object? value) {
   if (value == null) return 0;
   if (value is int) return value;
   if (value is double) return value.toInt();
@@ -213,7 +213,7 @@ int _readInt(dynamic value) {
   return 0;
 }
 
-double _readDouble(dynamic value) {
+double _readDouble(Object? value) {
   if (value == null) return 0.0;
   if (value is double) return value;
   if (value is int) return value.toDouble();
@@ -221,7 +221,7 @@ double _readDouble(dynamic value) {
   return 0.0;
 }
 
-DateTime? _parseDate(dynamic value) {
+DateTime? _parseDate(Object? value) {
   if (value is String && value.isNotEmpty) {
     return DateTime.tryParse(value);
   }

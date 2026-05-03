@@ -135,7 +135,7 @@ class TypesenseSearchRepository {
   /// search runs a single query against the backend proxy. Returns
   /// a typed result that mirrors the web + backend envelopes.
   Future<TypesenseSearchResult> search(TypesenseSearchInput input) async {
-    final response = await api.get<dynamic>(
+    final response = await api.get(
       '/api/v1/search',
       queryParameters: _toQuery(input),
     );
@@ -160,7 +160,7 @@ class TypesenseSearchRepository {
   }) async {
     if (searchId.isEmpty || docId.isEmpty || position < 0) return;
     try {
-      await api.get<dynamic>(
+      await api.get(
         '/api/v1/search/track',
         queryParameters: {
           'search_id': searchId,

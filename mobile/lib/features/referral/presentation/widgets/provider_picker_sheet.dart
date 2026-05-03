@@ -77,8 +77,8 @@ class _ProviderPickerSheetState extends ConsumerState<_ProviderPickerSheet>
       final msgRepo = ref.read(messagingRepositoryProvider);
       final convs = await msgRepo.getConversations(limit: 50);
 
-      final freelancersData = (results[0].data as Map<String, dynamic>?)?['data'] as List<dynamic>? ?? const [];
-      final agenciesData = (results[1].data as Map<String, dynamic>?)?['data'] as List<dynamic>? ?? const [];
+      final freelancersData = (results[0].data as Map<String, dynamic>?)?['data'] as List? ?? const [];
+      final agenciesData = (results[1].data as Map<String, dynamic>?)?['data'] as List? ?? const [];
 
       if (!mounted) return;
       setState(() {

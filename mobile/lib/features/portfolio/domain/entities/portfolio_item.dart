@@ -63,7 +63,7 @@ class PortfolioItem {
   });
 
   factory PortfolioItem.fromJson(Map<String, dynamic> json) {
-    final mediaList = (json['media'] as List<dynamic>?)
+    final mediaList = (json['media'] as List?)
             ?.map((m) => PortfolioMedia.fromJson(m as Map<String, dynamic>))
             .toList() ??
         [];

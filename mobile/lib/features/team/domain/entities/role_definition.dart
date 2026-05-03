@@ -41,7 +41,7 @@ class RoleDefinition {
   });
 
   factory RoleDefinition.fromJson(Map<String, dynamic> json) {
-    final rawPerms = (json['permissions'] as List<dynamic>?) ?? const [];
+    final rawPerms = (json['permissions'] as List?) ?? const [];
     return RoleDefinition(
       key: (json['key'] as String?) ?? '',
       label: (json['label'] as String?) ?? '',
@@ -74,8 +74,8 @@ class RoleDefinitionsPayload {
   }
 
   factory RoleDefinitionsPayload.fromJson(Map<String, dynamic> json) {
-    final rawRoles = (json['roles'] as List<dynamic>?) ?? const [];
-    final rawPerms = (json['permissions'] as List<dynamic>?) ?? const [];
+    final rawRoles = (json['roles'] as List?) ?? const [];
+    final rawPerms = (json['permissions'] as List?) ?? const [];
     return RoleDefinitionsPayload(
       roles: rawRoles
           .cast<Map<String, dynamic>>()

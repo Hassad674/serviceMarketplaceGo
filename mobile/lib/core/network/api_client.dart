@@ -197,15 +197,15 @@ class ApiClient {
     return _dio.get(path, queryParameters: queryParameters, options: options);
   }
 
-  Future<Response<T>> post<T>(String path, {dynamic data}) {
+  Future<Response<T>> post<T>(String path, {Object? data}) {
     return _dio.post(path, data: data);
   }
 
-  Future<Response<T>> put<T>(String path, {dynamic data}) {
+  Future<Response<T>> put<T>(String path, {Object? data}) {
     return _dio.put(path, data: data);
   }
 
-  Future<Response<T>> patch<T>(String path, {dynamic data}) {
+  Future<Response<T>> patch<T>(String path, {Object? data}) {
     return _dio.patch(path, data: data);
   }
 

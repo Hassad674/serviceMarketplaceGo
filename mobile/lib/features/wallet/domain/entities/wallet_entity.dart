@@ -27,9 +27,9 @@ class WalletOverview {
   });
 
   factory WalletOverview.fromJson(Map<String, dynamic> json) {
-    final recordsJson = json['records'] as List<dynamic>? ?? [];
+    final recordsJson = json['records'] as List? ?? [];
     final commissionRecordsJson =
-        json['commission_records'] as List<dynamic>? ?? [];
+        json['commission_records'] as List? ?? [];
     final commissionsJson =
         json['commissions'] as Map<String, dynamic>? ?? const {};
     return WalletOverview(

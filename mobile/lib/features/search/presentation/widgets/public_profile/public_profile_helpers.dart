@@ -23,7 +23,7 @@ Pricing? pickDirectPricing(Map<String, dynamic> profile) {
   return null;
 }
 
-int? readIntField(dynamic value) {
+int? readIntField(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
   if (value is double) return value.toInt();

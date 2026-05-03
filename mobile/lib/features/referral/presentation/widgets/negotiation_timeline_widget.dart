@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
 
 /// NegotiationTimelineWidget renders the audit trail of negotiation events
@@ -57,7 +58,7 @@ class NegotiationTimelineWidget extends ConsumerWidget {
 class _TimelineRow extends StatelessWidget {
   const _TimelineRow({required this.event, required this.showRate});
 
-  final dynamic event; // ReferralNegotiation, kept dynamic to avoid the import here
+  final ReferralNegotiation event;
   final bool showRate;
 
   @override
@@ -104,7 +105,7 @@ class _TimelineRow extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          '${(event.ratePct as double).toStringAsFixed(event.ratePct % 1 == 0 ? 0 : 1)}%',
+                          '${event.ratePct.toStringAsFixed(event.ratePct % 1 == 0 ? 0 : 1)}%',
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
@@ -112,7 +113,7 @@ class _TimelineRow extends StatelessWidget {
                       ),
                   ],
                 ),
-                if ((event.message as String).isNotEmpty) ...[
+                if (event.message.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     '"${event.message}"',

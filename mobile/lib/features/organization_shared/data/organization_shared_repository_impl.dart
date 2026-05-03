@@ -22,7 +22,7 @@ class OrganizationSharedRepositoryImpl
 
   @override
   Future<OrganizationSharedProfile> getShared() async {
-    final response = await _api.get<dynamic>('/api/v1/organization/shared');
+    final response = await _api.get('/api/v1/organization/shared');
     final body = _unwrapMap(response.data);
     if (body == null) {
       return OrganizationSharedProfile.empty;
@@ -47,7 +47,7 @@ class OrganizationSharedRepositoryImpl
       'work_mode': workMode,
       'travel_radius_km': travelRadiusKm,
     };
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/organization/location',
       data: payload,
     );
@@ -58,7 +58,7 @@ class OrganizationSharedRepositoryImpl
     required List<String> professional,
     required List<String> conversational,
   }) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/organization/languages',
       data: <String, dynamic>{
         'professional': professional,
@@ -69,7 +69,7 @@ class OrganizationSharedRepositoryImpl
 
   @override
   Future<void> updatePhoto(String photoUrl) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/organization/photo',
       data: <String, dynamic>{'photo_url': photoUrl},
     );
@@ -79,7 +79,7 @@ class OrganizationSharedRepositoryImpl
   // Parsing helpers
   // ---------------------------------------------------------------------------
 
-  Map<String, dynamic>? _unwrapMap(dynamic raw) {
+  Map<String, dynamic>? _unwrapMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;

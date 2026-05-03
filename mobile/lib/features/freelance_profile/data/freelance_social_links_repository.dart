@@ -13,7 +13,7 @@ class FreelanceSocialLinksRepository {
   /// returns a list — missing or malformed payloads are coerced to
   /// an empty list so callers never branch on null.
   Future<List<Map<String, dynamic>>> listMine() async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/freelance-profile/social-links',
     );
     return _coerceList(response.data);
@@ -22,7 +22,7 @@ class FreelanceSocialLinksRepository {
   /// Public read of any organization's freelance social links.
   /// Used by the `/freelancers/:id` public profile screen.
   Future<List<Map<String, dynamic>>> listPublic(String organizationId) async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/freelance-profiles/$organizationId/social-links',
     );
     return _coerceList(response.data);
@@ -32,7 +32,7 @@ class FreelanceSocialLinksRepository {
   /// platform allowlist and URL scheme validation — mobile does no
   /// client-side validation beyond trimming the URL.
   Future<void> upsert(String platform, String url) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/freelance-profile/social-links',
       data: <String, dynamic>{'platform': platform, 'url': url},
     );
@@ -40,12 +40,12 @@ class FreelanceSocialLinksRepository {
 
   /// Deletes one platform for the freelance persona.
   Future<void> delete(String platform) async {
-    await _api.delete<dynamic>(
+    await _api.delete(
       '/api/v1/freelance-profile/social-links/$platform',
     );
   }
 
-  List<Map<String, dynamic>> _coerceList(dynamic data) {
+  List<Map<String, dynamic>> _coerceList(Object? data) {
     if (data is List) {
       return data.cast<Map<String, dynamic>>();
     }

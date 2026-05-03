@@ -29,7 +29,7 @@ class SkillRepositoryImpl implements SkillRepository {
 
   @override
   Future<List<ProfileSkill>> getProfileSkills() async {
-    final response = await _api.get<dynamic>('/api/v1/profile/skills');
+    final response = await _api.get('/api/v1/profile/skills');
     final raw = _unwrapList(response.data);
     return raw
         .whereType<Map<String, dynamic>>()
@@ -39,7 +39,7 @@ class SkillRepositoryImpl implements SkillRepository {
 
   @override
   Future<void> updateProfileSkills(List<String> skillTexts) async {
-    await _api.put<dynamic>(
+    await _api.put(
       '/api/v1/profile/skills',
       data: <String, dynamic>{'skill_texts': skillTexts},
     );
@@ -54,7 +54,7 @@ class SkillRepositoryImpl implements SkillRepository {
     String expertiseKey, {
     int limit = 50,
   }) async {
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/skills/catalog',
       queryParameters: <String, dynamic>{
         'expertise': expertiseKey,
@@ -76,7 +76,7 @@ class SkillRepositoryImpl implements SkillRepository {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const <CatalogEntry>[];
 
-    final response = await _api.get<dynamic>(
+    final response = await _api.get(
       '/api/v1/skills/autocomplete',
       queryParameters: <String, dynamic>{
         'q': trimmed,
@@ -93,7 +93,7 @@ class SkillRepositoryImpl implements SkillRepository {
 
   @override
   Future<CatalogEntry> createUserSkill(String displayText) async {
-    final response = await _api.post<dynamic>(
+    final response = await _api.post(
       '/api/v1/skills',
       data: <String, dynamic>{'display_text': displayText},
     );
@@ -119,7 +119,7 @@ class SkillRepositoryImpl implements SkillRepository {
 
   /// Unwraps either `{ "data": X }` or a raw `X` payload and returns
   /// the map — or `null` when the shape is unrecognised.
-  Map<String, dynamic>? _unwrapMap(dynamic raw) {
+  Map<String, dynamic>? _unwrapMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;
@@ -130,7 +130,7 @@ class SkillRepositoryImpl implements SkillRepository {
 
   /// Unwraps either `{ "data": [X, Y] }` or a raw list and returns
   /// it as a Dart list. Returns an empty list on unknown shapes.
-  List<dynamic> _unwrapList(dynamic raw) {
+  List<Object?> _unwrapList(Object? raw) {
     if (raw is List) return raw;
     if (raw is Map<String, dynamic>) {
       final data = raw['data'];
@@ -138,10 +138,10 @@ class SkillRepositoryImpl implements SkillRepository {
       final skills = raw['skills'];
       if (skills is List) return skills;
     }
-    return const <dynamic>[];
+    return const <Object?>[];
   }
 
-  List<CatalogEntry> _parseCatalogList(dynamic raw) {
+  List<CatalogEntry> _parseCatalogList(Object? raw) {
     final list = raw is List ? raw : _unwrapList(raw);
     return list
         .whereType<Map<String, dynamic>>()
@@ -149,7 +149,7 @@ class SkillRepositoryImpl implements SkillRepository {
         .toList(growable: false);
   }
 
-  int? _parseInt(dynamic raw) {
+  int? _parseInt(Object? raw) {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw);

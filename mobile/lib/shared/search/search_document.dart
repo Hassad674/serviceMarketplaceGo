@@ -224,7 +224,7 @@ SearchDocumentAvailability _availabilityFromWire(String? raw) {
   }
 }
 
-List<String> _stringList(dynamic raw) {
+List<String> _stringList(Object? raw) {
   if (raw is! List) return const [];
   final out = <String>[];
   for (final entry in raw) {
@@ -233,18 +233,18 @@ List<String> _stringList(dynamic raw) {
   return out;
 }
 
-double _readDouble(dynamic raw) {
+double _readDouble(Object? raw) {
   if (raw is num) return raw.toDouble();
   return 0;
 }
 
-int _readInt(dynamic raw) {
+int _readInt(Object? raw) {
   if (raw is num) return raw.toInt();
   return 0;
 }
 
 SearchDocumentPricing? _pickPricing(
-  dynamic rows,
+  Object? rows,
   SearchDocumentPersona persona,
 ) {
   if (rows is! List || rows.isEmpty) return null;

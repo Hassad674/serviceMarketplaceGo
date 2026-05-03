@@ -94,7 +94,7 @@ class CitySearchService {
     String query,
     CancelToken? cancelToken,
   ) async {
-    final response = await _dio.get<dynamic>(
+    final response = await _dio.get(
       _banUrl,
       queryParameters: {
         'q': query,
@@ -114,7 +114,7 @@ class CitySearchService {
     String query,
     CancelToken? cancelToken,
   ) async {
-    final response = await _dio.get<dynamic>(
+    final response = await _dio.get(
       _photonUrl,
       queryParameters: {
         'q': query,
@@ -130,7 +130,7 @@ class CitySearchService {
         .toList(growable: false);
   }
 
-  List<Map<String, dynamic>> _features(dynamic body) {
+  List<Map<String, dynamic>> _features(Object? body) {
     if (body is! Map<String, dynamic>) return const [];
     final raw = body['features'];
     if (raw is! List) return const [];

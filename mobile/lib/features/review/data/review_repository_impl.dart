@@ -13,7 +13,7 @@ class ReviewRepositoryImpl implements ReviewRepository {
   @override
   Future<List<Review>> getReviewsByOrganization(String orgId) async {
     final response = await _api.get('/api/v1/reviews/org/$orgId');
-    final list = response.data['data'] as List<dynamic>? ?? [];
+    final list = response.data['data'] as List? ?? [];
     return list
         .map((json) => Review.fromJson(json as Map<String, dynamic>))
         .toList();

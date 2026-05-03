@@ -5,6 +5,7 @@ import '../../../../../../l10n/app_localizations.dart';
 import '../../../../../call/domain/entities/call_entity.dart';
 import '../../../../../call/presentation/providers/call_provider.dart';
 import '../../../../../call/presentation/screens/call_screen.dart';
+import '../../../../domain/entities/conversation_entity.dart';
 
 /// Wraps audio/video call initiation logic for the chat screen.
 ///
@@ -21,15 +22,18 @@ class ChatCallHandlers {
   final BuildContext context;
   final String conversationId;
 
-  Future<void> startAudioCall(dynamic conversation) async {
+  Future<void> startAudioCall(ConversationEntity? conversation) async {
     await _initiate(conversation, CallType.audio);
   }
 
-  Future<void> startVideoCall(dynamic conversation) async {
+  Future<void> startVideoCall(ConversationEntity? conversation) async {
     await _initiate(conversation, CallType.video);
   }
 
-  Future<void> _initiate(dynamic conversation, CallType callType) async {
+  Future<void> _initiate(
+    ConversationEntity? conversation,
+    CallType callType,
+  ) async {
     if (conversation == null) return;
     final callNotifier = ref.read(callProvider.notifier);
     await callNotifier.initiateCall(
@@ -44,7 +48,7 @@ class ChatCallHandlers {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CallScreen(
-            recipientName: conversation.otherOrgName ?? '',
+            recipientName: conversation.otherOrgName,
             callType: callType,
           ),
         ),

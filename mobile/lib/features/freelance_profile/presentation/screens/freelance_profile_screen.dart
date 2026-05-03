@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
+import '../../../organization_shared/domain/entities/organization_shared_profile.dart';
 import '../../../organization_shared/presentation/providers/organization_shared_providers.dart';
 import '../../../organization_shared/presentation/widgets/shared_languages_section_widget.dart';
 import '../../../organization_shared/presentation/widgets/shared_location_section_widget.dart';
@@ -75,7 +76,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
   });
 
   final FreelanceProfile profile;
-  final AsyncValue<dynamic> sharedAsync;
+  final AsyncValue<OrganizationSharedProfile> sharedAsync;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

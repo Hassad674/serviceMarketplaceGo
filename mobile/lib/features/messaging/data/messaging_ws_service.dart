@@ -237,7 +237,7 @@ class MessagingWsService {
     );
   }
 
-  void _onMessage(dynamic raw) {
+  void _onMessage(Object? raw) {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       _eventController.add(data);

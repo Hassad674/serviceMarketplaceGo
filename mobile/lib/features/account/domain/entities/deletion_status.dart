@@ -66,7 +66,7 @@ class BlockedOrg {
   });
 
   factory BlockedOrg.fromJson(Map<String, dynamic> json) {
-    final admins = (json['available_admins'] as List<dynamic>? ?? const [])
+    final admins = (json['available_admins'] as List? ?? const [])
         .map(
           (a) => (
             userId: (a as Map<String, dynamic>)['user_id'] as String,
@@ -79,7 +79,7 @@ class BlockedOrg {
       orgName: json['org_name'] as String,
       memberCount: (json['member_count'] as num).toInt(),
       availableAdmins: admins,
-      actions: (json['actions'] as List<dynamic>? ?? const [])
+      actions: (json['actions'] as List? ?? const [])
           .map((a) => a as String)
           .toList(growable: false),
     );

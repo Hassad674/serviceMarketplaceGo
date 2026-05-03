@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
 
 /// Simulates a payment flow for an accepted proposal.
@@ -92,7 +93,7 @@ class _PaymentSimulationScreenState
   Widget _buildPaymentForm(
     ThemeData theme,
     AppLocalizations l10n,
-    dynamic proposal,
+    ProposalEntity proposal,
   ) {
     final appColors = theme.extension<AppColors>();
 
@@ -135,7 +136,7 @@ class _PaymentSimulationScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  proposal.title as String,
+                  proposal.title,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -155,7 +156,7 @@ class _PaymentSimulationScreenState
                     appColors,
                     Icons.calendar_today_outlined,
                     l10n.proposalDeadline,
-                    _formatDeadline(proposal.deadline as String),
+                    _formatDeadline(proposal.deadline!),
                   ),
                 ],
               ],

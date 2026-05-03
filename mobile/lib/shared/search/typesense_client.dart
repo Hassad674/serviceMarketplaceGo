@@ -44,7 +44,7 @@ class TypesenseClient {
   ) async {
     final url = '$host/collections/${Uri.encodeComponent(collection)}/documents/search';
     try {
-      final response = await _dio.get<dynamic>(
+      final response = await _dio.get(
         url,
         queryParameters: params.toQueryParameters(),
         options: Options(
@@ -70,7 +70,7 @@ class TypesenseClient {
     }
   }
 
-  String? _extractErrorMessage(dynamic body) {
+  String? _extractErrorMessage(Object? body) {
     if (body is Map<String, dynamic>) {
       final msg = body['message'];
       if (msg is String) return msg;

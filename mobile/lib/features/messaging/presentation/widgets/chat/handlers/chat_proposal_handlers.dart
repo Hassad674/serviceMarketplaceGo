@@ -104,7 +104,7 @@ class ChatProposalHandlers {
         .where((c) => c.id == conversationId)
         .firstOrNull;
 
-    final result = await GoRouter.of(context).push<dynamic>(
+    final result = await GoRouter.of(context).push<Object?>(
       RoutePaths.projectsNew,
       extra: {
         'recipientId': conversation?.otherUserId ?? '',
