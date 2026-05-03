@@ -1,0 +1,134 @@
+From 57d7a90f303b8e36d9c0e96892928bc170fb4cda Mon Sep 17 00:00:00 2001
+From: Hassad Smara <hassad.smara69@gmail.com>
+Date: Sun, 3 May 2026 19:15:00 +0200
+Subject: [PATCH] =?UTF-8?q?ci:=20hardening=20=E2=80=94=20promote=20ESLint/?=
+ =?UTF-8?q?gosec=20to=20fail-on-error=20+=20fix=20port=20+=20expand=20mobi?=
+ =?UTF-8?q?le=20scope=20(F.5=20B12)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+5 hunks per docs/ci-hardening.patch.txt:
+A.1 ci.yml ESLint hard gate (precursor commit closes 3 errors)
+A.2 security.yml gosec fail-on-finding (baseline 0)
+A.3 security.yml npm audit at CRITICAL (next HIGH accepted-risk)
+B   ci.yml NEXT_PUBLIC_API_URL 8080→8083
+C   ci.yml flutter-analyze scope all of lib/
+
+Token used by Claude Code lacks 'workflow' scope; agent-pushed branch
+rejected. Maintainer must push this branch from their local terminal
+(or apply via GitHub UI editor).
+---
+ .github/workflows/ci.yml       | 36 +++++++++++++++++++---------------
+ .github/workflows/security.yml | 23 +++++++++++++++-------
+ 2 files changed, 36 insertions(+), 23 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 015d1f50..245775f0 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -154,16 +154,17 @@ jobs:
+       - run: npm ci --no-audit --no-fund
+       - name: tsc --noEmit
+         run: npx tsc --noEmit
+-      - name: eslint (advisory)
+-        continue-on-error: true
+-        # ESLint surfaces pre-existing React-Compiler + a11y violations
+-        # in legacy features. Hard compile gate is `tsc --noEmit`; a
+-        # dedicated cleanup PR will flip this back to fail-on-error.
++      - name: eslint
++        # F.5 B12: hard gate — `continue-on-error: true || true` was
++        # CI theatre. Pre-existing errors closed in the precursor
++        # commit (delete-account-card raw inputs + payment-simulation
++        # display-name). ESLint is now load-bearing.
+         run: |
+           if [ -f eslint.config.mjs ] || [ -f .eslintrc.json ]; then
+-            npx eslint . || true
++            npx eslint .
+           else
+-            echo "::warning::no ESLint config found — skipping"
++            echo "::error::no ESLint config found — eslint.config.mjs is required"
++            exit 1
+           fi
+ 
+   web-test:
+@@ -223,7 +224,11 @@ jobs:
+       - name: next build
+         env:
+           # Public env is safe to hardcode here; build must not require secrets.
+-          NEXT_PUBLIC_API_URL: http://localhost:8080
++          # F.5 B12: backend listens on 8083 locally (see
++          # backend/.env.example). 8080 was a copy-paste from a long-
++          # retired port. CI runs against a stub URL; the value just
++          # needs to be valid + match the dev convention.
++          NEXT_PUBLIC_API_URL: http://localhost:8083
+           NEXT_PUBLIC_TYPESENSE_HOST: http://localhost:8108
+         run: npx next build
+ 
+@@ -247,15 +252,14 @@ jobs:
+           channel: stable
+           cache: true
+       - run: flutter pub get
+-      - name: flutter analyze (scoped, errors only)
+-        # Info-level lints (prefer_const_*, require_trailing_*) exist
+-        # across legacy features. A dedicated lint-sweep PR will tighten
+-        # this back to --fatal-infos once the backlog is cleared.
++      - name: flutter analyze (errors only, every feature)
++        # F.5 B12: scope was 3 of ~33 features — most of mobile/lib/
++        # had ZERO analyser coverage in CI. The `--no-fatal-infos`
++        # exemption stays (info-level lints are tracked separately)
++        # so a single legacy info doesn't hold the gate, but errors
++        # and warnings are now enforced across `lib/`.
+         run: |
+-          flutter analyze --no-fatal-infos --no-fatal-warnings \
+-            lib/features/search \
+-            lib/features/profile \
+-            lib/shared/search
++          flutter analyze --no-fatal-infos lib/
+ 
+   mobile-test:
+     name: mobile / unit + widget tests
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index 77f86a89..931aacab 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -61,7 +61,12 @@ jobs:
+         #          migrations directory walk)
+         #   G404 — non-crypto RNG in tests/fixtures
+         run: |
+-          gosec -no-fail -fmt sarif -out gosec.sarif -exclude=G304,G404 ./... || true
++          # F.5 B12: `gosec -no-fail || true` was CI theatre — every
++          # finding was logged but never blocked. Hard gate now: any
++          # gosec finding fails the build. The pre-F.5 baseline is
++          # 0 findings (verified 2026-05-03); a regression is a real
++          # signal to act on.
++          gosec -fmt sarif -out gosec.sarif -exclude=G304,G404 ./...
+       - uses: github/codeql-action/upload-sarif@v3
+         # Uploading to Code Scanning requires GitHub Advanced Security
+         # on private repos. Soft-fail here so the scan still runs and
+@@ -128,12 +133,16 @@ jobs:
+           cache: npm
+           cache-dependency-path: web/package-lock.json
+       - run: npm ci --no-audit --no-fund
+-      - name: npm audit (advisory)
+-        continue-on-error: true
+-        # Dependabot PRs are the authoritative signal; this job is a
+-        # weekly safety net. Pre-existing advisories in transitive deps
+-        # would otherwise block unrelated PRs.
+-        run: npm audit --audit-level=high || true
++      - name: npm audit (CRITICAL hard gate)
++        # F.5 B12: `npm audit ... || true` was CI theatre. Hard gate
++        # now at CRITICAL. Threshold is CRITICAL (not HIGH) because the
++        # current `next` HIGH (GHSA-mq59-m269-xvcx, Server Actions CSRF
++        # bypass via Origin null) is documented as accepted: this app
++        # uses 0 Server Actions (`grep "use server" web/src` returns 0)
++        # so the vector does not exist. When `next@16.2.4+` is adopted
++        # (resolves the CVE without breaking the 94 typed imports),
++        # bump this threshold back to HIGH.
++        run: npm audit --audit-level=critical
+ 
+   # -----------------------------------------------------------------
+   # Mobile: pub outdated — informational only, never blocks the build.
+-- 
+2.47.3
+
