@@ -171,11 +171,12 @@ for (const [file, entries] of byFile) {
     const helper = METHOD_TO_HELPER[e.method] ?? "Get"
     const oapiPath = e.canonical
     // The inventory captures missing type args as the literal string
-    // "unknown". Build a regex that matches either the explicit type
-    // (`apiClient<TypeName>`) or the no-arg form (`apiClient(`).
+    // "unknown". Build a regex that matches the no-arg form
+    // (`apiClient(`) AND the explicit `apiClient<unknown>(` form,
+    // OR for any other typeArg the explicit `apiClient<TypeName>(`.
     const typeArgEscaped = e.typeArg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     const lineRegex = e.typeArg === "unknown"
-      ? /apiClient\s*\(/
+      ? /apiClient(?:<unknown>)?\s*\(/
       : new RegExp(`apiClient<${typeArgEscaped}>\\s*\\(`)
     // Idempotent guard: skip if this site is already swept.
     if (e.typeArg.startsWith(`${helper}<`) || e.typeArg.startsWith("Void<")) {

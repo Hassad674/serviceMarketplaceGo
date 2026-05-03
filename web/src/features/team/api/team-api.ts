@@ -191,7 +191,7 @@ export function acceptInvitation(payload: AcceptInvitationPayload): Promise<unkn
   // session cookie; the caller just needs to hard-redirect so the
   // whole React tree + TanStack cache is re-initialised with the new
   // session. We don't need to consume the return value.
-  return apiClient<unknown>(`/api/v1/invitations/accept`, {
+  return apiClient<Post<"/api/v1/invitations/accept">>(`/api/v1/invitations/accept`, {
     method: "POST",
     body: payload,
     headers: { "X-Auth-Mode": "cookie" },
