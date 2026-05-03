@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { Profile } from "../api/profile-api"
 import { ProfileSkeleton } from "./profile-skeleton"
 import { useProfileRating } from "../hooks/use-profile-rating"
@@ -31,7 +32,7 @@ export function PublicProfile({ orgId, type: _type }: PublicProfileProps) {
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ["public-profile", orgId],
-    queryFn: () => apiClient<Profile>(`/api/v1/profiles/${orgId}`),
+    queryFn: () => apiClient<Get<"/api/v1/profiles/{orgId}"> & Profile>(`/api/v1/profiles/${orgId}`),
     staleTime: 5 * 60 * 1000,
   })
   const { data: rating } = useProfileRating(orgId)

@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get, Put, Void } from "@/shared/lib/api-paths"
 export type AvailabilityStatus =
   | "available_now"
   | "available_soon"
@@ -55,13 +56,13 @@ export type ReferrerProfile = {
 }
 
 export async function getMyReferrerProfile(): Promise<ReferrerProfile> {
-  return apiClient<ReferrerProfile>("/api/v1/referrer-profile")
+  return apiClient<Get<"/api/v1/referrer-profile"> & ReferrerProfile>("/api/v1/referrer-profile")
 }
 
 export async function getPublicReferrerProfile(
   orgId: string,
 ): Promise<ReferrerProfile> {
-  return apiClient<ReferrerProfile>(`/api/v1/referrer-profiles/${orgId}`)
+  return apiClient<Get<"/api/v1/referrer-profiles/{orgID}"> & ReferrerProfile>(`/api/v1/referrer-profiles/${orgId}`)
 }
 
 export type UpdateReferrerProfileInput = {
@@ -73,7 +74,7 @@ export type UpdateReferrerProfileInput = {
 export async function updateReferrerProfile(
   input: UpdateReferrerProfileInput,
 ): Promise<ReferrerProfile> {
-  return apiClient<ReferrerProfile>("/api/v1/referrer-profile", {
+  return apiClient<Put<"/api/v1/referrer-profile"> & ReferrerProfile>("/api/v1/referrer-profile", {
     method: "PUT",
     body: input,
   })
@@ -82,7 +83,7 @@ export async function updateReferrerProfile(
 export async function updateReferrerAvailability(
   status: AvailabilityStatus,
 ): Promise<ReferrerProfile> {
-  return apiClient<ReferrerProfile>("/api/v1/referrer-profile/availability", {
+  return apiClient<Put<"/api/v1/referrer-profile/availability"> & ReferrerProfile>("/api/v1/referrer-profile/availability", {
     method: "PUT",
     body: { availability_status: status },
   })
@@ -91,7 +92,7 @@ export async function updateReferrerAvailability(
 export async function updateReferrerExpertise(
   domains: string[],
 ): Promise<ReferrerProfile> {
-  return apiClient<ReferrerProfile>("/api/v1/referrer-profile/expertise", {
+  return apiClient<Put<"/api/v1/referrer-profile/expertise"> & ReferrerProfile>("/api/v1/referrer-profile/expertise", {
     method: "PUT",
     body: { domains },
   })
@@ -102,7 +103,7 @@ export async function updateReferrerExpertise(
 type PricingEnvelope<T> = { data: T }
 
 export async function getReferrerPricing(): Promise<ReferrerPricing | null> {
-  const wrapped = await apiClient<PricingEnvelope<ReferrerPricing | null>>(
+  const wrapped = await apiClient<Get<"/api/v1/referrer-profile/pricing"> & PricingEnvelope<ReferrerPricing | null>>(
     "/api/v1/referrer-profile/pricing",
   )
   return wrapped.data
@@ -113,7 +114,7 @@ export type UpsertReferrerPricingInput = ReferrerPricing
 export async function upsertReferrerPricing(
   input: UpsertReferrerPricingInput,
 ): Promise<ReferrerPricing> {
-  const wrapped = await apiClient<PricingEnvelope<ReferrerPricing>>(
+  const wrapped = await apiClient<Put<"/api/v1/referrer-profile/pricing"> & PricingEnvelope<ReferrerPricing>>(
     "/api/v1/referrer-profile/pricing",
     { method: "PUT", body: input },
   )
@@ -121,7 +122,7 @@ export async function upsertReferrerPricing(
 }
 
 export async function deleteReferrerPricing(): Promise<void> {
-  await apiClient<void>("/api/v1/referrer-profile/pricing", {
+  await apiClient<Void<"/api/v1/referrer-profile/pricing">>("/api/v1/referrer-profile/pricing", {
     method: "DELETE",
   })
 }

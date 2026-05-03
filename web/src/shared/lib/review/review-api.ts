@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Post } from "@/shared/lib/api-paths"
 import type { Review, AverageRating } from "@/shared/types/review"
 
 // Re-export shared types for backward compatibility.
@@ -34,15 +35,15 @@ export async function fetchReviewsByUser(userId: string, cursor?: string) {
 }
 
 export async function fetchAverageRating(userId: string) {
-  return apiClient<{ data: AverageRating }>(`/api/v1/reviews/average/${userId}`)
+  return apiClient<Get<"/api/v1/reviews/average/{orgId}"> & { data: AverageRating }>(`/api/v1/reviews/average/${userId}`)
 }
 
 export async function fetchCanReview(proposalId: string) {
-  return apiClient<{ data: CanReviewResponse }>(`/api/v1/reviews/can-review/${proposalId}`)
+  return apiClient<Get<"/api/v1/reviews/can-review/{proposalId}"> & { data: CanReviewResponse }>(`/api/v1/reviews/can-review/${proposalId}`)
 }
 
 export async function createReview(payload: CreateReviewPayload) {
-  return apiClient<{ data: Review }>("/api/v1/reviews", {
+  return apiClient<Post<"/api/v1/reviews"> & { data: Review }>("/api/v1/reviews", {
     method: "POST",
     body: payload,
   })

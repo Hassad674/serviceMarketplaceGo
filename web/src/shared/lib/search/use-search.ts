@@ -1,3 +1,4 @@
+import type { Get } from "@/shared/lib/api-paths"
 "use client"
 
 /**
@@ -243,7 +244,7 @@ async function fetchSearch(
   // so the scoped-persona invariant is enforced server-side.
   appendFilterParams(params, input.filterBy)
 
-  const res = await apiClient<BackendSearchPage>(
+  const res = await apiClient<Get<"/api/v1/search"> & BackendSearchPage>(
     `/api/v1/search?${params.toString()}`,
     { method: "GET", signal },
   )

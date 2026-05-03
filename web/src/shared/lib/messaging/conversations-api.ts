@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { ConversationListResponse } from "@/shared/types/messaging"
 
 /**
@@ -11,5 +12,5 @@ import type { ConversationListResponse } from "@/shared/types/messaging"
  */
 export function listConversations(cursor?: string): Promise<ConversationListResponse> {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<ConversationListResponse>(`/api/v1/messaging/conversations${params}`)
+  return apiClient<Get<"/api/v1/messaging/conversations"> & ConversationListResponse>(`/api/v1/messaging/conversations${params}`)
 }

@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get } from "@/shared/lib/api-paths"
 // Tier 1 taxonomy duplicated here to keep the search API self-
 // contained — it intentionally does NOT import from any feature's
 // profile-api so /search and the directory pages can render without
@@ -86,7 +87,7 @@ export async function searchProfiles(
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({ type })
   if (cursor) params.set("cursor", cursor)
-  return apiClient<SearchResponse>(
+  return apiClient<Get<"/api/v1/profiles/search"> & SearchResponse>(
     `/api/v1/profiles/search?${params.toString()}`,
   )
 }
@@ -94,5 +95,5 @@ export async function searchProfiles(
 export async function getPublicProfile(
   orgId: string,
 ): Promise<PublicProfileSummary> {
-  return apiClient<PublicProfileSummary>(`/api/v1/profiles/${orgId}`)
+  return apiClient<Get<"/api/v1/profiles/{orgId}"> & PublicProfileSummary>(`/api/v1/profiles/${orgId}`)
 }

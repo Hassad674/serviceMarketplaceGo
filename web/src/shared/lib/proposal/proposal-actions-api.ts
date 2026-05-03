@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Void } from "@/shared/lib/api-paths"
 /**
  * Shared proposal action endpoints. Lifted out of
  * `features/proposal/api/proposal-api` so the messaging feature can
@@ -10,10 +11,10 @@ import { apiClient } from "@/shared/lib/api-client"
 
 /** POST /api/v1/proposals/:id/accept */
 export function acceptProposal(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/accept`, { method: "POST" })
+  return apiClient<Void<"/api/v1/proposals/{id}/accept">>(`/api/v1/proposals/${id}/accept`, { method: "POST" })
 }
 
 /** POST /api/v1/proposals/:id/decline */
 export function declineProposal(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/decline`, { method: "POST" })
+  return apiClient<Void<"/api/v1/proposals/{id}/decline">>(`/api/v1/proposals/${id}/decline`, { method: "POST" })
 }

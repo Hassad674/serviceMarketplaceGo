@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { Review } from "@/shared/types/review"
 
 // ProjectHistoryEntry is one attributed mission on the apporteur's
@@ -46,7 +47,7 @@ export async function getReferrerReputation(
   if (params.limit) search.set("limit", String(params.limit))
   const qs = search.toString()
   const suffix = qs ? `?${qs}` : ""
-  return apiClient<ReferrerReputation>(
+  return apiClient<Get<"/api/v1/referrer-profiles/{orgID}/reputation"> & ReferrerReputation>(
     `/api/v1/referrer-profiles/${orgId}/reputation${suffix}`,
   )
 }

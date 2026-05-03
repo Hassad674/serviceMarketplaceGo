@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get, Post } from "@/shared/lib/api-paths"
 export type WalletRecord = {
   id: string
   proposal_id: string
@@ -54,11 +55,11 @@ export type PayoutResult = {
 }
 
 export function getWallet(): Promise<WalletOverview> {
-  return apiClient<WalletOverview>("/api/v1/wallet")
+  return apiClient<Get<"/api/v1/wallet"> & WalletOverview>("/api/v1/wallet")
 }
 
 export function requestPayout(): Promise<PayoutResult> {
-  return apiClient<PayoutResult>("/api/v1/wallet/payout", { method: "POST" })
+  return apiClient<Post<"/api/v1/wallet/payout"> & PayoutResult>("/api/v1/wallet/payout", { method: "POST" })
 }
 
 /**
@@ -71,7 +72,7 @@ export function requestPayout(): Promise<PayoutResult> {
  * retriable (e.g. someone else retried it).
  */
 export function retryFailedTransfer(recordId: string): Promise<PayoutResult> {
-  return apiClient<PayoutResult>(
+  return apiClient<Post<"/api/v1/wallet/transfers/{record_id}/retry"> & PayoutResult>(
     `/api/v1/wallet/transfers/${recordId}/retry`,
     { method: "POST" },
   )

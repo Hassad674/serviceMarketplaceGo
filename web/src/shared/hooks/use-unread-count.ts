@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
 export function unreadCountQueryKey(uid: string | undefined) {
@@ -20,7 +21,7 @@ export function useUnreadCount() {
 
   return useQuery({
     queryKey: unreadCountQueryKey(uid),
-    queryFn: () => apiClient<UnreadCountResponse>("/api/v1/messaging/unread-count"),
+    queryFn: () => apiClient<Get<"/api/v1/messaging/unread-count"> & UnreadCountResponse>("/api/v1/messaging/unread-count"),
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   })

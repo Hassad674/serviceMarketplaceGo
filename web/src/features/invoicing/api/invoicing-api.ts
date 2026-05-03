@@ -1,4 +1,5 @@
 import { API_BASE_URL, apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { InvoicesPage } from "../types"
 
 /**
@@ -28,7 +29,7 @@ export {
 /** GET /api/v1/me/invoices?cursor= — cursor-paginated list. */
 export function fetchInvoices(cursor?: string): Promise<InvoicesPage> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<InvoicesPage>(`/api/v1/me/invoices${qs}`)
+  return apiClient<Get<"/api/v1/me/invoices"> & InvoicesPage>(`/api/v1/me/invoices${qs}`)
 }
 
 /**

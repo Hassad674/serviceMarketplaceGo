@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get } from "@/shared/lib/api-paths"
 import type { FeePreview } from "@/shared/types/billing"
 
 /**
@@ -23,5 +24,5 @@ export function getFeePreview(
   const safe = Math.max(0, Math.trunc(amountCents))
   const params = new URLSearchParams({ amount: String(safe) })
   if (recipientId) params.set("recipient_id", recipientId)
-  return apiClient<FeePreview>(`/api/v1/billing/fee-preview?${params.toString()}`)
+  return apiClient<Get<"/api/v1/billing/fee-preview"> & FeePreview>(`/api/v1/billing/fee-preview?${params.toString()}`)
 }

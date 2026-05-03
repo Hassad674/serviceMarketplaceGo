@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Post } from "@/shared/lib/api-paths"
 export type UploadedFile = {
   filename: string
   url: string
@@ -18,7 +19,7 @@ type PresignedURLResponse = {
  * Returns the public URL and metadata to send to the backend.
  */
 export async function uploadFile(file: File): Promise<UploadedFile> {
-  const presigned = await apiClient<PresignedURLResponse>(
+  const presigned = await apiClient<Post<"/api/v1/messaging/upload-url"> & PresignedURLResponse>(
     "/api/v1/messaging/upload-url",
     {
       method: "POST",

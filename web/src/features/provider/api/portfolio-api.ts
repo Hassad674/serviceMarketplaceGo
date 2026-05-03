@@ -1,5 +1,6 @@
 import { apiClient, API_BASE_URL } from "@/shared/lib/api-client"
 
+import type { Get, Post, Put, Void } from "@/shared/lib/api-paths"
 export type PortfolioMedia = {
   id: string
   media_url: string
@@ -55,7 +56,7 @@ type UpdatePortfolioPayload = {
 export async function fetchPortfolioByOrganization(
   orgId: string,
 ): Promise<PortfolioListResponse> {
-  return apiClient<PortfolioListResponse>(
+  return apiClient<Get<"/api/v1/portfolio/org/{orgId}"> & PortfolioListResponse>(
     `/api/v1/portfolio/org/${orgId}?limit=30`,
   )
 }
@@ -63,13 +64,13 @@ export async function fetchPortfolioByOrganization(
 export async function fetchPortfolioItem(
   id: string,
 ): Promise<{ data: PortfolioItem }> {
-  return apiClient<{ data: PortfolioItem }>(`/api/v1/portfolio/${id}`)
+  return apiClient<Get<"/api/v1/portfolio/{id}"> & { data: PortfolioItem }>(`/api/v1/portfolio/${id}`)
 }
 
 export async function createPortfolioItem(
   payload: CreatePortfolioPayload,
 ): Promise<{ data: PortfolioItem }> {
-  return apiClient<{ data: PortfolioItem }>("/api/v1/portfolio", {
+  return apiClient<Post<"/api/v1/portfolio"> & { data: PortfolioItem }>("/api/v1/portfolio", {
     method: "POST",
     body: payload,
   })
@@ -79,18 +80,18 @@ export async function updatePortfolioItem(
   id: string,
   payload: UpdatePortfolioPayload,
 ): Promise<{ data: PortfolioItem }> {
-  return apiClient<{ data: PortfolioItem }>(`/api/v1/portfolio/${id}`, {
+  return apiClient<Put<"/api/v1/portfolio/{id}"> & { data: PortfolioItem }>(`/api/v1/portfolio/${id}`, {
     method: "PUT",
     body: payload,
   })
 }
 
 export async function deletePortfolioItem(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/portfolio/${id}`, { method: "DELETE" })
+  return apiClient<Void<"/api/v1/portfolio/{id}">>(`/api/v1/portfolio/${id}`, { method: "DELETE" })
 }
 
 export async function reorderPortfolio(itemIds: string[]): Promise<void> {
-  return apiClient<void>("/api/v1/portfolio/reorder", {
+  return apiClient<Void<"/api/v1/portfolio/reorder">>("/api/v1/portfolio/reorder", {
     method: "PUT",
     body: { item_ids: itemIds },
   })

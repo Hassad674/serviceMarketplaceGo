@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+import type { Get, Put, Void } from "@/shared/lib/api-paths"
 // ProfileSkill matches the backend ProfileResponse.skills entries: the
 // normalized `skill_text` (canonical lowercase lookup key) paired with
 // the user-facing `display_text`. The backend guarantees this array is
@@ -84,13 +85,13 @@ export type Profile = {
 }
 
 export async function getMyProfile(): Promise<Profile> {
-  return apiClient<Profile>("/api/v1/profile")
+  return apiClient<Get<"/api/v1/profile"> & Profile>("/api/v1/profile")
 }
 
 export async function updateProfile(
   data: Partial<Profile>,
 ): Promise<Profile> {
-  return apiClient<Profile>("/api/v1/profile", {
+  return apiClient<Put<"/api/v1/profile"> & Profile>("/api/v1/profile", {
     method: "PUT",
     body: data,
   })
@@ -114,7 +115,7 @@ export type UpdateLocationInput = {
 export async function updateLocation(
   input: UpdateLocationInput,
 ): Promise<void> {
-  await apiClient<void>("/api/v1/profile/location", {
+  await apiClient<Void<"/api/v1/profile/location">>("/api/v1/profile/location", {
     method: "PUT",
     body: input,
   })
@@ -128,7 +129,7 @@ export type UpdateLanguagesInput = {
 export async function updateLanguages(
   input: UpdateLanguagesInput,
 ): Promise<void> {
-  await apiClient<void>("/api/v1/profile/languages", {
+  await apiClient<Void<"/api/v1/profile/languages">>("/api/v1/profile/languages", {
     method: "PUT",
     body: input,
   })
@@ -142,25 +143,25 @@ export type UpdateAvailabilityInput = {
 export async function updateAvailability(
   input: UpdateAvailabilityInput,
 ): Promise<void> {
-  await apiClient<void>("/api/v1/profile/availability", {
+  await apiClient<Void<"/api/v1/profile/availability">>("/api/v1/profile/availability", {
     method: "PUT",
     body: input,
   })
 }
 
 export async function getPricing(): Promise<Pricing[]> {
-  return apiClient<Pricing[]>("/api/v1/profile/pricing")
+  return apiClient<Get<"/api/v1/profile/pricing"> & Pricing[]>("/api/v1/profile/pricing")
 }
 
 export async function upsertPricing(pricing: Pricing): Promise<void> {
-  await apiClient<void>("/api/v1/profile/pricing", {
+  await apiClient<Void<"/api/v1/profile/pricing">>("/api/v1/profile/pricing", {
     method: "PUT",
     body: pricing,
   })
 }
 
 export async function deletePricing(kind: PricingKind): Promise<void> {
-  await apiClient<void>(`/api/v1/profile/pricing/${kind}`, {
+  await apiClient<Void<"/api/v1/profile/pricing/{kind}">>(`/api/v1/profile/pricing/${kind}`, {
     method: "DELETE",
   })
 }

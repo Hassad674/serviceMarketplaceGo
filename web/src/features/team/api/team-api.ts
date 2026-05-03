@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Get, Patch, Post, Void } from "@/shared/lib/api-paths"
 import type {
   TeamMember,
   TeamMembersListResponse,
@@ -24,7 +25,7 @@ import type {
 /* ------------------------------------------------------------------ */
 
 export function listMembers(orgID: string): Promise<TeamMembersListResponse> {
-  return apiClient<TeamMembersListResponse>(
+  return apiClient<Get<"/api/v1/organizations/{orgID}/members"> & TeamMembersListResponse>(
     `/api/v1/organizations/${orgID}/members?limit=100`,
   )
 }
@@ -34,21 +35,21 @@ export function updateMember(
   userID: string,
   payload: UpdateMemberPayload,
 ): Promise<TeamMember> {
-  return apiClient<TeamMember>(
+  return apiClient<Patch<"/api/v1/organizations/{orgID}/members/{userID}"> & TeamMember>(
     `/api/v1/organizations/${orgID}/members/${userID}`,
     { method: "PATCH", body: payload },
   )
 }
 
 export function removeMember(orgID: string, userID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/members/{userID}">>(
     `/api/v1/organizations/${orgID}/members/${userID}`,
     { method: "DELETE" },
   )
 }
 
 export function leaveOrganization(orgID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/leave">>(
     `/api/v1/organizations/${orgID}/leave`,
     { method: "POST", body: {} },
   )
@@ -63,7 +64,7 @@ export function leaveOrganization(orgID: string): Promise<void> {
 // modal's inline preview. Cached aggressively because the catalogue
 // only changes when the backend deploys a new permission constant.
 export function getRoleDefinitions(): Promise<RoleDefinitionsResponse> {
-  return apiClient<RoleDefinitionsResponse>(
+  return apiClient<Get<"/api/v1/organizations/role-definitions"> & RoleDefinitionsResponse>(
     `/api/v1/organizations/role-definitions`,
   )
 }
@@ -79,7 +80,7 @@ export function getRoleDefinitions(): Promise<RoleDefinitionsResponse> {
 export function getRolePermissionsMatrix(
   orgID: string,
 ): Promise<RolePermissionsMatrixResponse> {
-  return apiClient<RolePermissionsMatrixResponse>(
+  return apiClient<Get<"/api/v1/organizations/{orgID}/role-permissions"> & RolePermissionsMatrixResponse>(
     `/api/v1/organizations/${orgID}/role-permissions`,
   )
 }
@@ -92,7 +93,7 @@ export function updateRolePermissions(
   orgID: string,
   payload: UpdateRolePermissionsPayload,
 ): Promise<UpdateRolePermissionsResponse> {
-  return apiClient<UpdateRolePermissionsResponse>(
+  return apiClient<Patch<"/api/v1/organizations/{orgID}/role-permissions"> & UpdateRolePermissionsResponse>(
     `/api/v1/organizations/${orgID}/role-permissions`,
     { method: "PATCH", body: payload },
   )
@@ -106,7 +107,7 @@ export function listInvitations(orgID: string): Promise<TeamInvitationsListRespo
   // Phase 2 backend list endpoint returns all non-terminal invitations
   // by default; filter to pending client-side if needed. Cursor is
   // optional — V1 caps are low enough to fit in a single page.
-  return apiClient<TeamInvitationsListResponse>(
+  return apiClient<Get<"/api/v1/organizations/{orgID}/invitations"> & TeamInvitationsListResponse>(
     `/api/v1/organizations/${orgID}/invitations?limit=100`,
   )
 }
@@ -115,21 +116,21 @@ export function sendInvitation(
   orgID: string,
   payload: SendInvitationPayload,
 ): Promise<TeamInvitation> {
-  return apiClient<TeamInvitation>(
+  return apiClient<Post<"/api/v1/organizations/{orgID}/invitations"> & TeamInvitation>(
     `/api/v1/organizations/${orgID}/invitations`,
     { method: "POST", body: payload },
   )
 }
 
 export function resendInvitation(orgID: string, invitationID: string): Promise<TeamInvitation> {
-  return apiClient<TeamInvitation>(
+  return apiClient<Post<"/api/v1/organizations/{orgID}/invitations/{invID}/resend"> & TeamInvitation>(
     `/api/v1/organizations/${orgID}/invitations/${invitationID}/resend`,
     { method: "POST", body: {} },
   )
 }
 
 export function cancelInvitation(orgID: string, invitationID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/invitations/{invID}">>(
     `/api/v1/organizations/${orgID}/invitations/${invitationID}`,
     { method: "DELETE" },
   )
@@ -143,28 +144,28 @@ export function initiateTransferOwnership(
   orgID: string,
   payload: InitiateTransferPayload,
 ): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/transfer">>(
     `/api/v1/organizations/${orgID}/transfer`,
     { method: "POST", body: payload },
   )
 }
 
 export function cancelTransferOwnership(orgID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/transfer">>(
     `/api/v1/organizations/${orgID}/transfer`,
     { method: "DELETE" },
   )
 }
 
 export function acceptTransferOwnership(orgID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/transfer/accept">>(
     `/api/v1/organizations/${orgID}/transfer/accept`,
     { method: "POST", body: {} },
   )
 }
 
 export function declineTransferOwnership(orgID: string): Promise<void> {
-  return apiClient<void>(
+  return apiClient<Void<"/api/v1/organizations/{orgID}/transfer/decline">>(
     `/api/v1/organizations/${orgID}/transfer/decline`,
     { method: "POST", body: {} },
   )
@@ -180,7 +181,7 @@ export function declineTransferOwnership(orgID: string): Promise<void> {
 // authenticated flow doesn't apply.
 
 export function validateInvitation(token: string): Promise<InvitationPreview> {
-  return apiClient<InvitationPreview>(
+  return apiClient<Get<"/api/v1/invitations/validate"> & InvitationPreview>(
     `/api/v1/invitations/validate?token=${encodeURIComponent(token)}`,
   )
 }
