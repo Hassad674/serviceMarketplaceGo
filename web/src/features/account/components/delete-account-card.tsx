@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { Trash2, Download, AlertTriangle } from "lucide-react"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 import { Modal } from "@/shared/components/ui/modal"
 import { ApiError } from "@/shared/lib/api-client"
 import {
@@ -316,18 +317,18 @@ function DeleteAccountModal({
             >
               {t("passwordLabel")}
             </label>
-            <input
+            <Input
               id="gdpr-password"
               type="password"
               required
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
 
           <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+            {/* eslint-disable-next-line react/forbid-elements -- native checkbox; no Checkbox primitive in shared/ui yet, follow-up F.6 */}
             <input
               type="checkbox"
               checked={confirmed}
