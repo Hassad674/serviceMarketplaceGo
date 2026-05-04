@@ -792,7 +792,9 @@ npm run dev          # Dev server on port 5174
 npm run build        # TypeScript type-check (tsc -b) + Vite production build
 npm run preview      # Preview production build locally
 npm run lint         # ESLint
-npm run generate-api # Generate types from backend OpenAPI schema at localhost:8080
+npm run generate-api         # Generate types from a running backend at localhost:8083
+npm run generate-api:offline # Generate types from the committed OpenAPI golden snapshot
+                              # (../backend/internal/handler/testdata/openapi.golden.json)
 npx vitest run       # Run unit tests (uses vitest, mock-driven)
 ```
 

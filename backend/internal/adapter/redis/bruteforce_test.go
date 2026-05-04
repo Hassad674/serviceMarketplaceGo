@@ -360,6 +360,244 @@ func TestBruteForce_ErrNoLockout_HasMeaningfulMessage(t *testing.T) {
 	assert.Contains(t, adapter.ErrNoLockout.Error(), "lockout")
 }
 
+// --- N4: per-IP gate tests ---
+
+func TestBruteForce_FreshIPIsNotLocked(t *testing.T) {
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+
+	locked, err := svc.IsIPLocked(ctx, "203.0.113.5")
+	require.NoError(t, err)
+	assert.False(t, locked)
+
+	retry, err := svc.RetryAfterIP(ctx, "203.0.113.5")
+	require.NoError(t, err)
+	assert.Equal(t, time.Duration(0), retry)
+}
+
+func TestBruteForce_IPGate_NineteenFailuresDoNotLock(t *testing.T) {
+	// N4: IP threshold is 20 — 19 failures must not lock so a busy
+	// shared-NAT user is not over-throttled.
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.10"
+
+	for i := 0; i < 19; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	}
+
+	locked, err := svc.IsIPLocked(ctx, ip)
+	require.NoError(t, err)
+	assert.False(t, locked, "19 IP failures must NOT trigger the lockout")
+}
+
+func TestBruteForce_IPGate_TwentiethFailureLocks(t *testing.T) {
+	// N4: at the 20th IP failure the lockout flag is set with a 60-min
+	// TTL. Test the threshold AND the TTL band.
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.15"
+
+	for i := 0; i < 20; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	}
+
+	locked, err := svc.IsIPLocked(ctx, ip)
+	require.NoError(t, err)
+	assert.True(t, locked, "20 IP failures must trigger the lockout")
+
+	retry, err := svc.RetryAfterIP(ctx, ip)
+	require.NoError(t, err)
+	assert.Greater(t, retry, time.Duration(0))
+	// Lockout TTL is 60 minutes — assert we are within a sensible
+	// band (allow small clock drift between Set and TTL read).
+	assert.LessOrEqual(t, retry, 60*time.Minute)
+	assert.Greater(t, retry, 55*time.Minute)
+}
+
+func TestBruteForce_IPGate_LockoutExpiresAfterTTL(t *testing.T) {
+	// N4: IP lockout TTL is 60min — after that window the source can
+	// try again without admin intervention.
+	svc, mr := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.20"
+
+	for i := 0; i < 20; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	}
+	locked, _ := svc.IsIPLocked(ctx, ip)
+	require.True(t, locked)
+
+	mr.FastForward(61 * time.Minute)
+
+	locked, err := svc.IsIPLocked(ctx, ip)
+	require.NoError(t, err)
+	assert.False(t, locked, "IP lockout must expire after the 60-min window")
+}
+
+func TestBruteForce_IPGate_RecordSuccessDoesNotClearIP(t *testing.T) {
+	// N4: a successful login (after some failures) clears the per-EMAIL
+	// counter but NOT the per-IP one. A shared-NAT user who finally
+	// guesses their password on attempt #18 must not unlock the gate
+	// for a co-located attacker.
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.25"
+	email := "shared-nat@example.com"
+
+	for i := 0; i < 18; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+		require.NoError(t, svc.RecordFailure(ctx, email))
+	}
+	require.NoError(t, svc.RecordSuccess(ctx, email))
+
+	// 2 more IP failures must STILL trigger the IP lockout — the
+	// counter on the IP side is not zeroed by a single email's
+	// success.
+	require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	require.NoError(t, svc.RecordIPFailure(ctx, ip))
+
+	locked, err := svc.IsIPLocked(ctx, ip)
+	require.NoError(t, err)
+	assert.True(t, locked,
+		"per-IP counter must NOT be cleared by per-email success")
+}
+
+func TestBruteForce_IPGate_DistinctIPsDoNotCollide(t *testing.T) {
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+
+	for i := 0; i < 20; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, "198.51.100.1"))
+	}
+
+	otherLocked, err := svc.IsIPLocked(ctx, "198.51.100.2")
+	require.NoError(t, err)
+	assert.False(t, otherLocked, "one IP's lockout must not affect another")
+}
+
+func TestBruteForce_IPGate_EmptyIPIsNoop(t *testing.T) {
+	svc, mr := newBruteForceTest(t)
+	ctx := context.Background()
+
+	require.NoError(t, svc.RecordIPFailure(ctx, ""))
+	require.NoError(t, svc.RecordIPFailure(ctx, "   "))
+
+	// Verify no IP keys were created by the no-op calls.
+	for _, key := range mr.Keys() {
+		assert.NotContains(t, key, "login_attempts_ip:",
+			"empty IP must not write any key")
+		assert.NotContains(t, key, "login_locked_ip:",
+			"empty IP must not write any lockout key")
+	}
+
+	locked, err := svc.IsIPLocked(ctx, "")
+	require.NoError(t, err)
+	assert.False(t, locked)
+}
+
+func TestBruteForce_IPGate_IsIndependentOfEmailGate(t *testing.T) {
+	// N4: critical invariant. The two gates are independent — closing
+	// the email gate must not affect the IP state and vice versa.
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.30"
+
+	// 5 failures from one IP across 5 different emails must:
+	//   - lock NONE of the emails (5 failures spread across 5 emails)
+	//   - NOT lock the IP (5 < 20 threshold)
+	emails := []string{
+		"a@example.com", "b@example.com", "c@example.com",
+		"d@example.com", "e@example.com",
+	}
+	for _, email := range emails {
+		require.NoError(t, svc.RecordFailure(ctx, email))
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	}
+
+	for _, email := range emails {
+		locked, _ := svc.IsLocked(ctx, email)
+		assert.False(t, locked, "single failure per email must not lock %s", email)
+	}
+	ipLocked, _ := svc.IsIPLocked(ctx, ip)
+	assert.False(t, ipLocked, "5 failures from one IP must not trigger the 20-threshold IP gate")
+}
+
+func TestBruteForce_IPGate_LocksIPBeforeEmailIfMostlyDistinctEmails(t *testing.T) {
+	// N4 DoS scenario: an attacker walks through 25 victim emails
+	// from one IP, each with one wrong password. The per-email gate
+	// (5 threshold) NEVER fires for any one email (1 attempt each <
+	// 5). The per-IP gate must catch this — at the 20th email the IP
+	// is locked and further attempts are rejected.
+	svc, _ := newBruteForceTest(t)
+	ctx := context.Background()
+	ip := "203.0.113.35"
+
+	for i := 0; i < 25; i++ {
+		require.NoError(t, svc.RecordIPFailure(ctx, ip))
+	}
+
+	ipLocked, _ := svc.IsIPLocked(ctx, ip)
+	assert.True(t, ipLocked, "25 single-email failures from one IP must trigger the IP gate")
+}
+
+func TestBruteForce_IPGate_RedisDownReturnsError(t *testing.T) {
+	// N4: surface the error so the caller can fail-CLOSED in
+	// production. Mirror the per-email Redis-down assertion.
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewBruteForceService(client)
+
+	locked, err := svc.IsIPLocked(context.Background(), "203.0.113.40")
+	require.Error(t, err)
+	assert.False(t, locked, "boolean must be false on error so the caller cannot trust it")
+	assert.Contains(t, err.Error(), "brute force is_ip_locked")
+
+	err = svc.RecordIPFailure(context.Background(), "203.0.113.40")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "brute force record_ip_failure")
+
+	dur, err := svc.RetryAfterIP(context.Background(), "203.0.113.40")
+	require.Error(t, err)
+	assert.Equal(t, time.Duration(0), dur)
+	assert.Contains(t, err.Error(), "brute force retry_after_ip")
+}
+
+func TestBruteForce_IPGate_CustomIPPolicyOverridesDefaults(t *testing.T) {
+	// Smoke test the IP-policy override constructor — useful for
+	// tests that want a 1-attempt threshold to exercise the lockout
+	// branch in a single line.
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	defer client.Close()
+
+	svc := adapter.NewBruteForceServiceWithIPPolicy(
+		client,
+		// email policy: irrelevant here, leave at production defaults
+		adapter.MaxLoginAttempts,
+		adapter.LoginAttemptWindow,
+		adapter.LoginLockoutDuration,
+		// IP policy: tight threshold for the test
+		2, 5*time.Minute, 1*time.Minute,
+	)
+
+	ctx := context.Background()
+	require.NoError(t, svc.RecordIPFailure(ctx, "203.0.113.99"))
+	require.NoError(t, svc.RecordIPFailure(ctx, "203.0.113.99"))
+
+	locked, err := svc.IsIPLocked(ctx, "203.0.113.99")
+	require.NoError(t, err)
+	assert.True(t, locked, "custom IP threshold of 2 must lock at second failure")
+}
+
 func mustLocked(t *testing.T, svc *adapter.BruteForceService, email string) bool {
 	t.Helper()
 	locked, err := svc.IsLocked(context.Background(), email)

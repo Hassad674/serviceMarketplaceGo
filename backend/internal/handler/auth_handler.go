@@ -31,6 +31,14 @@ type AuthHandler struct {
 	// 503 so the lockout cannot be bypassed via a Redis outage; false
 	// (dev/test) preserves legacy fail-OPEN. Set via WithFailClosed.
 	failClosedInProd bool
+
+	// N4: ipExtractor returns a stable Redis-key-shaped client IP for
+	// the per-IP brute-force gate, normalised the same way the rate
+	// limiter does (trusted-proxy XFF + IPv6 /64 mask). Optional —
+	// nil disables the per-IP gate, leaving the legacy per-email
+	// guard untouched. Wired via WithRateLimiter from cmd/api so
+	// tests can keep using the email-only mock without churn.
+	ipExtractor func(*http.Request) string
 }
 
 func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
@@ -63,6 +71,17 @@ func (h *AuthHandler) WithBruteForce(loginGuard, passwordReset service.BruteForc
 // swallowed the error. Toggled on for production, off for dev.
 func (h *AuthHandler) WithFailClosed(failClosedInProd bool) *AuthHandler {
 	h.failClosedInProd = failClosedInProd
+	return h
+}
+
+// WithIPExtractor wires the per-IP brute-force gate (N4). The
+// supplied function MUST return a stable, limiter-normalised IP key
+// — the rate limiter's `ClientIP` method is the obvious choice in
+// production because it already applies the IPv6 /64 mask + the
+// trusted-proxy X-Forwarded-For policy. Passing nil disables the IP
+// gate, leaving the legacy per-email lockout intact.
+func (h *AuthHandler) WithIPExtractor(extractor func(*http.Request) string) *AuthHandler {
+	h.ipExtractor = extractor
 	return h
 }
 
@@ -172,9 +191,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SEC-07 + F.5 S7: brute-force protection. Check the lockout
-	// BEFORE doing any password validation so a locked account cannot
-	// be probed for timing differences. Failure-mode policy is
+	// N4: pre-extract the client IP so all the per-IP gate touch points
+	// share the same key. ipExtractor is optional — when nil the IP
+	// gate is disabled and only the per-email gate fires. Empty string
+	// is treated as "no IP" by the brute-force service (no-op).
+	var clientIP string
+	if h.ipExtractor != nil {
+		clientIP = h.ipExtractor(r)
+	}
+
+	// SEC-07 + F.5 S7: brute-force protection. Check both gates BEFORE
+	// any password validation so a locked account / IP cannot be
+	// probed for timing differences. Failure-mode policy is
 	// environment-aware:
 	//   * production : a Redis error returns 503 so the lockout cannot
 	//     be bypassed via a Redis outage. Without this guard, the
@@ -183,6 +211,30 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	//     speed during the blip.
 	//   * dev/test    : fail-OPEN preserved (slog.Error breadcrumb so
 	//     the contributor sees their broken local Redis).
+	//
+	// N4: per-IP gate is layered on top of per-email. We check it
+	// FIRST so a hostile IP cannot DoS the email lockout by walking
+	// through victim addresses. Both gates have independent
+	// thresholds (5/15min email, 20/15min IP).
+	if h.bruteForce != nil && clientIP != "" {
+		ipLocked, err := h.bruteForce.IsIPLocked(r.Context(), clientIP)
+		switch {
+		case err == nil && ipLocked:
+			h.tooManyAttemptsByIP(w, r, h.bruteForce, clientIP)
+			return
+		case err != nil && h.failClosedInProd:
+			slog.Error("brute force IsIPLocked failed — failing closed",
+				"ip", clientIP, "error", err)
+			res.Error(w, http.StatusServiceUnavailable,
+				"auth_unavailable",
+				"authentication backend is degraded — retry shortly")
+			return
+		case err != nil:
+			slog.Error("brute force IsIPLocked failed — failing open in non-prod",
+				"ip", clientIP, "error", err)
+		}
+	}
+
 	if h.bruteForce != nil {
 		locked, err := h.bruteForce.IsLocked(r.Context(), req.Email)
 		switch {
@@ -211,9 +263,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// Errors that are NOT credential failures (e.g. account
 		// suspended) still count — a remote attacker should not get
 		// a free pass simply because the target account is suspended.
+		//
+		// N4: the per-IP counter is incremented in lockstep on the
+		// same failure. Both increments are best-effort — Redis
+		// failures here only show up as a slog.Warn breadcrumb so the
+		// user-visible auth error still propagates.
 		if h.bruteForce != nil {
 			if recordErr := h.bruteForce.RecordFailure(r.Context(), req.Email); recordErr != nil {
 				slog.Warn("brute force record_failure failed", "email", req.Email, "error", recordErr)
+			}
+			if clientIP != "" {
+				if recordErr := h.bruteForce.RecordIPFailure(r.Context(), clientIP); recordErr != nil {
+					slog.Warn("brute force record_ip_failure failed", "ip", clientIP, "error", recordErr)
+				}
 			}
 		}
 		handleAuthError(w, err)
@@ -221,6 +283,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.bruteForce != nil {
+		// N4: per-IP counter is intentionally NOT cleared on success.
+		// A shared-NAT user who finally types the right password on
+		// attempt #18 must not unlock the gate for a co-located
+		// attacker who would otherwise resume exhausting the
+		// remaining 2 attempts before the IP lockout.
 		if recordErr := h.bruteForce.RecordSuccess(r.Context(), req.Email); recordErr != nil {
 			slog.Warn("brute force record_success failed", "email", req.Email, "error", recordErr)
 		}
@@ -237,6 +304,26 @@ func (h *AuthHandler) tooManyAttempts(w http.ResponseWriter, r *http.Request, gu
 	retry, err := guard.RetryAfter(r.Context(), email)
 	if err != nil {
 		slog.Warn("brute force retry_after failed", "email", email, "error", err)
+	}
+	if retry < time.Second {
+		retry = time.Second
+	}
+	seconds := int(retry.Seconds())
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	res.Error(w, http.StatusTooManyRequests, "too_many_attempts",
+		"Too many failed attempts. Please try again later.")
+}
+
+// tooManyAttemptsByIP is the per-IP-gate sibling of tooManyAttempts.
+// Same wire shape (429 + Retry-After) so a locked-out IP cannot
+// distinguish whether the lockout came from the email gate or the IP
+// gate by inspecting the response — the only difference is the
+// Retry-After value, which is naturally larger for the IP gate (60min
+// vs 30min).
+func (h *AuthHandler) tooManyAttemptsByIP(w http.ResponseWriter, r *http.Request, guard service.BruteForceService, ip string) {
+	retry, err := guard.RetryAfterIP(r.Context(), ip)
+	if err != nil {
+		slog.Warn("brute force retry_after_ip failed", "ip", ip, "error", err)
 	}
 	if retry < time.Second {
 		retry = time.Second

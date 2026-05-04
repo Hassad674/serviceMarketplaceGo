@@ -39,6 +39,22 @@ type OrgProvisioner interface {
 // See internal/app/organization/service.go for the definition.
 type orgContext = orgapp.Context
 
+// timingParityDummyPassword is hashed-and-discarded on the duplicate
+// branch of Register() so the wall-clock cost of "email already
+// registered" matches "fresh registration". Without this parity step,
+// an attacker can probe email existence by measuring response time
+// (the duplicate path used to skip Hash() and return ~10-50ms versus
+// the create path's ~250ms bcrypt step). Defeating the timing
+// side-channel is a defence-in-depth on top of the wire-shape parity
+// already shipped in F.5 S5 (neutral 202 + empty body on both paths).
+//
+// The constant lives at package scope so log scrapers do not pick it
+// up as an inline literal that looks like a credential. It must
+// satisfy the domain's password rules (≥8 chars, upper, lower, digit,
+// special) so the discard call exercises the same bcrypt cost class
+// as a real password.
+const timingParityDummyPassword = "TimingParityDummy_Password_v1!"
+
 type RegisterInput struct {
 	Email       string
 	Password    string
@@ -215,9 +231,23 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 		// owner, log an audit event, and return a SilentDuplicate
 		// output. The handler maps that to a neutral 202 response so
 		// the wire shape is indistinguishable from a successful
-		// registration. The legitimate flow stays unblocked — the
-		// real user knows their address is already registered.
+		// registration.
 		s.notifyDuplicateRegistrationAttempt(ctx, email.String())
+
+		// F.5 S5 timing parity (V4 audit). The wire shape is already
+		// indistinguishable, but the duplicate path used to skip Hash()
+		// entirely and return in ~10-50ms versus the create path's
+		// ~250ms bcrypt step. An attacker timing the response could
+		// still probe email existence. We run a discard-bcrypt step
+		// here so both paths share the same dominant cost.
+		//
+		// The hash output is intentionally discarded; the parity is
+		// structural ("Hash is called on every code path"), not
+		// stochastic. Errors are also discarded — surfacing them would
+		// itself be a side-channel (the duplicate path could fail
+		// when the create path succeeds).
+		_, _ = s.hasher.Hash(timingParityDummyPassword)
+
 		return &AuthOutput{SilentDuplicate: true}, nil
 	}
 

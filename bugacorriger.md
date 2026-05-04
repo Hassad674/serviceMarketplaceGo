@@ -1,7 +1,19 @@
-# Bugs à corriger — F.5 close-out
+# Bugs à corriger — F.5 + F.6 + F.7 + #105 close-out
 
-**Date** : 2026-05-03 (post F.5 hardening pass)
-**Branch** : `feat/f5-security-and-honesty`
+**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Branch** : `main`
+
+## F.6 + F.7 + #105 close-out
+
+- **B1/N1/N6 (CLOSED)** — ✅ FERMÉ in `ed1bc6ab` — Idempotency middleware now hashes `body + method + path` for replay-key derivation; returns `409 Conflict` when the same key arrives with a different body. Matches Stripe SDK semantics.
+- **B2 (CLOSED)** — ✅ FERMÉ in `0849bd60` — milestone money-moving routes (accept / decline / dispute / refund / release) wrapped with the idempotency middleware. Closes the financial double-spend window end-to-end.
+- **B3 (CLOSED)** — ✅ FERMÉ in `260e36fc` — `validator.DecodeJSON` wraps the request body with `MaxBytesReader` and rejects HTTP smuggling shapes (Transfer-Encoding mismatches, conflicting Content-Length). Type-decode errors return `400 invalid_request`.
+- **B10 (CLOSED)** — ✅ FERMÉ in `d361e90f` — `TestProfileCache_Singleflight` stabilised with a deterministic synchronisation gate (no `time.Sleep`).
+- **M1 (CLOSED — mobile)** — ✅ FERMÉ in `f3120ca4` — Dio interceptor wires `uuid v4` Idempotency-Key onto the 9 protected POSTs, with retry-aware caching.
+- **M2 (CLOSED — mobile)** — ✅ FERMÉ in `b2e543cb` — `Info.plist` carries 4 `NS*UsageDescription` keys + `PrivacyInfo.xcprivacy` manifest. App Store submissions unblock.
+- **W5 (CLOSED — web)** — ✅ FERMÉ in `bcd59675` — `'unsafe-eval'` dropped from production `script-src`.
+- **CORS Idempotency-Key (CLOSED — PR #105)** — ✅ FERMÉ in `a61d98a8` — `Access-Control-Allow-Headers` allowlist now includes `Idempotency-Key`. Cross-origin browser preflight no longer strips the header. Allowlist locked with regression test.
+- **gosec false-positives (CLOSED — PR #105)** — ✅ FERMÉ in `a61d98a8` — 7×G118 in `cmd/api/bootstrap.go` (cancel funcs captured into `app.closeFns`) and 1×G705 in `internal/handler/middleware/idempotency.go` (replay buffer is server's own response body) annotated with `// #nosec` + justification. Local re-run reports 0 issues, 8 nosec.
 
 ## F.5 close-out additions
 

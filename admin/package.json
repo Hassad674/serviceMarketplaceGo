@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate-api": "openapi-typescript http://localhost:8080/swagger/doc.json -o src/types/api.d.ts"
+    "generate-api": "openapi-typescript http://localhost:8083/api/openapi.json -o src/shared/types/api.d.ts",
+    "generate-api:offline": "openapi-typescript ../backend/internal/handler/testdata/openapi.golden.json -o src/shared/types/api.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.80.7",
