@@ -157,10 +157,16 @@ func ParseTrustedProxies(raw string) ([]*net.IPNet, error) {
 	return out, nil
 }
 
-// clientIP extracts the client IP from a request. When RemoteAddr is
+// ClientIP extracts the client IP from a request. When RemoteAddr is
 // from a trusted proxy CIDR, the leftmost public IP from
 // X-Forwarded-For is honored; otherwise XFF is ignored to prevent
 // spoofing.
+//
+// Exposed publicly so non-rate-limit middleware (e.g. the auth
+// handler's per-IP brute-force gate, N4) can derive the same
+// limiter-normalised key without duplicating the trusted-proxy /
+// IPv6-/64 logic. The output is suitable for use as a Redis key
+// directly.
 //
 // F.5 S6 — IPv6 /64 normalisation. An IPv6 attacker with a routed /64
 // has 2^64 distinct addresses. Without normalisation, the rate
@@ -170,7 +176,7 @@ func ParseTrustedProxies(raw string) ([]*net.IPNet, error) {
 // applies per-network rather than per-address. IPv4 keeps its full
 // /32 because abuse from a single IPv4 is the only granular signal
 // available — anything coarser would over-throttle shared NATs.
-func (rl *RateLimiter) clientIP(r *http.Request) string {
+func (rl *RateLimiter) ClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
@@ -325,7 +331,7 @@ func (rl *RateLimiter) Middleware(policy RateLimitPolicy, key keyFn) func(http.H
 // (we cannot meaningfully throttle without a key).
 func (rl *RateLimiter) IPKey() keyFn {
 	return func(r *http.Request) (string, bool) {
-		ip := rl.clientIP(r)
+		ip := rl.ClientIP(r)
 		if ip == "" {
 			return "", false
 		}
@@ -367,7 +373,7 @@ func UserOrIPKey(rl *RateLimiter) keyFn {
 		if userID, ok := GetUserID(r.Context()); ok && userID.String() != "" {
 			return "user:" + userID.String(), true
 		}
-		ip := rl.clientIP(r)
+		ip := rl.ClientIP(r)
 		if ip == "" {
 			return "", false
 		}

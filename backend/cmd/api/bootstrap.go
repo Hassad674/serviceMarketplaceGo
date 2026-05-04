@@ -307,6 +307,13 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	httpRateLimiter := wireRateLimiter(rateLimiterDeps{Cfg: cfg, Redis: infra.Redis})
 
+	// N4: wire the per-IP brute-force gate. The auth handler reuses
+	// the rate-limiter's IP extraction (trusted-proxy XFF + IPv6 /64
+	// mask) so the per-IP lockout key is identical to the throttle
+	// key — no risk of one gate seeing a different IP space than the
+	// other.
+	authHandler.WithIPExtractor(httpRateLimiter.ClientIP)
+
 	invitationHandler := team.InvitationHandler
 	teamHandler := team.TeamHandler
 	roleOverridesHandler := team.RoleOverridesHandler
