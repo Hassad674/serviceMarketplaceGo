@@ -1,32 +1,91 @@
 @import "tailwindcss";
 
-@theme {
-  /* Colors — aligned with web design system */
-  --color-primary: oklch(0.645 0.246 16.439);
-  --color-primary-foreground: #ffffff;
-  --color-background: oklch(0.985 0.002 247.839);
-  --color-foreground: oklch(0.145 0.028 264.542);
-  --color-card: #ffffff;
-  --color-card-foreground: oklch(0.145 0.028 264.542);
-  --color-muted: oklch(0.967 0.003 264.542);
-  --color-muted-foreground: oklch(0.556 0.022 257.417);
-  --color-border: oklch(0.913 0.011 264.542);
-  --color-sidebar: rgba(255, 255, 255, 0.8);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-success: oklch(0.627 0.194 149.214);
-  --color-warning: oklch(0.769 0.188 85.29);
+/*
+ * Atelier — Direction Soleil v2 (admin app)
+ * Shares the web tokens 1:1. Source-of-truth: design/DESIGN_SYSTEM.md.
+ */
 
-  /* Radius */
+:root {
+  --background: #fffbf5;
+  --surface: #ffffff;
+  --foreground: #2a1f15;
+  --muted-foreground: #7a6850;
+  --subtle-foreground: #a89679;
+
+  --primary: #e85d4a;
+  --primary-soft: #fde9e3;
+  --primary-deep: #c43a26;
+  --primary-foreground: #fffbf5;
+
+  --pink: #f08aa8;
+  --pink-soft: #fde6ed;
+  --amber-soft: #fbf0dc;
+
+  --success: #5a9670;
+  --success-soft: #e8f2eb;
+  --destructive: #c43a26;
+  --destructive-foreground: #ffffff;
+  --warning: #d4924a;
+
+  --border: #f0e6d8;
+  --border-strong: #e0d3bc;
+  --input: #f0e6d8;
+  --ring: #e85d4a;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --muted: var(--border);
+
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-
-  /* Font */
-  --font-sans: system-ui, -apple-system, sans-serif;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
 }
 
-/* Animations */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-pink: var(--pink);
+  --color-pink-soft: var(--pink-soft);
+  --color-amber-soft: var(--amber-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --font-sans: 'Inter Tight', system-ui, sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+/* Animations — minimal set, calm motion */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -48,47 +107,38 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.04) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 251, 245, 0.6) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-.animate-scale-in {
-  animation: scaleIn 0.2s ease-out;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
 
 @keyframes highlightFade {
-  0% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.7); }
-  30% { box-shadow: 0 0 12px 4px rgba(239, 68, 68, 0.4); }
-  100% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
+  0% { box-shadow: 0 0 0 2px rgba(196, 58, 38, 0.7); }
+  30% { box-shadow: 0 0 12px 4px rgba(196, 58, 38, 0.4); }
+  100% { box-shadow: 0 0 0 2px rgba(196, 58, 38, 0.2); }
 }
 
-.animate-highlight-fade {
-  animation: highlightFade 2s ease-out forwards;
-}
+.animate-highlight-fade { animation: highlightFade 2s ease-out forwards; }
 
-/* Glass effects — matching web sidebar/header */
 .glass {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 251, 245, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* Shadow glow for primary CTAs */
+/* Legacy compat — kept for `admin/src/shared/components/ui/button.tsx`
+ * `:hover:shadow-glow`. Soleil-aware subtle corail tint instead of the
+ * legacy heavy rose glow. */
 .shadow-glow {
-  box-shadow: 0 4px 24px -4px rgba(244, 63, 94, 0.4);
+  box-shadow: 0 4px 20px rgba(232, 93, 74, 0.12);
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
 }
