@@ -291,6 +291,9 @@
   },
   "dashboard": {
     "welcomeBack": "Welcome back, {name}",
+    "welcomeEyebrow": "Dashboard",
+    "welcomePrefix": "Hi {name},",
+    "welcomeAccent": "what a beautiful day to ship.",
     "agencySubtitle": "Manage your agency and grow your business",
     "providerSubtitle": "Manage your missions and grow your activity",
     "enterpriseSubtitle": "Find the best providers for your projects",

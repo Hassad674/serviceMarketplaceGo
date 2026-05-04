@@ -64,7 +64,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // costs nothing beyond a thin context provider.
   return (
     <CallSlot registerCallEventHandler={registerCallEventHandler}>
-      <div className="flex h-screen bg-gray-50/50 dark:bg-gray-950">
+      <div className="flex h-screen bg-background">
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

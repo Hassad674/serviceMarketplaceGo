@@ -29,6 +29,8 @@ import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { Portrait } from "@/shared/components/ui/portrait"
+
 type NavItem = {
   labelKey: string
   href: string
@@ -98,11 +100,23 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
   referrer: "roleReferrer",
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
-  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
-  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
-  referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
+// Soleil-aware role badge tones. All four roles share the same warm
+// palette — they're distinguishable by saturation, not by hue family,
+// keeping the marketplace identity coherent.
+const ROLE_BADGE_TONES: Record<string, string> = {
+  agency: "bg-primary-soft text-primary-deep",
+  enterprise: "bg-pink-soft text-primary-deep",
+  provider: "bg-success-soft text-success",
+  referrer: "bg-amber-soft text-foreground",
+}
+
+// Deterministic Portrait id by role — every avatar in the sidebar
+// stays in the warm Soleil palette but each role gets a distinct tone.
+const ROLE_PORTRAIT_ID: Record<string, number> = {
+  agency: 0,    // corail
+  enterprise: 4, // lilas
+  provider: 1,  // vert olive
+  referrer: 3,  // ambre
 }
 
 function getFilteredNav(
@@ -153,24 +167,18 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
 
   const items = getFilteredNav(role, org?.type, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
+  const portraitId = ROLE_PORTRAIT_ID[displayRole] ?? 0
 
   async function handleLogout() {
     await logout()
   }
 
-  // Defensive: some accounts (legacy data or partial fetch) may have
-  // empty or undefined name fields. Fall back gracefully so the sidebar
-  // never crashes the entire dashboard over a missing initial.
-  const firstInitial = user?.first_name?.charAt(0) ?? ""
-  const lastInitial = user?.last_name?.charAt(0) ?? ""
-  const initials = (firstInitial + lastInitial).toUpperCase() || "?"
-
   return (
     <>
-      {/* Mobile glass overlay */}
+      {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
           onClick={onClose}
         />
       )}
@@ -178,7 +186,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col",
-          "bg-white/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-gray-100/50 dark:border-gray-800/50",
+          "bg-card border-r border-border",
           "lg:static lg:z-auto",
           "transition-all duration-300 ease-out lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
@@ -186,22 +194,21 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           "lg:flex",
         )}
       >
-        {/* Logo */}
+        {/* Brand */}
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2 overflow-hidden">
-            {collapsed ? (
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-rose-500 to-purple-600 text-sm font-bold text-white">
-                M
-              </span>
-            ) : (
-              <span className="bg-gradient-to-r from-rose-500 to-purple-600 bg-clip-text text-lg font-bold tracking-tight text-transparent">
+          <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold italic text-primary-foreground">
+              a
+            </span>
+            {!collapsed && (
+              <span className="font-serif text-xl font-medium tracking-tight text-foreground">
                 Atelier
               </span>
             )}
           </Link>
           <Button variant="ghost" size="auto"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 dark:text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 lg:hidden"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary-soft hover:text-foreground lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
@@ -209,20 +216,18 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </div>
 
         {/* User info */}
-        <div className={cn("mx-3 mb-2 rounded-xl bg-gray-50/80 dark:bg-gray-800/50", collapsed ? "p-2" : "p-3")}>
+        <div className={cn("mx-3 mb-2 rounded-xl bg-background", collapsed ? "p-2" : "p-3")}>
           <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-xs font-semibold text-white">
-              {initials}
-            </div>
+            <Portrait id={portraitId} size={36} alt="" />
             {!collapsed && (
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                <p className="truncate text-sm font-semibold text-foreground">
                   {user?.display_name ?? "User"}
                 </p>
                 <span
                   className={cn(
-                    "mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                    ROLE_COLORS[displayRole] ?? "bg-gray-100 text-gray-600",
+                    "mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                    ROLE_BADGE_TONES[displayRole] ?? "bg-muted text-muted-foreground",
                   )}
                 >
                   {ROLE_LABEL_KEYS[displayRole] ? t(ROLE_LABEL_KEYS[displayRole]) : displayRole}
@@ -267,12 +272,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </nav>
 
         {/* Collapse toggle (desktop only) */}
-        <div className="hidden border-t border-gray-100/80 dark:border-gray-800 p-2 lg:block">
+        <div className="hidden border-t border-border p-2 lg:block">
           <Button variant="ghost" size="auto"
             onClick={onToggleCollapse}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
-              "text-gray-400 dark:text-gray-500 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300",
+              "text-muted-foreground transition-all duration-200 hover:bg-background hover:text-foreground",
               collapsed ? "justify-center" : "gap-3",
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -289,12 +294,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </div>
 
         {/* Logout */}
-        <div className="border-t border-gray-100/80 dark:border-gray-800 p-2">
+        <div className="border-t border-border p-2">
           <Button variant="ghost" size="auto"
             onClick={handleLogout}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
-              "text-gray-500 dark:text-gray-400 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200",
+              "text-muted-foreground transition-all duration-200 hover:bg-background hover:text-foreground",
               collapsed ? "justify-center" : "gap-3",
             )}
             aria-label={tCommon("signOut")}
@@ -320,11 +325,12 @@ function ReferrerSwitch({
   const t = useTranslations("sidebar")
 
   if (collapsed) {
-    const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
+    // Soleil-aware dot marker — corail when active referrer, sapin when freelance.
+    const dotColor = isReferrerMode ? "bg-primary" : "bg-success"
     return (
       <Button variant="ghost" size="auto"
         onClick={onToggle}
-        className="flex w-full items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="flex w-full items-center justify-center rounded-lg p-2 transition-colors hover:bg-background"
         aria-label={isReferrerMode ? t("freelanceDashboard") : t("businessReferrer")}
       >
         <span className={cn("h-3 w-3 rounded-full", dotColor)} />
@@ -337,9 +343,9 @@ function ReferrerSwitch({
       <Button variant="ghost" size="auto"
         onClick={onToggle}
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
+          "flex w-full items-center justify-center gap-2 rounded-full px-3 py-2",
           "text-sm font-medium transition-all duration-200",
-          "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/25",
+          "bg-success-soft text-success hover:opacity-80",
         )}
       >
         <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
@@ -352,9 +358,9 @@ function ReferrerSwitch({
     <Button variant="ghost" size="auto"
       onClick={onToggle}
       className={cn(
-        "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
-        "text-sm font-medium text-white transition-all duration-200",
-        "gradient-referrer hover:opacity-90 hover:shadow-md",
+        "flex w-full items-center justify-center gap-2 rounded-full px-3 py-2",
+        "text-sm font-medium text-foreground transition-all duration-200",
+        "gradient-coral hover:opacity-90",
       )}
     >
       <Sparkles className="h-4 w-4" strokeWidth={1.5} />
@@ -425,23 +431,23 @@ function NavLink({
         "relative flex items-center rounded-lg py-2 text-sm transition-all duration-200",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
         isActive
-          ? "bg-rose-50 dark:bg-rose-500/10 font-medium text-rose-600 dark:text-rose-400"
-          : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white",
+          ? "bg-primary-soft font-medium text-primary"
+          : "text-muted-foreground hover:bg-background hover:text-foreground",
       )}
     >
       {/* Active indicator pill */}
       {isActive && !collapsed && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary" />
       )}
       {isActive && collapsed && (
-        <span className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
+        <span className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary" />
       )}
       <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
       {!collapsed && <span className="flex-1">{label}</span>}
       {badge > 0 && (
         <span
           className={cn(
-            "flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white",
+            "flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground",
             collapsed && "absolute -right-0.5 -top-0.5 h-4 min-w-4 px-1",
           )}
         >
