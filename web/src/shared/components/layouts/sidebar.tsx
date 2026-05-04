@@ -190,7 +190,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           "lg:static lg:z-auto",
           "transition-all duration-300 ease-out lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-[72px]" : "w-[256px]",
+          collapsed ? "w-[72px]" : "w-[280px]",
           "lg:flex",
         )}
       >
