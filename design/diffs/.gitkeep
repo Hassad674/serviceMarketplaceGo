@@ -1,0 +1,7 @@
+# Visual diffs
+
+One sub-folder per screen, with `before.png`, `after.png`, `notes.md`.
+
+Captured by the agent before/after each batch.
+
+This directory is initially empty.

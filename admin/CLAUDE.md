@@ -613,88 +613,46 @@ type PageHeaderProps = {
 
 ---
 
-## Design System
+## Design System — Direction Soleil v2
 
-Aligned with the web app design system. Rose primary color.
+Admin shares the **Soleil v2** visual direction with web (ivoire & corail palette, Fraunces + Inter Tight + Geist Mono). **Source of truth**: [`/design/INDEX.md`](../design/INDEX.md). Read [`/design/rules.md`](../design/rules.md) before any UI change.
 
-### Color Tokens (oklch, defined in `globals.css` `@theme`)
+### Tokens (in `src/index.css` `@theme`)
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--color-primary` | `oklch(0.645 0.246 16.439)` (rose) | Primary buttons, links, active states |
-| `--color-primary-foreground` | `#ffffff` | Text on primary background |
-| `--color-background` | `oklch(0.985 ...)` | Page background |
-| `--color-foreground` | `oklch(0.145 ...)` | Primary text |
-| `--color-card` | `#ffffff` | Card backgrounds |
-| `--color-card-foreground` | `oklch(0.145 ...)` | Card text |
-| `--color-muted` | `oklch(0.967 ...)` | Muted backgrounds |
-| `--color-muted-foreground` | `oklch(0.556 ...)` | Secondary text |
-| `--color-border` | `oklch(0.913 ...)` | Borders |
-| `--color-destructive` | `oklch(0.577 0.245 27.325)` | Error, danger |
-| `--color-success` | `oklch(0.627 0.194 149.214)` | Success states |
-| `--color-warning` | `oklch(0.769 0.188 85.29)` | Warning states |
+Full table in [`/design/DESIGN_SYSTEM.md`](../design/DESIGN_SYSTEM.md). Quick reference:
 
-### Radius tokens
+| Semantic token | Soleil value | Usage |
+|----------------|--------------|-------|
+| `--color-background` | `#fffbf5` (ivoire) | Page background |
+| `--color-card` | `#ffffff` | Card surface |
+| `--color-foreground` | `#2a1f15` (encre) | Primary text |
+| `--color-muted-foreground` | `#7a6850` (tabac) | Secondary text |
+| `--color-border` | `#f0e6d8` | Faible border |
+| `--color-primary` | `#e85d4a` (corail) | CTA / accents |
+| `--color-success` | `#5a9670` (sapin) | Success / availability |
+| `--color-destructive` | `#c43a26` (corail foncé) | Errors |
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--radius-sm` | 6px | Small elements |
-| `--radius-md` | 8px | Buttons, inputs (`rounded-lg`) |
-| `--radius-lg` | 12px | Cards, containers (`rounded-xl`) |
-| `--radius-xl` | 16px | Large containers (`rounded-2xl`) |
+### Tooling
 
-### Glass effect
+- Tailwind 4 CSS-first (`@theme` block in `globals.css`/`index.css`). No `tailwind.config.ts`.
+- `cn()` (`shared/lib/utils.ts`) — `clsx` + `tailwind-merge`.
+- `class-variance-authority` (cva) for variant maps.
 
-```css
-.glass {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-}
+### Hard rules
+
+- Tailwind utility classes only — **no inline `style={{}}`**.
+- Semantic tokens only — **no hardcoded hex** in components.
+- Photos = `<Portrait id={n} />` (shared primitive port from web).
+- French labels: "Utilisateurs", "Suspendre", "Tableau de bord", "Prestataire", "Entreprise", "Freelance".
+
+### Formatting utilities (`shared/lib/utils.ts`)
+
+```typescript
+cn(...inputs: ClassValue[])             // Merge Tailwind classes
+formatDate(date: string | Date)          // "15 novembre 2025" (fr-FR long)
+formatCurrency(amount: number)           // "87 450,00 EUR" (fr-FR EUR)
+formatRelativeDate(date: string | Date)  // "Il y a 3h", "Il y a 2j"
 ```
-
-Used on: Sidebar (`bg-white/80 backdrop-blur-xl`), Header (`bg-white/80 backdrop-blur-xl`).
-
-### Shadow glow
-
-```css
-.shadow-glow {
-  box-shadow: 0 4px 24px -4px rgba(244, 63, 94, 0.4);
-}
-```
-
-Used on: primary Button hover, CTA elements.
-
-### Animations
-
-| Class | Duration | Easing | Usage |
-|-------|----------|--------|-------|
-| `animate-shimmer` | 1.5s infinite | ease-in-out | Skeleton loading placeholders |
-| `animate-scale-in` | 200ms | ease-out | Dialog/modal entrance |
-| `animate-slide-up` | 300ms | ease-out | Content entrance |
-| `animate-fade-in` | 200ms | ease-out | Overlay fade-in |
-
-### Transitions
-
-All interactive elements: `transition-all duration-200 ease-out`.
-
-### Focus states
-
-- Buttons: `focus-visible:ring-2 focus-visible:ring-primary/50`.
-- Inputs: `focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20`.
-
-### Active states
-
-- Primary/destructive buttons: `active:scale-[0.98]`.
-
-### Shadows
-
-| Usage | Classes |
-|-------|---------|
-| Cards at rest | `shadow-sm` |
-| Table container | `shadow-sm` |
-| Dialogs | `shadow-lg` |
-| Dropdowns | `shadow-lg` |
-| Primary button hover | `shadow-glow` (custom class) |
 
 ---
 
@@ -724,26 +682,6 @@ All interactive elements: `transition-all duration-200 ease-out`.
 - Protected routes are children of `<AdminLayout />` which handles the auth check.
 - `LoginPage` redirects to `/` if already authenticated (`<Navigate to="/" replace />`).
 - Feature components are imported directly into `router.tsx` -- this is the composition point.
-
----
-
-## Styling Conventions
-
-- **Tailwind 4 CSS-first**: theme tokens defined in `@theme` block in `globals.css`. No `tailwind.config.ts` or `tailwind.config.js`.
-- **`cn()` utility** (`shared/lib/utils.ts`): combines `clsx` + `tailwind-merge` for conditional class merging.
-- **No inline `style={{}}`** -- always Tailwind utility classes.
-- **No hardcoded colors** -- use semantic tokens (`bg-primary`, `text-muted-foreground`, `border-border`).
-- **Variant maps** for components with multiple visual states (see Button, Badge).
-- **French labels everywhere**: "Utilisateurs", "Rechercher", "Suspendre", "Tableau de bord", "Prestataire", "Entreprise", "Freelance".
-
-### Formatting utilities (`shared/lib/utils.ts`)
-
-```typescript
-cn(...inputs: ClassValue[])             // Merge Tailwind classes
-formatDate(date: string | Date)          // "15 novembre 2025" (fr-FR long)
-formatCurrency(amount: number)           // "87 450,00 EUR" (fr-FR EUR)
-formatRelativeDate(date: string | Date)  // "Il y a 3h", "Il y a 2j", etc.
-```
 
 ---
 

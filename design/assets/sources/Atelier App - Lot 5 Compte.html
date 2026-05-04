@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier App — Lot 5 Compte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter+Tight:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+<style>body { margin: 0; font-family: 'Inter Tight', system-ui, sans-serif; background: #f4ede0; } * { box-sizing: border-box; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="design-canvas.jsx" type="text/babel"></script>
+<script src="phase1/_bootstrap.js"></script>
+<script src="phase1/icons.jsx" type="text/babel"></script>
+<script src="phase1/soleil.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot5.jsx" type="text/babel"></script>
+<script type="text/babel" data-presets="react">
+  function App() {
+    return (
+      <DesignCanvas title="App Native · Lot 5 — Compte" subtitle="Login, Signup choix de rôle, Compte/paramètres. 3 écrans.">
+        <DCSection id="auth" title="Auth">
+          <DCArtboard id="login" label="Connexion" width={390} height={844}><AppLogin /></DCArtboard>
+          <DCArtboard id="signup" label="Inscription · choix de rôle" width={390} height={844}><AppSignupRole /></DCArtboard>
+        </DCSection>
+        <DCSection id="account" title="Compte">
+          <DCArtboard id="compte" label="Mon compte / paramètres" width={390} height={844}><AppCompte /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

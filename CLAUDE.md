@@ -751,79 +751,37 @@ ALL steps must pass. If any fails -> enter fix loop above -> only commit when AL
 
 ---
 
-## Design system
+## Design system — Direction Soleil v2
 
-Primary color: **Rose** (#F43F5E) — warm, distinctive, inspired by Contra.com, Google Stitch, and Airbnb's rose branding.
+The marketplace ships under one visual direction across web, admin, and mobile: **Soleil v2** — palette ivoire & corail, typographie Fraunces (display) + Inter Tight (UI) + Geist Mono (chiffres).
 
-Full design system documentation: `design/DESIGN_SYSTEM.md`. Read it when working on any UI component.
+**Single source of truth**: [`design/INDEX.md`](./design/INDEX.md). Every UI agent MUST read it before touching a `.tsx`, `.css` or Flutter widget.
 
-### Token quick reference (always in context)
+### Quick reference (full tokens in `design/DESIGN_SYSTEM.md`)
 
-| Token | Light | Dark |
-|-------|-------|------|
-| primary | #F43F5E | #FB7185 |
-| background | #FFFFFF | #0F172A |
-| foreground | #0F172A | #F8FAFC |
-| muted | #F1F5F9 | #1E293B |
-| border | #E2E8F0 | #334155 |
-| success | #22C55E | #4ADE80 |
-| warning | #F59E0B | #FBBF24 |
-| destructive | #EF4444 | #F87171 |
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `bg` | `#fffbf5` | Page background (ivoire) |
+| `surface` | `#ffffff` | Card backgrounds |
+| `border` | `#f0e6d8` | Faible border |
+| `text` | `#2a1f15` | Primary text (encre) |
+| `textMute` | `#7a6850` | Secondary text (tabac) |
+| `accent` | `#e85d4a` | CTA / accents (corail) |
+| `accentSoft` | `#fde9e3` | Soft backgrounds |
+| `green` | `#5a9670` | Success / disponibilité |
 
-### Gradient tokens (compact)
+**Type**: Fraunces (serif display) · Inter Tight (sans UI) · Geist Mono (numbers/IDs).
+**Radii**: cards 16-20px · pills/buttons 999 (full).
+**Photos**: SVG `Portrait` component (6 deterministic palettes), never initials/emojis.
+**Lang**: tutoiement, dates FR conversationnelles ("à l'instant", "il y a 1h", "ce matin").
 
-| Token | CSS class | Usage |
-|-------|-----------|-------|
-| gradient-primary | `.gradient-primary` | Primary buttons (rose-500 to rose-600) |
-| gradient-hero | `.gradient-hero` | Welcome banners (rose-500 via purple-500 to indigo-500) |
-| gradient-subtle | `.gradient-subtle` | Card backgrounds (rose-50 to white) |
-| gradient-warm | `.gradient-warm` | Section backgrounds (rose-50 to blue-50) |
+### Hard rules for UI agents
 
-### Shadow tokens (compact)
-
-| Token | Usage |
-|-------|-------|
-| shadow-xs | Inputs at rest (0 1px 2px rgba(0,0,0,0.04)) |
-| shadow-sm | Cards at rest (0 2px 4px rgba(0,0,0,0.06)) |
-| shadow-md | Cards on hover (0 4px 12px rgba(0,0,0,0.08)) |
-| shadow-lg | Modals, toasts (0 8px 24px rgba(0,0,0,0.12)) |
-| shadow-xl | Floating elements (0 16px 48px rgba(0,0,0,0.16)) |
-| shadow-glow | Primary CTA hover (0 0 20px rgba(244,63,94,0.3)) |
-
-### Animation tokens (compact)
-
-| Class | Duration | Usage |
-|-------|----------|-------|
-| `animate-shimmer` | 1.5s infinite | Skeleton loading |
-| `animate-slide-up` | 400ms ease-out | Content entrance |
-| `animate-scale-in` | 300ms ease-out | Modals, dropdowns |
-| `animate-fade-in` | 200ms ease-out | Generic fade |
-| `animate-glow` | 2s infinite | CTA pulse |
-| `stagger-{1-5}` | 50ms increments | Staggered children |
-
-### Glass effect (compact)
-
-- `.glass` — sidebar, header: `bg-white/80 backdrop-blur-xl`
-- `.glass-strong` — command palette: `bg-white/90 backdrop-blur-2xl`
-- `.glass-subtle` — tooltips: `bg-white/60 backdrop-blur-md`
-
-### Component rules (compact)
-
-- **Buttons**: 5 variants (primary/secondary/outline/ghost/destructive), 3 sizes (sm/md/lg), gradient-primary on primary, hover:shadow-glow, active:scale-[0.98]
-- **Cards**: bg-white rounded-2xl border border-slate-100 shadow-sm p-6. Interactive: hover:shadow-md hover:border-rose-200 hover:-translate-y-0.5
-- **Stat cards**: 48px icon circle + label (13px) + value (30px mono) + trend badge (green/red pill)
-- **Hero banner**: gradient-hero rounded-2xl, white text, 2 CTA buttons, CSS decorative pattern
-- **Inputs**: h-10, rounded-lg, shadow-xs, focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10. Error: border-red-500 ring-4 ring-red-500/10
-- **Avatars**: rounded-full, 5 sizes (24-64px), initials fallback on primary-100, hover:ring-2 ring-rose-500, status dot bottom-right
-- **Toasts**: slide-in, icon + text + close + progress bar, semantic left border 4px
-- **Spacing**: 4px base unit. Only: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128
-- **Radius**: sm(6px), md(8px), lg(12px), xl(16px), full(9999px)
-- **Typography**: Body 15px, Stat numbers Geist Mono 30px, Display 36px weight-800 tracking-tight
-- **Transitions**: `transition-all duration-200 ease-out` everywhere
-- **Loading**: skeleton with `.animate-shimmer`, NEVER full-page spinner
-- **Role badges**: agency (blue), enterprise (purple), provider (rose), admin (slate)
-- **Icons**: Lucide (web/admin), 18px inline / 20px buttons / 24px standalone
-- **Layout**: sidebar 280px glass, header h-16 glass sticky, content max-w-7xl mx-auto px-6 py-8
+1. Read [`design/rules.md`](./design/rules.md) BEFORE touching anything.
+2. Files OFF-LIMITS without explicit override: `*/api/*.ts`, `*/hooks/use-*.ts`, `*/schemas/*.ts`, `shared/lib/api-client.ts`, `middleware.ts`, all backend Go, all migrations, all `package.json` / `pubspec.yaml`, all existing test files.
+3. Never hardcode user-visible strings in `.tsx` — pass through `useTranslations` / mobile i18n.
+4. If the design shows a feature absent from the repo (e.g., "Atelier Premium"), SKIP that section and FLAG in the batch report. Do NOT invent a backend or hook for it.
+5. Run `design/scripts/validate-no-regression.sh` before every commit. Paste output in the agent's final report.
 
 ---
 
