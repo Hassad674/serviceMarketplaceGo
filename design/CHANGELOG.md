@@ -36,3 +36,25 @@ Next: Phase 0 token batch (orchestrator-runs since it touches `globals.css` OFF-
 - Wrote auto-memory entry `design_source_locations.md` (reference type) — anchors the source paths and URLs so the chantier can survive a context compression.
 
 This was a follow-up after Hassad noticed that the source paths and Claude Design refetch commands were nowhere documented despite their usefulness as a fail-safe.
+
+---
+
+## 2026-05-04 (later) — Pre-work answers + commit hygiene + Android-only
+
+After PR #108 merged, Hassad answered the 4 open questions in `tracking.md`:
+
+1. ✅ W-12 Opportunités: only `/(public)/opportunities` exists — inventory locked to that route.
+2. ✅ W-15 Mission active = same page as W-10 (`/projects/[id]`) with role-aware layout. One PR covers both IDs.
+3. ✅ Web has `/(app)/notifications/` — added new entry **W-24 Notifications**, coupled with M-19. Inventory now totals 24 web + 18 mobile = 42 IDs (23 PRs because W-10+W-15 = 1 page).
+4. ✅ Phase 0 batch ownership = orchestrator (main session). Validated.
+
+Plus two new rules added to the chantier:
+
+- `design/rules.md` §11 — **1 screen = 1 commit** (squash WIP before PR, `feat(design/<surface>/<id>): port <name> to Soleil v2` format)
+- `design/rules.md` §12 — **Mobile = Android-only for now** (Hassad on Linux, no Mac/iOS Simulator). Code stays cross-platform; iOS captures added later without refactor.
+
+Both rules also inserted into `design/agent-templates/shared-rules.md` (so every dispatched agent gets them) and into a new auto-memory entry `design_one_screen_one_commit.md`.
+
+Branch: `chore/design-prework-answers`. PR: TBD.
+
+Next: Phase 0 batch — implement Soleil v2 tokens in `web/src/styles/globals.css` + `admin/src/index.css` + `mobile/lib/core/theme/soleil_theme.dart` + create `Portrait` primitive web/mobile + load fonts. Orchestrator-run in main session.

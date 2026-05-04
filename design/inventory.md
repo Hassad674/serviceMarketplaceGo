@@ -1,9 +1,11 @@
-# Design — Inventory (41 écrans uniques)
+# Design — Inventory (42 écrans uniques)
 
 > Mapping exhaustif design Soleil v2 ↔ routes/fichiers du repo.
 > **Orchestrator-only**: ne jamais déléguer ce fichier à un agent.
 >
-> Total: **23 écrans web** (desktop + responsive partagent le même `.tsx` via Tailwind breakpoints) + **18 écrans mobile Flutter** = 41 écrans uniques.
+> Total: **24 écrans web** (desktop + responsive partagent le même `.tsx` via Tailwind breakpoints) + **18 écrans mobile Flutter** = 42 écrans uniques.
+>
+> Note: W-10 et W-15 partagent la **même page** (vue role-aware sur `/projects/[id]`). Une PR couvre les 2 IDs simultanément. Donc en pratique on a 23 PRs web (et non 24).
 
 ---
 
@@ -147,7 +149,7 @@ Les valeurs `Components touchables` et `OFF-LIMITS` peuvent être affinées au m
 ### W-12 · Opportunités (feed)
 
 - **Source** : `phase1/soleil-lotC.jsx` `SoleilOpportunities` · format "Find" cards humaines
-- **Route existante** : `/[locale]/(public)/opportunities` ou `/[locale]/(app)/opportunities`?
+- **Route existante** : `/[locale]/(public)/opportunities` (route publique pour SEO — confirmé : pas de variante `(app)` dans le repo)
 - **Fichier principal** : `web/src/app/[locale]/(public)/opportunities/page.tsx`
 - **Components touchables** : `web/src/features/job/components/opportunities-list.tsx`, `opportunity-card.tsx`, `opportunities-filter.tsx`
 - **OFF-LIMITS** : `web/src/features/job/api/opportunities.ts`, hooks/, schemas/
@@ -174,11 +176,12 @@ Les valeurs `Components touchables` et `OFF-LIMITS` peuvent être affinées au m
 ### W-15 · Mission active (livrer jalon)
 
 - **Source** : `phase1/soleil-lotC.jsx` `SoleilFreelancerProject`
-- **Route existante** : `/[locale]/(app)/projects/[id]` (vue côté provider, déjà couvert par W-10 mais avec layout adapté)
-- **Fichier principal** : même que W-10 (`web/src/app/[locale]/(app)/projects/[id]/page.tsx`) — la vue provider/client diffère par les actions disponibles, pas par la page
+- **Route existante** : `/[locale]/(app)/projects/[id]` — **MÊME PAGE que W-10**, avec layout role-aware (provider voit les actions de livraison, client voit les actions de validation). Confirmé par Hassad.
+- **Fichier principal** : même que W-10 (`web/src/app/[locale]/(app)/projects/[id]/page.tsx`)
 - **Components touchables** : `web/src/features/proposal/components/milestone-submit-form.tsx`, `proposal-detail-view.tsx`
 - **OFF-LIMITS** : api/, hooks/, schemas/
 - **Mobile parity** : `M-06`
+- **Discipline** : W-10 et W-15 doivent être livrés dans le **MÊME batch** (1 fichier touché → 2 IDs résolus simultanément). Une PR couvre les 2 IDs.
 
 ---
 
@@ -269,6 +272,20 @@ Les valeurs `Components touchables` et `OFF-LIMITS` peuvent être affinées au m
 - **Components touchables** : `web/src/features/account/components/*.tsx`, `delete-account-card.tsx`, sections paramètres
 - **OFF-LIMITS** : api/, hooks/, schemas/ d'account
 - **Mobile parity** : `M-18`
+
+---
+
+## 8 · Notifications (1 écran)
+
+### W-24 · Notifications
+
+- **Source** : `phase1/soleil-app-lot4.jsx` `AppNotifications` (référence mobile, à adapter en layout web large)
+- **Route existante** : `/[locale]/(app)/notifications` (confirmé présent dans `web/src/app/[locale]/(app)/notifications/`)
+- **Fichier principal** : `web/src/app/[locale]/(app)/notifications/page.tsx`
+- **Components touchables** : `web/src/features/notification/components/*.tsx` (à confirmer au brief — le folder existe avec api/components/hooks/types.ts)
+- **OFF-LIMITS** : `web/src/features/notification/api/*`, hooks/use-notifications.ts, schemas, push notification handlers
+- **Features design absentes** : à recroiser au brief
+- **Mobile parity** : `M-19`
 
 ---
 
@@ -483,6 +500,7 @@ Les valeurs `Components touchables` et `OFF-LIMITS` peuvent être affinées au m
 | W-21 Messagerie | M-17 + M-18 |
 | W-22 Équipe | (pas de M) |
 | W-23 Compte | M-20 |
+| W-24 Notifications | M-19 |
 
 ---
 
