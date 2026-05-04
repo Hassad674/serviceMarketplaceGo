@@ -7,26 +7,28 @@
 
 ## Last updated
 
-`2026-05-04` — Phase 0 setup in progress (this commit).
+`2026-05-04` — Phase 0 nearly complete (inventory + tracking landed).
 
 ---
 
 ## Where we are
 
-**Phase 0** — Foundation in progress.
+**Phase 0** — Foundation almost done.
 
 - ✅ Audit existing design rules in repo (Rose Contra superseded)
 - ✅ Cleaned 4 CLAUDE.md files (root + web + admin + mobile) — old design system tokens removed, replaced by Soleil v2 references pointing here
 - ✅ Created `design/` scaffold (this folder) with INDEX, DESIGN_SYSTEM, rules, RESUME, CHANGELOG, agent-templates, scripts, batches/, diffs/, assets/
 - ✅ Copied Soleil v2 source assets (4 JSX + phase1/ + 18 HTML + 3 PDFs)
-- ⏳ `inventory.md` — not yet written (TODO: 64 screens × mapping route-repo). This is the next big chunk of orchestrator work, ~1-2h, NOT to be delegated.
-- ⏳ `tracking.md` — not yet written (depends on inventory.md being done first)
-- ⏳ Auto-memory entries — to be written in the same session as scaffold
-- ⏳ Validation scripts — written but not yet smoke-tested against a real diff
+- ✅ Auto-memory entries written (4: design_system, off_limits, scope_discipline, progress_pointer)
+- ✅ `inventory.md` — 41 unique screens (23 web + 18 mobile) with full route-repo mapping
+- ✅ `tracking.md` — live status board, all screens currently `not-started`
+- ⏳ Phase 0 batch — tokens implementation (web `globals.css` + admin `index.css` + mobile `soleil_theme.dart` + `Portrait` primitive web/mobile). NOT yet dispatched.
+- ⏳ Validation scripts — written, syntax-checked, but not yet smoke-tested against a real diff.
 
 **Phase 1** (calibration with 2-3 screens) — NOT STARTED.
+Proposed candidates: W-01 Connexion, W-11 Dashboard freelance, W-16 Profil prestataire (public). See `tracking.md` for the rationale.
 
-**Phase 2** (parallel agent batches) — NOT STARTED.
+**Phase 2** (parallel agent batches: 1 web + 1 mobile in background) — NOT STARTED.
 
 ---
 
@@ -34,11 +36,11 @@
 
 **If you're the orchestrator (Hassad / main session)**:
 
-1. Validate the scaffold by reading [`INDEX.md`](./INDEX.md), [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md), [`rules.md`](./rules.md).
-2. Confirm the OFF-LIMITS list in `rules.md` §2 matches the actual repo file structure.
-3. Greenlight the orchestrator to write `inventory.md` (the 64 screens with mapping). This file is sensitive — orchestrator-only, no agent.
-4. Once `inventory.md` is done, pick the 2-3 screens for Phase 1 calibration.
-5. Run Phase 0 token implementation (web globals.css + admin index.css + mobile soleil_theme.dart) — small batch, can be a single agent or done by orchestrator.
+1. Validate the inventory by skimming [`inventory.md`](./inventory.md) — confirm the 41 screens are right and that the route mappings match your understanding of the repo.
+2. Answer the 4 open questions at the bottom of [`tracking.md`](./tracking.md) (route ambiguities + Phase 0 batch ownership).
+3. Pick the 2-3 screens for Phase 1 calibration (default: W-01 + W-11 + W-16, see `tracking.md`).
+4. Decide who runs Phase 0 token batch — recommendation: orchestrator (Hassad+main session), because it touches `globals.css` which is OFF-LIMITS for agents by default.
+5. After Phase 0 tokens land, dispatch the first calibration batch.
 
 **If you're a fresh agent dispatched on a batch**:
 

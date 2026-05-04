@@ -29,6 +29,7 @@ The visual direction shipped from a dedicated Claude Design session. Palette ivo
 | [`batches/`](./batches/) | One file per dispatched batch (brief + status + audit). | To review a specific batch. |
 | [`diffs/`](./diffs/) | Before/after screenshots per screen. | For visual review. |
 | [`assets/`](./assets/) | Source designs (4 JSX + 18 HTML + 3 PDFs). | When briefing an agent on a screen. |
+| [`SOURCES.md`](./SOURCES.md) | Where the assets came from + Claude Design canvas URLs to refetch if needed. | When Hassad updates the design or you need to inspect a detail beyond the local copy. |
 
 ---
 
