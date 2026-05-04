@@ -148,7 +148,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	stripeReversalSvc := stripe.Reversals
 	stripeKYCReader := stripe.KYCReader
 
-	notifWorkerCtx, notifWorkerCancel := context.WithCancel(ctx)
+	notifWorkerCtx, notifWorkerCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, notifWorkerCancel)
 	notification := wireNotificationFeature(notificationDeps{
 		Ctx:         notifWorkerCtx,
@@ -185,7 +185,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	invitationSvc := team.InvitationSvc
 	membershipSvc := team.MembershipSvc
 
-	kycCtx, kycCancel := context.WithCancel(ctx)
+	kycCtx, kycCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, kycCancel)
 	wireKYC(kycDeps{
 		Ctx:           kycCtx,
@@ -227,7 +227,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	typesenseClient := wireSearchIndexer(cfg, infra.DB, pendingEventsWorker)
 	searchHandler, adminSearchStatsHandler := wireSearchQuery(cfg, infra.DB, typesenseClient)
-	pendingEventsCtx, pendingEventsCancel := context.WithCancel(ctx)
+	pendingEventsCtx, pendingEventsCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, pendingEventsCancel)
 
 	reviewServiceWire := wireReviewService(reviewServiceDeps{
@@ -248,7 +248,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	reportRepo := reportWire.Repo
 	reportSvc := reportWire.Svc
 
-	mediaWorkerCtx, mediaWorkerCancel := context.WithCancel(ctx)
+	mediaWorkerCtx, mediaWorkerCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, mediaWorkerCancel)
 	mediaRepo := postgres.NewMediaRepository(infra.DB)
 	media := wireMediaModeration(mediaDeps{
@@ -412,7 +412,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		ClientStatsReader:  clientProfileReadSvc,
 	})
 
-	uploadCtx, uploadCancel := context.WithCancel(ctx)
+	uploadCtx, uploadCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.UploadCancel = uploadCancel
 	app.closeFns = append(app.closeFns, uploadCancel)
 	uploadsWire := wireUploads(uploadsDeps{
@@ -468,7 +468,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	}()
 	slog.Info("phase 6: pending events worker started")
 
-	disputeCtx, disputeCancel := context.WithCancel(ctx)
+	disputeCtx, disputeCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, disputeCancel)
 	dispute := wireDispute(disputeDeps{
 		Ctx:            disputeCtx,
@@ -486,7 +486,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	disputeHandler := dispute.Handler
 	adminDisputeHandler := dispute.AdminHandler
 
-	gdprCtx, gdprCancel := context.WithCancel(ctx)
+	gdprCtx, gdprCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, gdprCancel)
 	gdpr := wireGDPR(gdprDeps{
 		Ctx:    gdprCtx,
