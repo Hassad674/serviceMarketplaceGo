@@ -1,9 +1,36 @@
-# Audit de Sécurité — F.5 close-out
+# Audit de Sécurité — F.5 + F.6 + F.7 + #105 close-out
 
-**Date** : 2026-05-03 (post F.5 hardening pass)
-**Branch** : `feat/f5-security-and-honesty`
+**Date** : 2026-05-04 (post F.5 + F.6 + F.7 hardening + PR #105 follow-ups)
+**Branch** : `main` (after PR #104 merge)
 **Périmètre** : backend Go (~674 fichiers prod, 135 migrations), web Next.js, admin Vite, mobile Flutter
 **Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS audit + supply chain check + actual gosec run + adversarial review by an independent Claude agent.
+
+## F.6 + F.7 + #105 close-out — what shipped (since 2026-05-03)
+
+PR #104 (`feat/f6-f7-mobile-and-idempotency-completion`) and PR #105
+(`chore/security-cors-idempotency-key-and-gosec-suppressions`) closed
+several findings flagged after the F.5 pass:
+
+| ID | Severity | Closure summary |
+|----|----------|-----------------|
+| SEC-FINAL-02 (B1/N1/N6) | HIGH | ✅ FERMÉ in `ed1bc6ab` — Idempotency middleware now hashes `body + method + path` and returns `409 Conflict` on body mismatch. The middleware was previously keyed by `Idempotency-Key` alone, which made replay-collision behaviour ambiguous; the new key derivation makes the contract testable and matches the Stripe SDK semantics. |
+| SEC-FINAL-02 (B2) | HIGH | ✅ FERMÉ in `0849bd60` — money-moving milestone routes (accept / decline / dispute / refund / release) wrapped with the idempotency middleware. Combined with `ed1bc6ab` the financial double-spend window is now closed end-to-end. |
+| M1 — Mobile Idempotency-Key | HIGH (mobile parity) | ✅ FERMÉ in `f3120ca4` — Dio interceptor wires `uuid v4` into 9 protected POSTs with retry-aware caching. The mobile client now matches the web client's idempotency posture. |
+| M2 — iOS privacy manifest | MEDIUM (compliance) | ✅ FERMÉ in `b2e543cb` — `Info.plist` carries 4 `NS*UsageDescription` keys (camera, microphone, photo library, location-when-in-use) plus `PrivacyInfo.xcprivacy` manifest. App Store submissions no longer require a workaround. |
+| B3 — body-cap + smuggling | HIGH | ✅ FERMÉ in `260e36fc` — `validator.DecodeJSON` now wraps the request body with `MaxBytesReader` and rejects HTTP smuggling shapes (Transfer-Encoding mismatches, conflicting Content-Length). Type-decode errors return `400 invalid_request` instead of a 500. |
+| W5 — CSP `unsafe-eval` | HIGH (web) | ✅ FERMÉ in `bcd59675` — `'unsafe-eval'` dropped from the production `script-src` directive. Dev-only branch keeps it for the Next.js fast-refresh runtime. |
+| B10 — singleflight test flake | MEDIUM (CI) | ✅ FERMÉ in `d361e90f` — `TestProfileCache_Singleflight` stabilised with a synchronisation gate that lets the second goroutine race in deterministically rather than via `time.Sleep`. |
+| CORS — Idempotency-Key | MEDIUM | ✅ FERMÉ in PR #105 (`a61d98a8`) — `Access-Control-Allow-Headers` was missing `Idempotency-Key`, so cross-origin browser preflight stripped the header before the server saw it. The F.6+F.7 idempotency wiring was silently no-op for cross-origin POSTs. The fix adds the header and locks the allowlist contents (`Accept, Authorization, Content-Type, Idempotency-Key, X-Request-ID, X-Auth-Mode`) with a regression test. |
+| gosec false-positives | INFO | ✅ FERMÉ in PR #105 (`a61d98a8`) — 7×G118 in `cmd/api/bootstrap.go` and 1×G705 in `internal/handler/middleware/idempotency.go` annotated with `// #nosec` + justification. The cancel funcs are captured into `app.closeFns` (graceful shutdown), and `cached.Body` is the server's own previously-emitted response body (not user-controlled HTML). Local re-run reports `Issues: 0, Nosec: 8`. |
+
+The independent adversarial audit's remaining items
+(N4 per-IP brute-force gate, N7 X-Forwarded-For trusted-proxy CIDR,
+N8 ws_token rotation cadence, N9 mobile cert pinning, S5 timing
+parity on the duplicate path) stay open and are tracked in the
+"Top remaining fixes ranked by ROI" section below — they are
+post-launch polish, not deployment blockers.
+
+---
 
 ## F.5 close-out — what shipped (8 items)
 
@@ -31,15 +58,15 @@ raw pattern.
 
 ---
 
-## Snapshot — état actuel après F.1 + F.2 + F.3.1 + F.3.3
+## Snapshot — état actuel après F.1 + F.2 + F.3.1 + F.3.3 + F.5 + F.6 + F.7 + #105
 
-| Severity | Count | Δ vs 2026-05-01 |
+| Severity | Count | Δ vs 2026-05-03 |
 |---|---|---|
 | CRITICAL | 0 | 0 |
-| HIGH | 3 | -1 (SEC-FINAL-07 admin localStorage CLOSED, SEC-FINAL-04 SSRF CLOSED, SEC-FINAL-03 RequireRole CLOSED — 3 new HIGH closures from F.3.1) |
-| MEDIUM | 5 | -1 |
+| HIGH | 1 | -2 (SEC-FINAL-02 idempotency CLOSED in PR #104; SEC-FINAL-13 already closed; SEC-FINAL-06 already closed) |
+| MEDIUM | 5 | 0 |
 | LOW | 4 | 0 |
-| **Total** | **12** | **-2** |
+| **Total** | **10** | **-2** |
 
 **Verified clean via actual run** (2026-05-03):
 - `gosec -quiet -fmt=text -exclude-dir=mock backend/...` → **674 files, 111 355 lines, 0 issues, 41 nosec**.
@@ -56,13 +83,11 @@ raw pattern.
 
 ## HIGH (3)
 
-### SEC-FINAL-02 : Idempotency middleware applicatif absent
+### SEC-FINAL-02 : Idempotency middleware applicatif absent — ✅ FERMÉ (PR #104 + PR #105)
 - **Severity**: HIGH
 - **CWE**: CWE-837 (improper enforcement of behavioral workflow)
-- **Location**: pas de `backend/internal/handler/middleware/idempotency.go` — only `internal/app/webhookidempotency/` for Stripe.
-- **Why it matters**: a mobile client retrying on timeout creates 2 proposals, 2 disputes, 2 reviews. Stripe transferts protégés via SDK IdempotencyKey, business actions ne le sont pas.
-- **Fix**: middleware `Idempotency-Key` Redis 24h TTL on `POST /proposals`, `POST /disputes`, `POST /reviews`, `POST /jobs`, `POST /reports`, `POST /referral-actions`. 409 on key collision with different body.
-- **Effort**: M (½j)
+- **Status**: ✅ FERMÉ in commits `43b83564` (initial wiring), `ed1bc6ab` (body-hash + 409 conflict semantics), `0849bd60` (milestone money-moving routes), `f3120ca4` (mobile parity), `a61d98a8` (CORS allow-list).
+- **Closure**: middleware lives at `backend/internal/handler/middleware/idempotency.go`, keyed by hash of `body + method + path + Idempotency-Key`. Returns `409 Conflict` on body mismatch. Mobile and web clients both wire the header. Cross-origin works because the CORS allowlist now permits `Idempotency-Key`.
 
 ### SEC-FINAL-13 : `Authorization` header — pas de redaction structurée slog
 - **Severity**: HIGH (upgraded from MEDIUM — open-source surface = greater leak risk)
@@ -145,7 +170,7 @@ raw pattern.
 | A01 Broken Access Control | ✅ | RLS + soft guardrail; ownership checks at handler level; RequireRole middleware now wired |
 | A02 Cryptographic Failures | ✅ | bcrypt 12, JWT 15min, HSTS prod, JWT_SECRET ≥32 bytes prod-enforced |
 | A03 Injection | ✅ | parameterized everywhere, gosec 0 issues |
-| A04 Insecure Design | 🟡 | idempotency middleware absent (SEC-FINAL-02) |
+| A04 Insecure Design | ✅ | idempotency middleware closed in PR #104 (SEC-FINAL-02) |
 | A05 Security Misconfiguration | ✅ | RequireRole closed |
 | A06 Vulnerable & Outdated Components | ✅ | govulncheck + trivy weekly + dependabot eligible |
 | A07 Identification & Auth Failures | ✅ | brute force per-email atomic Lua, refresh rotation + replay detection, session_version |
@@ -153,7 +178,7 @@ raw pattern.
 | A09 Logging & Monitoring Failures | 🟡 | SEC-FINAL-13 (slog redact unwired) |
 | A10 Server-Side Request Forgery | ✅ | SEC-FINAL-04 closed |
 
-8/10 ✅ + 2/10 🟡. Each yellow has a known fix < 1 day.
+9/10 ✅ + 1/10 🟡 (after PR #104). Each yellow has a known fix < 1 day.
 
 ---
 
@@ -213,12 +238,14 @@ raw pattern.
 
 | # | ID | Severity | Effort | Impact |
 |---|---|---|---|---|
-| 1 | SEC-FINAL-02 | HIGH | M (½j) | Prevents double-create on mobile retry |
-| 2 | SEC-FINAL-13 | HIGH | S (1-2h) | Prevents accidental token leak in logs |
-| 3 | SEC-FINAL-06 | HIGH | XS (30 min) | Stops Stripe internal info leak |
-| 4 | SEC-FINAL-NEW-01 | MEDIUM | XS (15 min) | Tidy go.mod; add CI tidy check |
-| 5 | SEC-FINAL-16 | MEDIUM | XS (30 min) | State machine guard for retry |
-| 6 | SEC-FINAL-10 | MEDIUM | XS (15 min) | Drop account_id from DTO |
+| ~~1~~ | ~~SEC-FINAL-02~~ | ✅ FERMÉ (PR #104) | — | — |
+| ~~2~~ | ~~SEC-FINAL-13~~ | ✅ FERMÉ (`b5499265`) | — | — |
+| ~~3~~ | ~~SEC-FINAL-06~~ | ✅ FERMÉ (F.5 S4 `e1c3c697`) | — | — |
+| 1 | SEC-FINAL-NEW-01 | MEDIUM | XS (15 min) | Tidy go.mod; add CI tidy check |
+| 2 | SEC-FINAL-16 | MEDIUM | XS (30 min) | State machine guard for retry |
+| 3 | SEC-FINAL-10 | MEDIUM | XS (15 min) | Drop account_id from DTO |
+| 4 | N4 (per-IP brute-force gate) | MEDIUM | S (1-2h) | DoS protection — per-IP threshold (20/15min → 60min lock) alongside per-email |
+| 5 | S5 timing parity | LOW | XS (30 min) | Equalise duplicate-path bcrypt to defeat timing-channel email enumeration |
 
 ---
 
