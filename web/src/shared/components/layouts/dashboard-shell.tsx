@@ -77,11 +77,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         >
           <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
-          <main className="flex-1 overflow-y-auto p-5">
-            <div className="mx-auto w-full max-w-4xl">
-              {user && <KYCBanner user={user} />}
-              {children}
-            </div>
+          <main className="flex-1 overflow-y-auto px-6 py-8 md:px-9">
+            {/* No max-width container: Soleil dashboard layouts are
+             * full-bleed inside the sidebar offset. The previous
+             * max-w-4xl (896px) was a holdover from the legacy
+             * single-column design and made every page feel cramped
+             * on 1440px+ screens. Pages that need a narrower reading
+             * column (e.g. account settings forms) wrap their own
+             * content in a max-width container. */}
+            {user && <KYCBanner user={user} />}
+            {children}
           </main>
         </div>
         <ChatWidget />
