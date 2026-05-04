@@ -530,6 +530,7 @@
     "aboutAgencyPlaceholder": "Describe your agency, services and expertise...",
     "aboutReferrerPlaceholder": "Describe your business referrer activity...",
     "clickToEdit": "Click the edit button to add a description",
+    "editingMode": "Editing mode · changes are saved section by section.",
     "characters": "characters",
     "projectHistory": "Project History",
     "noProjects": "No completed projects",
@@ -725,7 +726,10 @@
       "publicDescription": "{name}, freelancer{title, select, empty {} other { — {title}}}. Profile on Marketplace Service.",
       "loadError": "Could not load this freelancer profile. Please try again.",
       "notFoundTitle": "Freelancer profile not found",
-      "notFoundDescription": "This profile no longer exists or was removed by its owner."
+      "notFoundDescription": "This profile no longer exists or was removed by its owner.",
+      "backToList": "Back to freelancers",
+      "priceFromLabel": "Starting at",
+      "reviewsCount": "{count, plural, one {# review} other {# reviews}}"
     },
     "referrer": {
       "publicTitleSuffix": "Business referrer",

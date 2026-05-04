@@ -21,10 +21,11 @@ export default function ProfilePage() {
 
 function Skeleton() {
   return (
-    <div className="space-y-6" role="status" aria-live="polite">
-      <div className="h-32 rounded-xl border border-border bg-muted/40 animate-shimmer" />
-      <div className="h-40 rounded-xl border border-border bg-muted/40 animate-shimmer" />
-      <div className="h-64 rounded-xl border border-border bg-muted/40 animate-shimmer" />
+    <div className="space-y-5" role="status" aria-live="polite">
+      <div className="gradient-warm h-40 rounded-2xl" aria-hidden="true" />
+      <div className="-mt-16 mx-4 h-40 rounded-2xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] sm:mx-6" />
+      <div className="h-40 rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] animate-shimmer" />
+      <div className="h-64 rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] animate-shimmer" />
     </div>
   )
 }

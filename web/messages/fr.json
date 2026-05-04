@@ -530,6 +530,7 @@
     "aboutAgencyPlaceholder": "Décrivez votre agence, vos services et votre expertise...",
     "aboutReferrerPlaceholder": "Décrivez votre activité d'apporteur d'affaire...",
     "clickToEdit": "Cliquez sur le bouton d'édition pour ajouter une description",
+    "editingMode": "Mode édition · les modifications sont enregistrées section par section.",
     "characters": "caractères",
     "projectHistory": "Historique des projets",
     "noProjects": "Aucun projet terminé",
@@ -725,7 +726,10 @@
       "publicDescription": "{name}, freelance{title, select, empty {} other { — {title}}}. Profil sur Marketplace Service.",
       "loadError": "Impossible de charger ce profil freelance. Réessaie dans un instant.",
       "notFoundTitle": "Profil freelance introuvable",
-      "notFoundDescription": "Ce profil n'existe plus ou son propriétaire l'a supprimé."
+      "notFoundDescription": "Ce profil n'existe plus ou son propriétaire l'a supprimé.",
+      "backToList": "Retour aux freelances",
+      "priceFromLabel": "À partir de",
+      "reviewsCount": "{count, plural, one {# avis} other {# avis}}"
     },
     "referrer": {
       "publicTitleSuffix": "Apporteur d'affaires",
