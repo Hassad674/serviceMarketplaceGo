@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — 2. Responsive Web (mobile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f1eb; font-family: 'Inter Tight', system-ui, sans-serif; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+  .dc-artboard-content { user-select: none; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script src="phase1/_bootstrap.js"></script>
+<script type="text/babel" src="phase1/icons.jsx"></script>
+<script type="text/babel" src="phase1/soleil.jsx"></script>
+<script type="text/babel" src="phase1/soleil-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotF.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotA-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-jobcreate-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotB-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotC-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotD-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotE-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotF-mobile.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { DesignCanvas, DCSection, DCArtboard } = window;
+  const {
+    // Auth
+    SoleilLoginMobile, SoleilSignupMobile, SoleilCompteMobile,
+    // Lot A — entreprise
+    SoleilJobsListMobile, SoleilJobDetailDescMobile, SoleilJobDetailCandsMobile, SoleilJobCreateMobile, SoleilProjectDetailMobile,
+    // Lot B — argent
+    SoleilWalletMobile, SoleilInvoicesMobile, SoleilBillingProfileMobile, SoleilStripeConnectMobile,
+    // Lot C — freelance
+    SoleilFreelancerDashboardMobile, SoleilOpportunitiesMobile, SoleilOpportunityDetailMobile, SoleilMyApplicationsMobile, SoleilFreelancerProjectMobile,
+    // Lot D — profil
+    SoleilProfileMobile,
+    // Lot F — comm & team
+    SoleilMessagerieListMobile, SoleilMessagerieThreadMobile, SoleilTeamMobile,
+  } = window;
+
+  function App() {
+    return (
+      <DesignCanvas
+        title="Atelier — Responsive Web (mobile)"
+        subtitle="Tous les écrans web vus depuis un smartphone (390px). Mêmes données, mise en page adaptée."
+      >
+        {/* ═════════ AUTH ═════════ */}
+        <DCSection id="auth" title="1 · Auth & onboarding" subtitle="Connexion, choix de rôle, paiements.">
+          <DCArtboard id="m-login" label="Connexion" width={390} height={780}><SoleilLoginMobile /></DCArtboard>
+          <DCArtboard id="m-signup" label="Choix de rôle" width={390} height={780}><SoleilSignupMobile /></DCArtboard>
+          <DCArtboard id="m-stripe" label="Stripe Connect" width={390} height={780}><SoleilStripeConnectMobile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ENTREPRISE ═════════ */}
+        <DCSection id="entreprise" title="2 · Entreprise · annonces & projets" subtitle="Cycle annonce → candidatures → projet en cours.">
+          <DCArtboard id="m-jobs" label="Mes annonces" width={390} height={780}><SoleilJobsListMobile /></DCArtboard>
+          <DCArtboard id="m-job-desc" label="Détail · description" width={390} height={780}><SoleilJobDetailDescMobile /></DCArtboard>
+          <DCArtboard id="m-job-cands" label="Détail · candidatures" width={390} height={780}><SoleilJobDetailCandsMobile /></DCArtboard>
+          <DCArtboard id="m-job-create" label="Créer une annonce" width={390} height={1280}><SoleilJobCreateMobile /></DCArtboard>
+          <DCArtboard id="m-proj" label="Détail projet" width={390} height={780}><SoleilProjectDetailMobile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ FREELANCE ═════════ */}
+        <DCSection id="freelance" title="3 · Freelance · opportunités & missions" subtitle="Découverte, candidatures, missions actives.">
+          <DCArtboard id="m-fl-dash" label="Tableau de bord" width={390} height={780}><SoleilFreelancerDashboardMobile /></DCArtboard>
+          <DCArtboard id="m-fl-opp" label="Opportunités (feed)" width={390} height={780}><SoleilOpportunitiesMobile /></DCArtboard>
+          <DCArtboard id="m-fl-opp-detail" label="Détail opportunité" width={390} height={780}><SoleilOpportunityDetailMobile /></DCArtboard>
+          <DCArtboard id="m-fl-apps" label="Mes candidatures" width={390} height={780}><SoleilMyApplicationsMobile /></DCArtboard>
+          <DCArtboard id="m-fl-proj" label="Mission (livrer jalon)" width={390} height={780}><SoleilFreelancerProjectMobile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ PROFIL ═════════ */}
+        <DCSection id="profil" title="4 · Profil prestataire" subtitle="Public et privé (édition).">
+          <DCArtboard id="m-profile-pub" label="Profil public" width={390} height={1100}><SoleilProfileMobile isPrivate={false} /></DCArtboard>
+          <DCArtboard id="m-profile-priv" label="Profil privé" width={390} height={1100}><SoleilProfileMobile isPrivate={true} /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ARGENT ═════════ */}
+        <DCSection id="argent" title="5 · Argent" subtitle="Portefeuille, factures, profil de facturation.">
+          <DCArtboard id="m-wallet" label="Portefeuille" width={390} height={780}><SoleilWalletMobile /></DCArtboard>
+          <DCArtboard id="m-invoices" label="Factures" width={390} height={780}><SoleilInvoicesMobile /></DCArtboard>
+          <DCArtboard id="m-billing" label="Profil de facturation" width={390} height={780}><SoleilBillingProfileMobile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMMUNICATION & ÉQUIPE ═════════ */}
+        <DCSection id="comm" title="6 · Messagerie & équipe" subtitle="Conversations + droits équipe.">
+          <DCArtboard id="m-msg-list" label="Messagerie · liste" width={390} height={780}><SoleilMessagerieListMobile /></DCArtboard>
+          <DCArtboard id="m-msg-thread" label="Messagerie · conversation" width={390} height={780}><SoleilMessagerieThreadMobile /></DCArtboard>
+          <DCArtboard id="m-team" label="Équipe" width={390} height={780}><SoleilTeamMobile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMPTE ═════════ */}
+        <DCSection id="compte" title="7 · Compte & paramètres" subtitle="Préférences globales.">
+          <DCArtboard id="m-compte" label="Compte" width={390} height={780}><SoleilCompteMobile /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

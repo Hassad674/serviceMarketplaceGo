@@ -1,0 +1,7 @@
+# Batches directory
+
+One file per dispatched agent batch, named `BATCH-XXX-<surface>-<topic>.md`.
+
+Created from a template in `../agent-templates/`.
+
+This directory is initially empty.

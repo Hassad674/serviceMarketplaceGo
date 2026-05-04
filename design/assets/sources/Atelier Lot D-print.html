@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — Lot D · Profil prestataire (Print)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f1eb; font-family: 'Inter Tight', system-ui, sans-serif; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { box-sizing: border-box; }
+
+  .page {
+    background: #f4f1eb;
+    padding: 32px 40px;
+    page-break-after: always;
+    break-after: page;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+
+  .page-head {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(26,26,26,0.12);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .page-head .eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b6357;
+  }
+  .page-head h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 22px;
+    margin: 4px 0 0;
+    color: #1a1a1a;
+  }
+  .page-head .label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: #6b6357;
+    letter-spacing: 0.06em;
+  }
+
+  .frame {
+    background: #fff;
+    border: 1px solid rgba(26,26,26,0.10);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .frame.mobile { display: inline-block; }
+
+  /* Stage scales an absolute-sized artboard down to fit the printable width */
+  .stage {
+    position: relative;
+    overflow: hidden;
+  }
+  .stage > .scaler {
+    transform-origin: top left;
+  }
+
+  /* Side-by-side mobile pair */
+  .mobile-row {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .mobile-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .mobile-col .cap { font-family: 'Geist Mono', monospace; font-size: 10px; color: #6b6357; letter-spacing: 0.06em; }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  @page mobile-page {
+    size: A4 landscape;
+    margin: 0;
+  }
+  .page.mobile-page { page: mobile-page; }
+
+  @media screen {
+    body { padding: 24px; }
+    .page { max-width: 1100px; margin: 0 auto 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border-radius: 8px; }
+  }
+
+  @media print {
+    body { padding: 0; background: #f4f1eb; }
+    .page { margin: 0; box-shadow: none; border-radius: 0; min-height: 100vh; }
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="phase1/_bootstrap.js"></script>
+<script type="text/babel" src="phase1/icons.jsx"></script>
+<script type="text/babel" src="phase1/soleil.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotD.jsx"></script>
+<script type="text/babel" src="phase1/soleil-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotD-mobile.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { SoleilProfile, SoleilProfileMobile } = window;
+
+  // Stage: scales a fixed-size artboard down to fit a printable width.
+  function Stage({ width, height, scale, children }) {
+    return (
+      <div className="stage" style={{ width: width * scale, height: height * scale }}>
+        <div className="scaler" style={{ width, height, transform: `scale(${scale})` }}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // A4 portrait at 96dpi ≈ 794 × 1123. We give ~100px to head/margins,
+  // so artboard area ≈ 1020 wide × 1000 tall.
+  // Source artboards are 1280 wide. Scale ≈ 1020 / 1280 = 0.797.
+  const DESKTOP_W = 1280;
+  const DESKTOP_H_PUBLIC = 3000;
+  const DESKTOP_H_PRIVATE = 3100;
+  const DESKTOP_SCALE = 0.62; // fits 1280 → ~794 px wide for A4 portrait, full height visible split across pages
+
+  // For full-bleed desktop we instead use A4 landscape at scale that fits height
+  // But user wants visible full screen — split desktop into 2 pages each by using two stages with negative offset.
+  // Simpler: render full artboard scaled to width, accept it'll span 2-3 print pages naturally.
+
+  // Mobile: 390 × 780. Two side-by-side on landscape A4.
+  const MOBILE_W = 390;
+  const MOBILE_H = 780;
+  const MOBILE_SCALE = 0.85;
+
+  function App() {
+    return (
+      <>
+        <div className="page">
+          <div className="page-head">
+            <div>
+              <div className="eyebrow">Atelier — Lot D</div>
+              <h1>Profil prestataire · Vue publique</h1>
+            </div>
+            <div className="label">Côté entreprise · Desktop 1280</div>
+          </div>
+          <div className="frame">
+            <Stage width={DESKTOP_W} height={DESKTOP_H_PUBLIC} scale={DESKTOP_SCALE}>
+              <SoleilProfile isPrivate={false} />
+            </Stage>
+          </div>
+        </div>
+
+        <div className="page">
+          <div className="page-head">
+            <div>
+              <div className="eyebrow">Atelier — Lot D</div>
+              <h1>Profil prestataire · Vue privée (édition)</h1>
+            </div>
+            <div className="label">Côté freelance · Desktop 1280</div>
+          </div>
+          <div className="frame">
+            <Stage width={DESKTOP_W} height={DESKTOP_H_PRIVATE} scale={DESKTOP_SCALE}>
+              <SoleilProfile isPrivate={true} />
+            </Stage>
+          </div>
+        </div>
+
+        <div className="page mobile-page">
+          <div className="page-head">
+            <div>
+              <div className="eyebrow">Atelier — Lot D</div>
+              <h1>Profil prestataire · Mobile</h1>
+            </div>
+            <div className="label">Viewport 390 · Vue publique &amp; privée</div>
+          </div>
+          <div className="mobile-row">
+            <div className="mobile-col">
+              <div className="frame mobile">
+                <Stage width={MOBILE_W} height={MOBILE_H} scale={MOBILE_SCALE}>
+                  <SoleilProfileMobile isPrivate={false} />
+                </Stage>
+              </div>
+              <div className="cap">Vue publique · côté entreprise</div>
+            </div>
+            <div className="mobile-col">
+              <div className="frame mobile">
+                <Stage width={MOBILE_W} height={MOBILE_H} scale={MOBILE_SCALE}>
+                  <SoleilProfileMobile isPrivate={true} />
+                </Stage>
+              </div>
+              <div className="cap">Vue privée · côté freelance</div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+
+  // Auto-print once fonts + JSX are ready.
+  (async () => {
+    try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+    } catch (e) {}
+    // Wait for React render + a small safety delay
+    await new Promise(r => setTimeout(r, 800));
+    window.print();
+  })();
+</script>
+</body>
+</html>

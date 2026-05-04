@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — 3. App Native (Flutter)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter+Tight:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+<style>body { margin: 0; font-family: 'Inter Tight', system-ui, sans-serif; background: #f4ede0; } * { box-sizing: border-box; }</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="design-canvas.jsx" type="text/babel"></script>
+<script src="phase1/_bootstrap.js"></script>
+<script src="phase1/icons.jsx" type="text/babel"></script>
+<script src="phase1/soleil.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot1.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot2.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot3.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot4.jsx" type="text/babel"></script>
+<script src="phase1/soleil-app-lot5.jsx" type="text/babel"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { DesignCanvas, DCSection, DCArtboard } = window;
+  const {
+    // Showcase initial (3 écrans : recherche, profil, messagerie)
+    AppRecherche, AppProfil, AppMessagerie,
+    // Lot 1 — Activité
+    AppDashboardFreelance, AppDashboardEntreprise, AppCandidatures, AppMissionDetail,
+    // Lot 2 — Annonces (entreprise)
+    AppAnnonces, AppAnnonceDetail, AppAnnonceCreation,
+    // Lot 3 — Argent
+    AppWallet, AppFactures, AppPaiementDetail,
+    // Lot 4 — Communication
+    AppConversations, AppNotifications,
+    // Lot 5 — Compte
+    AppLogin, AppSignupRole, AppCompte,
+  } = window;
+
+  function App() {
+    return (
+      <DesignCanvas
+        title="Atelier — App Native (iOS / Flutter)"
+        subtitle="Tous les écrans pensés pour l'app native. 390 × 844, frame iOS, status bar + tab bar inclus."
+      >
+        {/* ═════════ AUTH ═════════ */}
+        <DCSection id="auth" title="1 · Auth" subtitle="Connexion et inscription native.">
+          <DCArtboard id="app-login" label="Connexion" width={390} height={844}><AppLogin /></DCArtboard>
+          <DCArtboard id="app-signup" label="Inscription · choix de rôle" width={390} height={844}><AppSignupRole /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ACTIVITÉ ═════════ */}
+        <DCSection id="activite" title="2 · Activité (dashboard)" subtitle="Vue d'ensemble freelance et entreprise + missions/candidatures.">
+          <DCArtboard id="app-dash-fl" label="Dashboard freelance" width={390} height={844}><AppDashboardFreelance /></DCArtboard>
+          <DCArtboard id="app-dash-co" label="Dashboard entreprise" width={390} height={844}><AppDashboardEntreprise /></DCArtboard>
+          <DCArtboard id="app-cands" label="Mes candidatures" width={390} height={844}><AppCandidatures /></DCArtboard>
+          <DCArtboard id="app-mission" label="Détail mission (livrer jalon)" width={390} height={844}><AppMissionDetail /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ANNONCES ENTREPRISE ═════════ */}
+        <DCSection id="annonces" title="3 · Annonces (entreprise)" subtitle="Liste, détail, création d'annonces.">
+          <DCArtboard id="app-annonces" label="Mes annonces" width={390} height={844}><AppAnnonces /></DCArtboard>
+          <DCArtboard id="app-annonce-detail" label="Détail annonce + candidatures" width={390} height={844}><AppAnnonceDetail /></DCArtboard>
+          <DCArtboard id="app-annonce-create" label="Créer une annonce" width={390} height={844}><AppAnnonceCreation /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ RECHERCHE & PROFIL ═════════ */}
+        <DCSection id="recherche" title="4 · Recherche & profil prestataire" subtitle="Annuaire de freelances et fiche profil.">
+          <DCArtboard id="app-recherche" label="Recherche freelances" width={390} height={844}><AppRecherche /></DCArtboard>
+          <DCArtboard id="app-profil" label="Profil prestataire" width={390} height={844}><AppProfil /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ARGENT ═════════ */}
+        <DCSection id="argent" title="5 · Argent" subtitle="Portefeuille, factures, détail de paiement.">
+          <DCArtboard id="app-wallet" label="Portefeuille" width={390} height={844}><AppWallet /></DCArtboard>
+          <DCArtboard id="app-factures" label="Factures" width={390} height={844}><AppFactures /></DCArtboard>
+          <DCArtboard id="app-paiement" label="Détail paiement" width={390} height={844}><AppPaiementDetail /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMMUNICATION ═════════ */}
+        <DCSection id="comm" title="6 · Communication" subtitle="Messagerie et notifications push (in-app).">
+          <DCArtboard id="app-msg" label="Conversation active" width={390} height={844}><AppMessagerie /></DCArtboard>
+          <DCArtboard id="app-convs" label="Liste conversations" width={390} height={844}><AppConversations /></DCArtboard>
+          <DCArtboard id="app-notifs" label="Notifications" width={390} height={844}><AppNotifications /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMPTE ═════════ */}
+        <DCSection id="compte" title="7 · Compte & paramètres" subtitle="Profil, paiement Stripe, préférences.">
+          <DCArtboard id="app-compte" label="Mon compte" width={390} height={844}><AppCompte /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

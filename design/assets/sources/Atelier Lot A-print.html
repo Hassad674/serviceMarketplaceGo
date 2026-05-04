@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — Lot A · Print</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f1eb; font-family: 'Inter Tight', system-ui, sans-serif; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { box-sizing: border-box; }
+
+  .page {
+    width: 1440px;
+    margin: 0 auto 32px;
+    background: #fff;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    overflow: hidden;
+    position: relative;
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .page:last-child { break-after: auto; page-break-after: auto; }
+
+  .page-label {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #e85d4a;
+    background: #fde9e3;
+    padding: 6px 12px;
+    border-radius: 999px;
+    z-index: 100;
+  }
+
+  .frame {
+    width: 1440px;
+    overflow: hidden;
+  }
+
+  .cover {
+    width: 1440px;
+    min-height: 900px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 100px;
+    background: linear-gradient(135deg, #fde9e3, #fde6ed, #fbf0dc);
+    position: relative;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+  }
+  .cover::before { content: ''; position: absolute; top: -120px; right: -80px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(232,93,74,0.32), transparent 70%); }
+  .cover::after { content: ''; position: absolute; bottom: -120px; left: 200px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(240,138,168,0.4), transparent 70%); }
+  .cover-content { position: relative; z-index: 2; max-width: 900px; }
+  .cover-eyebrow { font-size: 13px; font-weight: 700; color: #c43a26; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+  .cover-eyebrow::before { content: ''; width: 36px; height: 1px; background: #c43a26; }
+  .cover h1 { font-family: Fraunces, Georgia, serif; font-size: 88px; line-height: 1.02; margin: 0 0 16px; font-weight: 400; letter-spacing: -0.03em; color: #2a1f15; }
+  .cover h1 em { font-style: italic; color: #e85d4a; }
+  .cover .lede { font-size: 22px; line-height: 1.5; color: #5a4838; max-width: 720px; margin: 0 0 40px; }
+  .cover-toc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 28px; max-width: 720px; }
+  .cover-toc-item { display: flex; align-items: baseline; gap: 14px; font-size: 16px; color: #2a1f15; }
+  .cover-toc-num { font-family: 'Geist Mono', monospace; font-size: 13px; color: #c43a26; font-weight: 600; min-width: 28px; }
+
+  @page { size: A3 landscape; margin: 0; }
+
+  @media print {
+    html, body { background: #fff !important; }
+    .page { box-shadow: none !important; margin: 0 !important; }
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="phase1/_bootstrap.js"></script>
+<script type="text/babel" src="phase1/icons.jsx"></script>
+<script type="text/babel" src="phase1/soleil.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotA.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { SoleilJobsList, SoleilJobDetailDesc, SoleilJobDetailCands, SoleilJobCreate, SoleilProjectDetail } = window;
+
+  const PAGES = [
+    { id: '01', label: '01 · Mes annonces', height: 950, Comp: SoleilJobsList },
+    { id: '02', label: '02 · Détail annonce · Description', height: 1200, Comp: SoleilJobDetailDesc },
+    { id: '03', label: '03 · Détail annonce · Candidatures', height: 1200, Comp: SoleilJobDetailCands },
+    { id: '04', label: '04 · Création d\u2019une annonce', height: 1300, Comp: SoleilJobCreate },
+    { id: '05', label: '05 · Détail projet · stepper + frais', height: 1200, Comp: SoleilProjectDetail },
+  ];
+
+  function App() {
+    return (
+      <>
+        <div className="cover">
+          <div className="cover-content">
+            <div className="cover-eyebrow">Atelier · Lot A</div>
+            <h1>Le cycle <em>transactionnel</em> entreprise.</h1>
+            <p className="lede">Cinq écrans, une seule histoire : du moment où une entreprise publie une annonce, jusqu'à la fin du projet et le versement final. Direction Soleil v2.</p>
+            <div className="cover-toc">
+              {PAGES.map(p => (
+                <div key={p.id} className="cover-toc-item">
+                  <span className="cover-toc-num">{p.id}</span>
+                  <span>{p.label.split(' · ').slice(1).join(' · ')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {PAGES.map(p => (
+          <div key={p.id} className="page" style={{ height: p.height }}>
+            <div className="page-label">{p.label}</div>
+            <div className="frame" style={{ height: p.height }}>
+              <p.Comp />
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+
+  // Auto-print after fonts + render settle
+  (async () => {
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch(e) {}
+    await new Promise(r => setTimeout(r, 1200));
+    window.print();
+  })();
+</script>
+</body>
+</html>
