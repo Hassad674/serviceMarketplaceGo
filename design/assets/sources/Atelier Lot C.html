@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — Lot C · Côté prestataire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f1eb; font-family: 'Inter Tight', system-ui, sans-serif; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+  .dc-artboard-content { user-select: none; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script src="phase1/_bootstrap.js"></script>
+<script type="text/babel" src="phase1/icons.jsx"></script>
+<script type="text/babel" src="phase1/soleil.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotC.jsx"></script>
+<script type="text/babel" src="phase1/soleil-mobile.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotC-mobile.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { DesignCanvas, DCSection, DCArtboard } = window;
+  const {
+    SoleilFreelancerDashboard,
+    SoleilOpportunities,
+    SoleilOpportunityDetail,
+    SoleilMyApplications,
+    SoleilFreelancerProject,
+    SoleilFreelancerDashboardMobile,
+    SoleilOpportunitiesMobile,
+    SoleilOpportunityDetailMobile,
+    SoleilMyApplicationsMobile,
+    SoleilFreelancerProjectMobile,
+  } = window;
+
+  function App() {
+    return (
+      <DesignCanvas title="Atelier — Lot C" subtitle="Côté prestataire · cycle de vie freelance, des opportunités à la livraison.">
+        <DCSection id="lotC" title="Lot C — Côté prestataire" subtitle="Du dashboard à la livraison de jalons. Aligné sur l'app existante, polish Soleil v2.">
+          <DCArtboard id="freelancer-dashboard" label="Tableau de bord prestataire" width={1440} height={1000}>
+            <SoleilFreelancerDashboard />
+          </DCArtboard>
+          <DCArtboard id="opportunities" label="Opportunités (feed)" width={1440} height={1300}>
+            <SoleilOpportunities />
+          </DCArtboard>
+          <DCArtboard id="opportunity-detail" label="Détail opportunité + candidature" width={1440} height={1500}>
+            <SoleilOpportunityDetail />
+          </DCArtboard>
+          <DCArtboard id="my-applications" label="Mes candidatures" width={1440} height={1100}>
+            <SoleilMyApplications />
+          </DCArtboard>
+          <DCArtboard id="freelancer-project" label="Détail mission · livrer un jalon" width={1440} height={1300}>
+            <SoleilFreelancerProject />
+          </DCArtboard>
+        </DCSection>
+        <DCSection id="lotC-mobile" title="Lot C — mobile" subtitle="Vues navigateur mobile, viewport 390px.">
+          <DCArtboard id="freelancer-dashboard-m" label="Dashboard · mobile" width={390} height={780}>
+            <SoleilFreelancerDashboardMobile />
+          </DCArtboard>
+          <DCArtboard id="opportunities-m" label="Opportunités · mobile" width={390} height={780}>
+            <SoleilOpportunitiesMobile />
+          </DCArtboard>
+          <DCArtboard id="opportunity-detail-m" label="Détail oppo · mobile" width={390} height={780}>
+            <SoleilOpportunityDetailMobile />
+          </DCArtboard>
+          <DCArtboard id="my-applications-m" label="Candidatures · mobile" width={390} height={780}>
+            <SoleilMyApplicationsMobile />
+          </DCArtboard>
+          <DCArtboard id="freelancer-project-m" label="Mission · mobile" width={390} height={780}>
+            <SoleilFreelancerProjectMobile />
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+</script>
+</body>
+</html>

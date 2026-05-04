@@ -347,17 +347,25 @@ features/mission/
 
 ---
 
-## Styling
+## Styling — Direction Soleil v2
 
-- Tailwind CSS 4 with **CSS-first configuration** (no `tailwind.config.ts`).
-- Design tokens defined as CSS variables in `src/styles/globals.css` using `@theme inline`.
-- Color system: deep blue primary (`--primary`), slate neutrals, professional B2B palette.
-- Dark mode via `.dark` class on `<html>` element (`@custom-variant dark`).
-- Use `cn()` utility for conditional class merging (clsx + tailwind-merge).
-- Use `class-variance-authority` (cva) for component variant definitions.
-- shadcn/ui components go in `src/shared/components/ui/`.
-- **No inline styles** — Tailwind utility classes only.
-- **No hardcoded colors** — always use semantic tokens (`bg-primary`, `text-muted-foreground`).
+The web app ships under the **Soleil v2** visual direction: ivoire & corail palette, Fraunces (display) + Inter Tight (UI) + Geist Mono (numbers). **Source of truth**: [`/design/INDEX.md`](../design/INDEX.md). Read [`/design/rules.md`](../design/rules.md) before any UI change.
+
+### Tooling
+
+- Tailwind CSS 4 **CSS-first** (no `tailwind.config.ts`). Tokens in `src/styles/globals.css` via `@theme inline`.
+- `cn()` utility (`shared/lib/utils.ts`) for conditional class merging (clsx + tailwind-merge).
+- `class-variance-authority` (cva) for component variants.
+- Atomic primitives in `src/shared/components/ui/` (Button, Card, Input, Badge, Avatar, **Portrait**...).
+
+### Hard rules
+
+- Tailwind utility classes only — **no inline `style={{}}`**.
+- Use semantic tokens (`bg-background`, `text-foreground`, `border-border`, `text-accent`...) — **no hardcoded hex** in components.
+- Photos = `<Portrait id={n} />` from `shared/components/ui/portrait.tsx` — never initials, never emojis.
+- All user-visible strings via `useTranslations()` — never hardcode French in `.tsx`.
+- Server Components by default. Adding `"use client"` requires a real reason (event handler, useState, browser API).
+- A `.tsx` file MUST NOT import from `*/api/*.ts`, `*/hooks/use-*.ts`, or `*/schemas/*.ts` if you are doing an UI-only refactor — those are OFF-LIMITS.
 
 ---
 

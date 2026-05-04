@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atelier — 1. Web Desktop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f1eb; font-family: 'Inter Tight', system-ui, sans-serif; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+  .dc-artboard-content { user-select: none; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script src="phase1/_bootstrap.js"></script>
+<script type="text/babel" src="phase1/icons.jsx"></script>
+<script type="text/babel" src="phase1/soleil.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotA.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotB.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotC.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotD.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotE.jsx"></script>
+<script type="text/babel" src="phase1/soleil-lotF.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { DesignCanvas, DCSection, DCArtboard } = window;
+  const {
+    // Lot A — Annonces & projets entreprise
+    SoleilJobsList, SoleilJobDetailDesc, SoleilJobDetailCands, SoleilJobCreate, SoleilProjectDetail,
+    // Lot B — Argent
+    SoleilWallet, SoleilInvoices, SoleilBillingProfile,
+    // Lot C — Freelance
+    SoleilFreelancerDashboard, SoleilOpportunities, SoleilOpportunityDetail, SoleilMyApplications, SoleilFreelancerProject,
+    // Lot D — Profil
+    SoleilProfile,
+    // Lot E — Auth & compte
+    SoleilLogin, SoleilSignupRole, SoleilSignupFreelance, SoleilSignupCompany, SoleilStripeConnect, SoleilAccount,
+    // Lot F — Messagerie & team
+    SoleilMessagerie, SoleilTeam,
+  } = window;
+
+  function App() {
+    return (
+      <DesignCanvas
+        title="Atelier — Web Desktop"
+        subtitle="Tous les écrans pensés pour navigateur desktop, organisés par cycle utilisateur. Direction Soleil v2."
+      >
+        {/* ═════════ AUTH & ONBOARDING ═════════ */}
+        <DCSection id="auth" title="1 · Auth & onboarding" subtitle="Login, choix de rôle, formulaires d'inscription, paiements.">
+          <DCArtboard id="login" label="Connexion" width={1440} height={900}><SoleilLogin /></DCArtboard>
+          <DCArtboard id="signup-role" label="Inscription · choix de rôle" width={1440} height={1100}><SoleilSignupRole /></DCArtboard>
+          <DCArtboard id="signup-fl" label="Inscription · prestataire" width={1440} height={1500}><SoleilSignupFreelance /></DCArtboard>
+          <DCArtboard id="signup-co" label="Inscription · entreprise" width={1440} height={1300}><SoleilSignupCompany /></DCArtboard>
+          <DCArtboard id="stripe" label="Stripe Connect (initial + urgent)" width={1440} height={1400}><SoleilStripeConnect /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ENTREPRISE — CYCLE TRANSACTIONNEL ═════════ */}
+        <DCSection id="entreprise" title="2 · Entreprise · annonces & projets" subtitle="Du publish au paiement final.">
+          <DCArtboard id="jobs-list" label="Mes annonces (liste)" width={1440} height={950}><SoleilJobsList /></DCArtboard>
+          <DCArtboard id="job-desc" label="Détail annonce · description" width={1440} height={950}><SoleilJobDetailDesc /></DCArtboard>
+          <DCArtboard id="job-cands" label="Détail annonce · candidatures" width={1440} height={1200}><SoleilJobDetailCands /></DCArtboard>
+          <DCArtboard id="job-create" label="Création d'une annonce" width={1440} height={1480}><SoleilJobCreate /></DCArtboard>
+          <DCArtboard id="proj-detail" label="Détail projet (stepper + frais)" width={1440} height={1200}><SoleilProjectDetail /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ FREELANCE — CYCLE OPPORTUNITÉS ═════════ */}
+        <DCSection id="freelance" title="3 · Freelance · opportunités & missions" subtitle="De la découverte à la livraison de jalon.">
+          <DCArtboard id="fl-dash" label="Tableau de bord prestataire" width={1440} height={1100}><SoleilFreelancerDashboard /></DCArtboard>
+          <DCArtboard id="fl-opp" label="Opportunités (feed)" width={1440} height={1200}><SoleilOpportunities /></DCArtboard>
+          <DCArtboard id="fl-opp-detail" label="Détail opportunité + candidature" width={1440} height={1500}><SoleilOpportunityDetail /></DCArtboard>
+          <DCArtboard id="fl-apps" label="Mes candidatures" width={1440} height={1100}><SoleilMyApplications /></DCArtboard>
+          <DCArtboard id="fl-proj" label="Mission active (livrer jalon)" width={1440} height={1200}><SoleilFreelancerProject /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ PROFIL ═════════ */}
+        <DCSection id="profil" title="4 · Profil prestataire" subtitle="Vue publique (vue par les recruteurs) et vue privée (édition).">
+          <DCArtboard id="profile-pub" label="Profil public" width={1440} height={1700}><SoleilProfile isPrivate={false} /></DCArtboard>
+          <DCArtboard id="profile-priv" label="Profil privé (édition)" width={1440} height={1700}><SoleilProfile isPrivate={true} /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ ARGENT ═════════ */}
+        <DCSection id="argent" title="5 · Argent · portefeuille & facturation" subtitle="Flux financier, factures, profil de facturation.">
+          <DCArtboard id="wallet" label="Portefeuille" width={1440} height={1200}><SoleilWallet /></DCArtboard>
+          <DCArtboard id="invoices" label="Factures" width={1440} height={1100}><SoleilInvoices /></DCArtboard>
+          <DCArtboard id="billing" label="Profil de facturation" width={1440} height={1300}><SoleilBillingProfile /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMMUNICATION & ÉQUIPE ═════════ */}
+        <DCSection id="comm" title="6 · Messagerie & équipe" subtitle="Discussions, gestion des permissions équipe.">
+          <DCArtboard id="messagerie" label="Messagerie" width={1440} height={1000}><SoleilMessagerie /></DCArtboard>
+          <DCArtboard id="team" label="Équipe & permissions" width={1440} height={1100}><SoleilTeam /></DCArtboard>
+        </DCSection>
+
+        {/* ═════════ COMPTE ═════════ */}
+        <DCSection id="compte" title="7 · Compte & paramètres" subtitle="Préférences globales (notifications, sécurité, langue).">
+          <DCArtboard id="account" label="Compte (préférences)" width={1440} height={1200}><SoleilAccount /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

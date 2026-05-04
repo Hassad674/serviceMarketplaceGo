@@ -243,24 +243,41 @@ All token access goes through `SecureStorageService` — never read/write tokens
 
 ---
 
-## Theme
+## Theme — Direction Soleil v2
 
-Professional B2B theme aligned with the web app's design tokens:
+The mobile app ships under the **Soleil v2** visual direction, shared with web and admin (ivoire & corail palette, Fraunces serif for display, Inter Tight sans for UI, Geist Mono for numbers). **Source of truth**: [`/design/INDEX.md`](../design/INDEX.md). Read [`/design/rules.md`](../design/rules.md) before any UI change.
 
-| Token | Light | Dark |
-|-------|-------|------|
-| Primary | Rose #F43F5E | Rose #F43F5E |
-| Background | Slate-50 #F8FAFC | Slate-900 |
-| Foreground | Slate-900 | Slate-50 |
-| Muted | Slate-100 | Slate-700 |
-| Border | Slate-200 | Slate-700 |
-| Destructive | Red | Red |
-| Success | Green | Green |
-| Warning | Amber | Amber |
+### Tokens (Material 3 + custom `SoleilColors` extension)
 
-Custom `AppColors` theme extension for muted, accent, border, success, warning.
+Full table in [`/design/DESIGN_SYSTEM.md`](../design/DESIGN_SYSTEM.md). Quick reference:
 
-Access: `Theme.of(context).extension<AppColors>()!`
+| Semantic | Soleil hex | Material 3 mapping |
+|----------|-----------|---------------------|
+| Background (ivoire) | `#fffbf5` | `colorScheme.surface` |
+| Card (white) | `#ffffff` | `colorScheme.surfaceContainerLowest` |
+| Encre (text) | `#2a1f15` | `colorScheme.onSurface` |
+| Tabac (mute text) | `#7a6850` | `colorScheme.onSurfaceVariant` |
+| Border | `#f0e6d8` | `colorScheme.outline` |
+| Corail (CTA) | `#e85d4a` | `colorScheme.primary` |
+| Sapin (success) | `#5a9670` | `SoleilColors.success` |
+| Corail foncé | `#c43a26` | `colorScheme.error` |
+
+**Type**:
+- `SoleilTextStyles.display` — Fraunces, 38-44px, weight 400-500, italic for accent words
+- `SoleilTextStyles.body` — Inter Tight, 14-16px
+- `SoleilTextStyles.mono` — Geist Mono, used for amounts, IDs, dates metadata
+
+**Custom theme extension** `SoleilColors` for accentSoft, pinkSoft, greenSoft, sapinSoft (all the "soft" pastels used in pills/badges).
+
+Access: `Theme.of(context).extension<SoleilColors>()!`
+
+### Hard rules
+
+- Colors only via `colorScheme` or `SoleilColors` extension — **no `Color(0xFF...)` hardcoded** in widgets.
+- Typography only via `SoleilTextStyles` — **no inline `TextStyle(fontSize: ...)`** with magic numbers.
+- Photos = `Portrait(id: n)` widget — never initials, never asset fallbacks.
+- French strings via `AppLocalizations.of(context)` (i18n) — never hardcoded in widgets.
+- `const` constructors wherever possible (perf budget: 60fps minimum).
 
 ---
 

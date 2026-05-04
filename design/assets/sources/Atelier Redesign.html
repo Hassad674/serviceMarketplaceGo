@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Atelier — Refonte d'identité visuelle</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; font-family: 'Geist', system-ui, sans-serif; background: #0a0a0a; }
+  .legend {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="screens-editorial.jsx"></script>
+<script type="text/babel" src="screens-studio.jsx"></script>
+<script type="text/babel" src="system-cards.jsx"></script>
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+function App() {
+  return (
+    <DesignCanvas title="Atelier — Refonte d'identité visuelle" subtitle="Deux directions distinctes, à comparer et combiner. Direction A pose une marque éditoriale chaleureuse ; Direction B pose un outil tech sobre.">
+
+      <DCSection id="system" title="Système" subtitle="Tokens, type, couleur — fondations comparées">
+        <DCArtboard id="system-a" label="A — Atelier Éditorial" width={1100} height={780}>
+          <SystemCardEditorial />
+        </DCArtboard>
+        <DCArtboard id="system-b" label="B — Atelier Studio" width={1100} height={780}>
+          <SystemCardStudio />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="dashboard" title="Tableau de bord" subtitle="Première impression au login — donne le ton de la marque">
+        <DCArtboard id="dash-a" label="A — Éditorial" width={1280} height={820}>
+          <DashboardEditorial />
+        </DCArtboard>
+        <DCArtboard id="dash-b" label="B — Studio" width={1280} height={820}>
+          <DashboardStudio />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="find" title="Find Freelancers" subtitle="Le moment où ta marketplace se distingue de Malt — ou pas">
+        <DCArtboard id="find-a" label="A — Éditorial" width={1280} height={900}>
+          <FindFreelancersEditorial />
+        </DCArtboard>
+        <DCArtboard id="find-b" label="B — Studio" width={1280} height={900}>
+          <FindFreelancersStudio />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="profile" title="Profil prestataire" subtitle="Page la plus longue — modulaire, doit rester lisible jusqu'en bas">
+        <DCArtboard id="profile-a" label="A — Éditorial" width={1280} height={1400}>
+          <ProfileEditorial />
+        </DCArtboard>
+        <DCArtboard id="profile-b" label="B — Studio" width={1280} height={1400}>
+          <ProfileStudio />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="project" title="Détail de projet" subtitle="Stepper de mission + paiement + participants">
+        <DCArtboard id="project-a" label="A — Éditorial" width={1280} height={920}>
+          <ProjectDetailEditorial />
+        </DCArtboard>
+        <DCArtboard id="project-b" label="B — Studio" width={1280} height={920}>
+          <ProjectDetailStudio />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="wallet" title="Portefeuille" subtitle="Trust signal #1 — montrer l'argent comme un outil financier sérieux">
+        <DCArtboard id="wallet-a" label="A — Éditorial" width={1280} height={920}>
+          <WalletEditorial />
+        </DCArtboard>
+        <DCArtboard id="wallet-b" label="B — Studio" width={1280} height={920}>
+          <WalletStudio />
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
