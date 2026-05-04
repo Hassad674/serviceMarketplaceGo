@@ -26,3 +26,13 @@ Next: write `design/inventory.md` (the 64 screens with mapping design ↔ route-
 - Branch: `chore/design-inventory-and-tracking`. PR: TBD.
 
 Next: Phase 0 token batch (orchestrator-runs since it touches `globals.css` OFF-LIMITS), then Phase 1 calibration on W-01 + W-11 + W-16.
+
+---
+
+## 2026-05-04 (later) — SOURCES doc + source locations memory
+
+- Wrote `design/SOURCES.md` — complete reference: where the assets come from (3 levels: versioned in repo / Hassad's local Téléchargements / Claude Design canvas URLs), how to use each source file, when to refetch from external. Includes the exact prompts for Claude Design canvas refetch.
+- Updated `design/INDEX.md` to reference the new SOURCES.md.
+- Wrote auto-memory entry `design_source_locations.md` (reference type) — anchors the source paths and URLs so the chantier can survive a context compression.
+
+This was a follow-up after Hassad noticed that the source paths and Claude Design refetch commands were nowhere documented despite their usefulness as a fail-safe.
