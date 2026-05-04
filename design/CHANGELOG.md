@@ -15,3 +15,14 @@ Session-by-session log. Newest first. One entry per orchestrator action that cha
 - Branch: `chore/design-foundation-soleil-v2`. PR: TBD (after this commit is pushed).
 
 Next: write `design/inventory.md` (the 64 screens with mapping design ↔ route-repo). Orchestrator-only work, ~1-2h. Then Phase 1 calibration on 2-3 screens.
+
+---
+
+## 2026-05-04 (later) — Inventory + tracking landed
+
+- Wrote `design/inventory.md` — 41 unique screens (23 web shared between desktop+responsive, 18 mobile Flutter), each with full mapping: design source (jsx file + lines + PDF page), route existante (Next.js or GoRouter), fichier principal, components touchables, OFF-LIMITS hooks/api/schemas, features design absentes du repo to skip, mobile parity coupling.
+- Wrote `design/tracking.md` — live status board organized by phase (0: foundation, 1: calibration, 2: web batches, 3: mobile batches), all entries currently `not-started`. Aggregate counters at the bottom. Includes 4 open questions for orchestrator.
+- Updated `RESUME.md` — reflects inventory+tracking complete; next steps clarified.
+- Branch: `chore/design-inventory-and-tracking`. PR: TBD.
+
+Next: Phase 0 token batch (orchestrator-runs since it touches `globals.css` OFF-LIMITS), then Phase 1 calibration on W-01 + W-11 + W-16.
