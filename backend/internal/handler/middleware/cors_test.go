@@ -166,6 +166,30 @@ func TestCORS_OptionsPreflight(t *testing.T) {
 	assert.Equal(t, "600", rec.Header().Get("Access-Control-Max-Age"))
 }
 
+// Regression: V4 audit found that Idempotency-Key was missing from
+// Access-Control-Allow-Headers, silently disabling the F.6+F.7 client
+// idempotency wiring on cross-origin POSTs (browser would strip the
+// header before the request even left). Lock the allowlist contents.
+func TestCORS_AllowHeadersIncludesIdempotencyKey(t *testing.T) {
+	origins := []string{"https://app.example.com"}
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := CORS(origins)(next)
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/proposals", nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	allowHeaders := rec.Header().Get("Access-Control-Allow-Headers")
+	for _, expected := range []string{"Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID", "X-Auth-Mode"} {
+		assert.Contains(t, allowHeaders, expected,
+			"Allow-Headers must include %q so the browser does not strip it on preflight", expected)
+	}
+}
+
 func TestCORS_NoOriginHeader(t *testing.T) {
 	origins := []string{"https://app.example.com"}
 
