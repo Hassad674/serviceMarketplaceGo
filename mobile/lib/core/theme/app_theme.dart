@@ -1,92 +1,105 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Premium B2B theme aligned with the web app's redesigned design tokens.
+/// Atelier — Direction Soleil v2 mobile theme.
 ///
-/// Access custom semantic colors via `Theme.of(context).extension<AppColors>()!`.
+/// Palette ivoire & corail. Typographie Fraunces (display) + Inter Tight
+/// (UI) + Geist Mono (numbers/IDs). Source-of-truth: design/DESIGN_SYSTEM.md.
+///
+/// Access:
+/// - Material 3 colors via `Theme.of(context).colorScheme`
+/// - Soleil-specific tokens via `Theme.of(context).extension<AppColors>()!`
+/// - Typography via `SoleilTextStyles.*` constants (preferred over inline
+///   `TextStyle(...)` with magic numbers)
 class AppTheme {
   AppTheme._();
 
   // ---------------------------------------------------------------------------
-  // Color palette — matches web design tokens (Tailwind / shadcn)
+  // Soleil v2 palette — see design/DESIGN_SYSTEM.md §1
   // ---------------------------------------------------------------------------
 
-  // Primary — Rose (matches web --primary)
-  static const Color _primaryLight = Color(0xFFF43F5E); // rose-500
-  static const Color _primaryDark = Color(0xFFFB7185); // rose-400 (lighter for dark)
-  static const Color _onPrimary = Color(0xFFFFFFFF);
+  // Surfaces
+  static const Color _ivoire = Color(0xFFFFFBF5);          // bg
+  static const Color _surface = Color(0xFFFFFFFF);         // cards
+  static const Color _encre = Color(0xFF2A1F15);           // primary text
+  static const Color _tabac = Color(0xFF7A6850);           // secondary text
+  static const Color _sable = Color(0xFFA89679);           // mono labels, tertiary
 
-  // Backgrounds
-  static const Color _backgroundLight = Color(0xFFF8FAFC); // slate-50 (gray-50)
-  static const Color _backgroundDark = Color(0xFF0F172A); // slate-900
+  // Accents
+  static const Color _corail = Color(0xFFE85D4A);          // CTAs
+  static const Color _corailSoft = Color(0xFFFDE9E3);      // soft bg, active pill
+  static const Color _corailDeep = Color(0xFFC43A26);      // hover, error
 
-  // Foregrounds (body text)
-  static const Color _foregroundLight = Color(0xFF0F172A); // slate-900
-  static const Color _foregroundDark = Color(0xFFF8FAFC); // slate-50
-
-  // Cards
-  static const Color _cardLight = Color(0xFFFFFFFF);
-  static const Color _cardDark = Color(0xFF1E293B); // slate-800
-
-  // Muted (subtle backgrounds, disabled)
-  static const Color _mutedLight = Color(0xFFF1F5F9); // slate-100
-  static const Color _mutedDark = Color(0xFF334155); // slate-700
-  static const Color _mutedForegroundLight = Color(0xFF64748B); // slate-500
-  static const Color _mutedForegroundDark = Color(0xFF94A3B8); // slate-400
-
-  // Borders
-  static const Color _borderLight = Color(0xFFE2E8F0); // slate-200
-  static const Color _borderDark = Color(0xFF334155); // slate-700
+  // Decorative
+  static const Color _pink = Color(0xFFF08AA8);
+  static const Color _pinkSoft = Color(0xFFFDE6ED);
+  static const Color _amberSoft = Color(0xFFFBF0DC);
 
   // Semantic
-  static const Color _destructive = Color(0xFFEF4444); // red-500
-  static const Color _success = Color(0xFF22C55E); // green-500
-  static const Color _warning = Color(0xFFF59E0B); // amber-500
+  static const Color _sapin = Color(0xFF5A9670);           // success
+  static const Color _sapinSoft = Color(0xFFE8F2EB);
+  static const Color _ambre = Color(0xFFD4924A);           // warning
 
-  // Accent
-  static const Color _accentLight = Color(0xFFFFF1F2); // rose-50
-  static const Color _accentDark = Color(0xFF4C0519); // rose-950
+  // Borders
+  static const Color _borderLight = Color(0xFFF0E6D8);     // sable clair
+  static const Color _borderStrong = Color(0xFFE0D3BC);    // sable foncé
+
+  // Dark variant (calibrated to keep the warm identity, no cold blue)
+  static const Color _ivoireDark = Color(0xFF1A1410);
+  static const Color _surfaceDark = Color(0xFF251C16);
+  static const Color _encreDark = Color(0xFFFBF3E4);
+  static const Color _tabacDark = Color(0xFFA89679);
+  static const Color _sableDark = Color(0xFF7A6850);
+  static const Color _corailDark = Color(0xFFFB7D68);
+  static const Color _corailSoftDark = Color(0xFF3D201B);
+  static const Color _corailDeepDark = Color(0xFFFF9784);
+  static const Color _sapinDark = Color(0xFF6FAE87);
+  static const Color _sapinSoftDark = Color(0xFF1F3026);
+  static const Color _borderDarkLight = Color(0xFF3A2E23);
+  static const Color _borderDarkStrong = Color(0xFF4D3E2F);
+  static const Color _onPrimary = Color(0xFFFFFBF5);
 
   // ---------------------------------------------------------------------------
-  // Radii — premium feel with larger corners
+  // Radii — Soleil signature: pills/buttons fully rounded
   // ---------------------------------------------------------------------------
 
-  static const double radiusSm = 8.0;
-  static const double radiusMd = 12.0;
-  static const double radiusLg = 16.0;
-  static const double radiusXl = 20.0;
+  static const double radiusSm = 6.0;
+  static const double radiusMd = 10.0;
+  static const double radiusLg = 14.0;
+  static const double radiusXl = 18.0;
+  static const double radius2xl = 20.0;
+  static const double radiusFull = 999.0;
 
   // ---------------------------------------------------------------------------
-  // Shadows — subtle, premium box shadows
+  // Shadows — calm, no glow (Soleil)
   // ---------------------------------------------------------------------------
 
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
-    ),
-    BoxShadow(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.02),
-      blurRadius: 4,
-      offset: const Offset(0, 1),
+      color: _encre.withValues(alpha: 0.04),
+      blurRadius: 24,
+      offset: const Offset(0, 4),
     ),
   ];
 
-  static List<BoxShadow> get cardShadowHover => [
+  static List<BoxShadow> get cardShadowStrong => [
     BoxShadow(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
+      color: const Color(0xFF000000).withValues(alpha: 0.12),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
     ),
+  ];
+
+  static List<BoxShadow> get portraitShadow => [
     BoxShadow(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-      blurRadius: 8,
+      color: _encre.withValues(alpha: 0.06),
+      blurRadius: 12,
       offset: const Offset(0, 2),
     ),
   ];
 
   // ---------------------------------------------------------------------------
-  // Input decoration — rounded 12px, rose focus
+  // Input decoration — radius 10, corail focus
   // ---------------------------------------------------------------------------
 
   static InputDecorationTheme _inputDecoration({
@@ -103,25 +116,25 @@ class AppTheme {
     return InputDecorationTheme(
       filled: true,
       fillColor: fillColor,
-      hintStyle: TextStyle(color: hintColor, fontSize: 15),
-      labelStyle: TextStyle(color: hintColor, fontSize: 15),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      hintStyle: SoleilTextStyles.body.copyWith(color: hintColor),
+      labelStyle: SoleilTextStyles.body.copyWith(color: hintColor),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: border,
       enabledBorder: border,
       focusedBorder: border.copyWith(
         borderSide: BorderSide(color: focusBorderColor, width: 2),
       ),
       errorBorder: border.copyWith(
-        borderSide: const BorderSide(color: _destructive),
+        borderSide: const BorderSide(color: _corailDeep),
       ),
       focusedErrorBorder: border.copyWith(
-        borderSide: const BorderSide(color: _destructive, width: 2),
+        borderSide: const BorderSide(color: _corailDeep, width: 2),
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Button themes — rounded 12px, full width, 48px height
+  // Buttons — fully rounded pills (Soleil signature)
   // ---------------------------------------------------------------------------
 
   static ElevatedButtonThemeData _elevatedButton(Color primary) {
@@ -130,31 +143,21 @@ class AppTheme {
         backgroundColor: primary,
         foregroundColor: _onPrimary,
         minimumSize: const Size(double.infinity, 48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
-        ),
+        shape: const StadiumBorder(),
+        textStyle: SoleilTextStyles.button,
         elevation: 0,
       ),
     );
   }
 
-  static OutlinedButtonThemeData _outlinedButton(Color borderColor) {
+  static OutlinedButtonThemeData _outlinedButton(Color borderColor, Color foreground) {
     return OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        foregroundColor: foreground,
         minimumSize: const Size(double.infinity, 48),
         side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
+        shape: const StadiumBorder(),
+        textStyle: SoleilTextStyles.button,
       ),
     );
   }
@@ -163,16 +166,13 @@ class AppTheme {
     return TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: primary,
-        textStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        textStyle: SoleilTextStyles.bodyEmphasis,
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Card theme — rounded 16px, no elevation, subtle shadow via BoxDecoration
+  // Card — radius 18, no elevation, subtle border
   // ---------------------------------------------------------------------------
 
   static CardThemeData _card(Color color, Color borderColor) {
@@ -180,7 +180,7 @@ class AppTheme {
       color: color,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radiusLg),
+        borderRadius: BorderRadius.circular(radiusXl),
         side: BorderSide(color: borderColor),
       ),
       margin: EdgeInsets.zero,
@@ -188,13 +188,12 @@ class AppTheme {
   }
 
   // ---------------------------------------------------------------------------
-  // App bar — clean, no elevation, white bg
+  // App bar — flat ivoire, encre text
   // ---------------------------------------------------------------------------
 
   static AppBarTheme _appBar({
     required Color background,
     required Color foreground,
-    required Color borderColor,
   }) {
     return AppBarTheme(
       backgroundColor: background,
@@ -203,16 +202,12 @@ class AppTheme {
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        color: foreground,
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-      ),
+      titleTextStyle: SoleilTextStyles.titleLarge.copyWith(color: foreground),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Navigation bar — premium bottom nav
+  // Navigation bar — soft active background
   // ---------------------------------------------------------------------------
 
   static NavigationBarThemeData _navigationBar({
@@ -226,20 +221,18 @@ class AppTheme {
       elevation: 0,
       indicatorColor: indicator,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return TextStyle(
-            color: selected,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          );
-        }
-        return TextStyle(color: unselected, fontSize: 12);
+        final selectedNow = states.contains(WidgetState.selected);
+        return SoleilTextStyles.caption.copyWith(
+          color: selectedNow ? selected : unselected,
+          fontWeight: selectedNow ? FontWeight.w600 : FontWeight.w500,
+        );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return IconThemeData(color: selected, size: 24);
-        }
-        return IconThemeData(color: unselected, size: 24);
+        final selectedNow = states.contains(WidgetState.selected);
+        return IconThemeData(
+          color: selectedNow ? selected : unselected,
+          size: 24,
+        );
       }),
     );
   }
@@ -250,95 +243,80 @@ class AppTheme {
 
   static ThemeData get light {
     final base = ThemeData.light(useMaterial3: true);
-
     return base.copyWith(
       colorScheme: const ColorScheme.light(
-        primary: _primaryLight,
+        primary: _corail,
         onPrimary: _onPrimary,
-        secondary: _accentLight,
-        surface: _cardLight,
-        onSurface: _foregroundLight,
-        error: _destructive,
+        primaryContainer: _corailSoft,
+        onPrimaryContainer: _corailDeep,
+        secondary: _corailSoft,
+        onSecondary: _corailDeep,
+        surface: _ivoire,
+        onSurface: _encre,
+        surfaceContainerLowest: _surface,
+        surfaceContainerHigh: _surface,
+        onSurfaceVariant: _tabac,
+        outline: _borderLight,
+        outlineVariant: _borderStrong,
+        error: _corailDeep,
+        onError: _onPrimary,
       ),
-      scaffoldBackgroundColor: _backgroundLight,
-      appBarTheme: _appBar(
-        background: _cardLight,
-        foreground: _foregroundLight,
-        borderColor: _borderLight,
-      ),
-      cardTheme: _card(_cardLight, _borderLight),
-      elevatedButtonTheme: _elevatedButton(_primaryLight),
-      outlinedButtonTheme: _outlinedButton(_borderLight),
-      textButtonTheme: _textButton(_primaryLight),
+      scaffoldBackgroundColor: _ivoire,
+      appBarTheme: _appBar(background: _surface, foreground: _encre),
+      cardTheme: _card(_surface, _borderLight),
+      elevatedButtonTheme: _elevatedButton(_corail),
+      outlinedButtonTheme: _outlinedButton(_borderStrong, _encre),
+      textButtonTheme: _textButton(_corail),
       inputDecorationTheme: _inputDecoration(
-        fillColor: _cardLight,
+        fillColor: _surface,
         borderColor: _borderLight,
-        focusBorderColor: _primaryLight,
-        hintColor: _mutedForegroundLight,
+        focusBorderColor: _corail,
+        hintColor: _tabac,
       ),
       dividerColor: _borderLight,
       dividerTheme: const DividerThemeData(color: _borderLight, thickness: 1),
       navigationBarTheme: _navigationBar(
-        background: _cardLight,
-        indicator: _primaryLight.withValues(alpha: 0.1),
-        selected: _primaryLight,
-        unselected: _mutedForegroundLight,
+        background: _surface,
+        indicator: _corailSoft,
+        selected: _corail,
+        unselected: _tabac,
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: _foregroundLight,
-          letterSpacing: -0.5,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: _foregroundLight,
-          letterSpacing: -0.3,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: _foregroundLight,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _foregroundLight,
-        ),
-        bodyLarge: TextStyle(fontSize: 16, color: _foregroundLight),
-        bodyMedium: TextStyle(fontSize: 15, color: _foregroundLight),
-        bodySmall: TextStyle(fontSize: 13, color: _mutedForegroundLight),
-      ),
+      textTheme: SoleilTextStyles.textTheme(_encre, _tabac),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: _cardLight,
-        selectedItemColor: _primaryLight,
-        unselectedItemColor: _mutedForegroundLight,
+        backgroundColor: _surface,
+        selectedItemColor: _corail,
+        unselectedItemColor: _tabac,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: _mutedLight,
-        labelStyle: const TextStyle(color: _foregroundLight),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusSm),
-        ),
+        backgroundColor: _ivoire,
+        labelStyle: SoleilTextStyles.caption.copyWith(color: _tabac),
+        shape: const StadiumBorder(),
+        side: const BorderSide(color: _borderLight),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMd)),
       ),
-      extensions: <ThemeExtension<dynamic>>[
-        const AppColors(
-          muted: _mutedLight,
-          mutedForeground: _mutedForegroundLight,
-          accent: _accentLight,
+      extensions: const <ThemeExtension<dynamic>>[
+        AppColors(
+          // Backward-compatible aliases (legacy code)
+          muted: _ivoire,
+          mutedForeground: _tabac,
+          accent: _corailSoft,
           border: _borderLight,
-          success: _success,
-          warning: _warning,
+          success: _sapin,
+          warning: _ambre,
+          // Soleil-specific tokens
+          subtleForeground: _sable,
+          primaryDeep: _corailDeep,
+          accentSoft: _corailSoft,
+          successSoft: _sapinSoft,
+          pink: _pink,
+          pinkSoft: _pinkSoft,
+          amberSoft: _amberSoft,
+          borderStrong: _borderStrong,
         ),
       ],
     );
@@ -346,113 +324,228 @@ class AppTheme {
 
   static ThemeData get dark {
     final base = ThemeData.dark(useMaterial3: true);
-
     return base.copyWith(
       colorScheme: const ColorScheme.dark(
-        primary: _primaryDark,
-        onPrimary: _onPrimary,
-        secondary: _accentDark,
-        surface: _cardDark,
-        onSurface: _foregroundDark,
-        error: _destructive,
+        primary: _corailDark,
+        onPrimary: _ivoireDark,
+        primaryContainer: _corailSoftDark,
+        onPrimaryContainer: _corailDeepDark,
+        secondary: _corailSoftDark,
+        onSecondary: _corailDeepDark,
+        surface: _ivoireDark,
+        onSurface: _encreDark,
+        surfaceContainerLowest: _surfaceDark,
+        surfaceContainerHigh: _surfaceDark,
+        onSurfaceVariant: _tabacDark,
+        outline: _borderDarkLight,
+        outlineVariant: _borderDarkStrong,
+        error: _corailDeepDark,
+        onError: _ivoireDark,
       ),
-      scaffoldBackgroundColor: _backgroundDark,
-      appBarTheme: _appBar(
-        background: _cardDark,
-        foreground: _foregroundDark,
-        borderColor: _borderDark,
-      ),
-      cardTheme: _card(_cardDark, _borderDark),
-      elevatedButtonTheme: _elevatedButton(_primaryDark),
-      outlinedButtonTheme: _outlinedButton(_borderDark),
-      textButtonTheme: _textButton(_primaryDark),
+      scaffoldBackgroundColor: _ivoireDark,
+      appBarTheme: _appBar(background: _surfaceDark, foreground: _encreDark),
+      cardTheme: _card(_surfaceDark, _borderDarkLight),
+      elevatedButtonTheme: _elevatedButton(_corailDark),
+      outlinedButtonTheme: _outlinedButton(_borderDarkStrong, _encreDark),
+      textButtonTheme: _textButton(_corailDark),
       inputDecorationTheme: _inputDecoration(
-        fillColor: _cardDark,
-        borderColor: _borderDark,
-        focusBorderColor: _primaryDark,
-        hintColor: _mutedForegroundDark,
+        fillColor: _surfaceDark,
+        borderColor: _borderDarkLight,
+        focusBorderColor: _corailDark,
+        hintColor: _tabacDark,
       ),
-      dividerColor: _borderDark,
-      dividerTheme: const DividerThemeData(color: _borderDark, thickness: 1),
+      dividerColor: _borderDarkLight,
+      dividerTheme: const DividerThemeData(color: _borderDarkLight, thickness: 1),
       navigationBarTheme: _navigationBar(
-        background: _cardDark,
-        indicator: _primaryDark.withValues(alpha: 0.15),
-        selected: _primaryDark,
-        unselected: _mutedForegroundDark,
+        background: _surfaceDark,
+        indicator: _corailSoftDark,
+        selected: _corailDark,
+        unselected: _tabacDark,
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: _foregroundDark,
-          letterSpacing: -0.5,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: _foregroundDark,
-          letterSpacing: -0.3,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: _foregroundDark,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _foregroundDark,
-        ),
-        bodyLarge: TextStyle(fontSize: 16, color: _foregroundDark),
-        bodyMedium: TextStyle(fontSize: 15, color: _foregroundDark),
-        bodySmall: TextStyle(fontSize: 13, color: _mutedForegroundDark),
-      ),
+      textTheme: SoleilTextStyles.textTheme(_encreDark, _tabacDark),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: _cardDark,
-        selectedItemColor: _primaryDark,
-        unselectedItemColor: _mutedForegroundDark,
+        backgroundColor: _surfaceDark,
+        selectedItemColor: _corailDark,
+        unselectedItemColor: _tabacDark,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: _mutedDark,
-        labelStyle: const TextStyle(color: _foregroundDark),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusSm),
-        ),
+        backgroundColor: _ivoireDark,
+        labelStyle: SoleilTextStyles.caption.copyWith(color: _tabacDark),
+        shape: const StadiumBorder(),
+        side: const BorderSide(color: _borderDarkLight),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMd)),
       ),
-      extensions: <ThemeExtension<dynamic>>[
-        const AppColors(
-          muted: _mutedDark,
-          mutedForeground: _mutedForegroundDark,
-          accent: _accentDark,
-          border: _borderDark,
-          success: _success,
-          warning: _warning,
+      extensions: const <ThemeExtension<dynamic>>[
+        AppColors(
+          muted: _ivoireDark,
+          mutedForeground: _tabacDark,
+          accent: _corailSoftDark,
+          border: _borderDarkLight,
+          success: _sapinDark,
+          warning: _ambre,
+          subtleForeground: _sableDark,
+          primaryDeep: _corailDeepDark,
+          accentSoft: _corailSoftDark,
+          successSoft: _sapinSoftDark,
+          pink: _pink,
+          pinkSoft: Color(0xFF3D2230),
+          amberSoft: Color(0xFF2D2418),
+          borderStrong: _borderDarkStrong,
         ),
       ],
     );
   }
 }
 
-/// Custom theme extension for semantic colors not covered by [ColorScheme].
+/// Soleil v2 typography. Always go through these constants — never inline
+/// `TextStyle(fontSize: ..., fontWeight: ...)` with magic numbers.
 ///
-/// Access via `Theme.of(context).extension<AppColors>()!`.
+/// Fraunces for display/serif accents, Inter Tight for UI/body, Geist Mono
+/// for numbers/IDs. Loaded via google_fonts (cached after first network hit).
+class SoleilTextStyles {
+  SoleilTextStyles._();
+
+  static TextStyle get displayL => GoogleFonts.fraunces(
+    fontSize: 38,
+    height: 1.05,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.95, // -0.025em on 38px
+  );
+
+  static TextStyle get displayM => GoogleFonts.fraunces(
+    fontSize: 30,
+    height: 1.15,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.6,
+  );
+
+  static TextStyle get headlineLarge => GoogleFonts.fraunces(
+    fontSize: 28,
+    height: 1.2,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -0.5,
+  );
+
+  static TextStyle get headlineMedium => GoogleFonts.fraunces(
+    fontSize: 22,
+    height: 1.25,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -0.3,
+  );
+
+  static TextStyle get titleLarge => GoogleFonts.fraunces(
+    fontSize: 20,
+    height: 1.3,
+    fontWeight: FontWeight.w500,
+  );
+
+  static TextStyle get titleMedium => GoogleFonts.fraunces(
+    fontSize: 18,
+    height: 1.35,
+    fontWeight: FontWeight.w600,
+  );
+
+  static TextStyle get body => GoogleFonts.interTight(
+    fontSize: 14,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
+  );
+
+  static TextStyle get bodyLarge => GoogleFonts.interTight(
+    fontSize: 15,
+    height: 1.6,
+    fontWeight: FontWeight.w400,
+  );
+
+  static TextStyle get bodyEmphasis => GoogleFonts.interTight(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+  );
+
+  static TextStyle get caption => GoogleFonts.interTight(
+    fontSize: 12,
+    height: 1.4,
+    fontWeight: FontWeight.w500,
+  );
+
+  static TextStyle get button => GoogleFonts.interTight(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.1,
+  );
+
+  /// Mono — for numbers, IDs, dates metadata, mono labels (often UPPERCASE).
+  ///
+  /// Implementation note: google_fonts ^6.2.1 does not yet ship Geist Mono.
+  /// JetBrains Mono is the closest visual match and stays in the family
+  /// (Geist Mono itself was inspired by JetBrains-style mono). Swap to
+  /// `GoogleFonts.geistMono()` when the package version that supports
+  /// it lands on the constraint we accept.
+  static TextStyle get mono => GoogleFonts.jetBrainsMono(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.6,
+  );
+
+  static TextStyle get monoLarge => GoogleFonts.jetBrainsMono(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Italic editorial accent — used in display headings on a key word
+  /// to switch into corail. Compose as: `displayL.copyWith(fontStyle: italic, color: corail)`.
+  static TextStyle italicAccent(TextStyle base, Color corail) =>
+      base.copyWith(fontStyle: FontStyle.italic, color: corail);
+
+  /// Builds the Material TextTheme with Fraunces+Inter Tight applied to
+  /// the scope-appropriate styles.
+  static TextTheme textTheme(Color foreground, Color muted) {
+    return TextTheme(
+      displayLarge: displayL.copyWith(color: foreground),
+      displayMedium: displayM.copyWith(color: foreground),
+      headlineLarge: headlineLarge.copyWith(color: foreground),
+      headlineMedium: headlineMedium.copyWith(color: foreground),
+      titleLarge: titleLarge.copyWith(color: foreground),
+      titleMedium: titleMedium.copyWith(color: foreground),
+      bodyLarge: bodyLarge.copyWith(color: foreground),
+      bodyMedium: body.copyWith(color: foreground),
+      bodySmall: caption.copyWith(color: muted),
+      labelLarge: button.copyWith(color: foreground),
+    );
+  }
+}
+
+/// Theme extension exposing the Soleil tokens not covered by Material 3
+/// `ColorScheme`. Access via `Theme.of(context).extension<AppColors>()!`.
+///
+/// The legacy fields (muted, mutedForeground, accent, border, success,
+/// warning) are kept for backward compatibility with widgets written
+/// before Soleil v2. New widgets should prefer the Soleil-named fields
+/// (subtleForeground, accentSoft, successSoft, pinkSoft, etc.) for clarity.
 @immutable
 class AppColors extends ThemeExtension<AppColors> {
   const AppColors({
+    // Legacy aliases
     required this.muted,
     required this.mutedForeground,
     required this.accent,
     required this.border,
     required this.success,
     required this.warning,
+    // Soleil-specific
+    required this.subtleForeground,
+    required this.primaryDeep,
+    required this.accentSoft,
+    required this.successSoft,
+    required this.pink,
+    required this.pinkSoft,
+    required this.amberSoft,
+    required this.borderStrong,
   });
 
   final Color muted;
@@ -462,6 +555,15 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color success;
   final Color warning;
 
+  final Color subtleForeground;
+  final Color primaryDeep;
+  final Color accentSoft;
+  final Color successSoft;
+  final Color pink;
+  final Color pinkSoft;
+  final Color amberSoft;
+  final Color borderStrong;
+
   @override
   AppColors copyWith({
     Color? muted,
@@ -470,6 +572,14 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? border,
     Color? success,
     Color? warning,
+    Color? subtleForeground,
+    Color? primaryDeep,
+    Color? accentSoft,
+    Color? successSoft,
+    Color? pink,
+    Color? pinkSoft,
+    Color? amberSoft,
+    Color? borderStrong,
   }) {
     return AppColors(
       muted: muted ?? this.muted,
@@ -478,6 +588,14 @@ class AppColors extends ThemeExtension<AppColors> {
       border: border ?? this.border,
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      subtleForeground: subtleForeground ?? this.subtleForeground,
+      primaryDeep: primaryDeep ?? this.primaryDeep,
+      accentSoft: accentSoft ?? this.accentSoft,
+      successSoft: successSoft ?? this.successSoft,
+      pink: pink ?? this.pink,
+      pinkSoft: pinkSoft ?? this.pinkSoft,
+      amberSoft: amberSoft ?? this.amberSoft,
+      borderStrong: borderStrong ?? this.borderStrong,
     );
   }
 
@@ -491,6 +609,14 @@ class AppColors extends ThemeExtension<AppColors> {
       border: Color.lerp(border, other.border, t)!,
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
+      subtleForeground: Color.lerp(subtleForeground, other.subtleForeground, t)!,
+      primaryDeep: Color.lerp(primaryDeep, other.primaryDeep, t)!,
+      accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
+      successSoft: Color.lerp(successSoft, other.successSoft, t)!,
+      pink: Color.lerp(pink, other.pink, t)!,
+      pinkSoft: Color.lerp(pinkSoft, other.pinkSoft, t)!,
+      amberSoft: Color.lerp(amberSoft, other.amberSoft, t)!,
+      borderStrong: Color.lerp(borderStrong, other.borderStrong, t)!,
     );
   }
 }
