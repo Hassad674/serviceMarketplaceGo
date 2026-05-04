@@ -101,6 +101,12 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 |----|--------|--------|-------|-----|
 | W-23 | Compte (préférences) | ⚪ | — | — |
 
+### 8 · Notifications (1)
+
+| ID | Screen | Status | Batch | PR |
+|----|--------|--------|-------|-----|
+| W-24 | Notifications | ⚪ | — | — |
+
 ---
 
 ## Phase 3 · Mobile batches
@@ -164,9 +170,11 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 | Surface | Total | Done | In progress | Skipped | Remaining |
 |---------|-------|------|-------------|---------|-----------|
-| Web | 23 | 0 | 0 | 0 | 23 |
+| Web | 24 | 0 | 0 | 0 | 24 |
 | Mobile | 18 | 0 | 0 | 0 | 18 |
-| **Total** | **41** | **0** | **0** | **0** | **41** |
+| **Total** | **42** | **0** | **0** | **0** | **42** |
+
+Note pratique : W-10 et W-15 partagent la même page → 23 PRs web pour 24 IDs.
 
 ---
 
@@ -178,7 +186,23 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 ## Open questions for orchestrator
 
-1. **W-12 Opportunités** : la route est-elle `/(public)/opportunities` (publique pour SEO) ou `/(app)/opportunities` (auth-gated) ? Le design suggère un feed personnalisé pour le freelance connecté → peut-être les deux : la liste publique pour SEO + le feed dans `/(app)/opportunities` ?
-2. **W-15 Mission active** : on dirait que c'est juste une variante role-aware de `W-10 Détail projet` (même route, layout adapté selon que l'user est client ou provider). Confirmer pour ne pas faire double emploi.
-3. **M-19 Notifications mobile** : web a-t-il une route `/notifications` ? Si oui, ajouter une entrée `W-24` à l'inventory. Sinon, mobile-only OK.
-4. **Phase 0 batch** — qui pilote ? Solo agent (briefing strict, perimeter 3 fichiers + le `Portrait` primitive) ou orchestrator-only (Hassad+moi en main session) ? Recommandation : orchestrator-only car ça touche `globals.css` qui est OFF-LIMITS pour les agents par défaut. Override one-shot via `ALLOW_OVERRIDE` est possible mais cher en context-switching.
+(All four open questions answered 2026-05-04. Nothing pending.)
+
+### Resolved
+
+- ✅ **W-12 Opportunités** — confirmed: only `/(public)/opportunities` exists in the repo. Inventory locked to that route.
+- ✅ **W-15 Mission active** — confirmed: same page as W-10, role-aware variants (provider sees milestone-submit actions, client sees milestone-validate actions). One PR covers both IDs.
+- ✅ **M-19 Notifications mobile** — confirmed: web has `/(app)/notifications/` route. Added W-24 to the inventory, coupled with M-19.
+- ✅ **Phase 0 batch ownership** — orchestrator runs in main session (recommended by Claude, validated by Hassad). Touches `globals.css` + creates `Portrait` primitive — too sensitive to delegate.
+
+---
+
+## Mobile testing constraint (current session)
+
+Hassad runs Linux (no Mac, no iOS Simulator). Mobile validation goes through:
+- **Android emulator** (AVD) for development screenshots and golden tests
+- **Android wireless debug** for on-device validation when connected
+
+Code stays cross-platform (Flutter), so iOS support is preserved structurally — the constraint is purely on the screenshot/diff workflow. When Hassad gets a Mac, no refactor is needed; iOS Simulator captures will just be added to the diff folders.
+
+**Implication for batch briefs**: mobile agents capture `before-android.png` / `after-android.png` (not `before-mobile.png`). The screen target stays 390×844 (Pixel 5 emulator matches this).

@@ -95,6 +95,28 @@ For mobile, use `flutter screenshot` against a connected emulator/device for bot
 
 ---
 
+## Commit hygiene — 1 screen = 1 commit
+
+Each screen ID in your batch ships in exactly one final commit before you open the PR. Commit message format:
+
+```
+feat(design/<surface>/<id>): port <screen-name> to Soleil v2
+```
+
+WIP commits are OK during work — squash them into the canonical screen commits before opening the PR (`git rebase -i origin/main`).
+
+Tooling and test commits are kept separate and prefixed `chore(design/...)` and `test(design/<surface>/<id>): ...`.
+
+See `design/rules.md` §11 for full details + exceptions.
+
+## Mobile testing constraint
+
+If your batch is mobile (Flutter):
+- Validation device = Android emulator or physical Android (Hassad has no Mac for now)
+- Screenshot diffs = `before-android.png` / `after-android.png` (not `-mobile.png`)
+- Code stays cross-platform — don't introduce `Platform.isAndroid` checks for visual reasons
+- See `design/rules.md` §12
+
 ## Final report (in your PR body, mandatory)
 
 Use this structure:

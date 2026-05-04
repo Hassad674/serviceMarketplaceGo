@@ -199,3 +199,57 @@ The agent always:
 - Reproduces the visual identity exactly (within the limit of repo features)
 - Calls out gaps in the report
 - Stays inside the whitelist of touchable files
+
+---
+
+## 11. One screen = one commit (commit hygiene)
+
+Each screen ID (`W-XX` or `M-XX`) ships in **exactly one final commit** on the batch branch, with the message format:
+
+```
+feat(design/<surface>/<id>): port <screen-name> to Soleil v2
+```
+
+Examples:
+- `feat(design/web/W-01): port Connexion to Soleil v2`
+- `feat(design/mobile/M-03): port Dashboard freelance to Soleil v2`
+- `feat(design/web/W-10+W-15): port Détail projet (role-aware client + provider) to Soleil v2` (combined when 2 IDs share one page)
+
+### Why
+
+- 1 commit = 1 reviewable unit. The PR reviewer can navigate by commit, identify which file changes go with which screen, and revert one screen's port without losing the others if a regression is found.
+- Cross-batch traceability: `git log --grep="design/web/W-01"` returns exactly the commit that ported W-01. Useful for follow-up bug hunts.
+- `tracking.md` updates: when a screen flips to 🟢 merged, the commit SHA gets pinned in the row. One commit = one SHA = clean reference.
+
+### How
+
+During the batch, the agent may make multiple intermediate WIP commits ("wip: layout draft", "wip: pull tokens"). **Before opening the PR**, those WIP commits are squashed into the single canonical commit per screen:
+
+```bash
+git rebase -i origin/main
+# squash all "wip:" commits into the canonical "feat(design/...)" commit
+# keep one feat commit per screen ID (or per combined ID pair)
+```
+
+If a batch ships 3 screens (e.g., the auth lot W-01 + W-02 + W-03), the final history on the branch is 3 commits — one per screen, in inventory order. Not 1 mega-commit, not 17 micro-commits.
+
+### Exceptions
+
+- **Tooling commits** are OK to keep separate from the screen commits: e.g., a `chore(design/web): add Portrait primitive helper` if the agent needs to extract a small helper. Keep these in their own commit, before the screen commit that consumes them.
+- **Tests-only commits** are OK to keep separate: `test(design/web/W-01): regression assertions for new layout`. Many small test commits are fine, they don't pollute the screen-commit history.
+
+The CI checks the PR's commit message format and fails fast if a screen ID is referenced in 0 or 2+ commits without explanation. (The check is on the orchestrator's TODO; for now it's a manual review item.)
+
+---
+
+## 12. Mobile testing — Android-only for now
+
+Hassad's local environment runs Linux. **No Mac, no iOS Simulator** as of 2026-05-04. Mobile work proceeds with these constraints:
+
+- **Validation device** = Android emulator (AVD) or a physical Android via wireless debug. Default target = Pixel 5 emulator (matches the design viewport 390×844).
+- **Screenshot diffs** = `before-android.png` and `after-android.png` in `design/diffs/<screen-id>/`. Don't fabricate iOS captures — they'll be added when a Mac is available.
+- **Code stays cross-platform**. Don't use Cupertino-only widgets where Material 3 has equivalents. Don't hardcode platform checks like `if (Platform.isAndroid)` for visual reasons. The Soleil v2 theme is platform-agnostic (the iOS frame in the design source is inspirational, not literal).
+- **iOS-specific features** that the design references (status bar styling, safe areas with iOS-typical inset, navigation back-swipe gestures) are still implemented — Material 3 + the right `MediaQuery.padding` handles them gracefully on both platforms. Don't no-op them just because we test on Android.
+- **CI**: `flutter test` and `flutter analyze` are platform-agnostic, no special handling needed. The mobile-test job in CI will continue to pass without iOS-specific paths.
+
+When a Mac is available later, no refactor needed. iOS Simulator captures simply get added to existing `design/diffs/` folders, and an iOS run is added to CI. The Soleil v2 implementation is portable as-is.
