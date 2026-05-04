@@ -230,6 +230,31 @@
   "auth": {
     "loginTitle": "Sign In",
     "loginSubtitle": "Sign in to your account",
+    "loginEyebrow": "Welcome back",
+    "loginTitlePrefix": "Pick up",
+    "loginTitleAccent": "where you left off.",
+    "loginSubtitleSoleil": "Sign in to track your missions, applications, and resume your conversations.",
+    "heroEyebrow": "Atelier · the right word",
+    "heroTitlePart1": "A marketplace that respects",
+    "heroTitleAccent1": "your time",
+    "heroTitleConnector": "and your",
+    "heroTitleAccent2": "rates.",
+    "pillar": {
+      "secure": {
+        "label": "Secure payments",
+        "description": "Stripe escrow on every milestone"
+      },
+      "verified": {
+        "label": "Verified profiles",
+        "description": "KYC, references, human interview"
+      },
+      "noFee": {
+        "label": "No hidden fees",
+        "description": "5% on the enterprise side, that's it"
+      }
+    },
+    "terms": "Terms",
+    "privacy": "Privacy",
     "registerTitle": "Create your account",
     "registerSubtitle": "Choose your professional profile to get started",
     "email": "Email",
