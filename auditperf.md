@@ -1,8 +1,21 @@
-# Audit de Performance — F.5 close-out
+# Audit de Performance — F.5 + F.6 + F.7 + #105 close-out
 
-**Date** : 2026-05-03 (post F.5 hardening pass)
-**Branch** : `feat/f5-security-and-honesty`
+**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Branch** : `main`
 **Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+
+## F.6 + F.7 + #105 close-out — perf-relevant items
+
+PR #104 + PR #105 are primarily security/quality work, not performance.
+The two perf-adjacent changes worth noting:
+
+- ✅ FERMÉ in `ed1bc6ab` — Idempotency middleware now caches the response body in Redis on first call and replays it on retry, sparing the database from re-running the original mutation. Net effect: financial double-spend protection AND retry-replay short-circuit.
+- ✅ FERMÉ in `260e36fc` — `MaxBytesReader` rejects oversized bodies before `json.Decode` allocates — early-return on smuggling shapes also avoids a downstream parse.
+
+Performance findings opened in F.5's honesty pass remain open
+(B-02 unbounded `payment_records.ListByOrganization`, W-01 polling,
+W-03 over-hydration, M-01 Riverpod `select()`, etc.) — see backlog
+section. F.5 + F.6 + F.7 shipped no performance work.
 
 ## F.5 honesty pass — corrections
 
