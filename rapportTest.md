@@ -1,9 +1,21 @@
-# Rapport Tests + Migrations + DB — F.5 close-out
+# Rapport Tests + Migrations + DB — F.5 + F.6 + F.7 + #105 close-out
 
-**Date** : 2026-05-03 (post F.5 hardening pass)
-**Branch** : `feat/f5-security-and-honesty`
+**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Branch** : `main`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
 **Méthodologie** : audit statique + run réel `go test ./... -count=1 -short -race` (PASS) + `gosec` (PASS) + `flutter analyze lib/` (PASS) + admin vitest (PASS).
+
+## F.6 + F.7 + #105 close-out — test deltas
+
+- ✅ FERMÉ in `ed1bc6ab` — idempotency middleware tests cover body-hash key derivation, 409-conflict on body mismatch, and replay short-circuit on retry.
+- ✅ FERMÉ in `0849bd60` — milestone money-moving routes integration tests assert idempotent retries are no-ops.
+- ✅ FERMÉ in `f3120ca4` — mobile interceptor unit tests (`mobile/test/core/network/idempotency_interceptor_test.dart`) cover header presence + uuid format + retry-aware caching.
+- ✅ FERMÉ in `260e36fc` — `validator.DecodeJSON` test cases added for body-cap exceeded, smuggling shapes, and JSON type-decode mapping to 400.
+- ✅ FERMÉ in `d361e90f` — `TestProfileCache_Singleflight` no longer relies on `time.Sleep`; the flake on `-race` mode is closed via a deterministic synchronisation gate.
+- ✅ FERMÉ in `bcd59675` — Playwright e2e on a production-flavoured build asserts CSP header lacks `'unsafe-eval'`.
+- ✅ FERMÉ in PR #105 (`a61d98a8`) — `TestCORS_AllowHeadersIncludesIdempotencyKey` locks the CORS allowlist contents (`Accept, Authorization, Content-Type, Idempotency-Key, X-Request-ID, X-Auth-Mode`) so the next refactor cannot silently drop a header.
+
+Net new tests on main since 2026-05-03: ~25 across PR #104 + PR #105.
 
 ## F.5 honesty pass — flagged items
 

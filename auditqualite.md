@@ -1,8 +1,19 @@
-# Audit Qualité, DRY & Architecture — F.5 close-out
+# Audit Qualité, DRY & Architecture — F.5 + F.6 + F.7 + #105 close-out
 
-**Date** : 2026-05-03 (post F.5 hardening pass)
-**Branch** : `feat/f5-security-and-honesty`
+**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Branch** : `main`
 **Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + web Next.js + admin Vite + mobile Flutter
+
+## F.6 + F.7 + #105 close-out
+
+- ✅ FERMÉ in `ed1bc6ab` — `internal/handler/middleware/idempotency.go` keys replay state on `body + method + path` (not just the header), producing testable `409 Conflict` semantics on body mismatch.
+- ✅ FERMÉ in `0849bd60` — milestone accept / decline / dispute / refund / release wrapped with the idempotency middleware. Quality posture: a single middleware now governs the entire money-moving surface — no per-handler bespoke replay logic.
+- ✅ FERMÉ in `f3120ca4` — Dio mobile interceptor wires the same idempotency contract on 9 protected POSTs. Symmetry with web client.
+- ✅ FERMÉ in `b2e543cb` — iOS Info.plist + PrivacyInfo manifest. Mobile DevX: `flutter build ios` no longer surfaces the privacy-manifest warnings.
+- ✅ FERMÉ in `260e36fc` — `validator.DecodeJSON` rejects smuggling and bounds the body. Quality knob: `MaxBytesReader` is now applied uniformly via `pkg/decode`, no per-handler wiring.
+- ✅ FERMÉ in `d361e90f` — `TestProfileCache_Singleflight` flake closed with a deterministic gate (`time.Sleep` removed). Strengthens the test harness.
+- ✅ FERMÉ in `bcd59675` — production CSP loses `'unsafe-eval'`. Web posture upgraded — only dev gets the eval allowance for fast-refresh.
+- ✅ FERMÉ in PR #105 (`a61d98a8`) — CORS allowlist contents locked with a regression test. The next refactor cannot silently drop `Idempotency-Key` (or any other header) without test failure. 8 gosec false-positives suppressed with `// #nosec` + justification — local gosec run on touched packages reports 0 issues.
 
 ## F.5 honesty pass — corrections to previous claims
 

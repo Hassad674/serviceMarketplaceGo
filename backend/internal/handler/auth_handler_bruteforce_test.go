@@ -26,27 +26,52 @@ import (
 // adapter/redis/bruteforce_test.go via miniredis; this mock is just
 // enough for the handler-level tests to assert the right method was
 // called at the right time.
+//
+// Both surfaces (per-EMAIL and per-IP) are tracked. The IP gate
+// (N4) is a parallel state machine — a successful login does NOT
+// clear the IP counter (a shared-NAT user who guesses on attempt #18
+// must not unlock the gate for a co-located attacker).
 type mockBruteForce struct {
 	mu              sync.Mutex
 	maxAttempts     int
+	maxIPAttempts   int
 	attempts        map[string]int
 	locked          map[string]time.Time
+	ipAttempts      map[string]int
+	ipLocked        map[string]time.Time
 	defaultLockout  time.Duration
+	defaultIPLock   time.Duration
 	isLockedErr     error
+	isIPLockedErr   error
 	recordFailErr   error
+	recordIPFailErr error
 	recordSuccErr   error
 	retryAfterErr   error
+	retryAfterIPErr error
 	failureCalls    map[string]int
+	ipFailureCalls  map[string]int
 	successCalls    map[string]int
 }
 
 func newMockBruteForce(maxAttempts int) *mockBruteForce {
+	return newMockBruteForceWithIP(maxAttempts, 20)
+}
+
+// newMockBruteForceWithIP lets the N4 tests dial the IP threshold
+// independently of the email one so they can exercise the IP gate
+// at any boundary they choose.
+func newMockBruteForceWithIP(maxAttempts, maxIPAttempts int) *mockBruteForce {
 	return &mockBruteForce{
 		maxAttempts:    maxAttempts,
+		maxIPAttempts:  maxIPAttempts,
 		attempts:       make(map[string]int),
 		locked:         make(map[string]time.Time),
+		ipAttempts:     make(map[string]int),
+		ipLocked:       make(map[string]time.Time),
 		defaultLockout: 30 * time.Minute,
+		defaultIPLock:  60 * time.Minute,
 		failureCalls:   make(map[string]int),
+		ipFailureCalls: make(map[string]int),
 		successCalls:   make(map[string]int),
 	}
 }
@@ -111,6 +136,61 @@ func (m *mockBruteForce) RetryAfter(_ context.Context, email string) (time.Durat
 		return 0, nil
 	}
 	return d, nil
+}
+
+func (m *mockBruteForce) IsIPLocked(_ context.Context, ip string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.isIPLockedErr != nil {
+		return false, m.isIPLockedErr
+	}
+	until, ok := m.ipLocked[ip]
+	if !ok {
+		return false, nil
+	}
+	if time.Now().After(until) {
+		delete(m.ipLocked, ip)
+		return false, nil
+	}
+	return true, nil
+}
+
+func (m *mockBruteForce) RecordIPFailure(_ context.Context, ip string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.recordIPFailErr != nil {
+		return m.recordIPFailErr
+	}
+	m.ipFailureCalls[ip]++
+	m.ipAttempts[ip]++
+	if m.ipAttempts[ip] >= m.maxIPAttempts {
+		m.ipLocked[ip] = time.Now().Add(m.defaultIPLock)
+	}
+	return nil
+}
+
+func (m *mockBruteForce) RetryAfterIP(_ context.Context, ip string) (time.Duration, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.retryAfterIPErr != nil {
+		return 0, m.retryAfterIPErr
+	}
+	until, ok := m.ipLocked[ip]
+	if !ok {
+		return 0, nil
+	}
+	d := time.Until(until)
+	if d < 0 {
+		return 0, nil
+	}
+	return d, nil
+}
+
+// snapshotIPFailureCount safely reads the per-IP RecordIPFailure count.
+func (m *mockBruteForce) snapshotIPFailureCount(ip string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ipFailureCalls[ip]
 }
 
 // snapshotFailureCount safely reads the per-email RecordFailure count.

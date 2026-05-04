@@ -441,7 +441,7 @@ func TestClientIP_RemoteAddrWithoutPort_FallsBackToHost(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "192.168.1.50" // no port
-	got := rl.clientIP(req)
+	got := rl.ClientIP(req)
 	assert.Equal(t, "192.168.1.50", got)
 }
 
@@ -452,7 +452,7 @@ func TestClientIP_UnparseableHost_ReturnsRaw(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "not-an-ip:9999"
-	got := rl.clientIP(req)
+	got := rl.ClientIP(req)
 	assert.Equal(t, "not-an-ip", got, "unparseable IP must surface as-is so logs still capture it")
 }
 
@@ -472,7 +472,7 @@ func TestClientIP_TrustedProxyEmptyXFF_KeysOffProxy(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.5:5555" // trusted proxy
 	// no XFF header
-	got := rl.clientIP(req)
+	got := rl.ClientIP(req)
 	assert.Equal(t, "10.0.0.5", got, "empty XFF means we fall back to the proxy IP")
 }
 
@@ -492,7 +492,7 @@ func TestClientIP_TrustedProxyMalformedXFF_FallsBack(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.5:5555"
 	req.Header.Set("X-Forwarded-For", "garbage,more-garbage")
-	got := rl.clientIP(req)
+	got := rl.ClientIP(req)
 	assert.Equal(t, "10.0.0.5", got, "malformed XFF must fall back — preserves liveness")
 }
 
