@@ -8,9 +8,10 @@ import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { login, AuthApiError } from "@/features/auth/api/auth-api"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
 
+// Schema kept inline (intentionally not extracted to features/auth/schemas/
+// for this batch — that is OFF-LIMITS work that will happen later as a
+// dedicated refactor). Validation rules unchanged.
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must contain at least 8 characters"),
@@ -46,27 +47,31 @@ export function LoginForm() {
       await login(values.email, values.password)
       router.push("/dashboard")
     } catch (err) {
-      if (err instanceof AuthApiError && (err.code === "account_suspended" || err.code === "account_banned")) {
+      if (
+        err instanceof AuthApiError &&
+        (err.code === "account_suspended" || err.code === "account_banned")
+      ) {
         setSuspension({ message: err.message, reason: err.reason || "" })
         return
       }
-      setError(
-        err instanceof Error ? err.message : tCommon("errorOccurred"),
-      )
+      setError(err instanceof Error ? err.message : tCommon("errorOccurred"))
     }
   }
 
   return (
-    <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {suspension && (
-          <div className="rounded-xl border border-orange-300 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 p-4 space-y-2" role="alert">
-            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-semibold text-sm">
+          <div
+            className="space-y-2 rounded-xl border border-warning/30 bg-amber-soft/50 p-4 text-sm"
+            role="alert"
+          >
+            <div className="flex items-center gap-2 font-semibold text-warning">
               <ShieldAlert className="h-5 w-5 flex-shrink-0" />
               <span>{suspension.message}</span>
             </div>
             {suspension.reason && (
-              <p className="text-sm text-orange-600 dark:text-orange-300/80 pl-7">
+              <p className="pl-7 text-xs text-muted-foreground">
                 {suspension.reason}
               </p>
             )}
@@ -74,79 +79,129 @@ export function LoginForm() {
         )}
 
         {error && (
-          <div className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400" role="alert">
+          <div
+            className="rounded-xl border border-destructive/30 bg-primary-soft/40 p-3 text-sm text-destructive"
+            role="alert"
+          >
             {error}
           </div>
         )}
 
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          label={t("email")}
-          placeholder={t("emailPlaceholder")}
-          size="lg"
-          className="h-12 rounded-xl px-4"
-          error={errors.email?.message}
-          {...registerField("email")}
-        />
-
+        {/* Email */}
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t("password")}
+          <label
+            htmlFor="email"
+            className="block text-[13px] font-semibold text-foreground"
+          >
+            {t("email")}
           </label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              placeholder={t("passwordPlaceholder")}
-              size="lg"
-              className="h-12 rounded-xl px-4 pr-11"
-              error={errors.password?.message}
-              {...registerField("password")}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-1 top-1 h-10 w-10 px-0 text-gray-400 hover:bg-transparent hover:text-gray-600 dark:hover:text-gray-300"
-              aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder={t("emailPlaceholder")}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            className={[
+              "block w-full rounded-xl border bg-card px-4 py-[13px] text-[14.5px] text-foreground",
+              "transition-colors duration-150 placeholder:text-subtle-foreground",
+              "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
+              errors.email
+                ? "border-destructive focus:ring-destructive/15"
+                : "border-border-strong",
+            ].join(" ")}
+            {...registerField("email")}
+          />
+          {errors.email?.message && (
+            <p id="email-error" className="text-xs text-destructive">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        {/* Password + forgot link */}
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between">
+            <label
+              htmlFor="password"
+              className="block text-[13px] font-semibold text-foreground"
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </Button>
-          </div>
-          <div className="flex justify-end">
+              {t("password")}
+            </label>
             <Link
               href="/forgot-password"
-              className="text-sm font-medium text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
+              className="font-serif text-xs italic text-primary transition-colors hover:text-primary-deep"
             >
               {t("forgotPassword")}
             </Link>
           </div>
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder={t("passwordPlaceholder")}
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              className={[
+                "block w-full rounded-xl border bg-card px-4 py-[13px] pr-11 text-[14.5px] text-foreground",
+                "transition-colors duration-150 placeholder:text-subtle-foreground",
+                "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
+                errors.password
+                  ? "border-destructive focus:ring-destructive/15"
+                  : "border-border-strong",
+              ].join(" ")}
+              {...registerField("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label={
+                showPassword ? tCommon("hidePassword") : tCommon("showPassword")
+              }
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          {errors.password?.message && (
+            <p id="password-error" className="text-xs text-destructive">
+              {errors.password.message}
+            </p>
+          )}
         </div>
 
-        <Button
+        {/* Submit */}
+        <button
           type="submit"
-          variant="primary"
-          size="lg"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-xl text-base font-semibold shadow-md"
+          className={[
+            "mt-2 w-full rounded-full bg-primary px-4 py-3.5 text-[14.5px] font-semibold text-primary-foreground",
+            "transition-all duration-150 hover:bg-primary-deep active:scale-[0.99]",
+            "focus:outline-none focus:ring-4 focus:ring-primary/30",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          ].join(" ")}
+          style={{ boxShadow: "0 4px 14px rgba(232, 93, 74, 0.3)" }}
         >
           {isSubmitting ? t("signingIn") : t("loginTitle")}
-        </Button>
+        </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+      {/* No account? */}
+      <p className="mt-7 text-center text-[13px] text-muted-foreground">
         {t("noAccount")}{" "}
         <Link
           href="/register"
-          className="font-medium text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
+          className="font-semibold text-primary transition-colors hover:text-primary-deep"
         >
           {tCommon("createAccount")}
+          <span aria-hidden="true"> →</span>
         </Link>
       </p>
-    </div>
+    </>
   )
 }
