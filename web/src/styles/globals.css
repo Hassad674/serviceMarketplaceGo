@@ -3,148 +3,185 @@
 @custom-variant dark (&:where(.dark *));
 
 /*
- * Marketplace Service Design Tokens
- * Rose primary, slate neutrals — warm B2B aesthetic.
- * Compatible with shadcn/ui CSS variable convention.
+ * Atelier — Direction Soleil v2
+ * Palette ivoire & corail. Typographie Fraunces + Inter Tight + Geist Mono.
+ * Source-of-truth: design/DESIGN_SYSTEM.md.
+ *
+ * Token convention: hex literals as the canonical source. CSS variables
+ * exposed via @theme inline so Tailwind utilities (`bg-primary`,
+ * `text-foreground`, etc.) stay semantic. NEVER hardcode hex in
+ * components; always go through the token.
  */
 
 :root {
-  /* Primary — Rose */
-  --primary: oklch(0.645 0.246 16.439);
-  --primary-foreground: oklch(0.985 0.002 12.0);
+  /* Surfaces */
+  --background: #fffbf5;            /* ivoire — page bg */
+  --surface: #ffffff;               /* blanc pur — cards */
+  --foreground: #2a1f15;            /* encre — primary text */
+  --muted-foreground: #7a6850;      /* tabac — secondary text */
+  --subtle-foreground: #a89679;     /* sable — mono labels, tertiary text */
 
-  /* Secondary — Cool light gray */
-  --secondary: oklch(0.967 0.003 264.542);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
+  /* Accents */
+  --primary: #e85d4a;               /* corail — CTAs, accents */
+  --primary-soft: #fde9e3;          /* rose pâle — soft bg, active pill */
+  --primary-deep: #c43a26;          /* corail foncé — hover, error */
+  --primary-foreground: #fffbf5;    /* text on primary */
 
-  /* Background & foreground */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0.004 285.823);
+  /* Decorative gradient stops */
+  --pink: #f08aa8;                  /* rose chaud */
+  --pink-soft: #fde6ed;             /* rose pâle (gradient stop) */
+  --amber-soft: #fbf0dc;            /* ambre pâle (gradient stop) */
 
-  /* Card */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.004 285.823);
+  /* Semantic */
+  --success: #5a9670;               /* sapin — availability, success */
+  --success-soft: #e8f2eb;          /* sapin pâle — pill bg */
+  --destructive: #c43a26;           /* corail foncé — used for errors */
+  --destructive-foreground: #ffffff;
+  --warning: #d4924a;               /* ambre — warnings (rare) */
 
-  /* Popover */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.004 285.823);
+  /* Borders & dividers */
+  --border: #f0e6d8;                /* sable clair — faible border */
+  --border-strong: #e0d3bc;         /* sable foncé — outlined buttons, strong */
+  --input: #f0e6d8;                 /* matches border */
+  --ring: #e85d4a;                  /* focus ring = corail */
 
-  /* Muted — Light slate */
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.556 0.005 285.979);
+  /* shadcn/ui semantic aliases (kept for backward compat with existing components) */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--primary-soft);
+  --secondary-foreground: var(--primary-deep);
+  --muted: var(--border);
+  --accent: var(--primary-soft);
+  --accent-foreground: var(--primary-deep);
 
-  /* Accent — Light rose tint */
-  --accent: oklch(0.955 0.03 16.439);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  /* Sidebar (dashboard chrome) — solid white over ivory bg */
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-accent: var(--primary-soft);
+  --sidebar-accent-foreground: var(--primary-deep);
+  --sidebar-ring: var(--primary);
 
-  /* Destructive — Red */
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.004 262.881);
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+  --radius: var(--radius-lg);
 
-  /* Success — Green */
-  --success: oklch(0.627 0.194 149.214);
-  --success-foreground: oklch(0.982 0.018 155.826);
-
-  /* Warning — Amber */
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.294 0.074 45.635);
-
-  /* Border, input, ring */
-  --border: oklch(0.922 0.004 286.032);
-  --input: oklch(0.922 0.004 286.032);
-  --ring: oklch(0.645 0.246 16.439);
-
-  /* Radius */
-  --radius: 0.5rem;
-
-  /* Sidebar (dashboard) */
-  --sidebar: oklch(0.985 0.003 247.858);
-  --sidebar-foreground: oklch(0.145 0.004 285.823);
-  --sidebar-border: oklch(0.922 0.004 286.032);
-  --sidebar-accent: oklch(0.955 0.03 16.439);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-ring: oklch(0.645 0.246 16.439);
+  /* Shadows — calm, no glow (Soleil signature) */
+  --shadow-card: 0 4px 24px rgba(42, 31, 21, 0.04);
+  --shadow-card-strong: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-portrait: 0 2px 12px rgba(42, 31, 21, 0.06);
+  --shadow-message: 0 2px 12px rgba(232, 93, 74, 0.08);
 }
 
 .dark {
-  --primary: oklch(0.704 0.191 22.216);
-  --primary-foreground: oklch(0.985 0.002 12.0);
+  /* Soleil's dark variant: warm slate + corail brightened. Calibrated to
+   * stay readable while preserving the warm identity (no cold blue/purple). */
+  --background: #1a1410;            /* encre profond */
+  --surface: #251c16;               /* encre + 10% */
+  --foreground: #fbf3e4;            /* ivoire élevé */
+  --muted-foreground: #a89679;      /* sable */
+  --subtle-foreground: #7a6850;     /* tabac */
 
-  --secondary: oklch(0.269 0.006 285.885);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
+  --primary: #fb7d68;               /* corail brightened for dark */
+  --primary-soft: #3d201b;          /* corail très foncé bg */
+  --primary-deep: #ff9784;          /* corail très clair pour hover dark */
+  --primary-foreground: #1a1410;
 
-  --background: oklch(0.105 0.005 285.823);
-  --foreground: oklch(0.985 0.002 247.839);
+  --pink: #f08aa8;
+  --pink-soft: #3d2230;
+  --amber-soft: #2d2418;
 
-  --card: oklch(0.145 0.005 285.823);
-  --card-foreground: oklch(0.985 0.002 247.839);
+  --success: #6fae87;
+  --success-soft: #1f3026;
+  --destructive: #ef6b54;
+  --destructive-foreground: #fbf3e4;
+  --warning: #d4924a;
 
-  --popover: oklch(0.145 0.005 285.823);
-  --popover-foreground: oklch(0.985 0.002 247.839);
+  --border: #3a2e23;
+  --border-strong: #4d3e2f;
+  --input: #3a2e23;
+  --ring: #fb7d68;
 
-  --muted: oklch(0.269 0.006 285.885);
-  --muted-foreground: oklch(0.665 0.007 285.885);
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--primary-soft);
+  --secondary-foreground: var(--primary-deep);
+  --muted: var(--border);
+  --accent: var(--primary-soft);
+  --accent-foreground: var(--primary-deep);
 
-  --accent: oklch(0.2 0.04 16.439);
-  --accent-foreground: oklch(0.985 0.002 12.0);
-
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.002 12.0);
-
-  --success: oklch(0.627 0.194 149.214);
-  --success-foreground: oklch(0.982 0.018 155.826);
-
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.294 0.074 45.635);
-
-  --border: oklch(0.269 0.006 285.885);
-  --input: oklch(0.269 0.006 285.885);
-  --ring: oklch(0.704 0.191 22.216);
-
-  --sidebar: oklch(0.145 0.005 285.823);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(0.269 0.006 285.885);
-  --sidebar-accent: oklch(0.2 0.04 16.439);
-  --sidebar-accent-foreground: oklch(0.985 0.002 12.0);
-  --sidebar-ring: oklch(0.704 0.191 22.216);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-accent: var(--primary-soft);
+  --sidebar-accent-foreground: var(--primary-deep);
+  --sidebar-ring: var(--primary);
 }
 
 @theme inline {
+  /* Colors exposed to Tailwind utilities */
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+
   --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-deep: var(--primary-deep);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-pink: var(--pink);
+  --color-pink-soft: var(--pink-soft);
+  --color-amber-soft: var(--amber-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Radii */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  /* Fonts — wired to next/font CSS variables (see src/app/[locale]/layout.tsx) */
+  --font-sans: var(--font-inter-tight), system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 /* Smooth theme transition */
@@ -159,167 +196,81 @@ html.theme-transition *::after {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
-/* Focus ring utility */
 *:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 
 /* ============================================
-   Keyframe Animations
-   Premium motion system — every animation
-   serves comprehension, not decoration.
-   ============================================ */
+ * Keyframe animations — Soleil is calm
+ * No glow, no float, no pulse.
+ * ============================================ */
 
-/* Skeleton loading shimmer — gradient sweep left-to-right */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-/* Content entrance — fade + slide up from 8px */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Notification entrance — slide down from top */
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Fade + slide up for staggered content */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Modal/dropdown entrance — fade + scale from 95% */
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* Simple fade entrance */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* Primary CTA attention pulse — subtle glow */
-@keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(244, 63, 94, 0.2); }
-  50% { box-shadow: 0 0 30px rgba(244, 63, 94, 0.4); }
-}
-
-/* Slide-in from right for toasts */
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Toast auto-dismiss progress bar */
 @keyframes progressShrink {
   from { width: 100%; }
   to { width: 0%; }
 }
 
-/* Floating shape animation for decorative elements */
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(5deg); }
-}
-
 /* ============================================
-   Animation Utility Classes
-   ============================================ */
+ * Animation utility classes
+ * ============================================ */
 
-/* Shimmer — skeleton loading placeholder */
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 251, 245, 0.6) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
 }
 
 .dark .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(251, 243, 228, 0.06) 50%, transparent 100%);
   background-size: 200% 100%;
 }
 
-/* Scale in — modals, dropdowns, auth cards */
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out forwards;
-}
+.animate-scale-in { animation: scaleIn 0.2s ease-out forwards; }
+.animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+.animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+.animate-slide-in-right { animation: slideInRight 0.2s ease-out forwards; }
 
-/* Slide up — content entering viewport */
-.animate-slide-up {
-  animation: slideUp 0.4s ease-out forwards;
-}
+/* Stagger delays */
+.animate-slide-up-delay-1 { animation: slideUp 0.4s ease-out 0.05s forwards; opacity: 0; }
+.animate-slide-up-delay-2 { animation: slideUp 0.4s ease-out 0.10s forwards; opacity: 0; }
+.animate-slide-up-delay-3 { animation: slideUp 0.4s ease-out 0.15s forwards; opacity: 0; }
+.animate-slide-up-delay-4 { animation: slideUp 0.4s ease-out 0.20s forwards; opacity: 0; }
+.animate-slide-up-delay-5 { animation: slideUp 0.4s ease-out 0.25s forwards; opacity: 0; }
 
-/* Fade in — generic entrance */
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
-}
-
-/* Slide in from right — toast notifications */
-.animate-slide-in-right {
-  animation: slideInRight 0.2s ease-out forwards;
-}
-
-/* Glow pulse — primary CTA attention */
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
-}
-
-/* Floating decorative shapes */
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float 8s ease-in-out 2s infinite;
-}
-
-.animate-float-slow {
-  animation: float 10s ease-in-out 4s infinite;
-}
-
-/* ============================================
-   Stagger Delay Utilities
-   Apply to child elements for staggered
-   entrance animations. 50ms increments.
-   ============================================ */
-
-.animate-slide-up-delay-1 {
-  animation: slideUp 0.4s ease-out 0.05s forwards;
-  opacity: 0;
-}
-
-.animate-slide-up-delay-2 {
-  animation: slideUp 0.4s ease-out 0.1s forwards;
-  opacity: 0;
-}
-
-.animate-slide-up-delay-3 {
-  animation: slideUp 0.4s ease-out 0.15s forwards;
-  opacity: 0;
-}
-
-.animate-slide-up-delay-4 {
-  animation: slideUp 0.4s ease-out 0.2s forwards;
-  opacity: 0;
-}
-
-.animate-slide-up-delay-5 {
-  animation: slideUp 0.4s ease-out 0.25s forwards;
-  opacity: 0;
-}
-
-/* Generic stagger classes for any animation */
 .stagger-1 { animation-delay: 50ms; }
 .stagger-2 { animation-delay: 100ms; }
 .stagger-3 { animation-delay: 150ms; }
@@ -327,125 +278,139 @@ body {
 .stagger-5 { animation-delay: 250ms; }
 
 /* ============================================
-   Shadow Utilities
-   ============================================ */
+ * Decorative gradients (Soleil hero zones)
+ * Used on cover bands, login right column,
+ * profile cover. Pair with optional radial blobs.
+ * ============================================ */
 
-/* Primary CTA glow — use on hover of primary buttons */
-.shadow-glow {
-  box-shadow: 0 4px 24px -4px rgba(244, 63, 94, 0.4);
-}
-
-/* Larger glow — use sparingly for featured CTAs */
-.shadow-glow-lg {
-  box-shadow: 0 8px 32px -4px rgba(244, 63, 94, 0.5);
-}
-
-/* ============================================
-   Gradient Utilities
-   ============================================ */
-
-/* Hero — welcome banners, onboarding (rose -> purple -> indigo) */
-.gradient-hero {
-  background: linear-gradient(135deg, #F43F5E 0%, #A855F7 50%, #6366F1 100%);
-}
-
-/* Primary — buttons, small CTAs (rose-500 -> rose-600) */
-.gradient-primary {
-  background: linear-gradient(135deg, #F43F5E 0%, #E11D48 100%);
-}
-
-.gradient-primary:hover {
-  background: linear-gradient(135deg, #E11D48 0%, #BE123C 100%);
-}
-
-/* Referrer switch — referral/apporteur d'affaire toggle */
-.gradient-referrer {
-  background: linear-gradient(135deg, #F43F5E 0%, #A855F7 100%);
-}
-
-/* Subtle — card backgrounds, section highlights (rose-50 -> white) */
-.gradient-subtle {
-  background: linear-gradient(180deg, #FFF1F2 0%, #FFFFFF 100%);
-}
-
-.dark .gradient-subtle {
-  background: linear-gradient(180deg, rgba(244, 63, 94, 0.08) 0%, rgba(15, 23, 42, 1) 100%);
-}
-
-/* Warm — feature section backgrounds (rose-50 -> blue-50) */
 .gradient-warm {
-  background: linear-gradient(135deg, #FFF1F2 0%, #EFF6FF 100%);
+  background: linear-gradient(135deg, var(--primary-soft), var(--pink-soft), var(--amber-soft));
 }
 
-.dark .gradient-warm {
-  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
+.gradient-coral {
+  background: linear-gradient(135deg, var(--primary-soft), var(--pink-soft));
 }
 
-/* Dark — dark mode hero, footer (slate-900 -> slate-800) */
-.gradient-dark {
-  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+.gradient-subtle {
+  background: linear-gradient(180deg, var(--primary-soft), var(--surface));
 }
 
 /* ============================================
-   Glass Effect Utilities
-   For persistent overlay elements: sidebar,
-   header, floating panels, command palette.
-   ============================================ */
+ * Glass effects — sidebar/header chrome
+ * Soleil keeps these subtle (lighter blur).
+ * ============================================ */
 
-/* Standard glass — sidebar, header */
 .glass {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 251, 245, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-strong {
+  background: rgba(255, 251, 245, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
-/* Strong glass — command palette, critical overlays */
-.glass-strong {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
-
-/* Subtle glass — tooltips, hover cards */
 .glass-subtle {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 251, 245, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-/* Dark mode glass variants */
-.dark .glass {
-  background: rgba(15, 23, 42, 0.8);
-}
-
-.dark .glass-strong {
-  background: rgba(15, 23, 42, 0.9);
-}
-
-.dark .glass-subtle {
-  background: rgba(15, 23, 42, 0.6);
-}
+.dark .glass { background: rgba(26, 20, 16, 0.85); }
+.dark .glass-strong { background: rgba(26, 20, 16, 0.95); }
+.dark .glass-subtle { background: rgba(26, 20, 16, 0.65); }
 
 /* ============================================
-   Reduced Motion
-   Respect user preference for minimal motion.
-   Keep opacity fades, disable everything else.
-   ============================================ */
+ * Legacy compatibility shims
+ *
+ * The following classes are NOT part of the Soleil v2 design system —
+ * they are leftovers from the previous "Rose Contra" direction and are
+ * still used by ~51 components across web/admin. Rather than delete them
+ * (which would visually regress every page that uses them), we keep the
+ * class names but rebind the values to Soleil-aware equivalents.
+ *
+ * Phase 2 batches will replace these classes with native Soleil tokens
+ * screen-by-screen. When usage drops to 0, these shims can be deleted.
+ * Track removal: design/tracking.md.
+ * ============================================ */
+
+/* gradient-primary — was rose-500 -> rose-600. Now solid corail with a
+ * subtle vertical gradient so the existing button "feel" (slight darkening
+ * top-to-bottom) is preserved without the flashy hue. */
+.gradient-primary {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
+}
+
+.gradient-primary:hover {
+  background: linear-gradient(180deg, var(--primary-deep) 0%, var(--primary-deep) 100%);
+}
+
+/* gradient-hero — was rose-500 via purple-500 to indigo-500. Now uses the
+ * Soleil warm gradient (corailSoft -> pinkSoft -> amberSoft) so heroes
+ * stay sunny without the cold blue/purple from the previous direction. */
+.gradient-hero {
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--pink-soft) 50%, var(--amber-soft) 100%);
+}
+
+/* gradient-referrer — was rose -> purple. Now stays in the Soleil family
+ * (corailSoft -> pinkSoft) — referrer is still a special role but the
+ * accent stays warm. */
+.gradient-referrer {
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--pink-soft) 100%);
+  color: var(--primary-deep);
+}
+
+/* shadow-glow — was a heavy rose glow. Soleil is calm: subtle corail tint
+ * shadow that still feels "alive" on hover but doesn't shout. */
+.shadow-glow {
+  box-shadow: 0 4px 20px rgba(232, 93, 74, 0.12);
+}
+
+.shadow-glow-lg {
+  box-shadow: 0 8px 28px rgba(232, 93, 74, 0.18);
+}
+
+/* animate-glow — was an aggressive box-shadow pulse. Now a soft tint pulse
+ * that keeps a CTA "breathing" without yelling at the user. */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 93, 74, 0); }
+  50% { box-shadow: 0 0 24px rgba(232, 93, 74, 0.25); }
+}
+
+.animate-glow {
+  animation: glow 2.4s ease-in-out infinite;
+}
+
+/* animate-float — homepage decorative blobs. Kept identical movement. */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-delayed { animation: float 8s ease-in-out 2s infinite; }
+.animate-float-slow { animation: float 10s ease-in-out 4s infinite; }
+
+/* ============================================
+ * Reduced motion — accessibility
+ * ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer,
   .animate-slide-up,
   .animate-scale-in,
   .animate-slide-in-right,
-  .animate-glow,
-  .animate-float,
-  .animate-float-delayed,
-  .animate-float-slow,
   .animate-slide-up-delay-1,
   .animate-slide-up-delay-2,
   .animate-slide-up-delay-3,
   .animate-slide-up-delay-4,
-  .animate-slide-up-delay-5 {
+  .animate-slide-up-delay-5,
+  .animate-glow,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-float-slow {
     animation: none;
     opacity: 1;
   }
