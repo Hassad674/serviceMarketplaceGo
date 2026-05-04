@@ -338,7 +338,7 @@ func replayCachedResponse(w http.ResponseWriter, cached *IdempotentResponse) {
 	}
 	w.WriteHeader(status)
 	if len(cached.Body) > 0 {
-		_, _ = w.Write(cached.Body)
+		_, _ = w.Write(cached.Body) // #nosec G705 -- replay buffer is the server's own previously-emitted response body, not user-controlled HTML
 	}
 }
 
