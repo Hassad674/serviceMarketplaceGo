@@ -78,6 +78,18 @@ class _Body extends StatelessWidget {
     final name = displayName.isNotEmpty ? displayName : 'Freelancer';
     final radius = profile.travelRadiusKm;
 
+    // Soleil v2 W-16 v3 (BATCH-PROFIL-FIX items #3 + #6) — public
+    // profile section order mirrors the web:
+    //   1. Header (Portrait + meta row)
+    //   2. About
+    //   3. Expertise
+    //   4. Pricing
+    //   5. Location
+    //   6. Languages
+    //   7. Social links
+    //   8. Portfolio
+    //   9. Video
+    //  10. Project history (LAST — item #6)
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -90,6 +102,33 @@ class _Body extends StatelessWidget {
             availabilityWireValue: profile.availabilityStatus,
           ),
           const SizedBox(height: 20),
+          if (profile.about.isNotEmpty) ...[
+            ProfileDisplayCardShell(
+              title: l10n.about,
+              icon: Icons.info_outline,
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  profile.about,
+                  softWrap: true,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (profile.expertiseDomains.isNotEmpty) ...[
+            ExpertiseDisplayWidget(domains: profile.expertiseDomains),
+            const SizedBox(height: 16),
+          ],
+          PricingDisplayCard(
+            title: l10n.tier1PricingDirectSectionTitle,
+            amountLabel: _pricingLabel(profile.pricing, locale),
+            note: profile.pricing?.note ?? '',
+            negotiable: profile.pricing?.negotiable ?? false,
+            negotiableBadgeLabel: l10n.tier1PricingNegotiableBadge,
+          ),
+          _SpacerIfVisible(visible: profile.pricing != null),
           LocationDisplayCard(
             title: l10n.tier1LocationSectionTitle,
             city: profile.city,
@@ -113,14 +152,14 @@ class _Body extends StatelessWidget {
             locale: locale,
           ),
           _SpacerIfVisible(visible: _languagesVisible(profile)),
-          PricingDisplayCard(
-            title: l10n.tier1PricingDirectSectionTitle,
-            amountLabel: _pricingLabel(profile.pricing, locale),
-            note: profile.pricing?.note ?? '',
-            negotiable: profile.pricing?.negotiable ?? false,
-            negotiableBadgeLabel: l10n.tier1PricingNegotiableBadge,
-          ),
-          _SpacerIfVisible(visible: profile.pricing != null),
+          if (profile.organizationId.isNotEmpty) ...[
+            PublicFreelanceSocialLinksWidget(
+              organizationId: profile.organizationId,
+            ),
+            const SizedBox(height: 16),
+            PortfolioGridWidget(orgId: profile.organizationId),
+            const SizedBox(height: 16),
+          ],
           if (profile.videoUrl.isNotEmpty) ...[
             ProfileDisplayCardShell(
               title: l10n.presentationVideo,
@@ -129,34 +168,8 @@ class _Body extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          if (profile.about.isNotEmpty) ...[
-            ProfileDisplayCardShell(
-              title: l10n.about,
-              icon: Icons.info_outline,
-              child: SizedBox(
-                width: double.infinity,
-                child: Text(
-                  profile.about,
-                  softWrap: true,
-                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (profile.expertiseDomains.isNotEmpty) ...[
-            ExpertiseDisplayWidget(domains: profile.expertiseDomains),
-            const SizedBox(height: 16),
-          ],
-          if (profile.organizationId.isNotEmpty) ...[
-            PortfolioGridWidget(orgId: profile.organizationId),
-            const SizedBox(height: 16),
+          if (profile.organizationId.isNotEmpty)
             ProjectHistoryWidget(orgId: profile.organizationId),
-            const SizedBox(height: 16),
-            PublicFreelanceSocialLinksWidget(
-              organizationId: profile.organizationId,
-            ),
-          ],
         ],
       ),
     );

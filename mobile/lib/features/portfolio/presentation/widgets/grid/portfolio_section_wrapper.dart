@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/theme/app_palette.dart';
+
+import '../../../../../core/theme/app_theme.dart';
 
 /// Outer wrapper for the portfolio grid — header (title + count + add
 /// CTA) with a child block.
+///
+/// Soleil v2 (BATCH-PROFIL-FIX item #5): icon plate + button retuned
+/// to corailSoft/corail tokens; the legacy rose-100/red-50 gradient
+/// and the rose-600 saturated CTA are gone. The card chrome reuses
+/// the same ivoire-surface + outline-border vocabulary as every other
+/// Atelier section card.
 class PortfolioSectionWrapper extends StatelessWidget {
   const PortfolioSectionWrapper({
     super.key,
@@ -18,13 +25,14 @@ class PortfolioSectionWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: theme.colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,15 +43,14 @@ class PortfolioSectionWrapper extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  gradient: const LinearGradient(
-                    colors: [AppPalette.rose100, AppPalette.red50],
-                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  color:
+                      colors?.accentSoft ?? theme.colorScheme.primaryContainer,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.work_outline,
                   size: 18,
-                  color: AppPalette.rose600,
+                  color: theme.colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -53,15 +60,13 @@ class PortfolioSectionWrapper extends StatelessWidget {
                   children: [
                     Text(
                       'Portfolio',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
                     Text(
                       count == 0
                           ? 'Showcase your best work'
                           : '$count ${count > 1 ? 'projects' : 'project'}',
-                      style: theme.textTheme.labelSmall?.copyWith(
+                      style: SoleilTextStyles.caption.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -74,8 +79,8 @@ class PortfolioSectionWrapper extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppPalette.rose600,
-                    foregroundColor: Colors.white,
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 8,

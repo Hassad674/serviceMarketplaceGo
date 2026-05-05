@@ -18,6 +18,7 @@ import '../../../project_history/presentation/widgets/project_history_widget.dar
 import '../../../skill/presentation/widgets/skills_section_widget.dart';
 import '../../domain/entities/freelance_profile.dart';
 import '../providers/freelance_profile_providers.dart';
+import '../widgets/freelance_availability_section_widget.dart';
 import '../widgets/freelance_dark_mode_toggle.dart';
 import '../widgets/freelance_edit_sheets.dart';
 import '../widgets/freelance_logout_button.dart';
@@ -98,11 +99,30 @@ class _FreelanceProfileBody extends ConsumerWidget {
     // shrinks from 16 → 12 lp so the screen scrolls less.
     const sectionGap = SizedBox(height: 12);
 
+    // Soleil v2 W-16 v3 (BATCH-PROFIL-FIX items #3 + #4 + #6) —
+    // mobile section order mirrors the web responsive layout:
+    //   1. Header (Portrait + meta row)
+    //   2. About (existing GestureDetector card)
+    //   3. Title (mobile-only legacy card kept for parity with the
+    //      separate edit sheet — sits next to About)
+    //   4. Expertise
+    //   5. Skills
+    //   6. Pricing
+    //   7. Availability (NEW — item #4)
+    //   8. Location
+    //   9. Languages
+    //  10. Social links
+    //  11. Portfolio
+    //  12. Video
+    //  13. Project history (LAST — item #6)
+    //  14. Dark mode toggle + logout (settings cluster, sits after
+    //      every profile-content section so the page reads top-down
+    //      as identity → editing → housekeeping).
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Header with shared photo + Soleil meta row
+          // 1. Header with shared photo + Soleil meta row
           SharedPhotoUploadWidget(
             canEdit: canEdit,
             child: FreelanceProfileHeader(
@@ -121,87 +141,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
           ),
           sectionGap,
 
-          // Expertise + Skills — reuse existing feature widgets
-          ExpertiseSectionWidget(
-            orgType: 'provider_personal',
-            initialDomains: profile.expertiseDomains,
-            canEdit: canEdit,
-            onSaved: () => ref.invalidate(freelanceProfileProvider),
-          ),
-          sectionGap,
-          SkillsSectionWidget(
-            orgType: 'provider_personal',
-            expertiseKeys: profile.expertiseDomains,
-            canEdit: canEdit,
-            onSaved: () => ref.invalidate(freelanceProfileProvider),
-          ),
-          sectionGap,
-
-          // Pricing (freelance variants only)
-          FreelancePricingSectionWidget(canEdit: canEdit),
-          sectionGap,
-
-          // Social links (freelance persona — independent from the
-          // referrer set on /referral).
-          FreelanceSocialLinksSectionWidget(canEdit: canEdit),
-          sectionGap,
-
-          // Shared org fields rendered only on the freelance edit screen
-          sharedAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (shared) => Column(
-              children: [
-                SharedLocationSectionWidget(
-                  initial: shared,
-                  canEdit: canEdit,
-                  onSaved: () {
-                    ref.invalidate(organizationSharedProvider);
-                    ref.invalidate(freelanceProfileProvider);
-                  },
-                ),
-                sectionGap,
-                SharedLanguagesSectionWidget(
-                  initial: shared,
-                  canEdit: canEdit,
-                  onSaved: () {
-                    ref.invalidate(organizationSharedProvider);
-                    ref.invalidate(freelanceProfileProvider);
-                  },
-                ),
-                sectionGap,
-              ],
-            ),
-          ),
-
-          // Title section
-          FreelanceSectionCard(
-            title: l10n.professionalTitle,
-            icon: Icons.badge_outlined,
-            trailing: canEdit
-                ? IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    onPressed: () => showFreelanceTitleSheet(
-                      context: context,
-                      ref: ref,
-                      profile: profile,
-                    ),
-                  )
-                : null,
-            child: Text(
-              profile.title.isNotEmpty
-                  ? profile.title
-                  : l10n.titlePlaceholder,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontStyle: profile.title.isEmpty
-                    ? FontStyle.italic
-                    : FontStyle.normal,
-              ),
-            ),
-          ),
-          sectionGap,
-
-          // About section
+          // 2. About section
           GestureDetector(
             onTap: canEdit
                 ? () => showFreelanceAboutSheet(
@@ -232,7 +172,103 @@ class _FreelanceProfileBody extends ConsumerWidget {
           ),
           sectionGap,
 
-          // Video section
+          // 3. Title section
+          FreelanceSectionCard(
+            title: l10n.professionalTitle,
+            icon: Icons.badge_outlined,
+            trailing: canEdit
+                ? IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    onPressed: () => showFreelanceTitleSheet(
+                      context: context,
+                      ref: ref,
+                      profile: profile,
+                    ),
+                  )
+                : null,
+            child: Text(
+              profile.title.isNotEmpty
+                  ? profile.title
+                  : l10n.titlePlaceholder,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontStyle: profile.title.isEmpty
+                    ? FontStyle.italic
+                    : FontStyle.normal,
+              ),
+            ),
+          ),
+          sectionGap,
+
+          // 4. Expertise + 5. Skills
+          ExpertiseSectionWidget(
+            orgType: 'provider_personal',
+            initialDomains: profile.expertiseDomains,
+            canEdit: canEdit,
+            onSaved: () => ref.invalidate(freelanceProfileProvider),
+          ),
+          sectionGap,
+          SkillsSectionWidget(
+            orgType: 'provider_personal',
+            expertiseKeys: profile.expertiseDomains,
+            canEdit: canEdit,
+            onSaved: () => ref.invalidate(freelanceProfileProvider),
+          ),
+          sectionGap,
+
+          // 6. Pricing (freelance variants only)
+          FreelancePricingSectionWidget(canEdit: canEdit),
+          sectionGap,
+
+          // 7. Availability (item #4 — new dedicated edit card on
+          // mobile, mirrors the web `AvailabilityEditorCard`).
+          FreelanceAvailabilitySectionWidget(
+            initialWireValue: profile.availabilityStatus,
+            canEdit: canEdit,
+            onSaved: () => ref.invalidate(freelanceProfileProvider),
+          ),
+          sectionGap,
+
+          // 8. Location + 9. Languages — shared org fields
+          sharedAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (shared) => Column(
+              children: [
+                SharedLocationSectionWidget(
+                  initial: shared,
+                  canEdit: canEdit,
+                  onSaved: () {
+                    ref.invalidate(organizationSharedProvider);
+                    ref.invalidate(freelanceProfileProvider);
+                  },
+                ),
+                sectionGap,
+                SharedLanguagesSectionWidget(
+                  initial: shared,
+                  canEdit: canEdit,
+                  onSaved: () {
+                    ref.invalidate(organizationSharedProvider);
+                    ref.invalidate(freelanceProfileProvider);
+                  },
+                ),
+                sectionGap,
+              ],
+            ),
+          ),
+
+          // 10. Social links (freelance persona — independent from
+          // the referrer set on /referral).
+          FreelanceSocialLinksSectionWidget(canEdit: canEdit),
+          sectionGap,
+
+          // 11. Portfolio + 12. Video + 13. Project history (LAST)
+          if (profile.organizationId.isNotEmpty) ...[
+            PortfolioGridWidget(
+              orgId: profile.organizationId,
+              readOnly: false,
+            ),
+            sectionGap,
+          ],
           FreelanceVideoCard(
             videoUrl: profile.videoUrl,
             canEdit: canEdit,
@@ -240,19 +276,12 @@ class _FreelanceProfileBody extends ConsumerWidget {
             onDelete: () => _confirmDeleteVideo(context, ref),
           ),
           sectionGap,
-
-          // Portfolio
           if (profile.organizationId.isNotEmpty) ...[
-            PortfolioGridWidget(
-              orgId: profile.organizationId,
-              readOnly: false,
-            ),
-            sectionGap,
             ProjectHistoryWidget(orgId: profile.organizationId),
             sectionGap,
           ],
 
-          // Dark mode toggle + logout
+          // 14. Dark mode toggle + logout (settings cluster)
           const FreelanceDarkModeToggle(),
           const SizedBox(height: 24),
           FreelanceLogoutButton(
