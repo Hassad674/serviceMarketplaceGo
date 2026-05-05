@@ -1152,7 +1152,15 @@
     "weeksAgo": "{count}w ago",
     "emptyTitle": "You haven't published anything yet.",
     "emptyBody": "Publish your first job to start receiving applications from freelancers and agencies.",
-    "emptyCta": "Publish your first job"
+    "emptyCta": "Publish your first job",
+    "createJob_w09_eyebrow": "ATELIER · NEW JOB",
+    "createJob_w09_titlePrefix": "Post your",
+    "createJob_w09_titleAccent": "new job.",
+    "createJob_w09_subtitle": "Describe the mission, the budget and the profile you're looking for. The more precise, the more relevant the applications.",
+    "createJob_w09_backToJobs": "All my jobs",
+    "createJob_w09_sectionDetails": "Job details",
+    "createJob_w09_sectionBudget": "Budget & duration",
+    "createJob_w09_publishCta": "Publish job"
   },
   "publicListing": {
     "agencies": {

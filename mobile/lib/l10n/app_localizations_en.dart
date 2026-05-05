@@ -3262,4 +3262,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountDeleteAccountAction => 'Delete my account';
+
+  @override
+  String get createJob_m09_title => 'New job';
+
+  @override
+  String get createJob_m09_titleEdit => 'Edit job';
+
+  @override
+  String get createJob_m09_eyebrow => 'ATELIER · NEW JOB';
+
+  @override
+  String get createJob_m09_heroPrefix => 'Post your';
+
+  @override
+  String get createJob_m09_heroAccent => 'new job.';
+
+  @override
+  String get createJob_m09_subtitle =>
+      'Describe the mission. The more precise, the more relevant the applications.';
+
+  @override
+  String get createJob_m09_publishCta => 'Publish job';
 }

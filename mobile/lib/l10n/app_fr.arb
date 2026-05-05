@@ -1308,5 +1308,12 @@
   "accountComingSoon": "Bientôt disponible",
   "accountManageDeletion": "Gérer la suppression du compte",
   "accountCancelDeletionAction": "Annuler la suppression",
-  "accountDeleteAccountAction": "Supprimer mon compte"
+  "accountDeleteAccountAction": "Supprimer mon compte",
+  "createJob_m09_title": "Nouvelle annonce",
+  "createJob_m09_titleEdit": "Modifier l'annonce",
+  "createJob_m09_eyebrow": "ATELIER · NOUVELLE ANNONCE",
+  "createJob_m09_heroPrefix": "Publie ta",
+  "createJob_m09_heroAccent": "nouvelle annonce.",
+  "createJob_m09_subtitle": "Décris la mission. Plus c'est précis, plus les candidatures sont pertinentes.",
+  "createJob_m09_publishCta": "Publier l'annonce"
 }

@@ -1152,7 +1152,15 @@
     "weeksAgo": "il y a {count} sem",
     "emptyTitle": "Tu n'as encore rien publié.",
     "emptyBody": "Publie ta première annonce pour commencer à recevoir des candidatures de freelances et d'agences.",
-    "emptyCta": "Publier ta première annonce"
+    "emptyCta": "Publier ta première annonce",
+    "createJob_w09_eyebrow": "ATELIER · NOUVELLE ANNONCE",
+    "createJob_w09_titlePrefix": "Publie ta",
+    "createJob_w09_titleAccent": "nouvelle annonce.",
+    "createJob_w09_subtitle": "Décris la mission, le budget et le profil que tu cherches. Plus c'est précis, plus les candidatures sont pertinentes.",
+    "createJob_w09_backToJobs": "Toutes mes annonces",
+    "createJob_w09_sectionDetails": "Détails de l'annonce",
+    "createJob_w09_sectionBudget": "Budget & durée",
+    "createJob_w09_publishCta": "Publier l'annonce"
   },
   "publicListing": {
     "agencies": {
