@@ -48,6 +48,11 @@ class FeeMilestoneLine {
 /// widget collapses to `SizedBox.shrink()`. Callers do not need to check
 /// the role themselves; passing a [recipientId] lets the backend
 /// disambiguate agency pairings.
+///
+/// Soleil v2 styling: ivoire surface card with Soleil radius 2xl,
+/// Fraunces title, corail-soft icon disc, Geist (mono) numerals,
+/// corail-tinted active tier highlight. Colors come from the theme
+/// extension `AppColors` — no `Color(0xFF...)` literals.
 class FeePreviewWidget extends ConsumerWidget {
   const FeePreviewWidget({
     super.key,
@@ -90,7 +95,8 @@ class FeePreviewWidget extends ConsumerWidget {
   }
 }
 
-/// Shared chrome around every variant: subtle card with title.
+/// Shared chrome around every variant: ivoire card with corail-soft
+/// icon disc + Fraunces title.
 class _FeePreviewCard extends StatelessWidget {
   const _FeePreviewCard({required this.child});
 
@@ -100,12 +106,13 @@ class _FeePreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final iconBg = appColors?.accentSoft ?? theme.colorScheme.primary.withValues(alpha: 0.12);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         border: Border.all(
           color: appColors?.border ?? theme.dividerColor,
         ),
@@ -114,20 +121,46 @@ class _FeePreviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                size: 18,
-                color: theme.colorScheme.primary,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  size: 18,
+                  color: appColors?.primaryDeep ?? theme.colorScheme.primary,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Platform fees',
-                style: theme.textTheme.titleMedium,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Platform fees',
+                      style: SoleilTextStyles.titleMedium.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Flat fee per milestone',
+                      style: SoleilTextStyles.caption.copyWith(
+                        color: appColors?.mutedForeground ?? theme.hintColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -177,26 +210,33 @@ class _SingleAmountData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
           text: TextSpan(
-            style: theme.textTheme.bodyMedium,
+            style: SoleilTextStyles.body.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
             children: [
               const TextSpan(text: 'You earn '),
               TextSpan(
                 text: _formatCents(preview.netCents),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: SoleilTextStyles.monoLarge.copyWith(
+                  color: appColors?.primaryDeep ?? theme.colorScheme.primary,
+                ),
               ),
               TextSpan(
                 text: '  (Platform fees: ${_formatCents(preview.feeCents)})',
-                style: theme.textTheme.bodySmall,
+                style: SoleilTextStyles.caption.copyWith(
+                  color: appColors?.mutedForeground ?? theme.hintColor,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _FeeGrid(
           tiers: preview.tiers,
           activeIndex: preview.activeTierIndex,
@@ -222,6 +262,7 @@ class _MilestonesView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     // Aggregate state: if any preview is loading/error, reflect that at
     // the top-level widget while still showing the partial breakdown.
     final previews = <int, AsyncValue<FeePreview>>{
@@ -270,18 +311,27 @@ class _MilestonesView extends ConsumerWidget {
         children: [
           for (final m in milestones)
             _MilestoneRow(line: m, state: previews[m.amountCents]),
-          const SizedBox(height: 8),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            color: appColors?.border ?? theme.dividerColor,
+          ),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total', style: theme.textTheme.titleSmall),
+              Text(
+                'Total',
+                style: SoleilTextStyles.titleMedium.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
               Text(
                 '${_formatCents(totalNet)}'
                 '  (Fees: ${_formatCents(totalFees)} / ${_formatCents(totalGross)})',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: SoleilTextStyles.monoLarge.copyWith(
+                  color: appColors?.primaryDeep ?? theme.colorScheme.primary,
+                ),
               ),
             ],
           ),
@@ -300,7 +350,7 @@ class _MilestonesView extends ConsumerWidget {
               },
             ),
           ] else if (latestTiers != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _FeeGrid(tiers: latestTiers!, activeIndex: latestActive ?? -1),
           ],
         ],
@@ -336,14 +386,14 @@ class _MilestoneRow extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             child: Text(
               line.label.isNotEmpty ? line.label : 'Milestone',
-              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+              style: SoleilTextStyles.body.copyWith(color: muted),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -351,7 +401,10 @@ class _MilestoneRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             trailing,
-            style: theme.textTheme.bodyMedium,
+            style: SoleilTextStyles.mono.copyWith(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ],
       ),
@@ -359,8 +412,8 @@ class _MilestoneRow extends StatelessWidget {
   }
 }
 
-/// Renders the 3-tier grid. The active tier is highlighted with a tinted
-/// primary background (rose-50 in light mode) and a stronger border.
+/// Renders the 3-tier grid. The active tier is highlighted with a
+/// corail-soft background and a corail-tinted left bar.
 class _FeeGrid extends StatelessWidget {
   const _FeeGrid({required this.tiers, required this.activeIndex});
 
@@ -372,22 +425,32 @@ class _FeeGrid extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
 
-    return Column(
-      children: [
-        for (var i = 0; i < tiers.length; i++)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
-            child: _FeeGridRow(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < tiers.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                color: appColors?.border ?? theme.dividerColor,
+              ),
+            _FeeGridRow(
               tier: tiers[i],
               active: i == activeIndex,
-              activeBg: theme.colorScheme.primary.withValues(alpha: 0.08),
-              activeBorder: theme.colorScheme.primary,
-              idleBg: appColors?.muted ?? theme.dividerColor,
-              idleBorder:
-                  appColors?.border ?? theme.dividerColor,
+              activeBg: appColors?.accentSoft ??
+                  theme.colorScheme.primary.withValues(alpha: 0.08),
+              activeAccent: appColors?.primaryDeep ?? theme.colorScheme.primary,
             ),
-          ),
-      ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -397,29 +460,27 @@ class _FeeGridRow extends StatelessWidget {
     required this.tier,
     required this.active,
     required this.activeBg,
-    required this.activeBorder,
-    required this.idleBg,
-    required this.idleBorder,
+    required this.activeAccent,
   });
 
   final FeeTier tier;
   final bool active;
   final Color activeBg;
-  final Color activeBorder;
-  final Color idleBg;
-  final Color idleBorder;
+  final Color activeAccent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: active ? activeBg : idleBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(
-          color: active ? activeBorder : idleBorder,
-          width: active ? 1.5 : 1,
+        color: active ? activeBg : null,
+        border: Border(
+          left: BorderSide(
+            color: active ? activeAccent : Colors.transparent,
+            width: 4,
+          ),
         ),
       ),
       child: Row(
@@ -428,17 +489,23 @@ class _FeeGridRow extends StatelessWidget {
           Expanded(
             child: Text(
               tier.label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              style: SoleilTextStyles.body.copyWith(
+                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                color: active
+                    ? activeAccent
+                    : theme.colorScheme.onSurface,
               ),
             ),
           ),
           const SizedBox(width: 8),
           Text(
             _formatCents(tier.feeCents),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-              fontFamily: 'monospace',
+            style: SoleilTextStyles.monoLarge.copyWith(
+              fontSize: 14,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color: active
+                  ? activeAccent
+                  : (appColors?.mutedForeground ?? theme.hintColor),
             ),
           ),
         ],
@@ -447,7 +514,7 @@ class _FeeGridRow extends StatelessWidget {
   }
 }
 
-/// Shimmer-style skeleton while the preview is loading.
+/// Skeleton placeholder while the preview is loading.
 class _FeePreviewSkeleton extends StatelessWidget {
   const _FeePreviewSkeleton();
 
@@ -457,18 +524,18 @@ class _FeePreviewSkeleton extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final bar = BoxDecoration(
       color: appColors?.muted ?? theme.dividerColor,
-      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(height: 16, width: 180, decoration: bar),
+        Container(height: 16, width: 200, decoration: bar),
         const SizedBox(height: 12),
-        Container(height: 36, decoration: bar),
-        const SizedBox(height: 6),
-        Container(height: 36, decoration: bar),
-        const SizedBox(height: 6),
-        Container(height: 36, decoration: bar),
+        Container(height: 40, decoration: bar),
+        const SizedBox(height: 8),
+        Container(height: 40, decoration: bar),
+        const SizedBox(height: 8),
+        Container(height: 40, decoration: bar),
       ],
     );
   }
@@ -484,10 +551,10 @@ class _FeePreviewError extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
           color: theme.colorScheme.error.withValues(alpha: 0.4),
         ),
@@ -503,7 +570,9 @@ class _FeePreviewError extends StatelessWidget {
           Expanded(
             child: Text(
               'Could not load the platform fee. Tap to retry.',
-              style: theme.textTheme.bodySmall,
+              style: SoleilTextStyles.caption.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ),
           TextButton(

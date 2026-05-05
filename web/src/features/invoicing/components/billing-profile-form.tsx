@@ -40,10 +40,13 @@ import { Button } from "@/shared/components/ui/button"
  * context so the component tree stays composable.
  *
  * Variants:
- *   - "page" (default): standalone /settings/billing-profile page
+ *   - "page" (default): standalone /settings/billing-profile page,
+ *     with editorial Soleil header (corail mono eyebrow + Fraunces
+ *     italic accent + tabac subtitle).
  *   - "compact": embedded inside the upgrade modal, slightly tighter
- *     spacing, hides the "synced from Stripe" indicator since the
- *     sync runs automatically on mount in that context.
+ *     spacing, hides the editorial header + the "synced from Stripe"
+ *     indicator since the sync runs automatically on mount in that
+ *     context.
  *
  * onSaved fires once after a successful update mutation lands AND the
  * resulting profile passes CheckCompleteness. The upgrade modal uses
@@ -94,7 +97,7 @@ export function BillingProfileForm({
   if (isLoading) return <FormSkeleton />
   if (isError || !data) {
     return (
-      <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+      <p className="rounded-2xl border border-border bg-surface p-6 text-sm text-muted-foreground">
         Impossible de charger le profil de facturation. Réessaie dans un
         instant.
       </p>
@@ -111,6 +114,8 @@ export function BillingProfileForm({
         onSubmit={form.handleSubmit(handleSubmit)}
         className={cn(isCompact ? "space-y-4" : "space-y-6")}
       >
+        {!isCompact && <BillingProfileEditorialHeader />}
+
         {!data.is_complete && data.missing_fields.length > 0 && (
           <MissingFieldsBanner fields={data.missing_fields} />
         )}
@@ -125,9 +130,8 @@ export function BillingProfileForm({
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
             className={cn(
-              "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
-              "hover:bg-slate-50 disabled:opacity-50",
-              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+              "inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-1.5 text-xs font-semibold text-foreground transition-colors",
+              "hover:bg-primary-soft/40 disabled:opacity-50",
             )}
           >
             {syncMutation.isPending ? (
@@ -153,14 +157,14 @@ export function BillingProfileForm({
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           {updateMutation.isError && (
-            <span className="text-sm text-red-600 dark:text-red-400">
+            <span className="text-sm text-destructive">
               {updateMutation.error instanceof ApiError
                 ? updateMutation.error.message
                 : "L'enregistrement a échoué. Réessaie."}
             </span>
           )}
           {updateMutation.isSuccess && !updateMutation.isPending && (
-            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            <span className="text-sm text-success">
               Profil enregistré.
             </span>
           )}
@@ -168,10 +172,11 @@ export function BillingProfileForm({
             type="submit"
             disabled={updateMutation.isPending}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5",
-              "text-sm font-semibold text-white",
-              "gradient-primary hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+              "inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5",
+              "text-sm font-bold text-primary-foreground",
+              "transition-all duration-200 ease-out",
+              "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+              "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
             )}
           >
             {updateMutation.isPending && (
@@ -185,6 +190,30 @@ export function BillingProfileForm({
   )
 }
 
+// Editorial Soleil v2 header — corail mono eyebrow + Fraunces italic
+// accent + tabac subtitle. Strings are hardcoded here on purpose:
+// the existing test file does not wrap the form in a
+// `NextIntlClientProvider`, so calling `useTranslations` would crash
+// every test in `billing-profile-form.test.tsx` (off-limits).
+function BillingProfileEditorialHeader() {
+  return (
+    <header>
+      <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+        ATELIER · PROFIL DE FACTURATION
+      </p>
+      <h1 className="font-serif text-[26px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[32px]">
+        Renseigne ton{" "}
+        <span className="italic text-primary">profil de facturation.</span>
+      </h1>
+      <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-muted-foreground">
+        Ces informations apparaissent sur les factures que la plateforme émet
+        à ton organisation. Elles doivent être complètes pour pouvoir retirer
+        ton solde et souscrire à un abonnement Premium.
+      </p>
+    </header>
+  )
+}
+
 function MissingFieldsBanner({
   fields,
 }: {
@@ -192,11 +221,11 @@ function MissingFieldsBanner({
 }) {
   const labels = fields.map((f) => describeMissing(f))
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+    <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-amber-soft p-4 text-sm text-foreground">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
       <div>
         <p className="font-medium">Quelques informations restent à compléter</p>
-        <ul className="mt-1 list-disc pl-4 text-xs">
+        <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
           {labels.map((label) => (
             <li key={label}>{label}</li>
           ))}
@@ -209,14 +238,14 @@ function MissingFieldsBanner({
 function SyncedFromStripeIndicator({ at }: { at: string | null }) {
   if (!at) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-muted-foreground">
         Profil non synchronisé depuis Stripe
       </p>
     )
   }
   return (
-    <p className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+    <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden="true" />
       Synchronisé depuis Stripe le {formatDate(at)}
     </p>
   )
@@ -226,7 +255,7 @@ function FormError({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+      className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
     >
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <span>{message}</span>
@@ -237,9 +266,9 @@ function FormError({ message }: { message: string }) {
 function FormSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="h-12 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-800" />
-      <div className="h-48 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-800" />
-      <div className="h-64 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-800" />
+      <div className="h-12 animate-shimmer rounded-2xl bg-border" />
+      <div className="h-48 animate-shimmer rounded-2xl bg-border" />
+      <div className="h-64 animate-shimmer rounded-2xl bg-border" />
     </div>
   )
 }

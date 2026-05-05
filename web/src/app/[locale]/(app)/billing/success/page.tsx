@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { CheckCircle2, Loader2 } from "lucide-react"
+import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { getMySubscription } from "@/features/subscription/api/subscription-api"
 import { subscriptionQueryKey } from "@/features/subscription/hooks/keys"
@@ -27,6 +28,12 @@ import { subscriptionQueryKey } from "@/features/subscription/hooks/keys"
  * poll, then flips to the green confirmation once the subscription
  * lands. The CTA is disabled while pending so the user never reaches
  * the dashboard with a stale free-tier state.
+ *
+ * Soleil v2 styling: ivoire surface hero card with rounded-2xl,
+ * corail-soft icon disc on success / amber-soft on timeout, Fraunces
+ * title with italic corail accent, corail rounded-full back-to-dashboard
+ * CTA. All user-visible strings flow through the `billingProfile.*` i18n
+ * namespace.
  */
 export default function BillingSuccessPage() {
 	const queryClient = useQueryClient()
@@ -70,16 +77,7 @@ export default function BillingSuccessPage() {
 
 	return (
 		<div className="flex min-h-[60vh] items-center justify-center p-6">
-			<div
-				className={cn(
-					"w-full max-w-md rounded-2xl border p-8 text-center shadow-sm",
-					status === "pending"
-						? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/40"
-						: status === "ready"
-							? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-slate-900/40"
-							: "border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10",
-				)}
-			>
+			<div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 text-center">
 				{status === "pending" ? <PendingContent /> : null}
 				{status === "ready" ? <ReadyContent /> : null}
 				{status === "timeout" ? <TimeoutContent /> : null}
@@ -89,79 +87,97 @@ export default function BillingSuccessPage() {
 }
 
 function PendingContent() {
+	const t = useTranslations("billingProfile")
 	return (
 		<>
-			<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+			<p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+				{t("billingProfile_w20_successPendingEyebrow")}
+			</p>
+			<div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
 				<Loader2
-					className="h-7 w-7 animate-spin text-slate-500 dark:text-slate-300"
+					className="h-7 w-7 animate-spin text-primary-deep"
 					aria-hidden="true"
 				/>
 			</div>
-			<h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
-				Activation en cours…
+			<h1 className="mt-5 font-serif text-[26px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+				{t("billingProfile_w20_successPendingTitle")}
 			</h1>
-			<p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-				Paiement confirmé. Nous finalisons ton abonnement Premium — ça prend
-				quelques secondes.
+			<p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+				{t("billingProfile_w20_successPendingBody")}
 			</p>
 		</>
 	)
 }
 
 function ReadyContent() {
+	const t = useTranslations("billingProfile")
 	return (
 		<>
-			<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
-				<CheckCircle2 className="h-7 w-7 text-white" aria-hidden="true" />
+			<p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+				{t("billingProfile_w20_successReadyEyebrow")}
+			</p>
+			<div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
+				<CheckCircle2 className="h-8 w-8 text-primary-deep" aria-hidden="true" />
 			</div>
-			<h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
-				Premium activé
+			<h1 className="mt-5 font-serif text-[26px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+				{t("billingProfile_w20_successReadyTitlePrefix")}{" "}
+				<span className="italic text-primary">
+					{t("billingProfile_w20_successReadyTitleAccent")}
+				</span>
 			</h1>
-			<p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-				Tes prochaines missions ne seront plus soumises aux frais de plateforme.
+			<p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+				{t("billingProfile_w20_successReadyBody")}
 			</p>
 			<Link
 				href="/dashboard"
 				className={cn(
-					"mt-6 inline-flex w-full items-center justify-center rounded-full",
-					"bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 text-sm font-semibold text-white",
-					"transition-all duration-200 hover:shadow-glow active:scale-[0.98]",
-					"focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+					"mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full",
+					"bg-primary px-5 py-3 text-sm font-bold text-primary-foreground",
+					"transition-all duration-200 ease-out",
+					"hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+					"active:scale-[0.98]",
+					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 				)}
 			>
-				Retour au tableau de bord
+				{t("billingProfile_w20_backToDashboardCta")}
+				<ArrowRight className="h-4 w-4" aria-hidden="true" />
 			</Link>
 		</>
 	)
 }
 
 function TimeoutContent() {
+	const t = useTranslations("billingProfile")
 	return (
 		<>
-			<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20">
+			<p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+				{t("billingProfile_w20_successTimeoutEyebrow")}
+			</p>
+			<div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-soft">
 				<CheckCircle2
-					className="h-7 w-7 text-amber-600 dark:text-amber-400"
+					className="h-7 w-7 text-warning"
 					aria-hidden="true"
 				/>
 			</div>
-			<h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
-				Paiement confirmé
+			<h1 className="mt-5 font-serif text-[26px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+				{t("billingProfile_w20_successTimeoutTitlePrefix")}{" "}
+				<span className="italic text-primary">
+					{t("billingProfile_w20_successTimeoutTitleAccent")}
+				</span>
 			</h1>
-			<p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-				Ton paiement est bien passé. L&apos;activation Premium prend parfois un peu
-				plus de temps — rafraîchis le tableau de bord dans une minute.
+			<p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+				{t("billingProfile_w20_successTimeoutBody")}
 			</p>
 			<Link
 				href="/dashboard"
 				className={cn(
-					"mt-6 inline-flex w-full items-center justify-center rounded-full",
-					"border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700",
-					"transition-colors duration-200 hover:bg-slate-50",
-					"dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
-					"focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+					"mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full",
+					"border border-border-strong bg-surface px-5 py-3 text-sm font-semibold text-foreground",
+					"transition-colors duration-200 hover:bg-primary-soft/30",
+					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 				)}
 			>
-				Retour au tableau de bord
+				{t("billingProfile_w20_backToDashboardCta")}
 			</Link>
 		</>
 	)
