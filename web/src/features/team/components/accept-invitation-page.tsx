@@ -6,29 +6,12 @@ import { useTranslations } from "next-intl"
 import { ApiError } from "@/shared/lib/api-client"
 import { useInvitationPreview, useAcceptInvitation } from "../hooks/use-team"
 
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-// Public landing page reached from the invitation email link.
-//
-// Flow:
-//   1. Extract {token} from the URL.
-//   2. Fetch GET /invitations/validate?token=X to preview who's
-//      inviting, to which org, and as what role. Also lets the
-//      invitee see a 404-ish error early if the link expired or
-//      was cancelled.
-//   3. Show a password form (with confirmation) — the invitee has
-//      no account yet, they're creating one right now.
-//   4. On submit, POST /invitations/accept with { token, password }.
-//      Backend creates the operator user + membership, sets the
-//      session cookie, returns an auth envelope.
-//   5. On success, hard-redirect to /team. We could push via next
-//      router but a full page reload is cleaner: it forces
-//      TanStack Query to reinitialise its ["session"] cache and
-//      rehydrates the sidebar/header with the new operator identity.
+// Soleil v2 — Public landing page reached from the invitation email link.
+// Editorial Fraunces title, ivoire surface, corail-soft icon chip,
+// password form with inline validation. On success, hard-redirect to
+// /team so TanStack cache + cookies re-bootstrap.
 
 const MIN_PASSWORD_LENGTH = 8
-// Matches the domain password rule on the backend: at least one
-// uppercase, one lowercase, one digit, one special character.
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
 type AcceptInvitationPageProps = {
@@ -50,8 +33,8 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
 
   if (previewLoading) {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 shadow-sm">
-        <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-[var(--shadow-card)]">
+        <div className="flex items-center gap-3 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t("loading")}
         </div>
@@ -63,14 +46,21 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
     const status =
       previewError instanceof ApiError ? previewError.status : undefined
     return (
-      <div className="w-full max-w-md rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-white dark:bg-slate-800 p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--primary-soft)] bg-[var(--surface)] p-8 shadow-[var(--shadow-card)]">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-rose-500 flex-shrink-0 mt-0.5" />
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary-deep)]"
+          >
+            <AlertTriangle className="h-5 w-5" strokeWidth={1.8} />
+          </span>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {status === 404 || status === 410 ? t("expiredTitle") : t("genericErrorTitle")}
+            <h1 className="font-serif text-[20px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
+              {status === 404 || status === 410
+                ? t("expiredTitle")
+                : t("genericErrorTitle")}
             </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
               {status === 404 || status === 410
                 ? t("expiredDescription")
                 : t("genericErrorDescription")}
@@ -82,8 +72,10 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
   }
 
   const passwordTooShort = touched && password.length < MIN_PASSWORD_LENGTH
-  const passwordWeak = touched && password.length >= MIN_PASSWORD_LENGTH && !PASSWORD_RULE.test(password)
-  const passwordMismatch = touched && confirmPassword.length > 0 && password !== confirmPassword
+  const passwordWeak =
+    touched && password.length >= MIN_PASSWORD_LENGTH && !PASSWORD_RULE.test(password)
+  const passwordMismatch =
+    touched && confirmPassword.length > 0 && password !== confirmPassword
   const hasValidationError = passwordTooShort || passwordWeak || passwordMismatch
   const canSubmit =
     password.length >= MIN_PASSWORD_LENGTH &&
@@ -91,7 +83,8 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
     password === confirmPassword &&
     !acceptMutation.isPending
 
-  const acceptError = acceptMutation.error instanceof ApiError ? acceptMutation.error : null
+  const acceptError =
+    acceptMutation.error instanceof ApiError ? acceptMutation.error : null
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -101,98 +94,121 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
       { token, password },
       {
         onSuccess: () => {
-          // Hard redirect — the React tree + TanStack cache + cookies
-          // need to flip to the new operator session.
           window.location.href = "/team"
         },
       },
     )
   }
 
-  const orgLabel = preview.organization_type === "agency" ? t("orgTypeAgency") : t("orgTypeEnterprise")
-  const displayName = `${preview.first_name} ${preview.last_name}`.trim() || preview.email
+  const orgLabel =
+    preview.organization_type === "agency"
+      ? t("orgTypeAgency")
+      : t("orgTypeEnterprise")
+  const displayName =
+    `${preview.first_name} ${preview.last_name}`.trim() || preview.email
+
+  const inputBase =
+    "w-full rounded-xl border bg-[var(--surface)] px-3 py-2.5 text-[14px] text-[var(--foreground)] placeholder:text-[var(--subtle-foreground)] focus:outline-none focus:ring-2"
+  const inputOk =
+    "border-[var(--border)] focus:border-[var(--primary)] focus:ring-[var(--primary-soft)]"
+  const inputErr = "border-[var(--primary-deep)] focus:ring-[var(--primary-soft)]"
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 shadow-sm">
+    <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-[var(--shadow-card)]">
       <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3">
-          <Building2 className="h-5 w-5 text-rose-500" />
-        </div>
+        <span
+          aria-hidden="true"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]"
+        >
+          <Building2 className="h-5 w-5" strokeWidth={1.8} />
+        </span>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--primary)]">
+            {t("eyebrow")}
+          </p>
+          <h1 className="mt-1 font-serif text-[24px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
             {t("title")}
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t("invitedAs", { name: displayName, role: t(`roles.${preview.role}`), orgType: orgLabel })}
+          <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
+            {t("invitedAs", {
+              name: displayName,
+              role: t(`roles.${preview.role}`),
+              orgType: orgLabel,
+            })}
           </p>
           {preview.title && (
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--subtle-foreground)]">
               {t("invitedTitle", { title: preview.title })}
             </p>
           )}
         </div>
       </div>
 
-      <div className="mt-6 rounded-lg bg-gray-50 dark:bg-slate-900/60 p-3">
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <Mail className="h-4 w-4 text-gray-400" />
+      <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+        <div className="flex items-center gap-2 text-[13px] text-[var(--foreground)]">
+          <Mail
+            className="h-4 w-4 text-[var(--muted-foreground)]"
+            strokeWidth={1.8}
+          />
           {preview.email}
         </div>
       </div>
 
       <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label
+            htmlFor="accept-password"
+            className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--muted-foreground)]"
+          >
             {t("passwordLabel")}
           </label>
-          <Input
+          <input
+            id="accept-password"
             type="password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t("passwordPlaceholder")}
-            className={`w-full rounded-lg border bg-white dark:bg-slate-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
-              passwordTooShort || passwordWeak
-                ? "border-rose-500"
-                : "border-gray-200 dark:border-slate-600 focus:border-rose-500"
+            className={`${inputBase} ${
+              passwordTooShort || passwordWeak ? inputErr : inputOk
             }`}
           />
           {passwordTooShort && (
-            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+            <p className="mt-1 text-[12px] text-[var(--primary-deep)]">
               {t("errors.passwordTooShort", { min: MIN_PASSWORD_LENGTH })}
             </p>
           )}
           {passwordWeak && !passwordTooShort && (
-            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+            <p className="mt-1 text-[12px] text-[var(--primary-deep)]">
               {t("errors.passwordWeak")}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label
+            htmlFor="accept-confirm"
+            className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--muted-foreground)]"
+          >
             {t("confirmPasswordLabel")}
           </label>
-          <Input
+          <input
+            id="accept-confirm"
             type="password"
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className={`w-full rounded-lg border bg-white dark:bg-slate-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
-              passwordMismatch
-                ? "border-rose-500"
-                : "border-gray-200 dark:border-slate-600 focus:border-rose-500"
-            }`}
+            className={`${inputBase} ${passwordMismatch ? inputErr : inputOk}`}
           />
           {passwordMismatch && (
-            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+            <p className="mt-1 text-[12px] text-[var(--primary-deep)]">
               {t("errors.passwordMismatch")}
             </p>
           )}
         </div>
 
         {acceptError && !hasValidationError && (
-          <div className="rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
+          <div className="rounded-xl border border-[var(--primary-soft)] bg-[var(--primary-soft)] p-3 text-[13px] text-[var(--primary-deep)]">
             {acceptError.status === 409
               ? t("errors.emailAlreadyTaken")
               : acceptError.status === 410
@@ -201,21 +217,23 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           </div>
         )}
 
-        <Button variant="ghost" size="auto"
+        <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2.5 text-[13px] font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-message)] transition-colors hover:bg-[var(--primary-deep)] disabled:opacity-50"
         >
           {acceptMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <CheckCircle2 className="h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
           )}
           {acceptMutation.isPending ? t("submitting") : t("acceptButton")}
-        </Button>
+        </button>
 
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-          {t("expiresOn", { date: new Date(preview.expires_at).toLocaleDateString() })}
+        <p className="text-center font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--subtle-foreground)]">
+          {t("expiresOn", {
+            date: new Date(preview.expires_at).toLocaleDateString(),
+          })}
         </p>
       </form>
     </div>

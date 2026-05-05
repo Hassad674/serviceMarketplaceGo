@@ -7,7 +7,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../providers/team_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Modal form used to invite a new teammate. Permission gating is
 /// upstream (the caller decides whether to show it) — this widget
@@ -98,10 +97,15 @@ class _InviteMemberDialogState extends ConsumerState<InviteMemberDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Dialog(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        side: BorderSide(color: colors.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -118,8 +122,10 @@ class _InviteMemberDialogState extends ConsumerState<InviteMemberDialog> {
                 const SizedBox(height: 8),
                 Text(
                   l10n.teamInviteDialogDescription,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: SoleilTextStyles.body.copyWith(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -262,6 +268,8 @@ class _InviteMemberDialogState extends ConsumerState<InviteMemberDialog> {
   }
 
   Widget _buildActions(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -271,17 +279,22 @@ class _InviteMemberDialogState extends ConsumerState<InviteMemberDialog> {
         ),
         const SizedBox(width: 8),
         FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            shape: const StadiumBorder(),
+          ),
           onPressed: _submitting ? null : _submit,
           icon: _submitting
-              ? const SizedBox(
+              ? SizedBox(
                   height: 16,
                   width: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                 )
-              : const Icon(Icons.send_outlined, size: 18),
+              : const Icon(Icons.send_rounded, size: 16),
           label: Text(l10n.teamInviteSendButton),
         ),
       ],
@@ -297,19 +310,21 @@ class _DialogHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Row(
       children: [
         Container(
-          height: 36,
-          width: 36,
-          decoration: const BoxDecoration(
-            color: AppPalette.rose100,
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: colors.accentSoft,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
-            Icons.mail_outline,
-            color: AppPalette.rose600,
+          child: Icon(
+            Icons.mail_outline_rounded,
+            color: colorScheme.primary,
             size: 18,
           ),
         ),
@@ -317,14 +332,15 @@ class _DialogHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+            style: SoleilTextStyles.titleLarge.copyWith(
+              fontSize: 18,
+              color: colorScheme.onSurface,
             ),
           ),
         ),
         IconButton(
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-          icon: const Icon(Icons.close),
+          icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -339,27 +355,29 @@ class _ServerErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.red50,
+        color: colors.accentSoft,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: AppPalette.red300),
+        border: Border.all(color: colors.primaryDeep.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppPalette.red600,
+          Icon(
+            Icons.error_outline_rounded,
+            color: colors.primaryDeep,
             size: 18,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                color: AppPalette.red700,
+              style: SoleilTextStyles.caption.copyWith(
+                color: colors.primaryDeep,
                 fontSize: 13,
               ),
             ),

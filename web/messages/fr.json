@@ -158,7 +158,34 @@
       "saveErrorTitle": "Échec de l'enregistrement",
       "saveErrorGeneric": "Une erreur inattendue est survenue. Veuillez réessayer.",
       "saveBarAria": "Barre des modifications non enregistrées"
+    },
+    "w22": {
+      "eyebrow": "ATELIER · ÉQUIPE",
+      "titleLead": "Tes",
+      "titleAccent": "coéquipiers et permissions",
+      "subtitle": "Pilote ton {orgType} : invite, ajuste les rôles, transfère la barre quand il faut.",
+      "invitations": {
+        "sent": "envoyée le {date}",
+        "expires": "expire le {date}"
+      }
     }
+  },
+  "freelancesSearch_m12": {
+    "eyebrow": "ATELIER · TALENTS",
+    "titleLead": "Trouve les",
+    "titleAccent": "meilleurs talents",
+    "subtitle": "Compose ton équipe avec des freelances vérifiés. Recherche par compétence, ville ou disponibilité.",
+    "searchPlaceholder": "Rechercher un freelance, une compétence, une ville…",
+    "openSearch": "Ouvrir la recherche",
+    "filters": {
+      "expertise": "Expertise",
+      "location": "Localisation",
+      "rate": "Tarif",
+      "availability": "Disponibilité"
+    },
+    "emptyTitle": "Tout commence par une recherche.",
+    "emptyDescription": "On t'emmène vers la recherche complète : 32 critères, des cartes éditoriales, des suggestions vérifiées.",
+    "emptyCta": "Découvrir les freelances"
   },
   "boundary": {
     "errorTitle": "Une erreur est survenue",

@@ -158,7 +158,34 @@
       "saveErrorTitle": "Could not save changes",
       "saveErrorGeneric": "An unexpected error occurred. Please try again.",
       "saveBarAria": "Unsaved changes bar"
+    },
+    "w22": {
+      "eyebrow": "ATELIER · TEAM",
+      "titleLead": "Your",
+      "titleAccent": "teammates and permissions",
+      "subtitle": "Run your {orgType}: invite, adjust roles, hand over the wheel when it's time.",
+      "invitations": {
+        "sent": "sent on {date}",
+        "expires": "expires {date}"
+      }
     }
+  },
+  "freelancesSearch_m12": {
+    "eyebrow": "ATELIER · TALENT",
+    "titleLead": "Find the",
+    "titleAccent": "very best talent",
+    "subtitle": "Build your team with vetted freelancers. Search by skill, city, or availability.",
+    "searchPlaceholder": "Search a freelancer, a skill, a city…",
+    "openSearch": "Open search",
+    "filters": {
+      "expertise": "Expertise",
+      "location": "Location",
+      "rate": "Rate",
+      "availability": "Availability"
+    },
+    "emptyTitle": "It all starts with a search.",
+    "emptyDescription": "Step into the full search: 32 criteria, editorial cards, vetted suggestions.",
+    "emptyCta": "Browse freelancers"
   },
   "boundary": {
     "errorTitle": "Something went wrong",

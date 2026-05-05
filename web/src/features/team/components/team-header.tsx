@@ -1,12 +1,17 @@
 "use client"
 
-import { Users2, Building2 } from "lucide-react"
+import { Users2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { CurrentOrganization } from "@/shared/hooks/use-user"
 
-// Summary card at the top of /team: org type + counts. Pure
-// presentational — the numbers come from the parent after it has
-// loaded members + invitations.
+// Editorial Soleil header for /team. Eyebrow corail mono caps + Fraunces
+// title with italic-corail accent + tabac subtitle. Ports the W-22
+// hero anatomy from `design/assets/sources/phase1/soleil.jsx` (editorial
+// hero pattern shared with Notifications W-24 / Account W-XX).
+//
+// Member + pending counters are rendered as Soleil pills (rounded-full,
+// ivoire-soft bg, mono caption). The numeric counters use Geist Mono
+// (font-mono in Tailwind).
 
 type TeamHeaderProps = {
   organization: CurrentOrganization
@@ -25,36 +30,34 @@ export function TeamHeader({
     organization.type === "agency" ? t("agencyType") : t("enterpriseType")
 
   return (
-    <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3">
-            <Building2 className="h-6 w-6 text-rose-500" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {t("title")}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {typeLabel}
-            </p>
-          </div>
-        </div>
+    <header className="px-1">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--primary)]">
+        {t("w22.eyebrow")}
+      </p>
+      <h1 className="mt-2 font-serif text-[32px] font-medium leading-[1.05] tracking-[-0.025em] text-[var(--foreground)] sm:text-[36px]">
+        {t("w22.titleLead")}{" "}
+        <span className="italic text-[var(--primary)]">
+          {t("w22.titleAccent")}
+        </span>
+        .
+      </h1>
+      <p className="mt-2 max-w-2xl font-serif text-[14px] italic text-[var(--muted-foreground)]">
+        {t("w22.subtitle", { orgType: typeLabel })}
+      </p>
 
-        <div className="flex flex-wrap gap-3">
+      <div className="mt-4 flex flex-wrap gap-2">
+        <StatPill
+          icon={<Users2 className="h-3.5 w-3.5" strokeWidth={1.8} />}
+          label={t("membersCount", { count: memberCount })}
+        />
+        {pendingInvitationCount > 0 && (
           <StatPill
-            icon={<Users2 className="h-4 w-4" />}
-            label={t("membersCount", { count: memberCount })}
+            label={t("pendingInvitationsCount", { count: pendingInvitationCount })}
+            highlight
           />
-          {pendingInvitationCount > 0 && (
-            <StatPill
-              label={t("pendingInvitationsCount", { count: pendingInvitationCount })}
-              highlight
-            />
-          )}
-        </div>
+        )}
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -65,16 +68,15 @@ type StatPillProps = {
 }
 
 function StatPill({ icon, label, highlight }: StatPillProps) {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium"
+  const tone = highlight
+    ? "bg-[var(--primary-soft)] text-[var(--primary-deep)]"
+    : "bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)]"
   return (
-    <div
-      className={
-        highlight
-          ? "inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300"
-          : "inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
-      }
-    >
+    <span className={`${base} ${tone}`}>
       {icon}
       {label}
-    </div>
+    </span>
   )
 }

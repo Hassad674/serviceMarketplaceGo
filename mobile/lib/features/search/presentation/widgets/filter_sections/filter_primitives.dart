@@ -8,14 +8,16 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/app_palette.dart';
+import '../../../../../core/theme/app_theme.dart';
 
-/// Rose-500 — the marketplace primary color. Kept local to the
-/// filter sheet so we do not accidentally couple unrelated widgets
-/// to a hardcoded constant — consumers should always prefer
-/// `Theme.of(context).colorScheme.primary`. Used here only because
-/// AppColors does not expose a `primary` slot.
+// Soleil v2: filter primitives prefer the corail (primary) family from
+// the active theme via `colorScheme.primary` and the `AppColors`
+// extension. The kFilter* constants are kept as a legacy fallback for
+// test environments that mount the widgets without the Soleil theme
+// extension wired up — production code paths always go through
+// `Theme.of(context)`. Once those tests migrate to a Soleil-aware
+// pump helper, these constants can be deleted.
 const Color kFilterRose500 = AppPalette.rose500;
 const Color kFilterRose100 = AppPalette.rose100;
 const Color kFilterRose700 = AppPalette.rose700;
@@ -34,7 +36,10 @@ class FilterSectionShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>();
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>();
+    final eyebrowColor =
+        colors?.subtleForeground ?? theme.colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -44,11 +49,11 @@ class FilterSectionShell extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               title.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
+              style: SoleilTextStyles.mono.copyWith(
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
-                color: appColors?.mutedForeground,
+                letterSpacing: 0.7,
+                color: eyebrowColor,
               ),
             ),
           ),
@@ -81,35 +86,39 @@ class FilterPillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>();
+    // Selected pill: prefer Soleil's accentSoft when available, fall
+    // back to kFilterRose100 (legacy contract for unit tests that
+    // pump the widget without the Soleil theme extension).
+    final pillBg = selected
+        ? (colors?.accentSoft ?? kFilterRose100)
+        : colorScheme.surfaceContainerLowest;
+    final borderColor = selected
+        ? (colors != null ? colorScheme.primary : kFilterRose500)
+        : (colors?.border ?? theme.dividerColor);
+    final activeFg = colors?.primaryDeep ?? kFilterRose700;
     return Semantics(
       button: true,
       selected: selected,
       label: semanticsLabel ?? label,
       child: Material(
-        color: selected ? kFilterRose100 : theme.colorScheme.surface,
+        color: pillBg,
         shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: selected
-                ? kFilterRose500
-                : (appColors?.border ?? theme.dividerColor),
-          ),
-          borderRadius: BorderRadius.circular(999),
+          side: BorderSide(color: borderColor),
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
           onTap: onPressed,
           child: Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Text(
               prefix != null ? '$prefix $label' : label,
-              style: TextStyle(
+              style: SoleilTextStyles.bodyEmphasis.copyWith(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected
-                    ? kFilterRose700
-                    : theme.colorScheme.onSurface,
+                color: selected ? activeFg : colorScheme.onSurface,
               ),
             ),
           ),
@@ -134,6 +143,8 @@ class FilterCheckboxRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return InkWell(
       onTap: () => onChanged(!checked),
       borderRadius: BorderRadius.circular(8),
@@ -147,14 +158,19 @@ class FilterCheckboxRow extends StatelessWidget {
               child: Checkbox(
                 value: checked,
                 onChanged: (v) => onChanged(v ?? false),
-                activeColor: kFilterRose500,
+                activeColor: colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 14),
+                style: SoleilTextStyles.body.copyWith(
+                  color: colorScheme.onSurface,
+                ),
               ),
             ),
           ],

@@ -2,38 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Skeleton loading card matching [ProviderCard] layout.
 ///
 /// Displays a shimmer effect while search results are loading.
+/// Soleil v2: ivoire/sable shimmer tints (no cold slate).
 class ShimmerProviderCard extends StatelessWidget {
   const ShimmerProviderCard({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final baseColor = isDark
-        ? AppPalette.slate800
-        : AppPalette.slate200;
-    final highlightColor = isDark
-        ? AppPalette.slate700
-        : AppPalette.slate100;
+    final colors = theme.extension<AppColors>();
+    final baseColor = colors?.border ?? theme.dividerColor;
+    final highlightColor = colors?.muted ?? theme.colorScheme.surface;
 
+    final fillColor = colors?.borderStrong ?? theme.dividerColor;
     return Shimmer.fromColors(
       baseColor: baseColor,
       highlightColor: highlightColor,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          color: theme.colorScheme.surfaceContainerLowest,
+          border: Border.all(color: baseColor),
+          borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         ),
         child: Row(
           children: [
             // Avatar placeholder
-            const CircleAvatar(radius: 24, backgroundColor: Colors.white),
+            CircleAvatar(radius: 24, backgroundColor: fillColor),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -44,7 +42,7 @@ class ShimmerProviderCard extends StatelessWidget {
                     width: 140,
                     height: 14,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: fillColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -54,7 +52,7 @@ class ShimmerProviderCard extends StatelessWidget {
                     width: 100,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: fillColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -67,8 +65,8 @@ class ShimmerProviderCard extends StatelessWidget {
               width: 60,
               height: 22,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: fillColor,
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
               ),
             ),
           ],
@@ -87,7 +85,7 @@ class ShimmerProviderList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       itemCount: count,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, __) => const ShimmerProviderCard(),

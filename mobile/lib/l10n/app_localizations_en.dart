@@ -2561,6 +2561,83 @@ class AppLocalizationsEn extends AppLocalizations {
   String get teamRoleViewer => 'Viewer';
 
   @override
+  String get teamW22Eyebrow => 'ATELIER · TEAM';
+
+  @override
+  String get teamW22TitleLead => 'Your';
+
+  @override
+  String get teamW22TitleAccent => 'teammates and permissions';
+
+  @override
+  String get teamW22Subtitle =>
+      'Run your organization: invite, adjust roles, hand over the wheel when it\'s time.';
+
+  @override
+  String teamMembersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+      zero: 'No members',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get freelancesSearchM12Eyebrow => 'ATELIER · TALENT';
+
+  @override
+  String get freelancesSearchM12TitleLead => 'Find the';
+
+  @override
+  String get freelancesSearchM12TitleAccent => 'very best talent';
+
+  @override
+  String get freelancesSearchM12Subtitle =>
+      'Build your team with vetted freelancers. Search by skill, city, or availability.';
+
+  @override
+  String get freelancesSearchM12SearchHint =>
+      'Search a freelancer, a skill, a city…';
+
+  @override
+  String get freelancesSearchM12Filters => 'Filters';
+
+  @override
+  String get freelancesSearchM12FilterExpertise => 'Expertise';
+
+  @override
+  String get freelancesSearchM12FilterLocation => 'Location';
+
+  @override
+  String get freelancesSearchM12FilterRate => 'Rate';
+
+  @override
+  String get freelancesSearchM12FilterAvailability => 'Availability';
+
+  @override
+  String get freelancesSearchM12EmptyTitle => 'No talent yet';
+
+  @override
+  String get freelancesSearchM12EmptyDescription =>
+      'Adjust your search or reset the filters to discover more profiles.';
+
+  @override
+  String get freelancesSearchM12EmptyCta => 'Reset filters';
+
+  @override
+  String get freelancesSearchM12ErrorTitle => 'Something went wrong';
+
+  @override
+  String get freelancesSearchM12ErrorDescription =>
+      'Couldn\'t load profiles. Pull to refresh or try again.';
+
+  @override
+  String get freelancesSearchM12RetryCta => 'Try again';
+
+  @override
   String get expertiseSectionTitle => 'Areas of expertise';
 
   @override
