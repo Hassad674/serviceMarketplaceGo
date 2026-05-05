@@ -1333,6 +1333,54 @@ class AppLocalizationsFr extends AppLocalizations {
   String get markAllRead => 'Tout marquer comme lu';
 
   @override
+  String get notificationsTitleAccent => 'récentes';
+
+  @override
+  String get notificationsGroupToday => 'Aujourd\'hui';
+
+  @override
+  String get notificationsGroupYesterday => 'Hier';
+
+  @override
+  String get notificationsGroupThisWeek => 'Cette semaine';
+
+  @override
+  String get notificationsGroupEarlier => 'Plus ancien';
+
+  @override
+  String get notificationsSubtitleAllRead =>
+      'Vous êtes à jour. Tout est marqué comme lu.';
+
+  @override
+  String notificationsSubtitleUnread(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# non lues',
+      one: '# non lue',
+    );
+    return '$_temp0 · tout marquer lu';
+  }
+
+  @override
+  String get notificationsTimeJustNow => 'à l\'instant';
+
+  @override
+  String notificationsTimeMinutes(int n) {
+    return 'il y a $n min';
+  }
+
+  @override
+  String notificationsTimeHours(int n) {
+    return 'il y a $n h';
+  }
+
+  @override
+  String notificationsTimeDays(int n) {
+    return 'il y a $n j';
+  }
+
+  @override
   String get proposalViewDetails => 'Voir les détails';
 
   @override

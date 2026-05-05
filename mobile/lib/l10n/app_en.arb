@@ -498,6 +498,29 @@
   "noNotifications": "No notifications yet",
   "noNotificationsDesc": "You'll be notified when something happens",
   "markAllRead": "Mark all read",
+  "notificationsTitleAccent": "recent",
+  "notificationsGroupToday": "Today",
+  "notificationsGroupYesterday": "Yesterday",
+  "notificationsGroupThisWeek": "This week",
+  "notificationsGroupEarlier": "Earlier",
+  "notificationsSubtitleAllRead": "You're all caught up. Everything is marked as read.",
+  "notificationsSubtitleUnread": "{count, plural, one {# unread} other {# unread}} · mark all read",
+  "@notificationsSubtitleUnread": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "notificationsTimeJustNow": "just now",
+  "notificationsTimeMinutes": "{n}m ago",
+  "@notificationsTimeMinutes": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "notificationsTimeHours": "{n}h ago",
+  "@notificationsTimeHours": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "notificationsTimeDays": "{n}d ago",
+  "@notificationsTimeDays": {
+    "placeholders": { "n": { "type": "int" } }
+  },
   "proposalViewDetails": "View details",
   "identityDocTitle": "Identity verification",
   "identityDocSubtitle": "Upload a government-issued identity document for verification.",
