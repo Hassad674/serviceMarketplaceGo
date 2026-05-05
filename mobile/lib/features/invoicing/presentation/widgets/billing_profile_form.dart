@@ -10,7 +10,6 @@ import 'billing_form_status.dart';
 import 'billing_section_address.dart';
 import 'billing_section_fiscal.dart';
 import 'billing_section_legal_identity.dart';
-import '../../../../core/theme/app_palette.dart';
 
 // EU member states whose VAT numbers can be validated through VIES.
 // Domain predicate kept separate from the country selector list — the
@@ -24,18 +23,27 @@ const Set<String> _kEuVatCountryCodes = <String>{
 
 bool _isEuCountry(String code) => _kEuVatCountryCodes.contains(code);
 
-/// Editable form for the org's billing profile.
+/// Soleil v2 editable form for the org's billing profile.
 ///
-/// Reads the current snapshot through `billingProfileProvider`, hydrates
-/// a local controlled state once, then pushes back through three
-/// independent mutations:
+/// Reads the current snapshot through `billingProfileProvider`,
+/// hydrates a local controlled state once, then pushes back through
+/// three independent mutations:
 ///   - update (PUT)              — Save button
-///   - sync from Stripe (POST)   — "Sync depuis Stripe" button (only
+///   - sync from Stripe (POST)   — "Sync depuis Stripe" pill (only
 ///     when never synced)
-///   - validate VAT (POST)       — "Valider mon n° TVA" button
+///   - validate VAT (POST)       — "Valider mon n° TVA" pill
 ///
 /// Each mutation has its own pending state so a VIES failure never
 /// blocks a save and vice-versa.
+///
+/// Visual port:
+///   - all sections wrapped in Soleil ivoire cards (via BillingSection),
+///   - corail-soft active radio, sapin/corail-deep status indicators,
+///   - corail rounded StadiumBorder pill submit button.
+///
+/// Behavior preservation: controllers, validators, mutations, and
+/// completeness gating are byte-for-byte identical to the legacy
+/// implementation. Only the visual chrome changed.
 class BillingProfileForm extends ConsumerStatefulWidget {
   const BillingProfileForm({super.key, this.onSaved});
 
@@ -139,6 +147,9 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
 
   Widget _buildForm(BillingProfileSnapshot snapshot) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    final success = appColors?.success ?? colorScheme.primary;
     final isFr = _country == 'FR';
     final isEu = _isEuCountry(_country);
     final isBusiness = _profileType == ProfileType.business;
@@ -168,7 +179,7 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
               onChanged: (v) => setState(() => _country = v ?? ''),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           BillingSection(
             title: 'Type de profil',
             child: BillingProfileTypeRadio(
@@ -176,14 +187,14 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
               onChanged: (v) => setState(() => _profileType = v),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           BillingLegalIdentitySection(
             isBusiness: isBusiness,
             legalName: _legalName,
             tradingName: _tradingName,
             legalForm: _legalForm,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           BillingFiscalSection(
             isFr: isFr,
             isEu: isEu,
@@ -195,7 +206,7 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
             vatError: _vatError,
             onValidateVat: _onValidateVat,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           BillingAddressSection(
             addressLine1: _addressLine1,
             addressLine2: _addressLine2,
@@ -204,50 +215,46 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
           ),
           // The "Email de facturation" section was removed — invoices
           // default to the org owner's account email server-side.
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           if (_saveError != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Text(
                 _saveError!,
-                style: TextStyle(
-                  color: theme.colorScheme.error,
-                  fontSize: 13,
+                style: SoleilTextStyles.caption.copyWith(
+                  color: colorScheme.error,
                 ),
               ),
             ),
           if (_saveSuccess != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Text(
                 _saveSuccess!,
-                style:
-                    const TextStyle(color: AppPalette.green500, fontSize: 13),
+                style: SoleilTextStyles.caption.copyWith(color: success),
               ),
             ),
           ElevatedButton(
             onPressed: _saving ? null : _onSave,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppPalette.rose500,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              ),
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              minimumSize: const Size(double.infinity, 52),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
+              elevation: 0,
             ),
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                      valueColor:
+                          AlwaysStoppedAnimation(colorScheme.onPrimary),
                     ),
                   )
-                : const Text(
-                    'Enregistrer',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                : const Text('Enregistrer'),
           ),
         ],
       ),
