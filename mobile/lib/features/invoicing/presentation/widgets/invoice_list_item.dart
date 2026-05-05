@@ -10,16 +10,20 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/repositories/invoicing_repository.dart';
 import '../providers/invoicing_providers.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Single row in the invoices list.
+/// Soleil v2 invoice row — single entry in the M-15 invoices list.
 ///
-/// Displays the invoice number, the issue date, the source motif (FR
-/// label), the inclusive amount and a trailing "Télécharger" icon
-/// button. Tapping the button opens the PDF via `launchUrl` with
-/// `LaunchMode.externalApplication`. The endpoint behind the URL
-/// responds with HTTP 302 to a 5-minute presigned URL — the OS
-/// browser handles the redirect and download natively.
+/// Anatomy mirrors the web `InvoiceList` row (W-19 Soleil port):
+///   - corail-soft icon disc + Geist Mono invoice-number pill,
+///   - source label + relative date in tabac (Geist Mono small caps),
+///   - Geist Mono semibold amount,
+///   - sapin-soft / amber-soft / muted status pill,
+///   - download icon button that pulls the PDF through the
+///     authenticated [ApiClient].
+///
+/// Strings stay hardcoded so the existing widget test (off-limits) still
+/// matches "Abonnement Premium", "Commission mensuelle", and the
+/// `tooltip = 'Télécharger la facture <number>'` fixture.
 class InvoiceListItem extends ConsumerWidget {
   const InvoiceListItem({super.key, required this.invoice});
 
@@ -28,22 +32,26 @@ class InvoiceListItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
     final repo = ref.watch(invoicingRepositoryProvider);
+    final status = _statusFor(invoice.sourceType, appColors, colorScheme);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: AppPalette.rose100, // rose-100
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              color: appColors?.accentSoft ?? colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.description_outlined,
               size: 18,
-              color: AppPalette.rose700, // rose-700
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(width: 12),
@@ -51,39 +59,61 @@ class InvoiceListItem extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _NumberPill(number: invoice.number),
+                    _StatusPill(status: status),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  invoice.number,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  _sourceLabel(invoice.sourceType),
+                  style: SoleilTextStyles.body.copyWith(
+                    color: colorScheme.onSurface,
+                    fontSize: 13.5,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_formatDate(invoice.issuedAt)} · '
-                  '${_sourceLabel(invoice.sourceType)}',
-                  style: theme.textTheme.bodySmall,
+                  _formatDate(invoice.issuedAt).toUpperCase(),
+                  style: SoleilTextStyles.mono.copyWith(
+                    color: appColors?.subtleForeground ??
+                        colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            _formatCurrency(invoice.amountInclTaxCents),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
+          const SizedBox(width: 10),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              _formatCurrency(invoice.amountInclTaxCents),
+              style: SoleilTextStyles.mono.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           IconButton(
             tooltip: 'Télécharger la facture ${invoice.number}',
             onPressed: () => _downloadPdf(context, repo, invoice),
-            icon: const Icon(Icons.download_rounded, size: 20),
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            icon: const Icon(Icons.download_rounded, size: 18),
+            color: colorScheme.onSurface,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
       ),
@@ -126,6 +156,98 @@ class InvoiceListItem extends ConsumerWidget {
         const SnackBar(content: Text("Impossible de télécharger le PDF.")),
       );
     }
+  }
+}
+
+class _NumberPill extends StatelessWidget {
+  const _NumberPill({required this.number});
+
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+      ),
+      child: Text(
+        number,
+        style: SoleilTextStyles.mono.copyWith(
+          color: colorScheme.onSurface,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final _SourceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: status.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+      ),
+      child: Text(
+        status.label,
+        style: SoleilTextStyles.bodyEmphasis.copyWith(
+          color: status.foreground,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceStatus {
+  const _SourceStatus({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+}
+
+_SourceStatus _statusFor(
+  SourceType type,
+  AppColors? appColors,
+  ColorScheme colorScheme,
+) {
+  switch (type) {
+    case SourceType.subscription:
+      return _SourceStatus(
+        label: 'Payée',
+        background: appColors?.successSoft ??
+            colorScheme.secondaryContainer,
+        foreground: appColors?.success ?? colorScheme.primary,
+      );
+    case SourceType.monthlyCommission:
+      return _SourceStatus(
+        label: 'En attente',
+        background: appColors?.amberSoft ?? colorScheme.surfaceContainerHigh,
+        foreground: colorScheme.onSurface,
+      );
+    case SourceType.creditNote:
+      return _SourceStatus(
+        label: 'Avoir',
+        background: appColors?.border ?? colorScheme.surfaceContainerHigh,
+        foreground: colorScheme.onSurfaceVariant,
+      );
   }
 }
 

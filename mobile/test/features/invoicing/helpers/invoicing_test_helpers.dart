@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marketplace_mobile/core/theme/app_theme.dart';
@@ -248,6 +250,22 @@ class RecordingInvoicingRepository implements InvoicingRepository {
   String getInvoicePDFURL(String id) {
     getInvoicePDFURLCalls.add(id);
     return '$pdfUrlPrefix/$id/pdf';
+  }
+
+  /// Stub bytes for the authenticated PDF download path. Tests that
+  /// drive the download flow can override `downloadInvoicePDFBytesThrows`
+  /// to surface a failure; otherwise an empty buffer is returned.
+  Object? downloadInvoicePDFBytesThrows;
+  Uint8List downloadInvoicePDFBytesResponse = Uint8List(0);
+  final List<String> downloadInvoicePDFBytesCalls = <String>[];
+
+  @override
+  Future<Uint8List> downloadInvoicePDFBytes(String id) async {
+    downloadInvoicePDFBytesCalls.add(id);
+    if (downloadInvoicePDFBytesThrows != null) {
+      throw downloadInvoicePDFBytesThrows!;
+    }
+    return downloadInvoicePDFBytesResponse;
   }
 
   @override
