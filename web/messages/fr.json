@@ -291,6 +291,9 @@
   },
   "dashboard": {
     "welcomeBack": "Bonjour, {name}",
+    "welcomeEyebrow": "Tableau de bord",
+    "welcomePrefix": "Bonjour {name},",
+    "welcomeAccent": "belle journée en perspective.",
     "agencySubtitle": "Gérez votre agence et développez votre activité",
     "providerSubtitle": "Gérez vos missions et développez votre activité",
     "enterpriseSubtitle": "Trouvez les meilleurs prestataires pour vos projets",
