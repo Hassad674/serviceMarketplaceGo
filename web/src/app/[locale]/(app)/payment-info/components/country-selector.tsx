@@ -11,6 +11,7 @@ import {
   type SupportedCountry,
 } from "@/shared/lib/stripe-countries"
 
+import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 type CountrySelectorProps = {
@@ -73,19 +74,22 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
 
   return (
     <div ref={rootRef} className="relative w-full">
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`flex h-14 w-full items-center justify-between rounded-xl border-2 bg-white px-4 shadow-sm transition-all ${
+        className={cn(
+          "flex h-14 w-full items-center justify-between rounded-2xl border bg-card px-4 transition-all",
           disabled
-            ? "cursor-not-allowed border-slate-200 opacity-60"
+            ? "cursor-not-allowed border-border opacity-60"
             : open
-              ? "border-rose-500 ring-4 ring-rose-500/10"
-              : "border-slate-200 hover:border-slate-300"
-        }`}
+              ? "border-primary ring-4 ring-primary/15 shadow-card"
+              : "border-border-strong hover:border-primary/60",
+        )}
       >
         {selected ? (
           <span className="flex items-center gap-3">
@@ -93,27 +97,38 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
               {selected.flag}
             </span>
             <span className="flex flex-col items-start">
-              <span className="text-[13px] font-medium text-slate-500">{t("countryLabel")}</span>
-              <span className="text-[15px] font-semibold text-slate-900">{selected.labelEn}</span>
+              <span className="text-[12px] font-medium text-muted-foreground">
+                {t("countryLabel")}
+              </span>
+              <span className="text-[15px] font-semibold text-foreground">
+                {selected.labelEn}
+              </span>
             </span>
           </span>
         ) : (
           <span className="flex flex-col items-start">
-            <span className="text-[13px] font-medium text-slate-500">{t("countryLabel")}</span>
-            <span className="text-[15px] text-slate-400">{t("countryPlaceholder")}</span>
+            <span className="text-[12px] font-medium text-muted-foreground">
+              {t("countryLabel")}
+            </span>
+            <span className="text-[15px] text-subtle-foreground">
+              {t("countryPlaceholder")}
+            </span>
           </span>
         )}
         <ChevronDown
-          className={`h-5 w-5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={cn(
+            "h-5 w-5 text-subtle-foreground transition-transform",
+            open && "rotate-180 text-primary",
+          )}
           aria-hidden
         />
       </Button>
 
       {open ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-scale-in">
-          <div className="border-b border-slate-100 p-3">
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-              <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-border bg-card shadow-card-strong animate-scale-in">
+          <div className="border-b border-border p-3">
+            <div className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 ring-1 ring-border">
+              <Search className="h-4 w-4 shrink-0 text-subtle-foreground" aria-hidden />
               <Input
                 ref={searchRef}
                 type="text"
@@ -124,7 +139,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                   setHighlightIndex(0)
                 }}
                 onKeyDown={handleKeyDown}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                className="w-full border-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-subtle-foreground focus-visible:ring-0"
                 aria-label={t("searchCountry")}
               />
             </div>
@@ -136,13 +151,13 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
             className="max-h-[340px] overflow-y-auto py-1"
           >
             {grouped.length === 0 ? (
-              <li className="px-4 py-6 text-center text-sm text-slate-400">
+              <li className="px-4 py-6 text-center text-sm text-muted-foreground">
                 {t("noCountryFound")}
               </li>
             ) : (
               grouped.map((group) => (
                 <li key={group.region}>
-                  <div className="sticky top-0 bg-white/95 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 backdrop-blur">
+                  <div className="sticky top-0 bg-card/95 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-subtle-foreground backdrop-blur">
                     {REGION_LABELS[group.region]}
                   </div>
                   <ul>
@@ -152,7 +167,9 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                       const isSelected = value === country.code
                       return (
                         <li key={country.code}>
-                          <Button variant="ghost" size="auto"
+                          <Button
+                            variant="ghost"
+                            size="auto"
                             type="button"
                             onClick={() => {
                               onChange(country.code)
@@ -160,9 +177,10 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                               setQuery("")
                             }}
                             onMouseEnter={() => setHighlightIndex(globalIndex)}
-                            className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
-                              isHighlighted ? "bg-rose-50" : ""
-                            }`}
+                            className={cn(
+                              "flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors",
+                              isHighlighted && "bg-primary-soft",
+                            )}
                             role="option"
                             aria-selected={isSelected}
                           >
@@ -170,13 +188,15 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                               <span className="text-xl leading-none" aria-hidden>
                                 {country.flag}
                               </span>
-                              <span className="font-medium text-slate-900">{country.labelEn}</span>
-                              <span className="font-mono text-[11px] text-slate-400">
+                              <span className="font-medium text-foreground">
+                                {country.labelEn}
+                              </span>
+                              <span className="font-mono text-[11px] text-subtle-foreground">
                                 {country.code}
                               </span>
                             </span>
                             {isSelected ? (
-                              <Check className="h-4 w-4 text-rose-500" aria-hidden />
+                              <Check className="h-4 w-4 text-primary" aria-hidden />
                             ) : null}
                           </Button>
                         </li>

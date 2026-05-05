@@ -1474,6 +1474,14 @@
     "restrictedBody": "Vous ne pouvez plus postuler aux offres ni creer de propositions tant que votre compte de paiement n'est pas configure.",
     "cta": "Configurer"
   },
+  "kyc_w05": {
+    "eyebrow": "ATELIER · IDENTITÉ FISCALE",
+    "titlePart1": "Vérifie ton",
+    "titleAccent": "identité fiscale.",
+    "subtitle": "Quelques infos confiées à Stripe pour activer tes paiements et tes virements en toute sérénité. On garde la main sur la mise en page, Stripe gère le reste.",
+    "wizardTitlePart1": "Configurons tes",
+    "wizardTitleAccent": "paiements."
+  },
   "disputes": {
     "status": {
       "open": "Litige en cours",

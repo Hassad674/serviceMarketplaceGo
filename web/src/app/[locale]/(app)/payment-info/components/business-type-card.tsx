@@ -2,6 +2,7 @@
 
 import { Building2, User } from "lucide-react"
 
+import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 type BusinessType = "individual" | "company"
 
@@ -53,7 +54,9 @@ export function BusinessTypeCard({
         const isBlocked = individualBlocked && opt.type === "individual"
         const isDisabled = disabled || isBlocked
         return (
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             key={opt.type}
             type="button"
             role="radio"
@@ -61,49 +64,56 @@ export function BusinessTypeCard({
             disabled={isDisabled}
             title={isBlocked ? blockedReason : undefined}
             onClick={() => !isBlocked && onChange(opt.type)}
-            className={`group relative flex flex-col gap-3 rounded-2xl border-2 bg-white p-5 text-left transition-all ${
+            className={cn(
+              "group relative flex flex-col gap-3 rounded-2xl border bg-card p-5 text-left transition-all",
               isDisabled
                 ? "cursor-not-allowed opacity-60"
                 : selected
-                  ? "border-rose-500 shadow-md ring-4 ring-rose-500/10"
-                  : "border-slate-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-            }`}
+                  ? "border-primary shadow-card ring-4 ring-primary/15"
+                  : "border-border-strong hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-card",
+            )}
           >
             {isBlocked ? (
-              <span className="absolute right-3 top-3 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+              <span className="absolute right-3 top-3 rounded-full border border-warning/30 bg-amber-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
                 Non disponible
               </span>
             ) : null}
             <div className="flex items-center justify-between">
               <div
-                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
                   selected
-                    ? "bg-gradient-to-br from-rose-500 to-rose-600 text-white"
-                    : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                }`}
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary-soft text-primary group-hover:bg-primary-soft/80",
+                )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
               </div>
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
-                  selected ? "border-rose-500 bg-rose-500" : "border-slate-300 bg-white"
-                }`}
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
+                  selected
+                    ? "border-primary bg-primary"
+                    : "border-border-strong bg-card",
+                )}
                 aria-hidden
               >
-                {selected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
+                {selected ? <span className="h-2 w-2 rounded-full bg-card" /> : null}
               </span>
             </div>
             <div>
-              <div className="text-[15px] font-semibold text-slate-900">{opt.title}</div>
-              <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{opt.description}</p>
+              <div className="text-[15px] font-semibold text-foreground">{opt.title}</div>
+              <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">
+                {opt.description}
+              </p>
             </div>
             <ul className="mt-1 space-y-1">
               {opt.details.map((detail) => (
                 <li
                   key={detail}
-                  className="flex items-center gap-1.5 text-[12px] text-slate-500"
+                  className="flex items-center gap-1.5 text-[12px] text-muted-foreground"
                 >
-                  <span className="h-1 w-1 rounded-full bg-slate-300" aria-hidden />
+                  <span className="h-1 w-1 rounded-full bg-subtle-foreground" aria-hidden />
                   {detail}
                 </li>
               ))}

@@ -34,18 +34,22 @@ export function ContextSidebar() {
         return (
           <div
             key={section.title}
-            className="rounded-2xl border border-slate-100 bg-white/80 p-5 backdrop-blur-sm"
+            className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm"
           >
             <div className="mb-2 flex items-center gap-2.5">
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary"
                 aria-hidden
               >
                 <Icon className="h-4 w-4" />
               </span>
-              <h3 className="text-[13px] font-semibold text-slate-900">{section.title}</h3>
+              <h3 className="font-serif text-[16px] font-medium tracking-[-0.01em] text-foreground">
+                {section.title}
+              </h3>
             </div>
-            <p className="text-[13px] leading-relaxed text-slate-600">{section.body}</p>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              {section.body}
+            </p>
           </div>
         )
       })}

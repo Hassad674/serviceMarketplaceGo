@@ -677,6 +677,11 @@
   "paymentInfoNotConfiguredDesc": "Configurez votre compte de paiement pour recevoir des fonds.",
   "paymentInfoCharges": "Paiements",
   "paymentInfoPayouts": "Virements",
+  "kycW05Eyebrow": "ATELIER · IDENTITÉ FISCALE",
+  "kycW05TitlePart1": "Vérifie ton",
+  "kycW05TitleAccent": "identité fiscale.",
+  "kycW05Subtitle": "Quelques infos confiées à Stripe pour activer tes paiements et tes virements en toute sérénité.",
+  "kycW05OpenWebViewHint": "Tu poursuis la vérification dans une fenêtre sécurisée Stripe.",
 
   "kycBannerPendingTitle": "Configurez vos paiements",
   "kycBannerPendingBody": "Vous avez des fonds en attente. Finalisez dans les {days} jours pour éviter des restrictions.",

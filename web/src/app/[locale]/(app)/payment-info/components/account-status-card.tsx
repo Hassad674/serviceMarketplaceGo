@@ -3,6 +3,8 @@
 import { AlertCircle, CheckCircle2, Clock, CreditCard, Send } from "lucide-react"
 import { useTranslations } from "next-intl"
 
+import { cn } from "@/shared/lib/utils"
+
 export type AccountStatus = {
   account_id: string
   country: string
@@ -28,41 +30,55 @@ export function AccountStatusCard({ status }: AccountStatusCardProps) {
     status.charges_enabled && status.payouts_enabled && status.requirements_count === 0
   const hasPastDue = status.requirements_past_due.length > 0
 
+  const tone = fullyActive ? "success" : hasPastDue ? "danger" : "pending"
+  const HeaderIcon = fullyActive
+    ? CheckCircle2
+    : hasPastDue
+      ? AlertCircle
+      : Clock
+
+  const headerBg = {
+    success: "bg-success-soft",
+    danger: "bg-primary-soft",
+    pending: "bg-amber-soft",
+  }[tone]
+
+  const headerIconColor = {
+    success: "text-success",
+    danger: "text-destructive",
+    pending: "text-warning",
+  }[tone]
+
   return (
     <section
-      aria-label="Statut du compte de paiement"
-      className="mx-1 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm sm:mx-0 sm:rounded-2xl"
+      aria-label={t("subheader")}
+      className={cn(
+        "overflow-hidden border-y border-border bg-card",
+        "sm:rounded-2xl sm:border sm:shadow-card",
+      )}
     >
-      {/* Header gradient */}
-      <div
-        className={`relative overflow-hidden px-3 py-3 sm:px-6 sm:py-5 ${
-          fullyActive
-            ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
-            : hasPastDue
-              ? "bg-gradient-to-br from-red-500 to-red-600"
-              : "bg-gradient-to-br from-rose-500 via-rose-600 to-purple-600"
-        }`}
-      >
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              {fullyActive ? (
-                <CheckCircle2 className="h-5 w-5 text-white" aria-hidden />
-              ) : hasPastDue ? (
-                <AlertCircle className="h-5 w-5 text-white" aria-hidden />
-              ) : (
-                <Clock className="h-5 w-5 text-white" aria-hidden />
+      {/* Header — soft tinted band, no glaring gradient */}
+      <div className={cn("relative px-4 py-5 sm:px-6 sm:py-6", headerBg)}>
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-card shadow-card",
+                headerIconColor,
               )}
-            </div>
+              aria-hidden
+            >
+              <HeaderIcon className="h-5 w-5" />
+            </span>
             <div>
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="font-serif text-[20px] font-medium tracking-[-0.01em] text-foreground">
                 {fullyActive
                   ? t("accountActive")
                   : hasPastDue
                     ? t("urgentAction")
                     : t("verificationInProgress")}
               </h2>
-              <p className="text-[13px] text-white/90">
+              <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                 {fullyActive
                   ? t("accountActiveDesc")
                   : status.requirements_count > 0
@@ -71,14 +87,14 @@ export function AccountStatusCard({ status }: AccountStatusCardProps) {
               </p>
             </div>
           </div>
-          <code className="hidden rounded-md bg-white/20 px-2 py-1 font-mono text-[11px] text-white backdrop-blur-sm sm:block">
+          <code className="hidden rounded-full border border-border-strong bg-card/80 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-subtle-foreground sm:inline-block">
             {status.account_id}
           </code>
         </div>
       </div>
 
       {/* Capabilities grid */}
-      <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <CapabilityRow
           icon={CreditCard}
           label={t("incomingPayments")}
@@ -112,27 +128,34 @@ function CapabilityRow({
   pendingLabel: string
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4">
+    <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-            enabled ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"
-          }`}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl",
+            enabled
+              ? "bg-success-soft text-success"
+              : "bg-amber-soft text-warning",
+          )}
           aria-hidden
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="text-[14px] font-semibold text-slate-900">{label}</span>
+        <span className="text-[14px] font-semibold text-foreground">{label}</span>
       </div>
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
           enabled
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-amber-200 bg-amber-50 text-amber-800"
-        }`}
+            ? "border-success/30 bg-success-soft text-success"
+            : "border-warning/30 bg-amber-soft text-warning",
+        )}
       >
         <span
-          className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-amber-500"}`}
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            enabled ? "bg-success" : "bg-warning",
+          )}
           aria-hidden
         />
         {enabled ? activeLabel : pendingLabel}

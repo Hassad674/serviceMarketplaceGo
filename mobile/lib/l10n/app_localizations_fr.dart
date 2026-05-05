@@ -1771,6 +1771,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get paymentInfoPayouts => 'Virements';
 
   @override
+  String get kycW05Eyebrow => 'ATELIER · IDENTITÉ FISCALE';
+
+  @override
+  String get kycW05TitlePart1 => 'Vérifie ton';
+
+  @override
+  String get kycW05TitleAccent => 'identité fiscale.';
+
+  @override
+  String get kycW05Subtitle =>
+      'Quelques infos confiées à Stripe pour activer tes paiements et tes virements en toute sérénité.';
+
+  @override
+  String get kycW05OpenWebViewHint =>
+      'Tu poursuis la vérification dans une fenêtre sécurisée Stripe.';
+
+  @override
   String get kycBannerPendingTitle => 'Configurez vos paiements';
 
   @override
