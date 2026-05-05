@@ -334,6 +334,59 @@
   "jobVideoUploading": "Uploading video...",
   "jobVideoUploaded": "Video uploaded",
   "jobUpdateSuccess": "Job updated successfully",
+  "jobsEyebrow": "ATELIER · MY JOBS",
+  "jobsTitlePrefix": "Your",
+  "jobsTitleAccent": "published jobs.",
+  "jobsSubtitle": "Track active recruitments and publish new missions.",
+  "jobsApplicants": "applicants",
+  "jobsApplicantsOne": "applicant",
+  "jobsApplicantsNew": "{count} new",
+  "@jobsApplicantsNew": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsViewArrow": "View →",
+  "jobsLongTerm": "Long-term",
+  "jobsOneShot": "One-time project",
+  "jobsPublishedRelative": "Posted {when}",
+  "@jobsPublishedRelative": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "jobsClosedRelative": "Closed {when}",
+  "@jobsClosedRelative": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "jobsJustNow": "just now",
+  "jobsMinutesAgo": "{count}m ago",
+  "@jobsMinutesAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsHoursAgo": "{count}h ago",
+  "@jobsHoursAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsDaysAgo": "{count}d ago",
+  "@jobsDaysAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsWeeksAgo": "{count}w ago",
+  "@jobsWeeksAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsEmptyCta": "Publish your first job",
   "proposalPropose": "Send a proposal",
   "proposalCreate": "Create a proposal",
   "proposalTitle": "Mission title",
