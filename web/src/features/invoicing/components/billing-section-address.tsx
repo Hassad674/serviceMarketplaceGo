@@ -16,11 +16,14 @@ import { Select } from "@/shared/components/ui/select"
 // because the address autocomplete provider is country-scoped (the
 // user picks the country first, then the autocomplete narrows by
 // that ISO code).
+//
+// Soleil v2 styling: ivoire surface card (rounded-2xl), Fraunces
+// section title, sable border, corail focus ring on inputs.
 
 const inputClasses = cn(
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs",
-  "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
-  "dark:border-slate-700 dark:bg-slate-900 dark:text-white",
+  "w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground",
+  "transition-colors duration-200 placeholder:text-subtle-foreground",
+  "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
 )
 
 export function BillingSectionAddress() {
@@ -182,12 +185,12 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+    <div className="rounded-2xl border border-border bg-surface p-6">
+      <h2 className="font-serif text-[18px] font-semibold tracking-[-0.01em] text-foreground">
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
           {subtitle}
         </p>
       )}
@@ -211,7 +214,7 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300"
+        className="mb-1.5 block text-xs font-medium text-foreground"
       >
         {label}
       </label>
@@ -219,7 +222,7 @@ function Field({
       {error && (
         <p
           role="alert"
-          className="mt-1 text-[11px] text-red-600 dark:text-red-400"
+          className="mt-1 text-[11px] text-destructive"
         >
           {error}
         </p>
