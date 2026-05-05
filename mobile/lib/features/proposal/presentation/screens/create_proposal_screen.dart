@@ -12,11 +12,11 @@ import '../../domain/repositories/proposal_repository.dart';
 import '../../types/proposal.dart';
 import '../providers/proposal_provider.dart';
 
-/// Full-page form for creating or modifying a proposal.
+/// Soleil v2 — Proposal creation form (M-09 mobile equivalent for proposals).
 ///
-/// Receives `recipientId`, `conversationId`, and `recipientName` via
-/// route extras. When `existingProposal` is provided, pre-fills the form
-/// for a counter-offer (modify mode).
+/// Editorial header (corail mono eyebrow + Fraunces italic-corail title +
+/// tabac subtitle), Soleil card sections, Fraunces section heads, ivoire
+/// inputs with corail focus, corail StadiumBorder pill submit.
 class CreateProposalScreen extends ConsumerStatefulWidget {
   const CreateProposalScreen({
     super.key,
@@ -47,8 +47,6 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
   late final ProposalFormData _formData;
   bool _isSubmitting = false;
 
-  /// Debounced amount in cents used to drive the fee preview. Null when the
-  /// input is empty or non-positive so the widget renders nothing.
   int? _debouncedAmountCents;
   Timer? _amountDebounce;
 
@@ -63,7 +61,6 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
       recipientName: widget.recipientName,
     );
 
-    // Pre-fill form in modify mode.
     if (_isModifyMode) {
       final p = widget.existingProposal!;
       _titleController.text = p.title;
@@ -91,9 +88,6 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
     super.dispose();
   }
 
-  /// Debounces the amount field (300ms) before refreshing the fee preview.
-  /// A shorter window makes the preview flicker while typing; a longer one
-  /// feels unresponsive.
   void _onAmountChanged() {
     _amountDebounce?.cancel();
     _amountDebounce = Timer(const Duration(milliseconds: 300), () {
@@ -106,7 +100,7 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
     });
   }
 
-  void _onDeadlinePicked() async {
+  Future<void> _onDeadlinePicked() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -144,9 +138,7 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
             deadline: deadlineIso,
           ),
         );
-        if (mounted) {
-          GoRouter.of(context).pop(modified);
-        }
+        if (mounted) GoRouter.of(context).pop(modified);
       } else {
         final created = await repo.createProposal(
           CreateProposalData(
@@ -158,9 +150,7 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
             deadline: deadlineIso,
           ),
         );
-        if (mounted) {
-          GoRouter.of(context).pop(created);
-        }
+        if (mounted) GoRouter.of(context).pop(created);
       }
     } catch (e) {
       if (mounted) {
@@ -182,24 +172,48 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final sendLabel =
         _isModifyMode ? l10n.proposalModify : l10n.proposalSend;
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text(l10n.proposalCreate),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => GoRouter.of(context).pop(),
+          color: theme.colorScheme.onSurface,
+        ),
+        title: Text(
+          l10n.proposalCreate,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         actions: [
-          TextButton(
-            onPressed: _isSubmitting ? null : _onSend,
-            child: Text(
-              sendLabel,
-              style: TextStyle(
-                color: _isSubmitting
-                    ? theme.disabledColor
-                    : theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: FilledButton(
+              onPressed: _isSubmitting ? null : _onSend,
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                textStyle: SoleilTextStyles.button,
               ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(sendLabel),
             ),
           ),
         ],
@@ -208,103 +222,33 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              // Recipient (read-only)
-              _buildRecipientField(theme, appColors, l10n),
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 20),
-
-              // Title
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: l10n.proposalTitle,
-                  hintText: l10n.proposalTitleHint,
-                ),
-                maxLength: 100,
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return l10n.fieldRequired;
-                  }
-                  return null;
-                },
+              _Header(isModify: _isModifyMode),
+              const SizedBox(height: 24),
+              _BriefSection(
+                titleController: _titleController,
+                descriptionController: _descriptionController,
+                recipientName: widget.recipientName.isNotEmpty
+                    ? widget.recipientName
+                    : 'User ${widget.recipientId.length > 8 ? widget.recipientId.substring(0, 8) : widget.recipientId}',
+                amountController: _amountController,
+                debouncedAmountCents: _debouncedAmountCents,
+                recipientId: widget.recipientId,
               ),
               const SizedBox(height: 16),
-
-              // Description
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: l10n.proposalDescription,
-                  hintText: l10n.proposalDescriptionHint,
-                  alignLabelWithHint: true,
-                ),
-                maxLines: 5,
-                textInputAction: TextInputAction.newline,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return l10n.fieldRequired;
-                  }
-                  return null;
-                },
+              _DeadlineSection(
+                deadline: _formData.deadline,
+                onPick: _onDeadlinePicked,
+                formatter: _formatDate,
               ),
-              const SizedBox(height: 16),
-
-              // Amount
-              TextFormField(
-                controller: _amountController,
-                decoration: InputDecoration(
-                  labelText: l10n.proposalAmount,
-                  hintText: l10n.proposalAmountHint,
-                  prefixText: '\u20AC ',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return l10n.fieldRequired;
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed <= 0) {
-                    return l10n.fieldRequired;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Platform fee preview — debounced, only renders once the
-              // amount is parseable and positive. The FeePreviewWidget
-              // enforces its own role gate: when the backend resolves
-              // the viewer as client-side (via recipientId), it renders
-              // nothing at all. No extra check needed here.
-              if (_debouncedAmountCents != null) ...[
-                FeePreviewWidget(
-                  amountCents: _debouncedAmountCents,
-                  recipientId: widget.recipientId.isNotEmpty
-                      ? widget.recipientId
-                      : null,
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Deadline (optional)
-              _buildDeadlineField(theme, appColors, l10n),
-              const SizedBox(height: 32),
-
-              // Send / Modify button
-              ElevatedButton(
+              const SizedBox(height: 24),
+              FilledButton(
                 onPressed: _isSubmitting ? null : _onSend,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusMd),
-                  ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  shape: const StadiumBorder(),
+                  textStyle: SoleilTextStyles.button,
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
@@ -312,101 +256,299 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
                     : Text(sendLabel),
               ),
               const SizedBox(height: 8),
-
-              // Cancel button
               TextButton(
                 onPressed: () => GoRouter.of(context).pop(),
+                style: TextButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: Text(l10n.cancel),
               ),
-              const SizedBox(height: 16),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildRecipientField(
-    ThemeData theme,
-    AppColors? appColors,
-    AppLocalizations l10n,
-  ) {
-    final name = widget.recipientName.isNotEmpty
-        ? widget.recipientName
-        : 'User ${widget.recipientId.length > 8 ? widget.recipientId.substring(0, 8) : widget.recipientId}';
+class _Header extends StatelessWidget {
+  const _Header({required this.isModify});
 
-    final initials = name
-        .split(' ')
-        .map((w) => w.isNotEmpty ? w[0] : '')
-        .join('')
-        .toUpperCase();
+  final bool isModify;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final primary = theme.colorScheme.primary;
+
+    final titleAccent = isModify
+        ? l10n.proposalFlow_create_modifyTitleAccent
+        : l10n.proposalFlow_create_titleAccent;
+    final subtitle = isModify
+        ? l10n.proposalFlow_create_modifySubtitle
+        : l10n.proposalFlow_create_subtitle;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.proposalRecipient,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
+          l10n.proposalFlow_create_eyebrow,
+          style: SoleilTextStyles.mono.copyWith(
+            color: primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: theme.colorScheme.primary,
-              child: Text(
-                initials.isNotEmpty ? initials : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+        RichText(
+          text: TextSpan(
+            style: SoleilTextStyles.headlineLarge.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+            children: [
+              TextSpan(text: '${l10n.proposalFlow_create_titlePrefix} '),
+              TextSpan(
+                text: titleAccent,
+                style: SoleilTextStyles.headlineLarge.copyWith(
+                  color: primary,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                name,
-                style: theme.textTheme.titleMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: SoleilTextStyles.bodyLarge.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildDeadlineField(
-    ThemeData theme,
-    AppColors? appColors,
-    AppLocalizations l10n,
-  ) {
-    return GestureDetector(
-      onTap: _onDeadlinePicked,
-      child: AbsorbPointer(
-        child: TextFormField(
-          decoration: InputDecoration(
-            labelText: l10n.proposalDeadline,
-            suffixIcon: const Icon(
-              Icons.calendar_today_outlined,
-              size: 18,
+class _BriefSection extends StatelessWidget {
+  const _BriefSection({
+    required this.titleController,
+    required this.descriptionController,
+    required this.amountController,
+    required this.recipientName,
+    required this.debouncedAmountCents,
+    required this.recipientId,
+  });
+
+  final TextEditingController titleController;
+  final TextEditingController descriptionController;
+  final TextEditingController amountController;
+  final String recipientName;
+  final int? debouncedAmountCents;
+  final String recipientId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final appColors = theme.extension<AppColors>();
+
+    return _SoleilCard(
+      eyebrow: l10n.proposalFlow_create_sectionBrief,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.person_rounded,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.proposalRecipient,
+                      style: SoleilTextStyles.mono.copyWith(
+                        color: appColors?.subtleForeground ??
+                            theme.colorScheme.onSurfaceVariant,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      recipientName,
+                      style: SoleilTextStyles.bodyEmphasis.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          TextFormField(
+            controller: titleController,
+            decoration: InputDecoration(
+              labelText: l10n.proposalTitle,
+              hintText: l10n.proposalTitleHint,
+            ),
+            maxLength: 100,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return l10n.fieldRequired;
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: descriptionController,
+            decoration: InputDecoration(
+              labelText: l10n.proposalDescription,
+              hintText: l10n.proposalDescriptionHint,
+              alignLabelWithHint: true,
+            ),
+            maxLines: 5,
+            textInputAction: TextInputAction.newline,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return l10n.fieldRequired;
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: amountController,
+            decoration: InputDecoration(
+              labelText: l10n.proposalAmount,
+              hintText: l10n.proposalAmountHint,
+              prefixText: '€ ',
+            ),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return l10n.fieldRequired;
+              }
+              final parsed = double.tryParse(value);
+              if (parsed == null || parsed <= 0) {
+                return l10n.fieldRequired;
+              }
+              return null;
+            },
+          ),
+          if (debouncedAmountCents != null) ...[
+            const SizedBox(height: 12),
+            FeePreviewWidget(
+              amountCents: debouncedAmountCents,
+              recipientId: recipientId.isNotEmpty ? recipientId : null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DeadlineSection extends StatelessWidget {
+  const _DeadlineSection({
+    required this.deadline,
+    required this.onPick,
+    required this.formatter,
+  });
+
+  final DateTime? deadline;
+  final VoidCallback onPick;
+  final String Function(DateTime) formatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return _SoleilCard(
+      eyebrow: l10n.proposalFlow_create_sectionDeadline,
+      child: GestureDetector(
+        onTap: onPick,
+        child: AbsorbPointer(
+          child: TextFormField(
+            decoration: InputDecoration(
+              labelText: l10n.proposalDeadline,
+              suffixIcon: Icon(
+                Icons.calendar_today_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            controller: TextEditingController(
+              text: deadline != null ? formatter(deadline!) : '',
             ),
           ),
-          controller: TextEditingController(
-            text: _formData.deadline != null
-                ? _formatDate(_formData.deadline!)
-                : '',
-          ),
         ),
+      ),
+    );
+  }
+}
+
+class _SoleilCard extends StatelessWidget {
+  const _SoleilCard({required this.eyebrow, required this.child});
+
+  final String eyebrow;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+        ),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: SoleilTextStyles.mono.copyWith(
+              color: primary,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
       ),
     );
   }

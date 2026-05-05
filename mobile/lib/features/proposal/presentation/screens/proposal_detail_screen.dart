@@ -13,10 +13,13 @@ import '../widgets/proposal_action_buttons.dart';
 import '../widgets/proposal_detail_atoms.dart';
 import '../widgets/proposal_dispute_banner.dart';
 import '../widgets/proposal_header_card.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Displays all details for a proposal: title, description, amount, deadline,
-/// documents, status, and action buttons (accept/decline/modify/pay).
+/// Soleil v2 — Proposal detail / mission page.
+///
+/// Editorial header (status-aware corail eyebrow + Fraunces title +
+/// tabac subtitle), Soleil card sections, milestone tracker with
+/// progress, sticky-style action surface (mobile keeps actions in-
+/// flow at the bottom of the scroll).
 class ProposalDetailScreen extends ConsumerWidget {
   const ProposalDetailScreen({super.key, required this.proposalId});
 
@@ -24,15 +27,26 @@ class ProposalDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final asyncProposal = ref.watch(proposalByIdProvider(proposalId));
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text(l10n.proposalViewDetails),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l10n.proposalViewDetails,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
+          color: theme.colorScheme.onSurface,
         ),
       ),
       body: asyncProposal.when(
@@ -70,10 +84,13 @@ class _ProposalDetailBody extends ConsumerWidget {
         currentUserId == proposal.clientId ? 'client' : 'provider';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _DetailHeader(status: status),
+          const SizedBox(height: 20),
+
           if (proposal.activeDisputeId != null)
             ProposalDisputeBanner(
               disputeId: proposal.activeDisputeId!,
@@ -86,11 +103,6 @@ class _ProposalDetailBody extends ConsumerWidget {
               disputeId: proposal.lastDisputeId!,
               currentUserId: currentUserId,
             ),
-          // Amount passed to the dispute form is the CURRENT active
-          // milestone's amount — not the proposal total — because a
-          // dispute can only concern the escrow that has actually been
-          // paid in. Fallback to the proposal total covers legacy
-          // single-milestone proposals.
           if (canOpenDispute)
             ProposalReportProblemButton(
               proposalId: proposal.id,
@@ -106,9 +118,6 @@ class _ProposalDetailBody extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
 
-          // Phase 13 (mobile): milestone tracker. Shows the project's
-          // milestone list for milestone-mode proposals; collapses to
-          // a compact single card for one-time proposals.
           if (proposal.milestones.isNotEmpty) ...[
             MilestoneTrackerWidget(
               milestones: proposal.milestones,
@@ -117,30 +126,33 @@ class _ProposalDetailBody extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
           ],
+
           if (proposal.description.isNotEmpty) ...[
-            Text(
-              l10n.proposalDescription,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            _SectionEyebrow(text: l10n.proposalDescription),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: appColors?.muted ?? AppPalette.slate100,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                color: theme.colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                border: Border.all(
+                  color: appColors?.border ?? theme.dividerColor,
+                ),
+                boxShadow: AppTheme.cardShadow,
               ),
               child: Text(
                 proposal.description,
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                style: SoleilTextStyles.bodyLarge.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
             const SizedBox(height: 20),
           ],
+
           ProposalDetailRow(
-            icon: Icons.euro_outlined,
+            icon: Icons.euro_rounded,
             label: l10n.proposalTotalAmount,
             value: '€ ${proposal.amountInEuros.toStringAsFixed(2)}',
             valueColor: theme.colorScheme.primary,
@@ -149,7 +161,7 @@ class _ProposalDetailBody extends ConsumerWidget {
           const SizedBox(height: 12),
           if (proposal.deadline != null) ...[
             ProposalDetailRow(
-              icon: Icons.calendar_today_outlined,
+              icon: Icons.calendar_today_rounded,
               label: l10n.proposalDeadline,
               value: proposal.deadline!,
             ),
@@ -157,35 +169,25 @@ class _ProposalDetailBody extends ConsumerWidget {
           ],
           if (proposal.version > 1) ...[
             ProposalDetailRow(
-              icon: Icons.history,
+              icon: Icons.history_rounded,
               label: 'Version',
               value: 'v${proposal.version}',
             ),
             const SizedBox(height: 12),
           ],
           if (proposal.documents.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Documents (${proposal.documents.length})',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(height: 6),
+            _SectionEyebrow(
+              text: 'Documents (${proposal.documents.length})',
             ),
             const SizedBox(height: 8),
             ...proposal.documents
                 .map((doc) => ProposalDocumentTile(document: doc)),
           ],
 
-          // Platform fees preview — shown ONLY to the provider-side
-          // viewer (the party that actually pays the fee).
           if (userRole == 'provider') ...[
             const SizedBox(height: 24),
-            Text(
-              'Platform fees on this mission',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            const _SectionEyebrow(text: 'Frais plateforme estimés'),
             const SizedBox(height: 8),
             if (proposal.milestones.isNotEmpty)
               FeePreviewWidget(
@@ -201,7 +203,7 @@ class _ProposalDetailBody extends ConsumerWidget {
               FeePreviewWidget(amountCents: proposal.amount),
           ],
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
           ProposalActionButtons(
             proposal: proposal,
@@ -227,10 +229,6 @@ class _ProposalDetailBody extends ConsumerWidget {
     };
   }
 
-  // Resolves the amount of the milestone whose sequence matches the
-  // proposal's current_milestone_sequence. Returns null when the
-  // proposal has no milestones or the active sequence cannot be
-  // matched — the caller then falls back to the proposal total.
   int? _currentMilestoneAmount(ProposalEntity proposal) {
     final seq = proposal.currentMilestoneSequence;
     if (seq == null || proposal.milestones.isEmpty) return null;
@@ -238,5 +236,74 @@ class _ProposalDetailBody extends ConsumerWidget {
       if (m.sequence == seq) return m.amount;
     }
     return null;
+  }
+}
+
+class _DetailHeader extends StatelessWidget {
+  const _DetailHeader({required this.status});
+
+  final ProposalStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final primary = theme.colorScheme.primary;
+
+    final eyebrow = switch (status) {
+      ProposalStatus.pending => l10n.proposalFlow_detail_eyebrowPending,
+      ProposalStatus.accepted ||
+      ProposalStatus.paid =>
+        l10n.proposalFlow_detail_eyebrowAccepted,
+      ProposalStatus.active ||
+      ProposalStatus.completionRequested =>
+        l10n.proposalFlow_detail_eyebrowActive,
+      ProposalStatus.completed => l10n.proposalFlow_detail_eyebrowCompleted,
+      ProposalStatus.declined ||
+      ProposalStatus.withdrawn =>
+        l10n.proposalFlow_detail_eyebrowDeclined,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          eyebrow,
+          style: SoleilTextStyles.mono.copyWith(
+            color: primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.proposalFlow_detail_subtitle,
+          style: SoleilTextStyles.bodyLarge.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionEyebrow extends StatelessWidget {
+  const _SectionEyebrow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      text,
+      style: SoleilTextStyles.mono.copyWith(
+        color: theme.colorScheme.primary,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+      ),
+    );
   }
 }

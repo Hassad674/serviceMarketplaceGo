@@ -24,9 +24,15 @@ import { FeePreview } from "@/shared/components/billing/fee-preview"
 import { UpgradeCta } from "@/shared/components/subscription/upgrade-cta"
 import { UpgradeModal } from "@/shared/components/subscription/upgrade-modal"
 import { useUser } from "@/shared/hooks/use-user"
+import { Portrait } from "@/shared/components/ui/portrait"
 import { Button } from "@/shared/components/ui/button"
-
 import { Input } from "@/shared/components/ui/input"
+
+// Soleil v2 — Proposal creation page (W-09 equivalent for proposals).
+// Editorial header (corail eyebrow + Fraunces italic-corail title + tabac
+// subtitle), Soleil card sections, Fraunces section heads, ivoire
+// inputs with corail focus ring, corail rounded-full pill submit.
+
 const TITLE_MAX_LENGTH = 100
 
 export function CreateProposalPage() {
@@ -50,37 +56,33 @@ export function CreateProposalPage() {
 
   const canCreate = useHasPermission("proposals.create")
   const user = useUser()
-  // Subscription is provider-only. `enterprise` users never see the
-  // FeePreview so the CTA role here can be derived solely from the two
-  // prestataire roles; default to freelance when the role hasn't loaded
-  // yet (UpgradeModal will hide if `viewer_is_subscribed` is already
-  // true, so the default is safe).
   const subscriptionRole: "freelance" | "agency" =
     user.data?.role === "agency" ? "agency" : "freelance"
   const monthlyPrice = subscriptionRole === "agency" ? 49 : 19
   const createMutation = useCreateProposal()
   const modifyMutation = useModifyProposal()
-  const isSubmitting = createMutation.isPending || modifyMutation.isPending || isUploading
+  const isSubmitting =
+    createMutation.isPending || modifyMutation.isPending || isUploading
 
   // Pre-fill form when modifying an existing proposal
   useEffect(() => {
     if (!modifyId) return
-    getProposal(modifyId).then((p) => {
-      setFormData((prev) => ({
-        ...prev,
-        title: p.title,
-        description: p.description,
-        amount: (p.amount / 100).toString(),
-        deadline: p.deadline ? p.deadline.split("T")[0] : "",
-      }))
-    }).catch(() => {
-      setSubmitError(t("fetchError"))
-    })
+    getProposal(modifyId)
+      .then((p) => {
+        setFormData((prev) => ({
+          ...prev,
+          title: p.title,
+          description: p.description,
+          amount: (p.amount / 100).toString(),
+          deadline: p.deadline ? p.deadline.split("T")[0] : "",
+        }))
+      })
+      .catch(() => {
+        setSubmitError(t("fetchError"))
+      })
   }, [modifyId, t])
 
-  // Sync query params into form data when they change. Tracking the
-  // previous recipient/conversation pair in render-time state lets us
-  // mirror the URL into form state without a setState-in-effect cascade.
+  // Sync query params into form data when they change.
   const [lastQueryKey, setLastQueryKey] = useState(
     `${recipientId}|${conversationId}`,
   )
@@ -88,27 +90,22 @@ export function CreateProposalPage() {
   if (queryKey !== lastQueryKey) {
     setLastQueryKey(queryKey)
     setFormData((prev) => ({ ...prev, recipientId, conversationId }))
-    // Mock recipient name derived synchronously from the new id so it
-    // stays in sync with the form's recipientId.
     if (recipientId) {
       setRecipientName(`User ${recipientId.slice(0, 8)}`)
     }
   }
 
-  const updateField = useCallback(<K extends keyof ProposalFormData>(
-    field: K,
-    value: ProposalFormData[K],
-  ) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }, [])
+  const updateField = useCallback(
+    <K extends keyof ProposalFormData>(field: K, value: ProposalFormData[K]) => {
+      setFormData((prev) => ({ ...prev, [field]: value }))
+    },
+    [],
+  )
 
   const isValid = (() => {
     if (formData.title.trim().length === 0) return false
     if (formData.description.trim().length === 0) return false
     if (formData.paymentMode === "milestone") {
-      // Milestone mode: at least one milestone with a positive
-      // amount, and every milestone must have a title and a
-      // description (the backend domain enforces both).
       if (formData.milestones.length === 0) return false
       for (const m of formData.milestones) {
         if (m.title.trim().length === 0) return false
@@ -116,10 +113,6 @@ export function CreateProposalPage() {
         if (Number(m.amount) <= 0) return false
       }
       if (sumMilestoneAmounts(formData.milestones) <= 0) return false
-      // Block submission while the deadline sequence is invalid —
-      // mirrors the backend's strict-after rule. The MilestoneEditor
-      // surfaces the per-row error inline so the user can see WHICH
-      // row is wrong, but here we just need a global yes/no.
       const dlErrors = validateMilestoneDeadlines(
         formData.milestones,
         formData.deadline || undefined,
@@ -127,14 +120,16 @@ export function CreateProposalPage() {
       if (Object.keys(dlErrors).length > 0) return false
       return true
     }
-    // One-time mode: a single positive amount.
     return Number(formData.amount) > 0
   })()
 
   async function uploadFiles(files: File[]) {
     const uploaded: NonNullable<CreateProposalData["documents"]> = []
     for (const file of files) {
-      const { upload_url, public_url } = await getUploadURL(file.name, file.type || "application/octet-stream")
+      const { upload_url, public_url } = await getUploadURL(
+        file.name,
+        file.type || "application/octet-stream",
+      )
       await fetch(upload_url, {
         method: "PUT",
         body: file,
@@ -157,7 +152,6 @@ export function CreateProposalPage() {
 
     let documents: CreateProposalData["documents"]
 
-    // Upload files to storage before submitting the proposal
     if (formData.files.length > 0) {
       setIsUploading(true)
       try {
@@ -170,11 +164,6 @@ export function CreateProposalPage() {
       setIsUploading(false)
     }
 
-    // Build the API payload depending on the payment mode. In
-    // milestone mode the amount field is derived from the milestone
-    // sum and the milestones array is sent verbatim; in one-time
-    // mode a single amount is sent and the backend synthesises a
-    // single milestone server-side.
     const payload = buildCreatePayload(formData)
 
     if (modifyId) {
@@ -229,54 +218,82 @@ export function CreateProposalPage() {
     router.back()
   }
 
+  const eyebrowKey = "proposalFlow_create_eyebrow"
+  const titlePrefixKey = "proposalFlow_create_titlePrefix"
+  const titleAccentKey = modifyId
+    ? "proposalFlow_create_modify_titleAccent"
+    : "proposalFlow_create_titleAccent"
+  const subtitleKey = modifyId
+    ? "proposalFlow_create_modify_subtitle"
+    : "proposalFlow_create_subtitle"
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Top bar */}
+    <div className="min-h-screen bg-background">
+      {/* Soleil top bar */}
       <header
         className={cn(
-          "sticky top-0 z-10 flex h-16 items-center justify-between border-b px-4 sm:px-6",
-          "border-gray-200 bg-white/80 backdrop-blur-xl",
-          "dark:border-gray-800 dark:bg-gray-900/80",
+          "sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-border px-4 sm:px-6",
+          "glass-strong",
         )}
       >
-        <Button variant="ghost" size="auto"
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={handleCancel}
           className={cn(
-            "rounded-lg p-2 text-gray-400 transition-colors",
-            "hover:bg-gray-100 hover:text-gray-600",
-            "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+            "rounded-full p-2 text-subtle-foreground transition-colors duration-150",
+            "hover:bg-primary-soft hover:text-primary",
           )}
           aria-label={t("proposalCancel")}
         >
-          <X className="h-5 w-5" strokeWidth={1.5} />
+          <X className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
         </Button>
 
-        <h1 className="text-base font-semibold text-gray-900 dark:text-white">
+        <h1 className="truncate font-serif text-[16px] font-medium text-foreground">
           {modifyId ? t("modify") : t("createProposal")}
         </h1>
 
-        <Button variant="ghost" size="auto"
+        <Button
+          variant="ghost"
+          size="auto"
           type="submit"
           form="proposal-form"
           disabled={!isValid || isSubmitting || !canCreate}
           className={cn(
-            "rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all duration-200",
-            "flex items-center gap-2",
+            "inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] font-bold",
+            "transition-all duration-200 ease-out",
             isValid && !isSubmitting && canCreate
-              ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
-              : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
+              ? "bg-primary text-primary-foreground hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]"
+              : "cursor-not-allowed bg-border text-subtle-foreground",
           )}
         >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           {t("proposalSend")}
         </Button>
       </header>
 
       {/* Body */}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Editorial header */}
+        <div className="mb-8 max-w-2xl space-y-2">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+            {t(eyebrowKey)}
+          </p>
+          <h2 className="font-serif text-[28px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[36px]">
+            {t(titlePrefixKey)}{" "}
+            <span className="italic text-primary">{t(titleAccentKey)}</span>
+          </h2>
+          <p className="text-[14.5px] leading-relaxed text-muted-foreground">
+            {t(subtitleKey)}
+          </p>
+        </div>
+
         {submitError && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <div
+            role="alert"
+            className="mb-6 rounded-2xl border border-destructive/40 bg-primary-soft px-4 py-3 text-[13.5px] text-destructive"
+          >
             {submitError}
           </div>
         )}
@@ -288,205 +305,179 @@ export function CreateProposalPage() {
             onSubmit={handleSubmit}
             className="min-w-0 flex-1 space-y-6"
           >
-            {/* Recipient (read-only) */}
-            <RecipientField name={recipientName} />
+            {/* Brief section */}
+            <FormSection eyebrow={t("proposalFlow_create_sectionBrief")}>
+              <RecipientField name={recipientName} />
 
-            <div className="border-t border-gray-200 dark:border-gray-800" />
-
-            {/* Title */}
-            <div className="space-y-2">
-              <label
-                htmlFor="proposal-title"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                {t("proposalTitle")} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  id="proposal-title"
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => updateField("title", e.target.value.slice(0, TITLE_MAX_LENGTH))}
-                  placeholder={t("proposalTitlePlaceholder")}
-                  maxLength={TITLE_MAX_LENGTH}
-                  className={cn(
-                    "h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm",
-                    "shadow-xs transition-all duration-200",
-                    "placeholder:text-gray-400",
-                    "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                    "dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500",
-                    "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
-                  )}
-                  aria-required="true"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                  {formData.title.length}/{TITLE_MAX_LENGTH}
-                </span>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <label
-                htmlFor="proposal-description"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                {t("proposalDescription")} <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                id="proposal-description"
-                value={formData.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                placeholder={t("proposalDescriptionPlaceholder")}
-                rows={5}
-                className={cn(
-                  "w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm",
-                  "shadow-xs transition-all duration-200 resize-none",
-                  "placeholder:text-gray-400",
-                  "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                  "dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500",
-                  "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
-                )}
-                aria-required="true"
-              />
-            </div>
-
-            {/* Payment mode toggle (phase 10) */}
-            <PaymentModeToggle
-              value={formData.paymentMode}
-              onChange={(mode) => updateField("paymentMode", mode)}
-              disabled={isSubmitting}
-            />
-
-            {formData.paymentMode === "one_time" ? (
-              /* One-time mode: single amount field */
-              <div className="space-y-2" id="payment-mode-panel-one_time">
-                <label
-                  htmlFor="proposal-amount"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {t("proposalAmount")} <span className="text-rose-500">*</span>
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="proposal-title" required>
+                  {t("proposalTitle")}
+                </Label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                    &euro;
-                  </span>
                   <Input
-                    id="proposal-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => updateField("amount", e.target.value)}
-                    placeholder={t("proposalAmountPlaceholder")}
+                    id="proposal-title"
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) =>
+                      updateField("title", e.target.value.slice(0, TITLE_MAX_LENGTH))
+                    }
+                    placeholder={t("proposalTitlePlaceholder")}
+                    maxLength={TITLE_MAX_LENGTH}
                     className={cn(
-                      "h-11 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 text-sm",
-                      "shadow-xs transition-all duration-200",
-                      "placeholder:text-gray-400",
-                      "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                      "dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500",
-                      "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
-                      "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                      "h-11 w-full rounded-xl border border-border bg-card px-4 pr-16 text-[14.5px]",
+                      "transition-all duration-200 ease-out",
+                      "placeholder:text-subtle-foreground",
+                      "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
                     )}
                     aria-required="true"
                   />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] text-subtle-foreground">
+                    {formData.title.length}/{TITLE_MAX_LENGTH}
+                  </span>
                 </div>
               </div>
-            ) : (
-              /* Milestone mode: repeatable editor */
-              <MilestoneEditor
-                milestones={formData.milestones}
-                onChange={(milestones: MilestoneFormItem[]) =>
-                  updateField("milestones", milestones)
-                }
-                disabled={isSubmitting}
-                projectDeadline={formData.deadline || undefined}
-              />
-            )}
 
-            {/* Platform fee preview — prestataire-only. The FeePreview
-                component itself hides the section when the backend says
-                `viewer_is_provider=false` (client-side viewers), so no
-                role logic is needed here. We pass the recipient id so
-                the backend can resolve the pair's roles, and an
-                `UpgradeCta` that opens the subscription modal so
-                prospects can convert from the exact moment they see
-                the fee. The FeePreview only renders the CTA when
-                `viewer_is_subscribed=false`. */}
-            <FeePreview
-              mode={formData.paymentMode}
-              milestones={buildFeePreviewMilestones(formData)}
-              recipientId={recipientId || undefined}
-              renderPremiumCta={
-                <UpgradeCta
-                  variant="inline"
-                  onClick={() => setUpgradeOpen(true)}
-                  monthlyPrice={monthlyPrice}
+              <div className="space-y-2">
+                <Label htmlFor="proposal-description" required>
+                  {t("proposalDescription")}
+                </Label>
+                <textarea
+                  id="proposal-description"
+                  value={formData.description}
+                  onChange={(e) => updateField("description", e.target.value)}
+                  placeholder={t("proposalDescriptionPlaceholder")}
+                  rows={5}
+                  className={cn(
+                    "w-full rounded-xl border border-border bg-card px-4 py-3 text-[14.5px] resize-none",
+                    "transition-all duration-200 ease-out",
+                    "placeholder:text-subtle-foreground",
+                    "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                  )}
+                  aria-required="true"
                 />
-              }
-            />
+              </div>
+            </FormSection>
 
-            {/* Deadline */}
-            <div className="space-y-2">
-              <label
-                htmlFor="proposal-deadline"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                {t("proposalDeadline")}
-              </label>
-              <Input
-                id="proposal-deadline"
-                type="date"
-                value={formData.deadline}
-                onChange={(e) => updateField("deadline", e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                className={cn(
-                  "h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm",
-                  "shadow-xs transition-all duration-200",
-                  "text-gray-700 dark:text-gray-300",
-                  "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                  "dark:border-gray-700 dark:bg-gray-800",
-                  "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
-                )}
+            {/* Payment section */}
+            <FormSection eyebrow={t("proposalFlow_create_sectionPayment")}>
+              <PaymentModeToggle
+                value={formData.paymentMode}
+                onChange={(mode) => updateField("paymentMode", mode)}
+                disabled={isSubmitting}
               />
-            </div>
 
-            {/* Documents */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("proposalDocuments")}
-              </label>
-              <FileDropZone
-                files={formData.files}
-                onFilesChange={(files) => updateField("files", files)}
+              {formData.paymentMode === "one_time" ? (
+                <div className="space-y-2" id="payment-mode-panel-one_time">
+                  <Label htmlFor="proposal-amount" required>
+                    {t("proposalAmount")}
+                  </Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-[14px] font-medium text-subtle-foreground">
+                      &euro;
+                    </span>
+                    <Input
+                      id="proposal-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => updateField("amount", e.target.value)}
+                      placeholder={t("proposalAmountPlaceholder")}
+                      className={cn(
+                        "h-11 w-full rounded-xl border border-border bg-card pl-9 pr-4 text-[14.5px] font-mono",
+                        "transition-all duration-200 ease-out",
+                        "placeholder:text-subtle-foreground",
+                        "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                        "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                      )}
+                      aria-required="true"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <MilestoneEditor
+                  milestones={formData.milestones}
+                  onChange={(milestones: MilestoneFormItem[]) =>
+                    updateField("milestones", milestones)
+                  }
+                  disabled={isSubmitting}
+                  projectDeadline={formData.deadline || undefined}
+                />
+              )}
+
+              <FeePreview
+                mode={formData.paymentMode}
+                milestones={buildFeePreviewMilestones(formData)}
+                recipientId={recipientId || undefined}
+                renderPremiumCta={
+                  <UpgradeCta
+                    variant="inline"
+                    onClick={() => setUpgradeOpen(true)}
+                    monthlyPrice={monthlyPrice}
+                  />
+                }
               />
-            </div>
+            </FormSection>
 
-            {/* Footer buttons (mobile only, below form) */}
+            {/* Deadline section */}
+            <FormSection eyebrow={t("proposalFlow_create_sectionDeadline")}>
+              <div className="space-y-2">
+                <Label htmlFor="proposal-deadline">{t("proposalDeadline")}</Label>
+                <Input
+                  id="proposal-deadline"
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) => updateField("deadline", e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className={cn(
+                    "h-11 w-full rounded-xl border border-border bg-card px-4 text-[14.5px] font-mono",
+                    "transition-all duration-200 ease-out text-foreground",
+                    "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                  )}
+                />
+              </div>
+            </FormSection>
+
+            {/* Documents section */}
+            <FormSection eyebrow={t("proposalFlow_create_sectionDocuments")}>
+              <div className="space-y-2">
+                <Label>{t("proposalDocuments")}</Label>
+                <FileDropZone
+                  files={formData.files}
+                  onFilesChange={(files) => updateField("files", files)}
+                />
+              </div>
+            </FormSection>
+
+            {/* Footer buttons (mobile only) */}
             <div className="flex gap-3 pt-4 lg:hidden">
-              <Button variant="ghost" size="auto"
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={handleCancel}
                 className={cn(
-                  "flex-1 rounded-xl px-5 py-2.5 text-sm font-medium",
-                  "text-gray-600 transition-all duration-200",
-                  "hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
+                  "flex-1 rounded-full px-5 py-3 text-[13.5px] font-medium",
+                  "border border-border-strong text-foreground transition-all duration-200 ease-out",
+                  "hover:border-primary hover:bg-primary-soft hover:text-primary-deep",
                 )}
               >
                 {t("proposalCancel")}
               </Button>
-              <Button variant="ghost" size="auto"
+              <Button
+                variant="ghost"
+                size="auto"
                 type="submit"
                 disabled={!isValid || isSubmitting || !canCreate}
                 className={cn(
-                  "flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200",
-                  "flex items-center justify-center gap-2",
+                  "flex-1 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3",
+                  "text-[13.5px] font-bold transition-all duration-200 ease-out",
                   isValid && !isSubmitting && canCreate
-                    ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
-                    : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
+                    ? "bg-primary text-primary-foreground hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]"
+                    : "cursor-not-allowed bg-border text-subtle-foreground",
                 )}
               >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                 {t("proposalSend")}
               </Button>
             </div>
@@ -509,12 +500,44 @@ export function CreateProposalPage() {
   )
 }
 
-// buildCreatePayload turns the form state into the API payload shape.
-// In one-time mode it forwards a single amount and leaves milestones
-// undefined (the backend synthesises a single milestone server-side).
-// In milestone mode it derives the total amount from the sum of
-// milestone amounts and serialises the array with consecutive
-// sequence numbers starting at 1.
+interface FormSectionProps {
+  eyebrow: string
+  children: React.ReactNode
+}
+
+function FormSection({ eyebrow, children }: FormSectionProps) {
+  return (
+    <section
+      className="space-y-5 rounded-2xl border border-border bg-card p-6"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.12em] text-primary">
+        {eyebrow}
+      </p>
+      {children}
+    </section>
+  )
+}
+
+interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  required?: boolean
+}
+
+function Label({ required, children, ...rest }: LabelProps) {
+  return (
+    <label
+      {...rest}
+      className={cn(
+        "block text-[13.5px] font-medium text-foreground",
+        rest.className,
+      )}
+    >
+      {children}
+      {required && <span className="ml-0.5 text-primary">*</span>}
+    </label>
+  )
+}
+
 function buildCreatePayload(form: ProposalFormData): {
   amount: number
   milestones: MilestoneInputData[] | undefined
@@ -535,11 +558,6 @@ function buildCreatePayload(form: ProposalFormData): {
   return { amount, milestones }
 }
 
-// buildFeePreviewMilestones maps the current form state to the shape
-// expected by <FeePreview>. In one-time mode we emit a single synthetic
-// entry labelled "Paiement unique" so the component's milestone-agnostic
-// one-time summary fires; in milestone mode each editable item is
-// forwarded with its display label.
 function buildFeePreviewMilestones(
   form: ProposalFormData,
 ): { key: string; label: string; amountCents: number }[] {
@@ -566,24 +584,15 @@ function buildFeePreviewMilestones(
 function RecipientField({ name }: { name: string }) {
   const t = useTranslations("proposal")
 
-  const initials = name
-    .split(" ")
-    .map((w) => w.charAt(0))
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
-
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-subtle-foreground">
         {t("proposalRecipient")}
       </p>
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-xs font-semibold text-white">
-          {initials || "?"}
-        </div>
-        <p className="text-sm font-medium text-gray-900 dark:text-white">
-          {name || "\u2014"}
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-3.5">
+        <Portrait id={2} size={36} />
+        <p className="text-[14px] font-medium text-foreground">
+          {name || "—"}
         </p>
       </div>
     </div>

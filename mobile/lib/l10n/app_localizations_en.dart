@@ -3385,4 +3385,145 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jobDetail_m08_sendMessage => 'Send message';
+
+  @override
+  String get proposalFlow_create_eyebrow => 'ATELIER · NEW PROPOSAL';
+
+  @override
+  String get proposalFlow_create_titlePrefix => 'Draft your';
+
+  @override
+  String get proposalFlow_create_titleAccent => 'proposal.';
+
+  @override
+  String get proposalFlow_create_subtitle =>
+      'Spell out the brief, budget and deadline. The clearer the scope, the faster the mission starts.';
+
+  @override
+  String get proposalFlow_create_modifyTitleAccent => 'amended proposal.';
+
+  @override
+  String get proposalFlow_create_modifySubtitle =>
+      'Adjust the terms. Every change creates a new version sent to your counterpart.';
+
+  @override
+  String get proposalFlow_create_sectionBrief => 'Mission brief';
+
+  @override
+  String get proposalFlow_create_sectionPayment => 'Payment terms';
+
+  @override
+  String get proposalFlow_create_sectionDeadline => 'Deadline';
+
+  @override
+  String get proposalFlow_pay_eyebrow => 'ATELIER · PAYMENT';
+
+  @override
+  String get proposalFlow_pay_titlePrefix => 'Confirm';
+
+  @override
+  String get proposalFlow_pay_titleAccent => 'the payment.';
+
+  @override
+  String get proposalFlow_pay_subtitle =>
+      'Funds are held in escrow and released once the mission is validated.';
+
+  @override
+  String get proposalFlow_pay_secureNotice =>
+      'Secured payment · escrow guaranteed by the platform';
+
+  @override
+  String get proposalFlow_detail_eyebrowPending => 'ATELIER · PENDING PROPOSAL';
+
+  @override
+  String get proposalFlow_detail_eyebrowAccepted =>
+      'ATELIER · ACCEPTED PROPOSAL';
+
+  @override
+  String get proposalFlow_detail_eyebrowActive =>
+      'ATELIER · MISSION IN PROGRESS';
+
+  @override
+  String get proposalFlow_detail_eyebrowCompleted =>
+      'ATELIER · MISSION COMPLETED';
+
+  @override
+  String get proposalFlow_detail_eyebrowDisputed => 'ATELIER · DISPUTE OPEN';
+
+  @override
+  String get proposalFlow_detail_eyebrowDeclined =>
+      'ATELIER · DECLINED PROPOSAL';
+
+  @override
+  String get proposalFlow_detail_eyebrowDefault => 'ATELIER · PROPOSAL';
+
+  @override
+  String get proposalFlow_detail_subtitle =>
+      'Track progress, validate milestones and stay in touch with your counterpart.';
+
+  @override
+  String get proposalFlow_list_eyebrow => 'ATELIER · MY PROJECTS';
+
+  @override
+  String get proposalFlow_list_titlePrefix => 'Your';
+
+  @override
+  String get proposalFlow_list_titleAccent => 'active missions.';
+
+  @override
+  String get proposalFlow_list_subtitle =>
+      'Track invoicing, milestones and deliveries on your active projects.';
+
+  @override
+  String get proposalFlow_list_emptyTitle => 'No active mission yet.';
+
+  @override
+  String get proposalFlow_list_emptyBody =>
+      'Your paid projects will show up here once the client has funded the mission.';
+
+  @override
+  String get proposalFlow_progress => 'Progress';
+
+  @override
+  String get proposalFlow_milestoneTrackerTitle => 'Project progress';
+
+  @override
+  String proposalFlow_milestoneCount(int total) {
+    return '$total milestones';
+  }
+
+  @override
+  String proposalFlow_milestoneSequence(int sequence) {
+    return 'Milestone $sequence';
+  }
+
+  @override
+  String get proposalFlow_milestoneOneTime => 'One-time payment';
+
+  @override
+  String get proposalFlow_milestoneDueNow => 'Fund now';
+
+  @override
+  String get proposalFlow_status_pendingFunding => 'Awaiting funding';
+
+  @override
+  String get proposalFlow_status_funded => 'Work in progress';
+
+  @override
+  String get proposalFlow_status_submitted => 'Awaiting approval';
+
+  @override
+  String get proposalFlow_status_approved => 'Approved';
+
+  @override
+  String get proposalFlow_status_released => 'Paid';
+
+  @override
+  String get proposalFlow_status_disputed => 'Disputed';
+
+  @override
+  String get proposalFlow_status_cancelled => 'Cancelled';
+
+  @override
+  String get proposalFlow_status_refunded => 'Refunded';
 }

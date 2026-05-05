@@ -13,29 +13,23 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { MilestoneResponse, MilestoneStatus, PaymentMode } from "../types"
 
+// Soleil v2 — Milestone tracker. Vertical timeline of milestones with
+// Soleil status pills (sapin / amber / corail / sable) and a
+// progress bar showing % completion of released milestones.
+
 type MilestoneTrackerProps = {
   milestones: MilestoneResponse[]
   paymentMode: PaymentMode
   currentSequence?: number
 }
 
-/**
- * MilestoneTracker renders the project's milestone list as a vertical
- * timeline. Each milestone shows its status icon, title, amount, and
- * (when present) deadline. The current active milestone is highlighted
- * with a rose accent border and a "Due now" badge.
- *
- * For one-time mode (single synthetic milestone) the tracker collapses
- * to a compact single-card layout that mirrors the legacy proposal
- * detail view — users coming from pre-phase-4 proposals see no
- * regression in their UX.
- */
 export function MilestoneTracker({
   milestones,
   paymentMode,
   currentSequence,
 }: MilestoneTrackerProps) {
   const t = useTranslations("proposal.milestoneTracker")
+  const tFlow = useTranslations("proposal")
 
   if (milestones.length === 0) {
     return null
@@ -46,22 +40,46 @@ export function MilestoneTracker({
     return <CompactSingleMilestone milestone={milestones[0]} />
   }
 
+  // Progress = released / total milestones
+  const released = milestones.filter((m) => m.status === "released").length
+  const progress = Math.round((released / milestones.length) * 100)
+
   return (
     <section
       aria-label={t("ariaLabel")}
       className={cn(
-        "rounded-2xl border border-gray-200 bg-white p-6 shadow-sm",
-        "dark:border-gray-700 dark:bg-gray-900",
+        "rounded-2xl border border-border bg-card p-6",
       )}
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <header className="mb-5 flex items-baseline justify-between">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-serif text-[20px] font-medium tracking-[-0.015em] text-foreground">
           {t("title")}
         </h2>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-subtle-foreground">
           {t("count", { total: milestones.length })}
         </span>
       </header>
+
+      {/* Progress bar */}
+      <div className="mb-6">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-primary">
+            {tFlow("proposalFlow_list_progress")}
+          </span>
+          <span className="font-mono text-[12px] font-semibold text-foreground">
+            {progress}%
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
       <ol className="space-y-3" role="list">
         {milestones.map((m, index) => (
           <MilestoneCard
@@ -93,16 +111,16 @@ function MilestoneCard({ milestone, isCurrent, isLast }: MilestoneCardProps) {
       {!isLast && (
         <span
           aria-hidden="true"
-          className="absolute left-[19px] top-12 -bottom-3 w-px bg-gray-200 dark:bg-gray-700"
+          className="absolute left-[19px] top-12 -bottom-3 w-px bg-border"
         />
       )}
 
       <div
         className={cn(
-          "relative flex gap-4 rounded-xl border p-4 transition-all duration-200",
+          "relative flex gap-4 rounded-2xl border p-4 transition-all duration-200 ease-out",
           isCurrent
-            ? "border-rose-300 bg-rose-50/30 dark:border-rose-700 dark:bg-rose-900/10"
-            : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
+            ? "border-primary bg-primary-soft/40"
+            : "border-border bg-card",
         )}
       >
         {/* Status icon with circular background */}
@@ -112,26 +130,26 @@ function MilestoneCard({ milestone, isCurrent, isLast }: MilestoneCardProps) {
             cfg.iconBg,
           )}
         >
-          <cfg.icon className={cn("h-5 w-5", cfg.iconColor)} strokeWidth={1.5} />
+          <cfg.icon className={cn("h-5 w-5", cfg.iconColor)} strokeWidth={1.7} />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-baseline justify-between gap-3">
-            <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+            <h3 className="truncate font-serif text-[15px] font-medium text-foreground">
               {t("milestone")} {milestone.sequence} — {milestone.title}
             </h3>
-            <span className="shrink-0 text-sm font-bold text-gray-900 dark:text-white">
+            <span className="shrink-0 font-mono text-[14px] font-bold text-foreground">
               {amountEuros}&nbsp;&euro;
             </span>
           </div>
 
           {milestone.description && (
-            <p className="mb-2 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">
+            <p className="mb-2 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
               {milestone.description}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-[11.5px]">
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-medium",
@@ -142,12 +160,12 @@ function MilestoneCard({ milestone, isCurrent, isLast }: MilestoneCardProps) {
               {cfg.label}
             </span>
             {isCurrent && milestone.status === "pending_funding" && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 font-bold text-primary-foreground">
                 {t("dueNow")}
               </span>
             )}
             {milestone.deadline && (
-              <span className="text-gray-500 dark:text-gray-400">
+              <span className="font-mono text-[11px] text-subtle-foreground">
                 {t("dueBy", { date: formatDate(milestone.deadline) })}
               </span>
             )}
@@ -166,9 +184,9 @@ function CompactSingleMilestone({ milestone }: { milestone: MilestoneResponse })
   return (
     <section
       className={cn(
-        "rounded-2xl border border-gray-200 bg-white p-6 shadow-sm",
-        "dark:border-gray-700 dark:bg-gray-900",
+        "rounded-2xl border border-border bg-card p-6",
       )}
+      style={{ boxShadow: "var(--shadow-card)" }}
       aria-label={t("ariaLabel")}
     >
       <div className="flex items-center justify-between gap-4">
@@ -179,18 +197,18 @@ function CompactSingleMilestone({ milestone }: { milestone: MilestoneResponse })
               cfg.iconBg,
             )}
           >
-            <cfg.icon className={cn("h-6 w-6", cfg.iconColor)} strokeWidth={1.5} />
+            <cfg.icon className={cn("h-6 w-6", cfg.iconColor)} strokeWidth={1.7} />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
               {t("oneTimePayment")}
             </p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+            <p className="text-[13.5px] font-semibold text-foreground">
               {cfg.label}
             </p>
           </div>
         </div>
-        <span className="text-2xl font-bold text-gray-900 dark:text-white">
+        <span className="font-mono text-[26px] font-bold text-foreground">
           {amountEuros}&nbsp;&euro;
         </span>
       </div>
@@ -216,82 +234,82 @@ function milestoneStatusConfig(
       return {
         icon: CreditCard,
         label: t("statusPendingFunding"),
-        iconBg: "bg-amber-100 dark:bg-amber-900/30",
-        iconColor: "text-amber-600 dark:text-amber-400",
-        badgeBg: "bg-amber-50 dark:bg-amber-900/20",
-        badgeText: "text-amber-700 dark:text-amber-300",
+        iconBg: "bg-amber-soft",
+        iconColor: "text-warning",
+        badgeBg: "bg-amber-soft",
+        badgeText: "text-warning",
       }
     case "funded":
       return {
         icon: CircleDot,
         label: t("statusFunded"),
-        iconBg: "bg-blue-100 dark:bg-blue-900/30",
-        iconColor: "text-blue-600 dark:text-blue-400",
-        badgeBg: "bg-blue-50 dark:bg-blue-900/20",
-        badgeText: "text-blue-700 dark:text-blue-300",
+        iconBg: "bg-primary-soft",
+        iconColor: "text-primary",
+        badgeBg: "bg-primary-soft",
+        badgeText: "text-primary-deep",
       }
     case "submitted":
       return {
         icon: Loader2,
         label: t("statusSubmitted"),
-        iconBg: "bg-indigo-100 dark:bg-indigo-900/30",
-        iconColor: "text-indigo-600 dark:text-indigo-400",
-        badgeBg: "bg-indigo-50 dark:bg-indigo-900/20",
-        badgeText: "text-indigo-700 dark:text-indigo-300",
+        iconBg: "bg-amber-soft",
+        iconColor: "text-warning",
+        badgeBg: "bg-amber-soft",
+        badgeText: "text-warning",
       }
     case "approved":
       return {
-        icon: Loader2,
+        icon: CheckCircle2,
         label: t("statusApproved"),
-        iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
-        iconColor: "text-emerald-600 dark:text-emerald-400",
-        badgeBg: "bg-emerald-50 dark:bg-emerald-900/20",
-        badgeText: "text-emerald-700 dark:text-emerald-300",
+        iconBg: "bg-success-soft",
+        iconColor: "text-success",
+        badgeBg: "bg-success-soft",
+        badgeText: "text-success",
       }
     case "released":
       return {
         icon: CheckCircle2,
         label: t("statusReleased"),
-        iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
-        iconColor: "text-emerald-600 dark:text-emerald-400",
-        badgeBg: "bg-emerald-50 dark:bg-emerald-900/20",
-        badgeText: "text-emerald-700 dark:text-emerald-300",
+        iconBg: "bg-success-soft",
+        iconColor: "text-success",
+        badgeBg: "bg-success-soft",
+        badgeText: "text-success",
       }
     case "disputed":
       return {
         icon: AlertTriangle,
         label: t("statusDisputed"),
-        iconBg: "bg-orange-100 dark:bg-orange-900/30",
-        iconColor: "text-orange-600 dark:text-orange-400",
-        badgeBg: "bg-orange-50 dark:bg-orange-900/20",
-        badgeText: "text-orange-700 dark:text-orange-300",
+        iconBg: "bg-amber-soft",
+        iconColor: "text-warning",
+        badgeBg: "bg-amber-soft",
+        badgeText: "text-warning",
       }
     case "cancelled":
       return {
         icon: XCircle,
         label: t("statusCancelled"),
-        iconBg: "bg-gray-100 dark:bg-gray-800",
-        iconColor: "text-gray-500 dark:text-gray-400",
-        badgeBg: "bg-gray-100 dark:bg-gray-800",
-        badgeText: "text-gray-600 dark:text-gray-400",
+        iconBg: "bg-border",
+        iconColor: "text-muted-foreground",
+        badgeBg: "bg-border",
+        badgeText: "text-muted-foreground",
       }
     case "refunded":
       return {
         icon: XCircle,
         label: t("statusRefunded"),
-        iconBg: "bg-rose-100 dark:bg-rose-900/30",
-        iconColor: "text-rose-600 dark:text-rose-400",
-        badgeBg: "bg-rose-50 dark:bg-rose-900/20",
-        badgeText: "text-rose-700 dark:text-rose-300",
+        iconBg: "bg-primary-soft",
+        iconColor: "text-primary-deep",
+        badgeBg: "bg-primary-soft",
+        badgeText: "text-primary-deep",
       }
     default:
       return {
         icon: Circle,
         label: status,
-        iconBg: "bg-gray-100 dark:bg-gray-800",
-        iconColor: "text-gray-500 dark:text-gray-400",
-        badgeBg: "bg-gray-100 dark:bg-gray-800",
-        badgeText: "text-gray-600 dark:text-gray-400",
+        iconBg: "bg-border",
+        iconColor: "text-muted-foreground",
+        badgeBg: "bg-border",
+        badgeText: "text-muted-foreground",
       }
   }
 }

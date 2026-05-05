@@ -6,21 +6,12 @@ import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../domain/repositories/proposal_repository.dart';
 import '../providers/proposal_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
-// The three milestone actions exposed on the mobile detail screen.
-// `fund` is wired through but not currently triggered by the detail
-// screen — the accepted → paid transition still runs through the
-// payment-simulation flow.
+/// Soleil v2 — Milestone action bottom sheet.
+/// Soleil card body, Fraunces title, corail StadiumBorder pill primary
+/// button (or destructive outline for reject).
 enum MilestoneAction { fund, submit, approve, reject }
 
-/// A contextual confirmation sheet for milestone state transitions.
-///
-/// Renders the action title, a short description drawn from l10n, the
-/// milestone summary, and primary / cancel buttons. On success it
-/// invalidates [proposalByIdProvider] so the detail screen refetches
-/// and pops back. Errors land in a SnackBar; the sheet stays open so
-/// the user can retry.
 class MilestoneActionBottomSheet extends ConsumerStatefulWidget {
   const MilestoneActionBottomSheet({
     super.key,
@@ -42,8 +33,9 @@ class MilestoneActionBottomSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => MilestoneActionBottomSheet(
         proposalId: proposalId,
@@ -109,6 +101,7 @@ class _MilestoneActionBottomSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final copy = _copyFor(widget.action, l10n);
     final insetBottom = MediaQuery.of(context).viewInsets.bottom;
@@ -118,50 +111,46 @@ class _MilestoneActionBottomSheetState
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Drag handle
               Center(
                 child: Container(
-                  width: 36,
+                  width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.dividerColor,
+                    color: appColors?.borderStrong ??
+                        theme.colorScheme.outline.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               Text(
                 copy.title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: SoleilTextStyles.headlineMedium.copyWith(
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 copy.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                  height: 1.4,
+                style: SoleilTextStyles.bodyLarge.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               _MilestoneSummaryCard(milestone: widget.milestone),
               const SizedBox(height: 24),
-              ElevatedButton(
+              FilledButton(
                 onPressed: _isSubmitting ? null : _confirm,
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: copy.primaryColor(theme),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 48),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  ),
+                  minimumSize: const Size(0, 52),
+                  shape: const StadiumBorder(),
+                  textStyle: SoleilTextStyles.button,
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
@@ -178,6 +167,10 @@ class _MilestoneActionBottomSheetState
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  minimumSize: const Size(0, 48),
+                ),
                 child: Text(l10n.cancel),
               ),
             ],
@@ -200,35 +193,36 @@ class _MilestoneSummaryCard extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: appColors?.muted ?? AppPalette.slate100,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.milestoneSequenceLabel(milestone.sequence),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
+            style: SoleilTextStyles.mono.copyWith(
+              color: appColors?.primaryDeep ?? theme.colorScheme.primary,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             milestone.title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+            style: SoleilTextStyles.titleMedium.copyWith(
+              color: theme.colorScheme.onSurface,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            '\u20AC ${milestone.amountInEuros.toStringAsFixed(2)}',
-            style: theme.textTheme.bodyMedium?.copyWith(
+            '€ ${milestone.amountInEuros.toStringAsFixed(2)}',
+            style: SoleilTextStyles.monoLarge.copyWith(
               color: theme.colorScheme.primary,
               fontWeight: FontWeight.w700,
             ),

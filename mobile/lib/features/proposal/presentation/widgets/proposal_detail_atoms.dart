@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Centered error block with retry button — used by the proposal detail
-/// screen when the proposal fetch fails.
+/// Soleil v2 — Detail screen atoms (error block, info row, document tile).
 class ProposalErrorBody extends StatelessWidget {
   const ProposalErrorBody({
     super.key,
@@ -20,6 +18,7 @@ class ProposalErrorBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -28,13 +27,27 @@ class ProposalErrorBody extends StatelessWidget {
           children: [
             Icon(
               Icons.error_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.error,
+              size: 44,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              style: SoleilTextStyles.body.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: onRetry, child: Text(l10n.retry)),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                textStyle: SoleilTextStyles.button,
+              ),
+              child: Text(l10n.retry),
+            ),
           ],
         ),
       ),
@@ -66,26 +79,41 @@ class ProposalDetailRow extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(
           color: appColors?.border ?? theme.dividerColor,
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: appColors?.mutedForeground),
+          Icon(
+            icon,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 10),
-          Text(label, style: theme.textTheme.bodyMedium),
+          Text(
+            label,
+            style: SoleilTextStyles.body.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const Spacer(),
           Text(
             value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: valueColor,
-              fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
-            ),
+            style: valueBold
+                ? SoleilTextStyles.monoLarge.copyWith(
+                    color: valueColor ?? theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  )
+                : SoleilTextStyles.mono.copyWith(
+                    color: valueColor ?? theme.colorScheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
           ),
         ],
       ),
@@ -107,20 +135,28 @@ class ProposalDocumentTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: appColors?.muted ?? AppPalette.slate100,
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          color: theme.colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          border: Border.all(
+            color: appColors?.border ?? theme.dividerColor,
+          ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.attach_file, size: 18),
-            const SizedBox(width: 8),
+            Icon(
+              Icons.attach_file_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 document.filename,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w500,
+                style: SoleilTextStyles.bodyEmphasis.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 13,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -128,8 +164,10 @@ class ProposalDocumentTile extends StatelessWidget {
             ),
             Text(
               _formatSize(document.size),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: appColors?.mutedForeground,
+              style: SoleilTextStyles.mono.copyWith(
+                color: appColors?.subtleForeground ??
+                    theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
               ),
             ),
           ],

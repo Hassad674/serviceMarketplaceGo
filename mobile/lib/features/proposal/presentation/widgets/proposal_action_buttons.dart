@@ -14,10 +14,9 @@ import '../../types/proposal.dart';
 import '../providers/proposal_provider.dart';
 import 'milestone_action_bottom_sheet.dart';
 
-/// State-driven action toolbar at the bottom of the proposal detail
-/// screen. The button set depends on `status`, who the viewer is
-/// (sender vs recipient, client vs provider), and the current
-/// milestone's sub-state.
+/// Soleil v2 — Action toolbar at the bottom of the proposal detail
+/// screen. Corail StadiumBorder pill primary CTA, outline destructive
+/// for negative actions, soft-tinted Material 3 idiom throughout.
 class ProposalActionButtons extends ConsumerWidget {
   const ProposalActionButtons({
     super.key,
@@ -34,8 +33,6 @@ class ProposalActionButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final canRespond = ref.watch(
       hasPermissionProvider(OrgPermission.proposalsRespond),
@@ -47,7 +44,6 @@ class ProposalActionButtons extends ConsumerWidget {
         onAccept: () => _accept(context, ref),
         onDecline: () => _decline(context, ref),
         onModify: () => _modify(context, ref),
-        successColor: appColors?.success,
         l10n: l10n,
       );
     }
@@ -58,7 +54,6 @@ class ProposalActionButtons extends ConsumerWidget {
       return _PrimaryButton(
         label: l10n.payNow,
         icon: Icons.payment_outlined,
-        background: theme.colorScheme.primary,
         onPressed: () => _pay(context),
       );
     }
@@ -73,7 +68,6 @@ class ProposalActionButtons extends ConsumerWidget {
         return _PrimaryButton(
           label: l10n.payNow,
           icon: Icons.payment_outlined,
-          background: theme.colorScheme.primary,
           onPressed: () => _pay(context),
         );
       }
@@ -84,7 +78,6 @@ class ProposalActionButtons extends ConsumerWidget {
         return _PrimaryButton(
           label: l10n.submitWork,
           icon: Icons.check_circle_outline,
-          background: theme.colorScheme.primary,
           onPressed: () => MilestoneActionBottomSheet.show(
             context,
             proposalId: proposal.id,
@@ -103,7 +96,6 @@ class ProposalActionButtons extends ConsumerWidget {
       return _ApproveOrRejectCta(
         proposalId: proposal.id,
         milestone: current,
-        successColor: appColors?.success,
         l10n: l10n,
       );
     }
@@ -120,7 +112,6 @@ class ProposalActionButtons extends ConsumerWidget {
       return _PrimaryButton(
         label: l10n.leaveReview,
         icon: Icons.star_outline,
-        background: theme.colorScheme.primary,
         onPressed: () => ReviewBottomSheet.show(
           context,
           proposalId: proposal.id,
@@ -189,10 +180,6 @@ class ProposalActionButtons extends ConsumerWidget {
     GoRouter.of(context).push('/projects/pay/${proposal.id}');
   }
 
-  /// Resolves the milestone whose sequence matches
-  /// `current_milestone_sequence`. Returns null when the proposal has
-  /// no milestones or the active sequence is missing from the list
-  /// (shouldn't happen in practice, but guards stale payloads).
   static MilestoneEntity? _currentActiveMilestone(ProposalEntity proposal) {
     final seq = proposal.currentMilestoneSequence;
     if (seq == null || proposal.milestones.isEmpty) return null;
@@ -208,19 +195,20 @@ class _PendingRecipientCta extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     required this.onModify,
-    required this.successColor,
     required this.l10n,
   });
 
   final VoidCallback onAccept;
   final VoidCallback onDecline;
   final VoidCallback onModify;
-  final Color? successColor;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final success = appColors?.success ?? theme.colorScheme.primary;
+
     return Column(
       children: [
         Row(
@@ -231,13 +219,11 @@ class _PendingRecipientCta extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.error,
                   side: BorderSide(
-                    color:
-                        theme.colorScheme.error.withValues(alpha: 0.3),
+                    color: theme.colorScheme.error.withValues(alpha: 0.4),
                   ),
-                  minimumSize: const Size(0, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  ),
+                  minimumSize: const Size(0, 48),
+                  shape: const StadiumBorder(),
+                  textStyle: SoleilTextStyles.button,
                 ),
                 child: Text(l10n.proposalDecline),
               ),
@@ -247,20 +233,19 @@ class _PendingRecipientCta extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onAccept,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: successColor ?? Colors.green,
+                  backgroundColor: success,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 44),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  ),
+                  minimumSize: const Size(0, 48),
+                  shape: const StadiumBorder(),
+                  textStyle: SoleilTextStyles.button,
                 ),
                 child: Text(l10n.proposalAccept),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -268,10 +253,9 @@ class _PendingRecipientCta extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, size: 16),
             label: Text(l10n.proposalModify),
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
+              minimumSize: const Size(0, 44),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
         ),
@@ -284,13 +268,11 @@ class _ApproveOrRejectCta extends StatelessWidget {
   const _ApproveOrRejectCta({
     required this.proposalId,
     required this.milestone,
-    required this.successColor,
     required this.l10n,
   });
 
   final String proposalId;
   final MilestoneEntity milestone;
-  final Color? successColor;
   final AppLocalizations l10n;
 
   @override
@@ -300,7 +282,7 @@ class _ApproveOrRejectCta extends StatelessWidget {
       children: [
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
+          child: FilledButton.icon(
             onPressed: () => MilestoneActionBottomSheet.show(
               context,
               proposalId: proposalId,
@@ -309,18 +291,14 @@ class _ApproveOrRejectCta extends StatelessWidget {
             ),
             icon: const Icon(Icons.check_circle_outline, size: 18),
             label: Text(l10n.approveWork),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: successColor ?? Colors.green,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 48),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 52),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -335,12 +313,11 @@ class _ApproveOrRejectCta extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.colorScheme.error,
               side: BorderSide(
-                color: theme.colorScheme.error.withValues(alpha: 0.3),
+                color: theme.colorScheme.error.withValues(alpha: 0.4),
               ),
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
+              minimumSize: const Size(0, 48),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
         ),
@@ -353,31 +330,25 @@ class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
     required this.label,
     required this.icon,
-    required this.background,
     required this.onPressed,
   });
 
   final String label;
   final IconData icon;
-  final Color background;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      child: FilledButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 18),
         label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(0, 48),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          ),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          shape: const StadiumBorder(),
+          textStyle: SoleilTextStyles.button,
         ),
       ),
     );
