@@ -6,6 +6,7 @@ import type { AccountSection } from "../types"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+
 const NAV_ITEMS: { section: AccountSection; icon: React.ElementType; labelKey: string }[] = [
   { section: "notifications", icon: Bell, labelKey: "notifications" },
   { section: "email", icon: Mail, labelKey: "email" },
@@ -18,31 +19,45 @@ interface AccountNavProps {
   onSectionChange: (section: AccountSection) => void
 }
 
+/**
+ * AccountNav — Soleil v2 sidebar tabs (240px on lg+, horizontal pill row
+ * on smaller viewports). Active state uses `bg-primary-soft` + corail-deep
+ * text per soleil-lotE.jsx `SoleilAccount`.
+ */
 export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) {
   const t = useTranslations("account")
 
   return (
-    <nav className="rounded-xl border border-slate-200 bg-white p-1.5 dark:border-slate-700 dark:bg-slate-800">
-      {/* Desktop: vertical list */}
+    <nav
+      aria-label={t("title")}
+      className="rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-card)]"
+    >
+      {/* Desktop: vertical pill list */}
       <div className="hidden lg:flex lg:flex-col lg:gap-0.5">
         {NAV_ITEMS.map((item) => {
           const isActive = activeSection === item.section
           const Icon = item.icon
           return (
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               key={item.section}
               onClick={() => onSectionChange(item.section)}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all",
+                "flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm transition-colors",
                 isActive
-                  ? "bg-rose-50 font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-300",
+                  ? "bg-primary-soft font-semibold text-[var(--primary-deep)] hover:bg-primary-soft"
+                  : "font-medium text-foreground hover:bg-[var(--background)]",
               )}
             >
-              {isActive && (
-                <div className="absolute left-0 h-6 w-1 rounded-r-full bg-rose-500" />
-              )}
-              <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              <Icon
+                className={cn(
+                  "h-[15px] w-[15px] shrink-0",
+                  isActive ? "text-[var(--primary-deep)]" : "text-muted-foreground",
+                )}
+                strokeWidth={1.6}
+                aria-hidden="true"
+              />
               <span>{t(item.labelKey)}</span>
             </Button>
           )
@@ -55,17 +70,19 @@ export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) 
           const isActive = activeSection === item.section
           const Icon = item.icon
           return (
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               key={item.section}
               onClick={() => onSectionChange(item.section)}
               className={cn(
-                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all",
+                "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
                 isActive
-                  ? "bg-rose-50 font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                  : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50",
+                  ? "bg-primary-soft font-semibold text-[var(--primary-deep)]"
+                  : "font-medium text-foreground hover:bg-[var(--background)]",
               )}
             >
-              <Icon className="h-4 w-4" strokeWidth={1.5} />
+              <Icon className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
               <span>{t(item.labelKey)}</span>
             </Button>
           )

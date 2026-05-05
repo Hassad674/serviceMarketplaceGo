@@ -12,6 +12,11 @@ import { useUser } from "@/shared/hooks/use-user"
 import { DEFAULT_SECTION, VALID_SECTIONS } from "../types"
 import type { AccountSection } from "../types"
 
+/**
+ * AccountSettingsPage — Soleil v2 frame for the account preferences area.
+ * Layout matches `SoleilAccount` from soleil-lotE.jsx: editorial title,
+ * a 240px sidebar of pill tabs + a flexible content column.
+ */
 export function AccountSettingsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -28,16 +33,16 @@ export function AccountSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-slate-100">
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="mb-7 font-serif text-3xl font-medium tracking-[-0.02em] text-foreground sm:text-[32px]">
         {t("title")}
       </h1>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <aside className="w-full shrink-0 lg:w-56">
+      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[240px_1fr] lg:items-start">
+        <aside className="w-full shrink-0">
           <AccountNav activeSection={section} onSectionChange={handleSectionChange} />
         </aside>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {section === "notifications" && <NotificationSettings />}
           {section === "email" && <EmailSettings />}
           {section === "password" && <PasswordSettings />}

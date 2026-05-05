@@ -4,40 +4,52 @@ import { useTranslations } from "next-intl"
 import { useUser } from "@/shared/hooks/use-user"
 
 import { Input } from "@/shared/components/ui/input"
+
+/**
+ * EmailSettings — Soleil v2 read-only card showing the current account
+ * email plus a placeholder input for the upcoming "change email" flow
+ * (still backend-blocked → "comingSoon" pill).
+ */
 export function EmailSettings() {
   const t = useTranslations("account")
   const { data: user } = useUser()
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <header>
+        <h2 className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground">
           {t("emailTitle")}
         </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           {t("emailDesc")}
         </p>
-      </div>
+      </header>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-          {t("currentEmail")}
-        </label>
-        <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-          {user?.email || "—"}
-        </p>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("currentEmail")}
+          </span>
+          <p className="mt-1.5 font-mono text-[15px] text-foreground">
+            {user?.email || "—"}
+          </p>
+        </div>
 
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="mt-7">
+          <label
+            htmlFor="account-new-email"
+            className="block text-sm font-medium text-foreground"
+          >
             {t("newEmail")}
           </label>
           <Input
+            id="account-new-email"
             type="email"
             disabled
             placeholder="new@email.com"
-            className="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-500"
+            className="mt-1.5"
           />
-          <span className="mt-2 inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-400/20">
+          <span className="mt-3 inline-flex items-center rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-[var(--primary-deep)]">
             {t("comingSoon")}
           </span>
         </div>

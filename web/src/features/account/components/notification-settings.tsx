@@ -12,6 +12,7 @@ import {
 } from "../hooks/use-notification-preferences"
 
 import { Button } from "@/shared/components/ui/button"
+
 type Channel = "push" | "email"
 
 const GROUPS = [
@@ -54,24 +55,41 @@ const TYPE_LABELS: Record<string, string> = {
   system_announcement: "systemAnnouncement",
 }
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+/**
+ * Soleil v2 toggle pill — 36×20 track with white knob, corail when on,
+ * sable border when off. Mirrors the JSX source of-truth (soleil-lotE.jsx).
+ */
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: () => void
+  disabled?: boolean
+  ariaLabel?: string
+}) {
   return (
-    <Button variant="ghost" size="auto"
+    <Button
+      variant="ghost"
+      size="auto"
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       onClick={disabled ? undefined : onChange}
       disabled={disabled}
       className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
-        checked ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-600",
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0 transition-colors",
+        checked ? "bg-primary hover:bg-primary" : "bg-[var(--border-strong)] hover:bg-[var(--border-strong)]",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <span
         className={cn(
-          "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-6" : "translate-x-1",
+          "inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-transform",
+          checked ? "translate-x-[18px]" : "translate-x-0.5",
         )}
       />
     </Button>
@@ -85,38 +103,44 @@ interface BulkEmailToggleProps {
   t: ReturnType<typeof useTranslations<"account">>
 }
 
+/**
+ * Soleil v2 bulk-email row card — corail-soft icon square, label +
+ * helper copy, toggle on the right. Matches the JSX source's "global"
+ * card right under the section heading.
+ */
 function BulkEmailToggle({ allDisabled, onToggle, isPending, t }: BulkEmailToggleProps) {
   const Icon = allDisabled ? MailX : Mail
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 rounded-xl border px-5 py-4 transition-all duration-200",
-        allDisabled
-          ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
-          : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800",
+        "flex items-center gap-3.5 rounded-2xl border bg-card px-[18px] py-4 shadow-[var(--shadow-card)] transition-colors",
+        allDisabled ? "border-[var(--warning)]/40" : "border-border",
       )}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            allDisabled
-              ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"
-              : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
-          )}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {allDisabled ? t("bulkEmailDisabledLabel") : t("bulkEmailEnabledLabel")}
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t("bulkEmailDesc")}
-          </p>
-        </div>
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]",
+          allDisabled
+            ? "bg-[var(--warning)]/15 text-[var(--warning)]"
+            : "bg-primary-soft text-primary",
+        )}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
-      <Toggle checked={!allDisabled} onChange={onToggle} disabled={isPending} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground">
+          {allDisabled ? t("bulkEmailDisabledLabel") : t("bulkEmailEnabledLabel")}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {t("bulkEmailDesc")}
+        </p>
+      </div>
+      <Toggle
+        checked={!allDisabled}
+        onChange={onToggle}
+        disabled={isPending}
+        ariaLabel={t("bulkEmailEnabledLabel")}
+      />
     </div>
   )
 }
@@ -176,7 +200,10 @@ export function NotificationSettings() {
     return (
       <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-2xl border border-border bg-card"
+          />
         ))}
       </div>
     )
@@ -185,18 +212,21 @@ export function NotificationSettings() {
   const prefsMap = new Map(localPrefs.map((p) => [p.type, p]))
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+    <div className="space-y-[18px]">
+      <header className="mb-[22px]">
+        <h2 className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground">
           {t("notificationPreferences")}
         </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           {t("notificationPreferencesDesc")}
         </p>
-      </div>
+      </header>
 
       {(updateMutation.isError || bulkEmailMutation.isError) && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div
+          role="alert"
+          className="rounded-xl border border-[var(--destructive)]/40 bg-[var(--destructive)]/10 px-4 py-3 text-sm text-[var(--destructive)]"
+        >
           {t("saveError")}
         </div>
       )}
@@ -209,68 +239,107 @@ export function NotificationSettings() {
       />
 
       {GROUPS.map((group) => (
-        <div
+        <NotificationGroupCard
           key={group.titleKey}
-          className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
-        >
-          <div className="border-b border-slate-100 px-5 py-3.5 dark:border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {t(group.titleKey)}
-            </h3>
-          </div>
-
-          {/* Header */}
-          <div className="hidden items-center gap-4 border-b border-slate-100 px-5 py-2 sm:flex dark:border-slate-700">
-            <span className="flex-1 text-xs font-medium uppercase tracking-wider text-slate-400">
-              {t("notificationType")}
-            </span>
-            <span className="w-16 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
-              {t("push")}
-            </span>
-            <span className="w-16 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
-              {t("emailChannel")}
-            </span>
-          </div>
-
-          {/* Rows */}
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {group.types.map((type) => {
-              const pref = prefsMap.get(type)
-              if (!pref) return null
-              const isNewMessage = type === "new_message"
-
-              return (
-                <div key={type} className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:gap-4">
-                  <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">
-                    {t(TYPE_LABELS[type] || type)}
-                  </span>
-                  <div className="flex items-center gap-6 sm:gap-4">
-                    <div className="flex items-center gap-2 sm:w-16 sm:justify-center">
-                      <span className="text-xs text-slate-400 sm:hidden">{t("push")}</span>
-                      <Toggle checked={pref.push} onChange={() => handleToggle(type, "push")} />
-                    </div>
-                    <div className="flex items-center gap-2 sm:w-16 sm:justify-center">
-                      <span className="text-xs text-slate-400 sm:hidden">{t("emailChannel")}</span>
-                      <Toggle
-                        checked={allEmailsDisabled ? false : pref.email}
-                        onChange={() => handleToggle(type, "email")}
-                        disabled={isNewMessage || allEmailsDisabled}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+          titleKey={group.titleKey}
+          types={group.types}
+          prefsMap={prefsMap}
+          allEmailsDisabled={allEmailsDisabled}
+          onToggle={handleToggle}
+          t={t}
+        />
       ))}
 
       {(updateMutation.isPending || bulkEmailMutation.isPending) && (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           {t("saving")}
         </div>
       )}
     </div>
+  )
+}
+
+interface NotificationGroupCardProps {
+  titleKey: string
+  types: string[]
+  prefsMap: Map<string, NotificationPreference>
+  allEmailsDisabled: boolean
+  onToggle: (type: string, channel: Channel) => void
+  t: ReturnType<typeof useTranslations<"account">>
+}
+
+/**
+ * One Soleil v2 group card: bold title row + uppercase mono header row
+ * (Type / Push / Email) + dividers between rows. Matches the source.
+ */
+function NotificationGroupCard({
+  titleKey,
+  types,
+  prefsMap,
+  allEmailsDisabled,
+  onToggle,
+  t,
+}: NotificationGroupCardProps) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+      <header className="border-b border-border px-5 py-3.5">
+        <h3 className="text-sm font-bold text-foreground">{t(titleKey)}</h3>
+      </header>
+
+      {/* Header row (visible from sm+ to keep mobile compact) */}
+      <div className="hidden grid-cols-[1fr_70px_70px] items-center gap-2 border-b border-border bg-[var(--background)] px-5 py-2 sm:grid">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {t("notificationType")}
+        </span>
+        <span className="text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {t("push")}
+        </span>
+        <span className="text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {t("emailChannel")}
+        </span>
+      </div>
+
+      <div className="divide-y divide-border">
+        {types.map((type) => {
+          const pref = prefsMap.get(type)
+          if (!pref) return null
+          const isNewMessage = type === "new_message"
+          const label = t(TYPE_LABELS[type] || type)
+
+          return (
+            <div
+              key={type}
+              className="flex flex-col gap-3 px-5 py-3 sm:grid sm:grid-cols-[1fr_70px_70px] sm:items-center sm:gap-2"
+            >
+              <span className="text-[13.5px] text-foreground">{label}</span>
+              <div className="flex items-center gap-6 sm:contents">
+                <div className="flex items-center gap-2 sm:justify-center">
+                  <span className="text-xs text-muted-foreground sm:hidden">
+                    {t("push")}
+                  </span>
+                  <Toggle
+                    checked={pref.push}
+                    onChange={() => onToggle(type, "push")}
+                    ariaLabel={`${label} — ${t("push")}`}
+                  />
+                </div>
+                <div className="flex items-center gap-2 sm:justify-center">
+                  <span className="text-xs text-muted-foreground sm:hidden">
+                    {t("emailChannel")}
+                  </span>
+                  <Toggle
+                    checked={allEmailsDisabled ? false : pref.email}
+                    onChange={() => onToggle(type, "email")}
+                    disabled={isNewMessage || allEmailsDisabled}
+                    ariaLabel={`${label} — ${t("emailChannel")}`}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
