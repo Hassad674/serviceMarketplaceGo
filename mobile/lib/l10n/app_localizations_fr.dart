@@ -931,6 +931,75 @@ class AppLocalizationsFr extends AppLocalizations {
   String get jobUpdateSuccess => 'Offre mise à jour avec succès';
 
   @override
+  String get jobsEyebrow => 'ATELIER · MES ANNONCES';
+
+  @override
+  String get jobsTitlePrefix => 'Tes';
+
+  @override
+  String get jobsTitleAccent => 'annonces publiées.';
+
+  @override
+  String get jobsSubtitle =>
+      'Suis tes recrutements actifs et publie de nouvelles missions.';
+
+  @override
+  String get jobsApplicants => 'candidatures';
+
+  @override
+  String get jobsApplicantsOne => 'candidature';
+
+  @override
+  String jobsApplicantsNew(int count) {
+    return '$count nouv.';
+  }
+
+  @override
+  String get jobsViewArrow => 'Voir →';
+
+  @override
+  String get jobsLongTerm => 'Mission longue';
+
+  @override
+  String get jobsOneShot => 'Projet ponctuel';
+
+  @override
+  String jobsPublishedRelative(String when) {
+    return 'Publiée $when';
+  }
+
+  @override
+  String jobsClosedRelative(String when) {
+    return 'Fermée $when';
+  }
+
+  @override
+  String get jobsJustNow => 'à l\'instant';
+
+  @override
+  String jobsMinutesAgo(int count) {
+    return 'il y a $count min';
+  }
+
+  @override
+  String jobsHoursAgo(int count) {
+    return 'il y a $count h';
+  }
+
+  @override
+  String jobsDaysAgo(int count) {
+    return 'il y a $count j';
+  }
+
+  @override
+  String jobsWeeksAgo(int count) {
+    return 'il y a $count sem';
+  }
+
+  @override
+  String get jobsEmptyCta => 'Publier ta première annonce';
+
+  @override
   String get proposalPropose => 'Envoyer une proposition';
 
   @override

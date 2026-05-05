@@ -327,6 +327,59 @@
   "jobVideoUploading": "Envoi de la vidéo...",
   "jobVideoUploaded": "Vidéo envoyée",
   "jobUpdateSuccess": "Offre mise à jour avec succès",
+  "jobsEyebrow": "ATELIER · MES ANNONCES",
+  "jobsTitlePrefix": "Tes",
+  "jobsTitleAccent": "annonces publiées.",
+  "jobsSubtitle": "Suis tes recrutements actifs et publie de nouvelles missions.",
+  "jobsApplicants": "candidatures",
+  "jobsApplicantsOne": "candidature",
+  "jobsApplicantsNew": "{count} nouv.",
+  "@jobsApplicantsNew": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsViewArrow": "Voir →",
+  "jobsLongTerm": "Mission longue",
+  "jobsOneShot": "Projet ponctuel",
+  "jobsPublishedRelative": "Publiée {when}",
+  "@jobsPublishedRelative": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "jobsClosedRelative": "Fermée {when}",
+  "@jobsClosedRelative": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "jobsJustNow": "à l'instant",
+  "jobsMinutesAgo": "il y a {count} min",
+  "@jobsMinutesAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsHoursAgo": "il y a {count} h",
+  "@jobsHoursAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsDaysAgo": "il y a {count} j",
+  "@jobsDaysAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsWeeksAgo": "il y a {count} sem",
+  "@jobsWeeksAgo": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "jobsEmptyCta": "Publier ta première annonce",
   "proposalPropose": "Envoyer une proposition",
   "proposalCreate": "Créer une proposition",
   "proposalTitle": "Titre de la mission",

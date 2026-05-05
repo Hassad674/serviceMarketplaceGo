@@ -1862,6 +1862,114 @@ abstract class AppLocalizations {
   /// **'Job updated successfully'**
   String get jobUpdateSuccess;
 
+  /// No description provided for @jobsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · MY JOBS'**
+  String get jobsEyebrow;
+
+  /// No description provided for @jobsTitlePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Your'**
+  String get jobsTitlePrefix;
+
+  /// No description provided for @jobsTitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'published jobs.'**
+  String get jobsTitleAccent;
+
+  /// No description provided for @jobsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track active recruitments and publish new missions.'**
+  String get jobsSubtitle;
+
+  /// No description provided for @jobsApplicants.
+  ///
+  /// In en, this message translates to:
+  /// **'applicants'**
+  String get jobsApplicants;
+
+  /// No description provided for @jobsApplicantsOne.
+  ///
+  /// In en, this message translates to:
+  /// **'applicant'**
+  String get jobsApplicantsOne;
+
+  /// No description provided for @jobsApplicantsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new'**
+  String jobsApplicantsNew(int count);
+
+  /// No description provided for @jobsViewArrow.
+  ///
+  /// In en, this message translates to:
+  /// **'View →'**
+  String get jobsViewArrow;
+
+  /// No description provided for @jobsLongTerm.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term'**
+  String get jobsLongTerm;
+
+  /// No description provided for @jobsOneShot.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time project'**
+  String get jobsOneShot;
+
+  /// No description provided for @jobsPublishedRelative.
+  ///
+  /// In en, this message translates to:
+  /// **'Posted {when}'**
+  String jobsPublishedRelative(String when);
+
+  /// No description provided for @jobsClosedRelative.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed {when}'**
+  String jobsClosedRelative(String when);
+
+  /// No description provided for @jobsJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get jobsJustNow;
+
+  /// No description provided for @jobsMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}m ago'**
+  String jobsMinutesAgo(int count);
+
+  /// No description provided for @jobsHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}h ago'**
+  String jobsHoursAgo(int count);
+
+  /// No description provided for @jobsDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}d ago'**
+  String jobsDaysAgo(int count);
+
+  /// No description provided for @jobsWeeksAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}w ago'**
+  String jobsWeeksAgo(int count);
+
+  /// No description provided for @jobsEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish your first job'**
+  String get jobsEmptyCta;
+
   /// No description provided for @proposalPropose.
   ///
   /// In en, this message translates to:
