@@ -42,39 +42,41 @@ export function LocationDisplayCard({
   return (
     <section
       aria-labelledby="public-location-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4">
         <h2
           id="public-location-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t("sectionTitle")}
         </h2>
       </header>
 
       {hasLocation ? (
-        <p className="text-sm text-foreground">
+        <p className="text-[15px] text-foreground">
           {flag ? <span className="mr-1.5">{flag}</span> : null}
-          {[city, countryLabel].filter(Boolean).join(", ")}
+          <strong className="font-semibold">
+            {[city, countryLabel].filter(Boolean).join(", ")}
+          </strong>
         </p>
       ) : null}
 
       {hasWorkMode ? (
         <ul
           aria-label={t("workModeLabel")}
-          className="mt-3 flex flex-wrap gap-1.5"
+          className="mt-4 flex flex-wrap gap-1.5"
         >
           {workMode.map((mode) => (
             <li
               key={mode}
-              className="inline-flex items-center rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+              className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
             >
               {t(WORK_MODE_KEYS[mode])}
             </li>
           ))}
           {travelRadiusKm !== null ? (
-            <li className="inline-flex items-center rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            <li className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {t("travelRadiusShort", { km: travelRadiusKm })}
             </li>
           ) : null}

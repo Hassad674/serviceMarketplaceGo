@@ -22,6 +22,11 @@ interface ProfileVideoCardProps {
     deleting?: boolean
   }
   readOnly?: boolean
+  // When true, render the empty-state inside the card even in
+  // read-only mode (Soleil v2 profile screens want the section to
+  // remain visible). Defaults to false to preserve the historical
+  // listing-card behavior where empty videos collapse silently.
+  showWhenEmpty?: boolean
 }
 
 // ProfileVideoCard renders the presentation video block: embedded
@@ -29,11 +34,17 @@ interface ProfileVideoCardProps {
 // nothing in read-only mode with an empty video URL so listing-card
 // contexts can safely include it without extra guards.
 export function ProfileVideoCard(props: ProfileVideoCardProps) {
-  const { videoUrl, labels, actions, readOnly = false } = props
+  const {
+    videoUrl,
+    labels,
+    actions,
+    readOnly = false,
+    showWhenEmpty = false,
+  } = props
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const tUpload = useTranslations("upload")
 
-  if (readOnly && !videoUrl) return null
+  if (readOnly && !videoUrl && !showWhenEmpty) return null
 
   async function handleVideoUpload(file: File) {
     if (!actions?.onUpload) return
@@ -43,7 +54,7 @@ export function ProfileVideoCard(props: ProfileVideoCardProps) {
 
   return (
     <>
-      <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
+      <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]">
         <VideoHeader
           title={labels.title}
           hasVideo={Boolean(videoUrl)}
@@ -97,7 +108,9 @@ function VideoHeader({
   const t = useTranslations("profile")
   return (
     <div className="flex items-center justify-between mb-4">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <h2 className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground">
+        {title}
+      </h2>
       {hasVideo && !readOnly ? (
         <div className="flex items-center gap-3">
           {actions?.onDelete ? (
@@ -159,26 +172,38 @@ function VideoEmptyState({
   onOpenUpload,
 }: VideoEmptyStateProps) {
   const t = useTranslations("profile")
+  // Soleil v2 empty state — warm dark hero matching the source video
+  // shell. Tailwind handles the linear gradient via the foreground
+  // token (encre); the radial blob (corail glow at 30/40 %) needs an
+  // inline style because Tailwind 4 has no two-stop radial utility.
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-center max-h-[200px]">
-      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-        <Video className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
+    <div
+      className="relative h-64 overflow-hidden rounded-xl bg-gradient-to-br from-foreground via-foreground to-[color:var(--muted-foreground)]"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 30% 40%, color-mix(in srgb, var(--primary) 25%, transparent), transparent 60%), linear-gradient(135deg, var(--foreground), color-mix(in srgb, var(--foreground) 80%, var(--muted-foreground)))",
+      }}
+    >
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-card/95 shadow-[var(--shadow-card-strong)]">
+          <Video className="h-5 w-5 text-foreground" aria-hidden="true" />
+        </div>
+        <p className="font-serif text-base text-card">
+          {labels.emptyLabel}
+        </p>
+        <p className="font-serif text-sm italic text-card/70 max-w-xs">
+          {labels.emptyDescription}
+        </p>
+        {canUpload ? (
+          <Button variant="ghost" size="auto"
+            type="button"
+            onClick={onOpenUpload}
+            className="mt-1 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground h-9 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          >
+            {t("addVideo")}
+          </Button>
+        ) : null}
       </div>
-      <p className="text-base font-medium text-foreground mb-1">
-        {labels.emptyLabel}
-      </p>
-      <p className="text-sm text-muted-foreground italic mb-3">
-        {labels.emptyDescription}
-      </p>
-      {canUpload ? (
-        <Button variant="ghost" size="auto"
-          type="button"
-          onClick={onOpenUpload}
-          className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-        >
-          {t("addVideo")}
-        </Button>
-      ) : null}
     </div>
   )
 }

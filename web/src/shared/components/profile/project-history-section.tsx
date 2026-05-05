@@ -52,7 +52,7 @@ export function ProjectHistorySection(props: ProjectHistorySectionProps) {
   }
 
   return (
-    <section className="bg-card border border-border rounded-xl p-4 shadow-sm sm:p-6">
+    <section className="bg-card border border-border rounded-2xl p-5 shadow-[var(--shadow-card)] sm:p-7">
       <HistoryHeader count={count} />
 
       {isLoading ? (
@@ -84,7 +84,7 @@ function HistoryHeader({ count }: HistoryHeaderProps) {
   const t = useTranslations("profile")
   return (
     <div className="flex items-center gap-3 mb-4">
-      <h2 className="text-base font-semibold text-foreground sm:text-lg">
+      <h2 className="font-serif text-lg font-medium tracking-[-0.005em] text-foreground sm:text-xl">
         {t("projectHistory")}
       </h2>
       {count > 0 ? (
