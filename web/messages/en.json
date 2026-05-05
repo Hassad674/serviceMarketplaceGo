@@ -1812,5 +1812,20 @@
       "notAuthorized": "You are not authorized to perform this action.",
       "invalidTransition": "This action is not available in the current state."
     }
+  },
+  "invoicesList": {
+    "eyebrow": "ATELIER · INVOICES",
+    "heroTitlePart1": "Your",
+    "heroTitleAccent": "invoices and receipts.",
+    "heroSubtitle": "Platform-issued invoices history and current month commission tracking.",
+    "currentMonthEyebrow": "CURRENT MONTH",
+    "currentMonthPeriod": "From {start} to {end}",
+    "currentMonthEmpty": "No milestone delivered this month.",
+    "currentMonthMilestones": "{count, plural, one {# milestone delivered} other {# milestones delivered}}",
+    "currentMonthCommission": "in commission",
+    "currentMonthShowDetail": "Show detail",
+    "currentMonthHideDetail": "Hide detail",
+    "currentMonthLineDelivered": "Delivered on {date}",
+    "currentMonthLineProposalAmount": "On {amount} of service"
   }
 }

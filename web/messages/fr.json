@@ -1812,5 +1812,20 @@
       "notAuthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
       "invalidTransition": "Cette action n'est pas disponible dans l'état actuel."
     }
+  },
+  "invoicesList": {
+    "eyebrow": "ATELIER · FACTURES",
+    "heroTitlePart1": "Tes",
+    "heroTitleAccent": "factures et reçus.",
+    "heroSubtitle": "Historique des factures émises par la plateforme et suivi des commissions du mois en cours.",
+    "currentMonthEyebrow": "MOIS EN COURS",
+    "currentMonthPeriod": "Du {start} au {end}",
+    "currentMonthEmpty": "Aucun jalon livré ce mois-ci.",
+    "currentMonthMilestones": "{count, plural, one {# jalon livré} other {# jalons livrés}}",
+    "currentMonthCommission": "de commission",
+    "currentMonthShowDetail": "Voir le détail",
+    "currentMonthHideDetail": "Masquer le détail",
+    "currentMonthLineDelivered": "Livré le {date}",
+    "currentMonthLineProposalAmount": "Sur {amount} de prestation"
   }
 }
