@@ -3,9 +3,13 @@
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { JobFormData, BudgetType, PaymentFrequency } from "../types"
-import { Button } from "@/shared/components/ui/button"
 
-import { Input } from "@/shared/components/ui/input"
+// W-09 — Budget & durée section, Soleil v2 visual port.
+//
+// Public prop interface (`formData`, `updateField`) is intentionally
+// unchanged: the sibling agent's `edit-job-form.tsx` consumes this same
+// component and must keep working unmodified.
+
 type BudgetSectionProps = {
   formData: JobFormData
   updateField: <K extends keyof JobFormData>(field: K, value: JobFormData[K]) => void
@@ -31,59 +35,79 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
   const suffix = formData.paymentFrequency === "weekly" ? t("perWeek") : t("perMonth")
 
   return (
-    <div className="space-y-5">
-      {/* Budget type toggle */}
+    <div className="space-y-6">
+      {/* Budget type — segmented pills */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {t("budgetType")}
-        </label>
-        <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
-          {BUDGET_TYPES.map((type) => (
-            <Button variant="ghost" size="auto"
-              key={type}
-              type="button"
-              onClick={() => updateField("budgetType", type)}
-              className={cn(
-                "rounded-lg px-5 py-2 text-sm font-medium transition-all duration-200",
-                formData.budgetType === type
-                  ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
-              )}
-            >
-              {budgetLabelMap[type]}
-            </Button>
-          ))}
+        </p>
+        <div
+          className="inline-flex rounded-full border border-border bg-background p-1"
+          role="radiogroup"
+          aria-label={t("budgetType")}
+        >
+          {BUDGET_TYPES.map((type) => {
+            const isActive = formData.budgetType === type
+            return (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => updateField("budgetType", type)}
+                className={cn(
+                  "rounded-full px-5 py-2 text-[13px] font-semibold transition-all duration-200",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(232,93,74,0.18)]"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {budgetLabelMap[type]}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* Payment frequency tabs (long-term only) */}
       {isLongTerm && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
             {t("paymentFrequency")}
-          </label>
-          <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
-            {PAYMENT_FREQUENCIES.map((freq) => (
-              <Button variant="ghost" size="auto"
-                key={freq}
-                type="button"
-                onClick={() => updateField("paymentFrequency", freq)}
-                className={cn(
-                  "rounded-lg px-5 py-2 text-sm font-medium transition-all duration-200",
-                  formData.paymentFrequency === freq
-                    ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
-                )}
-              >
-                {frequencyLabelMap[freq]}
-              </Button>
-            ))}
+          </p>
+          <div
+            className="inline-flex rounded-full border border-border bg-background p-1"
+            role="radiogroup"
+            aria-label={t("paymentFrequency")}
+          >
+            {PAYMENT_FREQUENCIES.map((freq) => {
+              const isActive = formData.paymentFrequency === freq
+              return (
+                <button
+                  key={freq}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  onClick={() => updateField("paymentFrequency", freq)}
+                  className={cn(
+                    "rounded-full px-5 py-2 text-[13px] font-semibold transition-all duration-200",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(232,93,74,0.18)]"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {frequencyLabelMap[freq]}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
       {/* Min / Max budget */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <CurrencyInput
           label={isLongTerm ? `${t("minPayment")} (${suffix})` : t("minBudget")}
           value={formData.minBudget}
@@ -99,34 +123,33 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
       {/* Duration fields (long-term only) */}
       {isLongTerm && (
         <div className="space-y-3">
-          <label className="flex cursor-pointer items-center gap-3">
-            <Input
+          <label className="flex cursor-pointer items-center gap-3 select-none">
+            <input
               type="checkbox"
               checked={formData.isIndefinite}
               onChange={(e) => updateField("isIndefinite", e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-rose-500/20"
+              className="h-4 w-4 rounded border-border-strong text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
             />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-[14px] font-medium text-foreground">
               {t("indefiniteDuration")}
             </span>
           </label>
           {!formData.isIndefinite && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 {t("projectDuration")} ({formData.paymentFrequency === "weekly" ? t("durationWeeks") : t("durationMonths")})
-              </label>
-              <Input
+              </p>
+              <input
                 type="text"
                 inputMode="numeric"
                 value={formData.durationWeeks}
                 onChange={(e) => updateField("durationWeeks", e.target.value)}
                 placeholder={formData.paymentFrequency === "weekly" ? "12" : "6"}
                 className={cn(
-                  "h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700",
-                  "bg-gray-50 dark:bg-gray-800 px-4 text-sm",
-                  "text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500",
+                  "h-12 w-full rounded-2xl border border-border-strong bg-surface px-4",
+                  "font-mono text-[14px] text-foreground placeholder:text-muted-foreground",
                   "transition-all duration-200",
-                  "focus:border-rose-500 focus:bg-white dark:focus:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
+                  "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary-soft",
                 )}
               />
             </div>
@@ -146,26 +169,28 @@ type CurrencyInputProps = {
 function CurrencyInput({ label, value, onChange }: CurrencyInputProps) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
         {label}
-      </label>
+      </p>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400 dark:text-gray-500">
-          &euro;
-        </span>
-        <Input
+        <input
           type="text"
           inputMode="decimal"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            "h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700",
-            "bg-gray-50 dark:bg-gray-800 text-sm pl-9 pr-4",
-            "text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500",
+            "h-12 w-full rounded-2xl border border-border-strong bg-surface pl-4 pr-10",
+            "font-mono text-[14px] text-foreground placeholder:text-muted-foreground",
             "transition-all duration-200",
-            "focus:border-rose-500 focus:bg-white dark:focus:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
+            "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary-soft",
           )}
         />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-serif text-[14px] text-muted-foreground"
+        >
+          &euro;
+        </span>
       </div>
     </div>
   )

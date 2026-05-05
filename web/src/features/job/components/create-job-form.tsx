@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Check } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRouter } from "@i18n/navigation"
+import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData } from "../types"
@@ -12,7 +12,6 @@ import { useCreateJob } from "../hooks/use-jobs"
 import { uploadVideo } from "@/shared/lib/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
-import { Button } from "@/shared/components/ui/button"
 
 type SectionId = "details" | "budget"
 
@@ -132,54 +131,48 @@ export function CreateJobForm() {
     formData.descriptionType === "video" || formData.description.trim() !== ""
   )
   const isBudgetComplete = formData.minBudget !== "" && formData.maxBudget !== ""
+  const isPending = createJob.isPending || isSubmitting
 
   return (
-    <div className="mx-auto max-w-[680px]">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-          {t("createJob")}
+    <div className="mx-auto w-full max-w-[760px] px-4 py-8 sm:px-6 sm:py-12">
+      {/* Back link */}
+      <Link
+        href="/jobs"
+        className="mb-5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
+        {t("createJob_w09_backToJobs")}
+      </Link>
+
+      {/* Editorial header */}
+      <header className="mb-8">
+        <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+          {t("createJob_w09_eyebrow")}
+        </p>
+        <h1 className="font-serif text-[30px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[42px]">
+          {t("createJob_w09_titlePrefix")}{" "}
+          <span className="italic text-primary">{t("createJob_w09_titleAccent")}</span>
         </h1>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={handleCancel}
-            className={cn(
-              "rounded-xl px-5 py-2.5 text-sm font-medium",
-              "text-gray-600 dark:text-gray-400 transition-all duration-200",
-              "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white",
-            )}
-          >
-            {t("cancel")}
-          </Button>
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={handleSubmit}
-            disabled={createJob.isPending || isSubmitting}
-            className={cn(
-              "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
-              "gradient-primary transition-all duration-200",
-              "hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
-          </Button>
-        </div>
-      </div>
+        <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed text-muted-foreground">
+          {t("createJob_w09_subtitle")}
+        </p>
+      </header>
 
       {/* Error */}
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-destructive bg-destructive/10 px-4 py-3 text-[13.5px] text-destructive"
+        >
           {error}
         </div>
       )}
 
-      {/* Sections */}
+      {/* Form sections */}
       <div className="space-y-4">
         <AccordionSection
           number={1}
-          title={t("jobDetails")}
+          title={t("createJob_w09_sectionDetails")}
           isOpen={openSections.has("details")}
           isComplete={isDetailsComplete}
           onToggle={() => toggleSection("details")}
@@ -193,35 +186,57 @@ export function CreateJobForm() {
 
         <AccordionSection
           number={2}
-          title={t("budgetAndDuration")}
+          title={t("createJob_w09_sectionBudget")}
           isOpen={openSections.has("budget")}
           isComplete={isBudgetComplete}
           onToggle={() => toggleSection("budget")}
         >
           <BudgetSection formData={formData} updateField={updateField} />
-          <div className="mt-6 flex justify-end">
-            <Button variant="ghost" size="auto"
-              type="button"
-              onClick={handleSubmit}
-              disabled={createJob.isPending || isSubmitting}
-              className={cn(
-                "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
-                "gradient-primary transition-all duration-200",
-                "hover:shadow-glow active:scale-[0.98]",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-              )}
-            >
-              {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
-            </Button>
-          </div>
         </AccordionSection>
+      </div>
+
+      {/* Footer actions */}
+      <div className="mt-8 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className={cn(
+            "inline-flex items-center justify-center rounded-full px-5 py-2.5",
+            "text-[13.5px] font-semibold text-muted-foreground transition-all duration-200",
+            "hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          )}
+        >
+          {t("cancel")}
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isPending}
+          className={cn(
+            "inline-flex items-center justify-center gap-2 rounded-full",
+            "bg-primary px-7 py-3 text-[13.5px] font-bold text-primary-foreground",
+            "transition-all duration-200 ease-out",
+            "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+            "active:scale-[0.98]",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          )}
+        >
+          {isPending ? "..." : (
+            <>
+              {t("createJob_w09_publishCta")}
+              <ArrowRight className="h-4 w-4" strokeWidth={2} />
+            </>
+          )}
+        </button>
       </div>
     </div>
   )
 }
 
 /* -------------------------------------------------- */
-/* Accordion section with number + validation circle  */
+/* Accordion section — Soleil card (ivoire surface)   */
 /* -------------------------------------------------- */
 
 type AccordionSectionProps = {
@@ -244,24 +259,29 @@ function AccordionSection({
   return (
     <section
       className={cn(
-        "rounded-2xl border transition-all duration-200",
+        "rounded-[20px] border bg-surface transition-all duration-200",
         isOpen
-          ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-          : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700",
+          ? "border-border-strong shadow-[0_2px_12px_rgba(42,31,21,0.04)]"
+          : "border-border hover:border-border-strong",
       )}
     >
-      <Button variant="ghost" size="auto"
+      <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-4 px-6 py-5 text-left"
+        className={cn(
+          "flex w-full items-center gap-4 px-6 py-5 text-left",
+          "rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )}
         aria-expanded={isOpen}
       >
-        <div
+        <span
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-mono text-[12px] font-bold transition-all duration-200",
             isComplete
-              ? "bg-rose-500 text-white"
-              : "border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500",
+              ? "bg-primary text-primary-foreground"
+              : isOpen
+                ? "bg-primary-soft text-primary-deep"
+                : "border border-border-strong bg-background text-muted-foreground",
           )}
         >
           {isComplete ? (
@@ -269,28 +289,28 @@ function AccordionSection({
           ) : (
             number
           )}
-        </div>
-        <span className="flex-1 text-base font-semibold text-gray-900 dark:text-white">
+        </span>
+        <span className="flex-1 font-serif text-[18px] font-medium text-foreground">
           {title}
         </span>
-        <ChevronDown
+        <span
+          aria-hidden="true"
           className={cn(
-            "h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform duration-200",
-            isOpen && "rotate-180",
+            "font-mono text-[16px] text-muted-foreground transition-transform duration-200",
+            isOpen && "rotate-90",
           )}
-          strokeWidth={1.5}
-        />
-      </Button>
+        >
+          ›
+        </span>
+      </button>
 
       <div
         className={cn(
           "overflow-hidden transition-all duration-300 ease-out",
-          isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
+          isOpen ? "max-h-[2400px] opacity-100" : "max-h-0 opacity-0",
         )}
       >
-        <div className="px-6 pb-6">
-          {children}
-        </div>
+        <div className="border-t border-border px-6 py-6">{children}</div>
       </div>
     </section>
   )
