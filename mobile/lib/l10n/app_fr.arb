@@ -1214,5 +1214,20 @@
   "m02_recommendedBadge": "Recommandé",
   "m02_agencyDesc": "Studio, agence, collectif… Vous pilotez une équipe et cherchez des missions structurantes.",
   "m02_providerDesc": "Trouvez des missions, créez votre profil et soyez payé en toute sécurité.",
-  "m02_enterpriseDesc": "Publiez vos annonces, recrutez des freelances vérifiés, gérez vos projets."
+  "m02_enterpriseDesc": "Publiez vos annonces, recrutez des freelances vérifiés, gérez vos projets.",
+  "drawerMyAccount": "Mon compte",
+  "accountTitle": "Paramètres du compte",
+  "accountSectionNotifications": "Préférences de notification",
+  "accountSectionNotificationsDesc": "Choisissez comment vous souhaitez être notifié pour chaque type d'événement.",
+  "accountSectionEmail": "Adresse email",
+  "accountSectionEmailDesc": "Modifiez l'adresse email associée à votre compte.",
+  "accountCurrentEmail": "Email actuel",
+  "accountSectionPassword": "Mot de passe",
+  "accountSectionPasswordDesc": "Modifiez le mot de passe de votre compte.",
+  "accountSectionDataAndDeletion": "Données et suppression",
+  "accountSectionDataAndDeletionDesc": "Téléchargez vos données ou demandez la suppression définitive de votre compte.",
+  "accountComingSoon": "Bientôt disponible",
+  "accountManageDeletion": "Gérer la suppression du compte",
+  "accountCancelDeletionAction": "Annuler la suppression",
+  "accountDeleteAccountAction": "Supprimer mon compte"
 }

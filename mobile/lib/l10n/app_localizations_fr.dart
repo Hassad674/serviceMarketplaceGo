@@ -3110,4 +3110,53 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get m02_enterpriseDesc =>
       'Publiez vos annonces, recrutez des freelances vérifiés, gérez vos projets.';
+
+  @override
+  String get drawerMyAccount => 'Mon compte';
+
+  @override
+  String get accountTitle => 'Paramètres du compte';
+
+  @override
+  String get accountSectionNotifications => 'Préférences de notification';
+
+  @override
+  String get accountSectionNotificationsDesc =>
+      'Choisissez comment vous souhaitez être notifié pour chaque type d\'événement.';
+
+  @override
+  String get accountSectionEmail => 'Adresse email';
+
+  @override
+  String get accountSectionEmailDesc =>
+      'Modifiez l\'adresse email associée à votre compte.';
+
+  @override
+  String get accountCurrentEmail => 'Email actuel';
+
+  @override
+  String get accountSectionPassword => 'Mot de passe';
+
+  @override
+  String get accountSectionPasswordDesc =>
+      'Modifiez le mot de passe de votre compte.';
+
+  @override
+  String get accountSectionDataAndDeletion => 'Données et suppression';
+
+  @override
+  String get accountSectionDataAndDeletionDesc =>
+      'Téléchargez vos données ou demandez la suppression définitive de votre compte.';
+
+  @override
+  String get accountComingSoon => 'Bientôt disponible';
+
+  @override
+  String get accountManageDeletion => 'Gérer la suppression du compte';
+
+  @override
+  String get accountCancelDeletionAction => 'Annuler la suppression';
+
+  @override
+  String get accountDeleteAccountAction => 'Supprimer mon compte';
 }
