@@ -64,9 +64,11 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
   }
 
   return (
-    <section className="bg-card border border-border rounded-xl p-6 shadow-sm min-w-0 w-full">
+    <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)] min-w-0 w-full">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">{label}</h2>
+        <h2 className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground">
+          {label}
+        </h2>
         {!editing && !readOnly && onSave ? (
           <Button variant="ghost" size="auto"
             type="button"
@@ -91,7 +93,7 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
           textareaRef={textareaRef}
         />
       ) : content ? (
-        <p className="text-sm text-foreground whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">
+        <p className="text-[15px] leading-relaxed text-foreground whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">
           {content}
         </p>
       ) : (

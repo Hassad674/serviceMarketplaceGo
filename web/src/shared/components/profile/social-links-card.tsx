@@ -119,9 +119,9 @@ export function SocialLinksCard({
   }
 
   return (
-    <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
+    <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground">
           {t("socialLinks")}
         </h2>
         {!editing && canEdit ? (
@@ -280,7 +280,7 @@ function SocialLinksEditorForm({
 
 function SocialLinksSkeleton() {
   return (
-    <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
+    <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]">
       <div className="h-6 w-40 bg-muted rounded animate-shimmer mb-4" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {[1, 2].map((i) => (

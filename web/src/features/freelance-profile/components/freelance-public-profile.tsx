@@ -63,6 +63,20 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
   const t = useTranslations("profile")
   const readOnly = !editable
 
+  // Soleil v2 W-16 ordering — each section is a distinct editorial
+  // card. Order locked by the design brief:
+  //   1. Header (cover band + portrait)
+  //   2. À propos
+  //   3. Vidéo
+  //   4. Disponibilité (private only — public viewers see the pill in the header)
+  //   5. Domaines d'expertise
+  //   6. Tarifs
+  //   7. Historique des projets
+  //   8. Localisation (public only — owners edit via SharedLocationSection)
+  //   9. Langues (public only — owners edit via SharedLanguagesSection)
+  //  10. Compétences (public only — owners edit via SkillsSection)
+  // Réseaux sociaux is composed by the loader/own-profile page so it
+  // sits after Compétences in both modes.
   return (
     <div className="space-y-5">
       <FreelanceProfileHeader
@@ -107,6 +121,7 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
             : undefined
         }
         readOnly={readOnly}
+        showWhenEmpty={readOnly}
       />
 
       {editable?.availability ? (
@@ -129,10 +144,6 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
       )}
 
       {readOnly ? (
-        <FreelanceSkillsStrip skills={profile.skills} />
-      ) : null}
-
-      {readOnly ? (
         <PricingDisplayCard
           pricing={profile.pricing}
           titleKey="directSectionTitle"
@@ -140,6 +151,11 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
       ) : (
         <FreelancePricingSection readOnly={false} />
       )}
+
+      <ProjectHistorySection
+        orgId={profile.organization_id}
+        readOnly={readOnly}
+      />
 
       {readOnly ? (
         <LocationDisplayCard
@@ -157,10 +173,9 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
         />
       ) : null}
 
-      <ProjectHistorySection
-        orgId={profile.organization_id}
-        readOnly={readOnly}
-      />
+      {readOnly ? (
+        <FreelanceSkillsStrip skills={profile.skills} />
+      ) : null}
     </div>
   )
 }

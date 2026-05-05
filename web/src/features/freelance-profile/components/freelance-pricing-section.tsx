@@ -47,12 +47,12 @@ export function FreelancePricingSection({
   return (
     <section
       aria-labelledby="freelance-pricing-section-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4 flex flex-col gap-1">
         <h2
           id="freelance-pricing-section-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t("directSectionTitle")}
         </h2>
@@ -97,7 +97,7 @@ function ReadView({ persisted, locale, readOnly, onEdit }: ReadViewProps) {
         <Button variant="ghost" size="auto"
           type="button"
           onClick={onEdit}
-          className="mt-4 inline-flex items-center gap-2 rounded-md border border-border h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-border-strong bg-card h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           {t("editButton")}
@@ -116,26 +116,28 @@ function PricingDisplayRow({ persisted, locale }: DisplayRowProps) {
   const t = useTranslations("profile.pricing")
   if (!persisted) {
     return (
-      <p className="text-sm italic text-muted-foreground">{t("empty")}</p>
+      <p className="font-serif text-sm italic text-muted-foreground">
+        {t("empty")}
+      </p>
     )
   }
   return (
-    <div className="inline-flex flex-col rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-      <span className="font-semibold text-foreground">
-        {formatPricing(persisted, locale)}
-      </span>
-      <div className="mt-1 flex flex-wrap items-center gap-2">
+    <div>
+      <div className="flex items-baseline flex-wrap gap-3">
+        <span className="font-serif text-[30px] font-medium leading-none tracking-[-0.02em] text-foreground">
+          {formatPricing(persisted, locale)}
+        </span>
         {persisted.negotiable ? (
-          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <span className="inline-flex items-center rounded-full border border-primary bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-deep">
             {t("negotiableBadge")}
           </span>
         ) : null}
-        {persisted.note ? (
-          <span className="text-xs text-muted-foreground italic truncate max-w-[220px]">
-            {persisted.note}
-          </span>
-        ) : null}
       </div>
+      {persisted.note ? (
+        <p className="mt-3 font-serif text-sm italic text-muted-foreground">
+          {persisted.note}
+        </p>
+      ) : null}
     </div>
   )
 }
