@@ -40,6 +40,8 @@ String resolveDrawerLabel(AppLocalizations l10n, String key) {
       return l10n.drawerNotifications;
     case 'drawerInvoices':
       return 'Mes factures';
+    case 'drawerMyAccount':
+      return l10n.drawerMyAccount;
     default:
       return key;
   }

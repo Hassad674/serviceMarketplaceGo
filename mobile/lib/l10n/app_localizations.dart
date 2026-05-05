@@ -5779,6 +5779,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Post your needs, recruit verified freelancers, manage your projects.'**
   String get m02_enterpriseDesc;
+
+  /// No description provided for @drawerMyAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'My account'**
+  String get drawerMyAccount;
+
+  /// No description provided for @accountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account settings'**
+  String get accountTitle;
+
+  /// No description provided for @accountSectionNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification preferences'**
+  String get accountSectionNotifications;
+
+  /// No description provided for @accountSectionNotificationsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how you want to be notified for each event.'**
+  String get accountSectionNotificationsDesc;
+
+  /// No description provided for @accountSectionEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address'**
+  String get accountSectionEmail;
+
+  /// No description provided for @accountSectionEmailDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Update the email address linked to your account.'**
+  String get accountSectionEmailDesc;
+
+  /// No description provided for @accountCurrentEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Current email'**
+  String get accountCurrentEmail;
+
+  /// No description provided for @accountSectionPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get accountSectionPassword;
+
+  /// No description provided for @accountSectionPasswordDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Change your account password.'**
+  String get accountSectionPasswordDesc;
+
+  /// No description provided for @accountSectionDataAndDeletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Data and deletion'**
+  String get accountSectionDataAndDeletion;
+
+  /// No description provided for @accountSectionDataAndDeletionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Export your data or permanently delete your account.'**
+  String get accountSectionDataAndDeletionDesc;
+
+  /// No description provided for @accountComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get accountComingSoon;
+
+  /// No description provided for @accountManageDeletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage account deletion'**
+  String get accountManageDeletion;
+
+  /// No description provided for @accountCancelDeletionAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel deletion'**
+  String get accountCancelDeletionAction;
+
+  /// No description provided for @accountDeleteAccountAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete my account'**
+  String get accountDeleteAccountAction;
 }
 
 class _AppLocalizationsDelegate

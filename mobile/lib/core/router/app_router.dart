@@ -104,6 +104,13 @@ class RoutePaths {
   // drawer or from the gate modal. NOT inside the bottom-nav shell.
   static const String billingProfile = '/settings/billing-profile';
   static const String invoices = '/invoices';
+
+  // Account preferences — mirror of web /account?section=…. The mobile
+  // equivalent is a single screen surfacing the sections sequentially
+  // (no sidebar tabs on a 390-wide viewport). Reached from the drawer.
+  static const String account = '/account';
+  static const String accountDelete = '/account/delete';
+  static const String accountCancelDeletion = '/account/cancel-deletion';
 }
 
 // ---------------------------------------------------------------------------

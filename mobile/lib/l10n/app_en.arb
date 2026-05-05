@@ -1221,5 +1221,20 @@
   "m02_recommendedBadge": "Recommended",
   "m02_agencyDesc": "Studio, agency, collective… You lead a team and look for structuring missions.",
   "m02_providerDesc": "Find missions, build your profile and get paid securely.",
-  "m02_enterpriseDesc": "Post your needs, recruit verified freelancers, manage your projects."
+  "m02_enterpriseDesc": "Post your needs, recruit verified freelancers, manage your projects.",
+  "drawerMyAccount": "My account",
+  "accountTitle": "Account settings",
+  "accountSectionNotifications": "Notification preferences",
+  "accountSectionNotificationsDesc": "Choose how you want to be notified for each event.",
+  "accountSectionEmail": "Email address",
+  "accountSectionEmailDesc": "Update the email address linked to your account.",
+  "accountCurrentEmail": "Current email",
+  "accountSectionPassword": "Password",
+  "accountSectionPasswordDesc": "Change your account password.",
+  "accountSectionDataAndDeletion": "Data and deletion",
+  "accountSectionDataAndDeletionDesc": "Export your data or permanently delete your account.",
+  "accountComingSoon": "Coming soon",
+  "accountManageDeletion": "Manage account deletion",
+  "accountCancelDeletionAction": "Cancel deletion",
+  "accountDeleteAccountAction": "Delete my account"
 }

@@ -3087,4 +3087,52 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get m02_enterpriseDesc =>
       'Post your needs, recruit verified freelancers, manage your projects.';
+
+  @override
+  String get drawerMyAccount => 'My account';
+
+  @override
+  String get accountTitle => 'Account settings';
+
+  @override
+  String get accountSectionNotifications => 'Notification preferences';
+
+  @override
+  String get accountSectionNotificationsDesc =>
+      'Choose how you want to be notified for each event.';
+
+  @override
+  String get accountSectionEmail => 'Email address';
+
+  @override
+  String get accountSectionEmailDesc =>
+      'Update the email address linked to your account.';
+
+  @override
+  String get accountCurrentEmail => 'Current email';
+
+  @override
+  String get accountSectionPassword => 'Password';
+
+  @override
+  String get accountSectionPasswordDesc => 'Change your account password.';
+
+  @override
+  String get accountSectionDataAndDeletion => 'Data and deletion';
+
+  @override
+  String get accountSectionDataAndDeletionDesc =>
+      'Export your data or permanently delete your account.';
+
+  @override
+  String get accountComingSoon => 'Coming soon';
+
+  @override
+  String get accountManageDeletion => 'Manage account deletion';
+
+  @override
+  String get accountCancelDeletionAction => 'Cancel deletion';
+
+  @override
+  String get accountDeleteAccountAction => 'Delete my account';
 }
