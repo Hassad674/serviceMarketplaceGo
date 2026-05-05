@@ -116,6 +116,14 @@ const drawerPrimaryItems = [
     route: RoutePaths.invoices,
     roles: ['agency', 'provider'],
   ),
+  // Account preferences — surfaces notifications, email, password and
+  // GDPR data + deletion. Available to every role since every role
+  // can manage their personal account.
+  DrawerItem(
+    labelKey: 'drawerMyAccount',
+    icon: Icons.manage_accounts_outlined,
+    route: RoutePaths.account,
+  ),
 ];
 
 /// Search / discovery entries (bottom section of the drawer).

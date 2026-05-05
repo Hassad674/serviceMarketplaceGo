@@ -57,7 +57,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 /**
  * Soleil v2 toggle pill — 36×20 track with white knob, corail when on,
- * sable border when off. Mirrors the JSX source of-truth (soleil-lotE.jsx).
+ * ivoire-soft (sable clair `--color-border`) when off. Mirrors the JSX
+ * source of-truth (soleil-lotE.jsx, `Toggle` uses `SE.border` off /
+ * `SE.accent` on).
  */
 function Toggle({
   checked,
@@ -81,14 +83,16 @@ function Toggle({
       onClick={disabled ? undefined : onChange}
       disabled={disabled}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0 transition-colors",
-        checked ? "bg-primary hover:bg-primary" : "bg-[var(--border-strong)] hover:bg-[var(--border-strong)]",
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0 transition-colors duration-150",
+        checked
+          ? "bg-primary hover:bg-primary"
+          : "bg-border hover:bg-border",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <span
         className={cn(
-          "inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-transform",
+          "inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-transform duration-150",
           checked ? "translate-x-[18px]" : "translate-x-0.5",
         )}
       />
@@ -287,11 +291,12 @@ function NotificationGroupCard({
         <h3 className="text-sm font-bold text-foreground">{t(titleKey)}</h3>
       </header>
 
-      {/* Header row (visible from sm+ to keep mobile compact) */}
+      {/* Header row (visible from sm+ to keep mobile compact). The
+          "Type" cell is intentionally empty — the row label below is
+          self-explanatory and the duplicate "TYPE" header was visual
+          noise. */}
       <div className="hidden grid-cols-[1fr_70px_70px] items-center gap-2 border-b border-border bg-[var(--background)] px-5 py-2 sm:grid">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-          {t("notificationType")}
-        </span>
+        <span aria-hidden="true" />
         <span className="text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           {t("push")}
         </span>
