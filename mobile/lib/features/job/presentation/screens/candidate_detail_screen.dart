@@ -4,18 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_application_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Full-page detail screen for a job application / candidate.
+/// M-08 candidate detail screen — Soleil v2.
 ///
-/// Shows profile header, application message, optional video,
-/// and action buttons (view profile, send message).
-/// Optionally accepts a full candidates list + index for prev/next
-/// navigation between candidates.
+/// Soleil ivoire surface, Fraunces section heads, corail-soft card
+/// chrome. Top app bar keeps the existing prev/next pager when a
+/// candidates list is provided. Bottom action row uses a corail
+/// FilledButton for "Send message" and a soft Outlined for
+/// "View profile".
 class CandidateDetailScreen extends ConsumerStatefulWidget {
   const CandidateDetailScreen({
     super.key,
@@ -74,6 +75,8 @@ class _CandidateDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final profile = _currentItem.profile;
     final application = _currentItem.application;
@@ -81,7 +84,11 @@ class _CandidateDetailScreenState
     final initials = _initialsFromName(displayName);
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
+        backgroundColor: cs.surfaceContainerLowest,
+        scrolledUnderElevation: 0,
+        elevation: 0,
         title: _hasNavigation
             ? _CandidateNavigator(
                 currentIndex: _currentIndex,
@@ -91,7 +98,14 @@ class _CandidateDetailScreenState
                 onPrevious: _goToPrevious,
                 onNext: _goToNext,
               )
-            : Text(l10n.candidateDetail),
+            : Text(
+                l10n.candidateDetail,
+                style: SoleilTextStyles.titleLarge.copyWith(
+                  color: cs.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -105,12 +119,19 @@ class _CandidateDetailScreenState
                 );
               }
             },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
             itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'report',
                 child: Row(
                   children: [
-                    const Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+                    Icon(
+                      Icons.flag_outlined,
+                      size: 18,
+                      color: cs.error,
+                    ),
                     const SizedBox(width: 8),
                     Text(l10n.reportApplication),
                   ],
@@ -120,62 +141,82 @@ class _CandidateDetailScreenState
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile header
-            _ProfileHeader(
-              displayName: displayName,
-              initials: initials,
-              photoUrl: profile.photoUrl,
-              orgType: profile.orgType,
-              title: profile.title,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Application date
-            _ApplicationDate(createdAt: application.createdAt),
-
-            // Application message
-            if (application.message.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _MessageSection(
-                label: l10n.applicationMessage,
-                message: application.message,
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Eyebrow(label: l10n.jobDetail_m08_panelEyebrow),
+              const SizedBox(height: 12),
+              _ProfileHeader(
+                displayName: displayName,
+                initials: initials,
+                photoUrl: profile.photoUrl,
+                orgType: profile.orgType,
+                title: profile.title,
+                appliedRelative: l10n.jobDetail_m08_appliedRelative(
+                  _formatDate(application.createdAt),
+                ),
               ),
-            ],
-
-            // Application video
-            if (application.videoUrl != null &&
-                application.videoUrl!.isNotEmpty) ...[
               const SizedBox(height: 20),
-              _VideoSection(
-                label: l10n.applicationVideo,
-                videoUrl: application.videoUrl!,
+              _ActionButtons(
+                orgId: profile.organizationId,
+                displayName: displayName,
+                orgType: profile.orgType,
               ),
+              if (application.message.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _MessageSection(
+                  label: l10n.jobDetail_m08_messageHeading,
+                  message: application.message,
+                ),
+              ],
+              if (application.videoUrl != null &&
+                  application.videoUrl!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _VideoSection(
+                  label: l10n.jobDetail_m08_videoPitchHeading,
+                  videoUrl: application.videoUrl!,
+                ),
+              ],
             ],
-
-            const SizedBox(height: 28),
-
-            // Action buttons
-            _ActionButtons(
-              orgId: profile.organizationId,
-              displayName: displayName,
-              orgType: profile.orgType,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  String _formatDate(String isoDate) {
+    try {
+      final dt = DateTime.parse(isoDate);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Candidate navigator — prev/next arrows with counter
-// ---------------------------------------------------------------------------
+class _Eyebrow extends StatelessWidget {
+  const _Eyebrow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      label,
+      style: SoleilTextStyles.mono.copyWith(
+        color: theme.colorScheme.primary,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.5,
+      ),
+    );
+  }
+}
 
 class _CandidateNavigator extends StatelessWidget {
   const _CandidateNavigator({
@@ -196,6 +237,7 @@ class _CandidateNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
     return Row(
@@ -204,21 +246,22 @@ class _CandidateNavigator extends StatelessWidget {
         IconButton(
           onPressed: canGoBack ? onPrevious : null,
           icon: const Icon(Icons.chevron_left),
-          iconSize: 24,
+          iconSize: 22,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
         Text(
           l10n.candidateOf(currentIndex + 1, total),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: SoleilTextStyles.bodyEmphasis.copyWith(
+            color: theme.colorScheme.onSurface,
+            fontSize: 14,
+          ),
         ),
         IconButton(
           onPressed: canGoForward ? onNext : null,
           icon: const Icon(Icons.chevron_right),
-          iconSize: 24,
+          iconSize: 22,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -228,10 +271,6 @@ class _CandidateNavigator extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Profile header — avatar + name + role badge + title
-// ---------------------------------------------------------------------------
-
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.displayName,
@@ -239,6 +278,7 @@ class _ProfileHeader extends StatelessWidget {
     required this.photoUrl,
     required this.orgType,
     required this.title,
+    required this.appliedRelative,
   });
 
   final String displayName;
@@ -246,35 +286,41 @@ class _ProfileHeader extends StatelessWidget {
   final String photoUrl;
   final String orgType;
   final String title;
+  final String appliedRelative;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final soleil = theme.extension<AppColors>()!;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: AppPalette.rose50,
-          // 30 lp radius × 3x DPR = ~180 px. Cap at 192 to keep RAM
-          // bounded across the whole candidate list (PERF-M-05).
-          backgroundImage: photoUrl.isNotEmpty
-              ? CachedNetworkImageProvider(
-                  photoUrl,
-                  maxWidth: 192,
-                  maxHeight: 192,
-                )
-              : null,
-          child: photoUrl.isEmpty
-              ? Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppPalette.rose500,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20,
+        SizedBox(
+          width: 60,
+          height: 60,
+          child: photoUrl.isNotEmpty
+              ? ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: photoUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 192,
+                    memCacheHeight: 192,
+                    errorWidget: (_, __, ___) => _InitialsDisc(
+                      initials: initials,
+                      background: soleil.accentSoft,
+                      foreground: soleil.primaryDeep,
+                    ),
                   ),
                 )
-              : null,
+              : _InitialsDisc(
+                  initials: initials,
+                  background: soleil.accentSoft,
+                  foreground: soleil.primaryDeep,
+                ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -283,30 +329,36 @@ class _ProfileHeader extends StatelessWidget {
             children: [
               Text(
                 displayName,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: SoleilTextStyles.titleLarge.copyWith(
+                  color: cs.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 4),
+              _OrgTypeBadge(orgType: orgType),
+              if (title.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: SoleilTextStyles.body.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  _OrgTypeBadge(orgType: orgType),
-                  if (title.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ],
+              Text(
+                appliedRelative,
+                style: SoleilTextStyles.mono.copyWith(
+                  color: soleil.subtleForeground,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                ),
               ),
             ],
           ),
@@ -316,9 +368,36 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Org-type badge
-// ---------------------------------------------------------------------------
+class _InitialsDisc extends StatelessWidget {
+  const _InitialsDisc({
+    required this.initials,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String initials;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: background,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: SoleilTextStyles.titleMedium.copyWith(
+          color: foreground,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
 
 class _OrgTypeBadge extends StatelessWidget {
   const _OrgTypeBadge({required this.orgType});
@@ -327,64 +406,53 @@ class _OrgTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isProvider = orgType == 'provider_personal';
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final soleil = theme.extension<AppColors>()!;
+    final l10n = AppLocalizations.of(context)!;
+
+    final label = switch (orgType) {
+      'agency' => l10n.jobDetail_m08_orgAgency,
+      'enterprise' => l10n.jobDetail_m08_orgEnterprise,
+      _ => l10n.jobDetail_m08_orgFreelance,
+    };
+    final isFreelance = orgType == 'provider_personal';
+    final isAgency = orgType == 'agency';
+
+    final Color background;
+    final Color foreground;
+    if (isFreelance) {
+      background = soleil.accentSoft;
+      foreground = soleil.primaryDeep;
+    } else if (isAgency) {
+      background = soleil.successSoft;
+      foreground = soleil.success;
+    } else {
+      background = soleil.amberSoft;
+      foreground = cs.onSurface;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: isProvider ? AppPalette.rose50 : Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
+        color: background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Text(
-        isProvider ? 'Freelance' : 'Agency',
-        style: TextStyle(
+        label,
+        style: SoleilTextStyles.caption.copyWith(
+          color: foreground,
           fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: isProvider ? AppPalette.rose500 : Colors.blue.shade700,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Application date
-// ---------------------------------------------------------------------------
-
-class _ApplicationDate extends StatelessWidget {
-  const _ApplicationDate({required this.createdAt});
-
-  final String createdAt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      _formatDate(createdAt),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey.shade500,
-            fontSize: 12,
-          ),
-    );
-  }
-
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate);
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-    } catch (_) {
-      return isoDate;
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Message section — card with full application message
-// ---------------------------------------------------------------------------
-
 class _MessageSection extends StatelessWidget {
-  const _MessageSection({
-    required this.label,
-    required this.message,
-  });
+  const _MessageSection({required this.label, required this.message});
 
   final String label;
   final String message;
@@ -392,30 +460,34 @@ class _MessageSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: cs.onSurface,
+            fontSize: 16,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.dividerColor.withValues(alpha: 0.5),
-            ),
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+            border: Border.all(color: cs.outline),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Text(
             message,
-            style: theme.textTheme.bodyMedium,
+            style: SoleilTextStyles.bodyLarge.copyWith(
+              color: cs.onSurface,
+              height: 1.6,
+            ),
           ),
         ),
       ],
@@ -423,15 +495,8 @@ class _MessageSection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Video section — titled video player
-// ---------------------------------------------------------------------------
-
 class _VideoSection extends StatelessWidget {
-  const _VideoSection({
-    required this.label,
-    required this.videoUrl,
-  });
+  const _VideoSection({required this.label, required this.videoUrl});
 
   final String label;
   final String videoUrl;
@@ -439,29 +504,27 @@ class _VideoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: cs.onSurface,
+            fontSize: 16,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
           child: VideoPlayerWidget(videoUrl: videoUrl),
         ),
       ],
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Action buttons — view profile + send message
-// ---------------------------------------------------------------------------
 
 class _ActionButtons extends StatelessWidget {
   const _ActionButtons({
@@ -476,6 +539,10 @@ class _ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
     return Row(
       children: [
         Expanded(
@@ -488,12 +555,13 @@ class _ActionButtons extends StatelessWidget {
               },
             ),
             icon: const Icon(Icons.person_outline, size: 18),
-            label: const Text('View profile'),
+            label: Text(l10n.jobDetail_m08_viewProfile),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              foregroundColor: cs.onSurface,
+              side: BorderSide(color: cs.outlineVariant),
+              minimumSize: const Size.fromHeight(46),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
         ),
@@ -504,15 +572,14 @@ class _ActionButtons extends StatelessWidget {
               '${RoutePaths.newChat}/$orgId',
               extra: {'name': displayName},
             ),
-            icon: const Icon(Icons.send, size: 18),
-            label: const Text('Message'),
+            icon: const Icon(Icons.send_rounded, size: 18),
+            label: Text(l10n.jobDetail_m08_sendMessage),
             style: FilledButton.styleFrom(
-              backgroundColor: AppPalette.rose500,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              minimumSize: const Size.fromHeight(46),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
         ),

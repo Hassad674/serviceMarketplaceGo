@@ -1322,5 +1322,41 @@
   "createJob_m09_heroPrefix": "Post your",
   "createJob_m09_heroAccent": "new job.",
   "createJob_m09_subtitle": "Describe the mission. The more precise, the more relevant the applications.",
-  "createJob_m09_publishCta": "Publish job"
+  "createJob_m09_publishCta": "Publish job",
+  "jobDetail_m08_eyebrowOpen": "ATELIER · LIVE LISTING",
+  "jobDetail_m08_eyebrowClosed": "ATELIER · CLOSED LISTING",
+  "jobDetail_m08_tabDescription": "Description",
+  "jobDetail_m08_tabCandidates": "Applications",
+  "jobDetail_m08_descriptionHeading": "Description",
+  "jobDetail_m08_videoHeading": "Video pitch",
+  "jobDetail_m08_skillsHeading": "Required skills",
+  "jobDetail_m08_budgetHeading": "Budget",
+  "jobDetail_m08_durationLabel": "Duration",
+  "jobDetail_m08_durationIndefinite": "Open-ended",
+  "jobDetail_m08_durationWeeks": "{count, plural, one {# week} other {# weeks}}",
+  "@jobDetail_m08_durationWeeks": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "jobDetail_m08_summaryApplicants": "Applicants",
+  "jobDetail_m08_summaryApplicantsValue": "{count, plural, =0 {0} one {# applicant} other {# applicants}}",
+  "@jobDetail_m08_summaryApplicantsValue": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "jobDetail_m08_summaryProfiles": "Targeted profiles",
+  "jobDetail_m08_summaryPublished": "Published",
+  "jobDetail_m08_emptyTitle": "No applications yet.",
+  "jobDetail_m08_emptyBody": "Hold on, or share the listing to boost its visibility to freelancers and agencies.",
+  "jobDetail_m08_appliedRelative": "Applied {when}",
+  "@jobDetail_m08_appliedRelative": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "jobDetail_m08_orgFreelance": "Freelance",
+  "jobDetail_m08_orgAgency": "Agency",
+  "jobDetail_m08_orgEnterprise": "Enterprise",
+  "jobDetail_m08_videoBadge": "Video",
+  "jobDetail_m08_panelEyebrow": "APPLICATION",
+  "jobDetail_m08_messageHeading": "Cover letter",
+  "jobDetail_m08_videoPitchHeading": "Video pitch",
+  "jobDetail_m08_viewProfile": "View profile",
+  "jobDetail_m08_sendMessage": "Send message"
 }
