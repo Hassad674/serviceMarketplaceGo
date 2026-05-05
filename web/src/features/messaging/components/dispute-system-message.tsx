@@ -7,79 +7,38 @@ import {
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn, formatCurrency } from "@/shared/lib/utils"
-import { Button } from "@/shared/components/ui/button"
+
+// Soleil v2 — dispute system messages.
+// Same 4 visual buckets as proposal-system-message: success / action /
+// pending / neutral. Card surface stays uniform ivoire (`bg-card` +
+// `border-border`); icon disc + title color carry the semantic.
 
 type SystemConfig = {
   icon: React.ElementType
-  iconColor: string
   iconBg: string
-  cardBg: string
-  cardBorder: string
+  iconColor: string
   title: string
 }
 
+const SUCCESS = { iconBg: "bg-success-soft", iconColor: "text-success" } as const
+const PENDING = { iconBg: "bg-[var(--amber-soft)]", iconColor: "text-[var(--warning)]" } as const
+const NEUTRAL = { iconBg: "bg-muted", iconColor: "text-muted-foreground" } as const
+
 const DISPUTE_CONFIGS: Record<string, SystemConfig> = {
-  dispute_opened: {
-    icon: AlertTriangle, iconColor: "text-orange-600 dark:text-orange-400",
-    iconBg: "bg-orange-100 dark:bg-orange-500/20",
-    cardBg: "bg-orange-50 dark:bg-orange-900/20", cardBorder: "border-orange-200 dark:border-orange-800",
-    title: "Litige ouvert",
-  },
-  dispute_counter_proposal: {
-    icon: Scale, iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20", cardBorder: "border-amber-200 dark:border-amber-800",
-    title: "Proposition",
-  },
-  dispute_counter_accepted: {
-    icon: CheckCircle2, iconColor: "text-green-600 dark:text-green-400",
-    iconBg: "bg-green-100 dark:bg-green-500/20",
-    cardBg: "bg-green-50 dark:bg-green-900/20", cardBorder: "border-green-200 dark:border-green-800",
-    title: "Proposition acceptee",
-  },
-  dispute_counter_rejected: {
-    icon: XCircle, iconColor: "text-red-600 dark:text-red-400",
-    iconBg: "bg-red-100 dark:bg-red-500/20",
-    cardBg: "bg-red-50 dark:bg-red-900/20", cardBorder: "border-red-200 dark:border-red-800",
-    title: "Proposition refusee",
-  },
-  dispute_escalated: {
-    icon: ShieldAlert, iconColor: "text-orange-600 dark:text-orange-400",
-    iconBg: "bg-orange-100 dark:bg-orange-500/20",
-    cardBg: "bg-orange-50 dark:bg-orange-900/20", cardBorder: "border-orange-200 dark:border-orange-800",
-    title: "Escalade en mediation",
-  },
-  dispute_resolved: {
-    icon: CheckCircle2, iconColor: "text-emerald-600 dark:text-emerald-400",
-    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
-    cardBg: "bg-emerald-50 dark:bg-emerald-900/20", cardBorder: "border-emerald-200 dark:border-emerald-800",
-    title: "Litige resolu",
-  },
-  dispute_cancelled: {
-    icon: XCircle, iconColor: "text-slate-600 dark:text-slate-400",
-    iconBg: "bg-slate-100 dark:bg-slate-500/20",
-    cardBg: "bg-slate-50 dark:bg-slate-800/50", cardBorder: "border-slate-200 dark:border-slate-700",
-    title: "Litige annule",
-  },
-  dispute_auto_resolved: {
-    icon: Clock, iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20", cardBorder: "border-amber-200 dark:border-amber-800",
-    title: "Litige resolu automatiquement",
-  },
-  dispute_cancellation_requested: {
-    icon: Ban, iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20", cardBorder: "border-amber-200 dark:border-amber-800",
-    title: "Demande d'annulation",
-  },
-  dispute_cancellation_refused: {
-    icon: XCircle, iconColor: "text-red-600 dark:text-red-400",
-    iconBg: "bg-red-100 dark:bg-red-500/20",
-    cardBg: "bg-red-50 dark:bg-red-900/20", cardBorder: "border-red-200 dark:border-red-800",
-    title: "Annulation refusee",
-  },
+  dispute_opened: { icon: AlertTriangle, ...PENDING, title: "Litige ouvert" },
+  dispute_counter_proposal: { icon: Scale, ...PENDING, title: "Proposition" },
+  dispute_counter_accepted: { icon: CheckCircle2, ...SUCCESS, title: "Proposition acceptee" },
+  dispute_counter_rejected: { icon: XCircle, ...NEUTRAL, title: "Proposition refusee" },
+  dispute_escalated: { icon: ShieldAlert, ...PENDING, title: "Escalade en mediation" },
+  dispute_resolved: { icon: CheckCircle2, ...SUCCESS, title: "Litige resolu" },
+  dispute_cancelled: { icon: XCircle, ...NEUTRAL, title: "Litige annule" },
+  dispute_auto_resolved: { icon: Clock, ...PENDING, title: "Litige resolu automatiquement" },
+  dispute_cancellation_requested: { icon: Ban, ...PENDING, title: "Demande d'annulation" },
+  dispute_cancellation_refused: { icon: XCircle, ...NEUTRAL, title: "Annulation refusee" },
 }
+
+const CARD_CLASSES =
+  "w-full max-w-[400px] rounded-xl border border-border bg-card p-4 animate-scale-in"
 
 const REASON_LABELS: Record<string, string> = {
   work_not_conforming: "Travail non conforme",
@@ -155,7 +114,7 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
 
   return (
     <div className="flex justify-center py-2">
-      <div className={cn("w-full max-w-[400px] rounded-xl border p-4 animate-scale-in", config.cardBg, config.cardBorder)}>
+      <div className={CARD_CLASSES}>
         <div className="flex items-start gap-3">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", config.iconBg)}>
             <Icon className={cn("h-4.5 w-4.5", config.iconColor)} strokeWidth={1.5} />
@@ -163,21 +122,21 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
           <div className="min-w-0 flex-1">
             <p className={cn("text-sm font-semibold", config.iconColor)}>{config.title}</p>
             {subtitle && (
-              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{subtitle}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
             )}
           </div>
         </div>
 
         {/* Party message (if present) */}
         {partyMessage && (
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic pl-12">
+          <p className="mt-2 text-xs text-muted-foreground italic pl-12">
             &quot;{partyMessage}&quot;
           </p>
         )}
 
         {/* Resolution note */}
         {resolutionNote && (
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic pl-12">
+          <p className="mt-2 text-xs text-muted-foreground italic pl-12">
             {resolutionNote}
           </p>
         )}
@@ -185,20 +144,20 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
         {/* "Voir les details" button — links to the project page */}
         {showDetailsBtn && (
           <>
-            <div className="mt-3 border-t border-inherit" />
-            <Button variant="ghost" size="auto"
+            <div className="mt-3 border-t border-border" />
+            <button
               type="button"
               onClick={() => router.push(`/projects/${proposalId}`)}
               className={cn(
-                "mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2",
-                "text-xs font-semibold transition-all duration-200",
-                "border border-slate-300 text-slate-700 hover:bg-slate-100",
-                "dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800",
+                "mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2",
+                "text-sm font-semibold text-white transition-all duration-200",
+                "bg-primary hover:opacity-90 active:scale-[0.98]",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
               )}
             >
               Voir les details
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
           </>
         )}
       </div>
@@ -229,37 +188,37 @@ function ResolvedDecisionCard({ metadata, currentUserId, t }: ResolvedDecisionCa
 
   return (
     <div className="flex justify-center py-2">
-      <div className="w-full max-w-[440px] rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10 animate-scale-in">
+      <div className="w-full max-w-[440px] rounded-xl border border-border bg-card p-4 animate-scale-in">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-            <Scale className="h-4 w-4 text-emerald-700 dark:text-emerald-300" aria-hidden />
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-soft">
+            <Scale className="h-4 w-4 text-success" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+            <p className="text-sm font-semibold text-success">
               {t("decisionTitle")}
             </p>
-            <p className="mt-0.5 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {t("decisionYourShare", { percent: myPct, amount: formatCurrency(myAmount / 100) })}
             </p>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-white/60 p-3 text-sm dark:bg-slate-800/40">
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-background p-3 text-sm">
               <DecisionSplitCell label={t("client")} amount={clientAmount} percent={clientPct} highlighted={isClient} />
               <DecisionSplitCell label={t("provider")} amount={providerAmount} percent={providerPct} highlighted={!isClient} />
             </div>
 
             {resolutionNote && (
-              <div className="mt-3 rounded-lg bg-white/60 p-3 text-sm dark:bg-slate-800/40">
-                <p className="mb-1 text-xs font-medium text-emerald-900 dark:text-emerald-200">
+              <div className="mt-3 rounded-lg bg-background p-3 text-sm">
+                <p className="mb-1 text-xs font-medium text-success">
                   {t("decisionMessage")}
                 </p>
-                <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+                <p className="whitespace-pre-wrap text-foreground">
                   {resolutionNote}
                 </p>
               </div>
             )}
 
             {resolvedAt && (
-              <p className="mt-3 flex items-center gap-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+              <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="h-3 w-3" aria-hidden />
                 {t("decisionRenderedOn", { date: formatResolvedDate(resolvedAt) })}
               </p>
@@ -283,18 +242,18 @@ function DecisionSplitCell({ label, amount, percent, highlighted }: DecisionSpli
     <div
       className={
         highlighted
-          ? "rounded-md border border-emerald-300 bg-white p-2 dark:border-emerald-500/40 dark:bg-slate-800"
+          ? "rounded-md border border-success/30 bg-card p-2"
           : "p-2"
       }
     >
-      <p className="flex items-center gap-1 text-xs text-slate-500">
-        {highlighted && <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-hidden />}
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        {highlighted && <CheckCircle2 className="h-3 w-3 text-success" aria-hidden />}
         {label}
       </p>
-      <p className="font-mono text-base font-semibold text-slate-900 dark:text-slate-100">
+      <p className="font-mono text-base font-semibold text-foreground">
         {formatCurrency(amount / 100)}
       </p>
-      <p className="text-xs text-slate-500">{percent}%</p>
+      <p className="text-xs text-muted-foreground">{percent}%</p>
     </div>
   )
 }
