@@ -3065,4 +3065,37 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get gdprBannerBodyNoDate =>
       'Votre compte est planifié pour suppression. Touchez pour annuler.';
+
+  @override
+  String get m02_eyebrowLabel => 'Création de compte';
+
+  @override
+  String get m02_stepIndicator => 'Étape 1 sur 3';
+
+  @override
+  String get m02_titlePrefix => 'Comment souhaitez-vous utiliser';
+
+  @override
+  String get m02_titleAccent => 'Atelier ?';
+
+  @override
+  String get m02_subtitle => 'Vous pourrez ajouter le second rôle plus tard.';
+
+  @override
+  String get m02_continue => 'Continuer';
+
+  @override
+  String get m02_recommendedBadge => 'Recommandé';
+
+  @override
+  String get m02_agencyDesc =>
+      'Studio, agence, collectif… Vous pilotez une équipe et cherchez des missions structurantes.';
+
+  @override
+  String get m02_providerDesc =>
+      'Trouvez des missions, créez votre profil et soyez payé en toute sécurité.';
+
+  @override
+  String get m02_enterpriseDesc =>
+      'Publiez vos annonces, recrutez des freelances vérifiés, gérez vos projets.';
 }
