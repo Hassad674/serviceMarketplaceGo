@@ -60,7 +60,10 @@ export function FreelanceOwnProfilePage() {
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <p className="font-serif text-[13px] italic text-muted-foreground">
+        {t("editingMode")}
+      </p>
       <FreelancePublicProfile
         profile={profile}
         displayName={displayName}
@@ -116,12 +119,12 @@ export function FreelanceOwnProfilePage() {
       />
 
       {canEditProfile ? (
-        <>
+        <div className="space-y-5">
           <SharedLocationSection />
           <SharedLanguagesSection />
           <SkillsSection orgType={org?.type} readOnly={false} />
           <FreelanceSocialLinksSection />
-        </>
+        </div>
       ) : null}
     </div>
   )
@@ -129,10 +132,11 @@ export function FreelanceOwnProfilePage() {
 
 function ProfileSkeleton() {
   return (
-    <div className="space-y-6" role="status" aria-live="polite">
-      <div className="h-32 rounded-xl border border-border bg-muted/40 animate-shimmer" />
-      <div className="h-40 rounded-xl border border-border bg-muted/40 animate-shimmer" />
-      <div className="h-64 rounded-xl border border-border bg-muted/40 animate-shimmer" />
+    <div className="space-y-5" role="status" aria-live="polite">
+      <div className="gradient-warm h-40 rounded-2xl" aria-hidden="true" />
+      <div className="-mt-16 mx-4 h-40 rounded-2xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] sm:mx-6" />
+      <div className="h-40 rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] animate-shimmer" />
+      <div className="h-64 rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] animate-shimmer" />
     </div>
   )
 }
