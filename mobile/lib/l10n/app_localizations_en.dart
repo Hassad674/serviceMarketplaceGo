@@ -123,6 +123,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeBack => 'Welcome back,';
 
   @override
+  String get loginTitle => 'Welcome back,';
+
+  @override
+  String get loginSubtitle =>
+      'Sign in to find your missions and conversations.';
+
+  @override
   String get dashboard => 'Dashboard';
 
   @override

@@ -37,6 +37,8 @@
   "roleEnterprise": "Enterprise",
   "roleEnterpriseDesc": "Find the best providers for your projects.",
   "welcomeBack": "Welcome back,",
+  "loginTitle": "Welcome back,",
+  "loginSubtitle": "Sign in to find your missions and conversations.",
   "dashboard": "Dashboard",
   "home": "Home",
   "messages": "Messages",
