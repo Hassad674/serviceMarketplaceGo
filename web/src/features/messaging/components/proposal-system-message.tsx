@@ -19,167 +19,80 @@ import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { ProposalMessageMetadata } from "../types"
-import { Button } from "@/shared/components/ui/button"
+
+// Soleil v2 — system / proposal status messages.
+// 4 visual buckets (success / action / pending / closed) keyed off
+// the existing message type. Card surface stays uniform ivoire
+// (`bg-card` + `border-border`); the icon disc + title color carry
+// the semantic differentiation, matching the Soleil pattern used
+// across notifications and wallet history rows.
 
 type SystemMessageConfig = {
   icon: React.ElementType
-  iconColor: string
   iconBg: string
-  cardBg: string
-  cardBorder: string
+  iconColor: string
+}
+
+const SUCCESS: Pick<SystemMessageConfig, "iconBg" | "iconColor"> = {
+  iconBg: "bg-success-soft",
+  iconColor: "text-success",
+}
+
+const ACTION: Pick<SystemMessageConfig, "iconBg" | "iconColor"> = {
+  iconBg: "bg-primary-soft",
+  iconColor: "text-primary",
+}
+
+const PENDING: Pick<SystemMessageConfig, "iconBg" | "iconColor"> = {
+  iconBg: "bg-[var(--amber-soft)]",
+  iconColor: "text-[var(--warning)]",
+}
+
+const NEUTRAL: Pick<SystemMessageConfig, "iconBg" | "iconColor"> = {
+  iconBg: "bg-muted",
+  iconColor: "text-muted-foreground",
 }
 
 const SYSTEM_MESSAGE_STYLES: Record<string, SystemMessageConfig> = {
-  proposal_accepted: {
-    icon: CheckCircle2,
-    iconColor: "text-green-600 dark:text-green-400",
-    iconBg: "bg-green-100 dark:bg-green-500/20",
-    cardBg: "bg-green-50 dark:bg-green-900/20",
-    cardBorder: "border-green-200 dark:border-green-800",
-  },
-  proposal_declined: {
-    icon: XCircle,
-    iconColor: "text-red-600 dark:text-red-400",
-    iconBg: "bg-red-100 dark:bg-red-500/20",
-    cardBg: "bg-red-50 dark:bg-red-900/20",
-    cardBorder: "border-red-200 dark:border-red-800",
-  },
-  proposal_paid: {
-    icon: DollarSign,
-    iconColor: "text-blue-600 dark:text-blue-400",
-    iconBg: "bg-blue-100 dark:bg-blue-500/20",
-    cardBg: "bg-blue-50 dark:bg-blue-900/20",
-    cardBorder: "border-blue-200 dark:border-blue-800",
-  },
-  proposal_payment_requested: {
-    icon: CreditCard,
-    iconColor: "text-blue-600 dark:text-blue-400",
-    iconBg: "bg-blue-100 dark:bg-blue-500/20",
-    cardBg: "bg-blue-50 dark:bg-blue-900/20",
-    cardBorder: "border-blue-200 dark:border-blue-800",
-  },
-  proposal_completion_requested: {
-    icon: Clock,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20",
-    cardBorder: "border-amber-200 dark:border-amber-800",
-  },
-  proposal_completed: {
-    icon: Trophy,
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
-    cardBg: "bg-emerald-50 dark:bg-emerald-900/20",
-    cardBorder: "border-emerald-200 dark:border-emerald-800",
-  },
-  proposal_completion_rejected: {
-    icon: RotateCcw,
-    iconColor: "text-slate-600 dark:text-slate-400",
-    iconBg: "bg-slate-100 dark:bg-slate-500/20",
-    cardBg: "bg-slate-50 dark:bg-slate-800/50",
-    cardBorder: "border-slate-200 dark:border-slate-700",
-  },
-  proposal_modified: {
-    icon: Pencil,
-    iconColor: "text-purple-600 dark:text-purple-400",
-    iconBg: "bg-purple-100 dark:bg-purple-500/20",
-    cardBg: "bg-purple-50 dark:bg-purple-900/20",
-    cardBorder: "border-purple-200 dark:border-purple-800",
-  },
-  evaluation_request: {
-    icon: Star,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20",
-    cardBorder: "border-amber-200 dark:border-amber-800",
-  },
-  dispute_opened: {
-    icon: AlertTriangle,
-    iconColor: "text-orange-600 dark:text-orange-400",
-    iconBg: "bg-orange-100 dark:bg-orange-500/20",
-    cardBg: "bg-orange-50 dark:bg-orange-900/20",
-    cardBorder: "border-orange-200 dark:border-orange-800",
-  },
-  dispute_counter_proposal: {
-    icon: Scale,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20",
-    cardBorder: "border-amber-200 dark:border-amber-800",
-  },
-  dispute_counter_accepted: {
-    icon: CheckCircle2,
-    iconColor: "text-green-600 dark:text-green-400",
-    iconBg: "bg-green-100 dark:bg-green-500/20",
-    cardBg: "bg-green-50 dark:bg-green-900/20",
-    cardBorder: "border-green-200 dark:border-green-800",
-  },
-  dispute_counter_rejected: {
-    icon: XCircle,
-    iconColor: "text-red-600 dark:text-red-400",
-    iconBg: "bg-red-100 dark:bg-red-500/20",
-    cardBg: "bg-red-50 dark:bg-red-900/20",
-    cardBorder: "border-red-200 dark:border-red-800",
-  },
-  dispute_escalated: {
-    icon: ShieldAlert,
-    iconColor: "text-orange-600 dark:text-orange-400",
-    iconBg: "bg-orange-100 dark:bg-orange-500/20",
-    cardBg: "bg-orange-50 dark:bg-orange-900/20",
-    cardBorder: "border-orange-200 dark:border-orange-800",
-  },
-  dispute_resolved: {
-    icon: CheckCircle2,
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
-    cardBg: "bg-emerald-50 dark:bg-emerald-900/20",
-    cardBorder: "border-emerald-200 dark:border-emerald-800",
-  },
-  dispute_cancelled: {
-    icon: XCircle,
-    iconColor: "text-slate-600 dark:text-slate-400",
-    iconBg: "bg-slate-100 dark:bg-slate-500/20",
-    cardBg: "bg-slate-50 dark:bg-slate-800/50",
-    cardBorder: "border-slate-200 dark:border-slate-700",
-  },
-  dispute_auto_resolved: {
-    icon: Clock,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20",
-    cardBorder: "border-amber-200 dark:border-amber-800",
-  },
-  // Phase 12: milestone-scoped system messages emitted by the
-  // proposal app service (phase 4b-ii) and the scheduler (phase 6c).
-  milestone_released: {
-    icon: CheckCircle2,
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
-    cardBg: "bg-emerald-50 dark:bg-emerald-900/20",
-    cardBorder: "border-emerald-200 dark:border-emerald-800",
-  },
-  milestone_auto_approved: {
-    icon: Clock,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-500/20",
-    cardBg: "bg-amber-50 dark:bg-amber-900/20",
-    cardBorder: "border-amber-200 dark:border-amber-800",
-  },
-  proposal_cancelled: {
-    icon: XCircle,
-    iconColor: "text-slate-600 dark:text-slate-400",
-    iconBg: "bg-slate-100 dark:bg-slate-500/20",
-    cardBg: "bg-slate-50 dark:bg-slate-800/50",
-    cardBorder: "border-slate-200 dark:border-slate-700",
-  },
-  proposal_auto_closed: {
-    icon: XCircle,
-    iconColor: "text-slate-600 dark:text-slate-400",
-    iconBg: "bg-slate-100 dark:bg-slate-500/20",
-    cardBg: "bg-slate-50 dark:bg-slate-800/50",
-    cardBorder: "border-slate-200 dark:border-slate-700",
-  },
+  // Success bucket
+  proposal_accepted: { icon: CheckCircle2, ...SUCCESS },
+  proposal_completed: { icon: Trophy, ...SUCCESS },
+  milestone_released: { icon: CheckCircle2, ...SUCCESS },
+  dispute_counter_accepted: { icon: CheckCircle2, ...SUCCESS },
+  dispute_resolved: { icon: CheckCircle2, ...SUCCESS },
+
+  // Action / Money bucket
+  proposal_paid: { icon: DollarSign, ...ACTION },
+  proposal_payment_requested: { icon: CreditCard, ...ACTION },
+  evaluation_request: { icon: Star, ...ACTION },
+
+  // Pending / Warning bucket
+  proposal_completion_requested: { icon: Clock, ...PENDING },
+  milestone_auto_approved: { icon: Clock, ...PENDING },
+  dispute_opened: { icon: AlertTriangle, ...PENDING },
+  dispute_counter_proposal: { icon: Scale, ...PENDING },
+  dispute_escalated: { icon: ShieldAlert, ...PENDING },
+  dispute_auto_resolved: { icon: Clock, ...PENDING },
+
+  // Closed / Neutral bucket
+  proposal_declined: { icon: XCircle, ...NEUTRAL },
+  proposal_cancelled: { icon: XCircle, ...NEUTRAL },
+  proposal_auto_closed: { icon: XCircle, ...NEUTRAL },
+  proposal_completion_rejected: { icon: RotateCcw, ...NEUTRAL },
+  proposal_modified: { icon: Pencil, ...NEUTRAL },
+  dispute_counter_rejected: { icon: XCircle, ...NEUTRAL },
+  dispute_cancelled: { icon: XCircle, ...NEUTRAL },
 }
+
+const CARD_CLASSES =
+  "w-full max-w-[400px] rounded-xl border border-border bg-card p-4 animate-scale-in"
+
+const CTA_CLASSES = cn(
+  "mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2",
+  "text-sm font-semibold text-white transition-all duration-200",
+  "bg-primary hover:opacity-90 active:scale-[0.98]",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
+)
 
 function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslations<"proposal">>) {
   const titles: Record<string, string> = {
@@ -226,13 +139,7 @@ export function ProposalSystemMessage({
 
   return (
     <div className="flex justify-center py-2">
-      <div
-        className={cn(
-          "w-full max-w-[400px] rounded-xl border p-4 animate-scale-in",
-          config.cardBg,
-          config.cardBorder,
-        )}
-      >
+      <div className={CARD_CLASSES}>
         <div className="flex items-start gap-3">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", config.iconBg)}>
             <Icon className={cn("h-4.5 w-4.5", config.iconColor)} strokeWidth={1.5} />
@@ -241,7 +148,7 @@ export function ProposalSystemMessage({
             <p className={cn("text-sm font-semibold", config.iconColor)}>
               {title}
             </p>
-            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 truncate">
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">
               {subtitle}
             </p>
           </div>
@@ -267,13 +174,7 @@ export function PaymentRequestedMessage({
 
   return (
     <div className="flex justify-center py-2">
-      <div
-        className={cn(
-          "w-full max-w-[400px] rounded-xl border p-4 animate-scale-in",
-          config.cardBg,
-          config.cardBorder,
-        )}
-      >
+      <div className={CARD_CLASSES}>
         <div className="flex items-start gap-3">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", config.iconBg)}>
             <Icon className={cn("h-4.5 w-4.5", config.iconColor)} strokeWidth={1.5} />
@@ -282,27 +183,22 @@ export function PaymentRequestedMessage({
             <p className={cn("text-sm font-semibold", config.iconColor)}>
               {title}
             </p>
-            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 truncate">
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">
               {subtitle}
             </p>
           </div>
         </div>
         {metadata.proposal_client_id === currentUserId && (
           <>
-            <div className="mt-3 border-t border-inherit" />
-            <Button variant="ghost" size="auto"
+            <div className="mt-3 border-t border-border" />
+            <button
               type="button"
               onClick={() => router.push(`/projects/pay?proposal=${metadata.proposal_id}`)}
-              className={cn(
-                "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-                "text-sm font-semibold text-white transition-all duration-200",
-                "bg-gradient-to-r from-rose-500 to-rose-600",
-                "hover:shadow-glow active:scale-[0.98]",
-              )}
+              className={CTA_CLASSES}
             >
               {t("payNow")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
+            </button>
           </>
         )}
       </div>
@@ -326,13 +222,7 @@ export function CompletionRequestedMessage({
 
   return (
     <div className="flex justify-center py-2">
-      <div
-        className={cn(
-          "w-full max-w-[400px] rounded-xl border p-4 animate-scale-in",
-          config.cardBg,
-          config.cardBorder,
-        )}
-      >
+      <div className={CARD_CLASSES}>
         <div className="flex items-start gap-3">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", config.iconBg)}>
             <Icon className={cn("h-4.5 w-4.5", config.iconColor)} strokeWidth={1.5} />
@@ -341,27 +231,22 @@ export function CompletionRequestedMessage({
             <p className={cn("text-sm font-semibold", config.iconColor)}>
               {title}
             </p>
-            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 truncate">
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">
               {subtitle}
             </p>
           </div>
         </div>
         {metadata.proposal_client_id === currentUserId && (
           <>
-            <div className="mt-3 border-t border-inherit" />
-            <Button variant="ghost" size="auto"
+            <div className="mt-3 border-t border-border" />
+            <button
               type="button"
               onClick={() => router.push(`/projects/${metadata.proposal_id}`)}
-              className={cn(
-                "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-                "text-sm font-semibold text-white transition-all duration-200",
-                "bg-gradient-to-r from-rose-500 to-rose-600",
-                "hover:shadow-glow active:scale-[0.98]",
-              )}
+              className={CTA_CLASSES}
             >
               {t("viewDetails")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
+            </button>
           </>
         )}
       </div>
@@ -401,13 +286,7 @@ export function EvaluationRequestMessage({
 
   return (
     <div className="flex justify-center py-2">
-      <div
-        className={cn(
-          "w-full max-w-[400px] rounded-xl border p-4 animate-scale-in",
-          config.cardBg,
-          config.cardBorder,
-        )}
-      >
+      <div className={CARD_CLASSES}>
         <div className="flex items-start gap-3">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", config.iconBg)}>
             <Icon className={cn("h-4.5 w-4.5", config.iconColor)} strokeWidth={1.5} />
@@ -416,15 +295,15 @@ export function EvaluationRequestMessage({
             <p className={cn("text-sm font-semibold", config.iconColor)}>
               {t("evaluationRequest")}
             </p>
-            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 truncate">
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">
               {title}
             </p>
           </div>
         </div>
         {ctaEnabled && (
           <>
-            <div className="mt-3 border-t border-inherit" />
-            <Button variant="ghost" size="auto"
+            <div className="mt-3 border-t border-border" />
+            <button
               type="button"
               onClick={() =>
                 onReview?.(metadata.proposal_id, metadata.proposal_title, {
@@ -432,16 +311,11 @@ export function EvaluationRequestMessage({
                   providerOrganizationId: providerOrgId!,
                 })
               }
-              className={cn(
-                "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-                "text-sm font-semibold text-white transition-all duration-200",
-                "bg-gradient-to-r from-rose-500 to-rose-600",
-                "hover:shadow-glow active:scale-[0.98]",
-              )}
+              className={CTA_CLASSES}
             >
               {t("leaveReview")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
+            </button>
           </>
         )}
       </div>
