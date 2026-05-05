@@ -89,11 +89,10 @@ export function MessageArea({
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <MessageSquare
-            className="mx-auto h-12 w-12 text-slate-200 dark:text-slate-700"
-            strokeWidth={1}
-          />
-          <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-deep">
+            <MessageSquare className="h-6 w-6" strokeWidth={1.5} />
+          </span>
+          <p className="mt-3 text-sm text-muted-foreground">
             {t("noMessages")}
           </p>
         </div>
@@ -113,13 +112,15 @@ export function MessageArea({
   })
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto bg-background px-5 py-4">
       <div className="mx-auto flex max-w-4xl flex-col gap-3">
         {hasMore && (
           <div ref={topSentinelRef} className="flex justify-center py-2">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               onClick={onLoadMore}
-              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              className="rounded-full bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary-deep"
             >
               {t("loadMore")}
             </Button>

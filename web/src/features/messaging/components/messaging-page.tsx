@@ -268,12 +268,12 @@ export function MessagingPage() {
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
 
   return (
-    <div className="-mx-5 -mt-5 flex h-[calc(100vh-3.5rem)] overflow-hidden bg-white dark:bg-gray-900">
+    <div className="-mx-5 -mt-5 flex h-[calc(100vh-3.5rem)] overflow-hidden bg-card">
       {/* Left panel: conversation list */}
       <div
         className={cn(
-          "w-full shrink-0 border-r border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900",
-          "lg:w-[400px] lg:block",
+          "w-full shrink-0 border-r border-border bg-card",
+          "lg:w-[360px] lg:block",
           mobileView === "list" ? "block" : "hidden lg:block",
         )}
       >
@@ -373,18 +373,20 @@ export function MessagingPage() {
 }
 
 function EmptyState({ label }: { label: string }) {
+  const t = useTranslations("messaging")
   return (
-    <div className="flex flex-1 items-center justify-center bg-gray-50/50 dark:bg-gray-950/50">
-      <div className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-          <MessageSquare
-            className="h-8 w-8 text-gray-300 dark:text-gray-600"
-            strokeWidth={1}
-          />
-        </div>
-        <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
-          {label}
+    <div className="flex flex-1 items-center justify-center bg-background">
+      <div className="mx-4 max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center shadow-[0_4px_24px_rgba(42,31,21,0.04)]">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft text-primary-deep">
+          <MessageSquare className="h-7 w-7" strokeWidth={1.5} />
+        </span>
+        <h2 className="mt-5 font-serif text-[22px] font-medium leading-tight text-foreground">
+          {t("messaging_w21_emptyTitle")}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("messaging_w21_emptyBody")}
         </p>
+        <p className="mt-4 text-xs text-muted-foreground">{label}</p>
       </div>
     </div>
   )
@@ -393,36 +395,36 @@ function EmptyState({ label }: { label: string }) {
 function NoSendPermissionBar() {
   const t = useTranslations("permissions")
   return (
-    <div className="flex items-center justify-center border-t border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
-      <p className="text-sm text-gray-400 dark:text-gray-500">{t("noMessagingSend")}</p>
+    <div className="flex items-center justify-center border-t border-border bg-background px-4 py-3">
+      <p className="text-sm text-muted-foreground">{t("noMessagingSend")}</p>
     </div>
   )
 }
 
 function ConversationListSkeleton() {
   return (
-    <div className="flex h-full flex-col">
-      <div className="px-5 pt-5 pb-3">
-        <div className="h-6 w-32 animate-pulse rounded-md bg-gray-200 dark:bg-gray-700" />
+    <div className="flex h-full flex-col bg-card">
+      <div className="px-5 pb-3 pt-5">
+        <div className="h-6 w-32 animate-pulse rounded-md bg-border" />
       </div>
       <div className="flex gap-1.5 px-5 pb-3">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-7 w-16 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
+            className="h-7 w-16 animate-pulse rounded-full bg-border"
           />
         ))}
       </div>
       <div className="px-5 pb-3">
-        <div className="h-9 w-full animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
+        <div className="h-10 w-full animate-pulse rounded-xl bg-border" />
       </div>
       <div className="flex-1 space-y-1 overflow-hidden">
         {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex items-center gap-3 px-5 py-3">
-            <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-border" />
             <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-28 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-              <div className="h-3 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-4 w-28 animate-pulse rounded bg-border" />
+              <div className="h-3 w-40 animate-pulse rounded bg-border" />
             </div>
           </div>
         ))}

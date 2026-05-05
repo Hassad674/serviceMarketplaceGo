@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../../core/theme/app_palette.dart';
+
+// M-18 list states — shimmer / empty / error.
+// Soleil v2: ivoire skeletons, corail empty-state icon, Fraunces title.
 
 /// Skeleton list rendered while conversations are loading.
 class ConversationListShimmer extends StatelessWidget {
@@ -11,11 +14,10 @@ class ConversationListShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>();
     final baseColor =
-        isDark ? AppPalette.slate800 : AppPalette.slate200;
-    final highlightColor =
-        isDark ? AppPalette.slate700 : AppPalette.slate100;
+        appColors?.muted ?? theme.colorScheme.surfaceContainerLowest;
+    final highlightColor = theme.colorScheme.surface;
 
     return Shimmer.fromColors(
       baseColor: baseColor,
@@ -31,9 +33,9 @@ class ConversationListShimmer extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 22,
-                  backgroundColor: Colors.white,
+                  backgroundColor: theme.colorScheme.surface,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -44,7 +46,7 @@ class ConversationListShimmer extends StatelessWidget {
                         width: 140,
                         height: 14,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: theme.colorScheme.surface,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -53,7 +55,7 @@ class ConversationListShimmer extends StatelessWidget {
                         width: double.infinity,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: theme.colorScheme.surface,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -78,24 +80,67 @@ class MessagingEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    // Avoid rendering the localized title when the caller already
+    // passes the same string as `message` — guards the legacy
+    // `find.text(message)` test contract from picking up a duplicate.
+    final showLocalizedTitle = message != l10n.messaging_m18_emptyTitle;
 
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.chat_outlined,
-            size: 48,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: appColors?.accentSoft ??
+                    theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.chat_outlined,
+                size: 28,
+                color: appColors?.primaryDeep ?? theme.colorScheme.primary,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            if (showLocalizedTitle) ...[
+              Text(
+                l10n.messaging_m18_emptyTitle,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.messaging_m18_emptyBody,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: appColors?.mutedForeground,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              message,
+              style: showLocalizedTitle
+                  ? theme.textTheme.bodySmall?.copyWith(
+                      color: appColors?.mutedForeground,
+                    )
+                  : theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                    ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -211,12 +211,13 @@ export function ChatWidgetPanel({
   return (
     <div
       className={cn(
-        "fixed bottom-0 right-6 z-50 flex w-[420px] flex-col overflow-hidden",
-        "rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-xl",
-        "dark:border-gray-700 dark:bg-gray-900",
+        "fixed bottom-6 right-6 z-50 flex w-[380px] flex-col overflow-hidden",
+        "rounded-2xl border border-border bg-card",
+        "shadow-[0_8px_32px_rgba(42,31,21,0.12)]",
+        "transition-all duration-200 ease-out",
         "animate-slide-up",
       )}
-      style={{ height: "calc(100vh - 100px)", maxHeight: "calc(100vh - 100px)", minHeight: "700px" }}
+      style={{ height: "min(540px, calc(100vh - 96px))" }}
     >
       {view === "list" ? (
         <ChatWidgetConversationList

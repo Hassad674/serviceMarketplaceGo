@@ -4,16 +4,31 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/extensions.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../domain/entities/conversation_entity.dart';
-import '../../../../../core/theme/app_palette.dart';
 
-const _roleColors = {
-  'agency': AppPalette.blue600, // blue-600
-  'provider_personal': AppPalette.rose500, // rose-500
-  'enterprise': AppPalette.violet500, // purple-500
-};
+// M-18 Liste conversations — Soleil v2.
+//
+// Compact row: Portrait-style avatar + name + last message excerpt +
+// relative timestamp + corail unread badge. Tap pushes M-17.
 
-/// Single conversation row — avatar + name + last message + unread
-/// count + relative timestamp.
+const _portraitPalettes = <List<Color>>[
+  [Color(0xFFFDE9E3), Color(0xFFE8A890), Color(0xFFC43A26)],
+  [Color(0xFFE8F2EB), Color(0xFFD4A584), Color(0xFF5A9670)],
+  [Color(0xFFFDE6ED), Color(0xFFD49A82), Color(0xFFC84D72)],
+  [Color(0xFFFBF0DC), Color(0xFFC4926E), Color(0xFFD4924A)],
+  [Color(0xFFE8E4F4), Color(0xFFD8A890), Color(0xFF6B5B9A)],
+  [Color(0xFFDFECEF), Color(0xFFC89478), Color(0xFF3A6B7A)],
+];
+
+int _portraitId(String seed) {
+  var h = 0;
+  for (final c in seed.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return h % _portraitPalettes.length;
+}
+
+/// Single conversation row — Soleil avatar + name + last message
+/// preview + relative timestamp + unread badge.
 class MessagingConversationTile extends StatelessWidget {
   const MessagingConversationTile({
     super.key,
@@ -25,11 +40,6 @@ class MessagingConversationTile extends StatelessWidget {
   final ConversationEntity conversation;
   final VoidCallback onTap;
   final bool isTyping;
-
-  String get _initials => conversation.otherOrgName.initials;
-
-  Color get _roleColor =>
-      _roleColors[conversation.otherOrgType] ?? Colors.grey;
 
   String _formatTime() {
     final raw = conversation.lastMessageAt;
@@ -46,6 +56,7 @@ class MessagingConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final hasUnread = conversation.unreadCount > 0;
 
     return InkWell(
       onTap: onTap,
@@ -53,12 +64,6 @@ class MessagingConversationTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border(
-            left: BorderSide(
-              color: conversation.unreadCount > 0
-                  ? _roleColor
-                  : Colors.transparent,
-              width: 3,
-            ),
             bottom: BorderSide(
               color: appColors?.border ?? theme.dividerColor,
               width: 0.5,
@@ -67,7 +72,12 @@ class MessagingConversationTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _Avatar(initials: _initials, online: conversation.online),
+            _SoleilAvatar(
+              seed: conversation.id.isNotEmpty
+                  ? conversation.id
+                  : conversation.otherOrgName,
+              online: conversation.online,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -80,9 +90,10 @@ class MessagingConversationTile extends StatelessWidget {
                           conversation.otherOrgName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 14,
-                            fontWeight: conversation.unreadCount > 0
+                            fontWeight: hasUnread
                                 ? FontWeight.w700
                                 : FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -92,6 +103,7 @@ class MessagingConversationTile extends StatelessWidget {
                         _formatTime(),
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 11,
+                          fontFamily: 'monospace',
                           color: appColors?.mutedForeground,
                         ),
                       ),
@@ -101,7 +113,9 @@ class MessagingConversationTile extends StatelessWidget {
                   _SubtitleRow(
                     conversation: conversation,
                     isTyping: isTyping,
-                    mutedFg: appColors?.mutedForeground,
+                    appColors: appColors,
+                    primary: theme.colorScheme.primary,
+                    onPrimary: theme.colorScheme.onPrimary,
                   ),
                 ],
               ),
@@ -117,17 +131,23 @@ class _SubtitleRow extends StatelessWidget {
   const _SubtitleRow({
     required this.conversation,
     required this.isTyping,
-    this.mutedFg,
+    required this.primary,
+    required this.onPrimary,
+    this.appColors,
   });
 
   final ConversationEntity conversation;
   final bool isTyping;
-  final Color? mutedFg;
+  final AppColors? appColors;
+  final Color primary;
+  final Color onPrimary;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final hasUnread = conversation.unreadCount > 0;
+
     return Row(
       children: [
         Expanded(
@@ -136,31 +156,37 @@ class _SubtitleRow extends StatelessWidget {
                   l10n.messagingTypingShort,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontStyle: FontStyle.italic,
-                    color: AppPalette.rose500,
+                    color: primary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 )
               : Text(
                   conversation.lastMessage ?? l10n.messagingNoMessages,
-                  style: theme.textTheme.bodySmall?.copyWith(color: mutedFg),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight:
+                        hasUnread ? FontWeight.w500 : FontWeight.w400,
+                    color: hasUnread
+                        ? theme.colorScheme.onSurface
+                        : appColors?.mutedForeground,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
         ),
-        if (conversation.unreadCount > 0)
+        if (hasUnread)
           Container(
             margin: const EdgeInsets.only(left: 8),
             padding:
                 const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-              color: AppPalette.rose500,
-              borderRadius: BorderRadius.circular(10),
+              color: primary,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '${conversation.unreadCount}',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: onPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -171,40 +197,33 @@ class _SubtitleRow extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initials, required this.online});
+class _SoleilAvatar extends StatelessWidget {
+  const _SoleilAvatar({required this.seed, required this.online});
 
-  final String initials;
+  final String seed;
   final bool online;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = _portraitPalettes[_portraitId(seed)];
+    final bg = palette[0];
+    final skin = palette[1];
+    final shirt = palette[2];
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
           width: 44,
           height: 44,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
+            color: bg,
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppPalette.rose500, // rose-500
-                AppPalette.violet500, // purple-600
-              ],
-            ),
           ),
-          child: Center(
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          clipBehavior: Clip.antiAlias,
+          child: CustomPaint(
+            painter: _PortraitPainter(skin: skin, shirt: shirt),
           ),
         ),
         if (online)
@@ -215,10 +234,11 @@ class _Avatar extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: AppPalette.green500, // emerald-500
+                color: theme.extension<AppColors>()?.success ??
+                    const Color(0xFF5A9670),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: theme.colorScheme.surface,
                   width: 2,
                 ),
               ),
@@ -227,4 +247,58 @@ class _Avatar extends StatelessWidget {
       ],
     );
   }
+}
+
+class _PortraitPainter extends CustomPainter {
+  _PortraitPainter({required this.skin, required this.shirt});
+
+  final Color skin;
+  final Color shirt;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 60;
+    final shirtPaint = Paint()..color = shirt;
+    final skinPaint = Paint()..color = skin;
+    final hairPaint = Paint()..color = const Color(0xFF3D2618);
+
+    // Shoulders
+    final shirtPath = Path()
+      ..moveTo(8 * scale, 60 * scale)
+      ..quadraticBezierTo(8 * scale, 46 * scale, 30 * scale, 44 * scale)
+      ..quadraticBezierTo(52 * scale, 46 * scale, 52 * scale, 60 * scale)
+      ..close();
+    canvas.drawPath(shirtPath, shirtPaint);
+
+    // Neck
+    canvas.drawRect(
+      Rect.fromLTWH(24 * scale, 38 * scale, 12 * scale, 10 * scale),
+      skinPaint,
+    );
+
+    // Head
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(30 * scale, 28 * scale),
+        width: 22 * scale,
+        height: 26 * scale,
+      ),
+      skinPaint,
+    );
+
+    // Hair
+    final hairPath = Path()
+      ..moveTo(19 * scale, 24 * scale)
+      ..quadraticBezierTo(19 * scale, 13 * scale, 30 * scale, 13 * scale)
+      ..quadraticBezierTo(41 * scale, 13 * scale, 41 * scale, 24 * scale)
+      ..quadraticBezierTo(41 * scale, 21 * scale, 36 * scale, 19 * scale)
+      ..quadraticBezierTo(30 * scale, 17 * scale, 24 * scale, 19 * scale)
+      ..quadraticBezierTo(19 * scale, 21 * scale, 19 * scale, 28 * scale)
+      ..close();
+    canvas.drawPath(hairPath, hairPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PortraitPainter old) =>
+      old.skin != skin || old.shirt != shirt;
 }

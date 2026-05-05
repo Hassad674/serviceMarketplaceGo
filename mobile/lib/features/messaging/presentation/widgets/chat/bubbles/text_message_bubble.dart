@@ -5,13 +5,12 @@ import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
 import '../message_context_menu.dart';
 import 'reply_preview_widget.dart';
-import '../../../../../../core/theme/app_palette.dart';
 
-/// Standard text bubble — rose for own messages, muted grey for received.
-///
-/// Renders status icons, edit indicator, reply preview and time stamp.
-/// Long-press shows the message context menu (reply / edit / delete /
-/// report) when at least one callback is provided.
+// M-17 text bubble — Soleil v2.
+//
+// Own bubbles → corail bg right-aligned with bottom-right corner squared.
+// Other bubbles → ivoire-card bg left-aligned with bottom-left corner
+// squared. Time labels in mono mini.
 class TextMessageBubble extends StatelessWidget {
   const TextMessageBubble({
     super.key,
@@ -35,6 +34,12 @@ class TextMessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final ownBg = theme.colorScheme.primary;
+    final ownFg = theme.colorScheme.onPrimary;
+    final otherBg = theme.colorScheme.surface;
+    final otherFg = theme.colorScheme.onSurface;
+    final mutedFg =
+        appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -56,15 +61,20 @@ class TextMessageBubble extends StatelessWidget {
           alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+              maxWidth: MediaQuery.sizeOf(context).width * 0.78,
             ),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
               decoration: BoxDecoration(
-                color: isOwn
-                    ? AppPalette.rose500 // rose-500
-                    : (appColors?.muted ?? AppPalette.slate100),
+                color: isOwn ? ownBg : otherBg,
+                border: isOwn
+                    ? null
+                    : Border.all(
+                        color: appColors?.border ?? theme.dividerColor,
+                      ),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -85,9 +95,7 @@ class TextMessageBubble extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.4,
-                      color: isOwn
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
+                      color: isOwn ? ownFg : otherFg,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -103,8 +111,8 @@ class TextMessageBubble extends StatelessWidget {
                               fontSize: 10,
                               fontStyle: FontStyle.italic,
                               color: isOwn
-                                  ? Colors.white.withValues(alpha: 0.6)
-                                  : appColors?.mutedForeground,
+                                  ? ownFg.withValues(alpha: 0.7)
+                                  : mutedFg,
                             ),
                           ),
                         ),
@@ -112,10 +120,10 @@ class TextMessageBubble extends StatelessWidget {
                         _formatTime(),
                         style: TextStyle(
                           fontSize: 10,
+                          fontFamily: 'monospace',
                           color: isOwn
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : (appColors?.mutedForeground ??
-                                  AppPalette.slate400),
+                              ? ownFg.withValues(alpha: 0.8)
+                              : mutedFg,
                         ),
                       ),
                       if (isOwn) ...[
@@ -154,34 +162,38 @@ class _StatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedFg = Theme.of(context).extension<AppColors>()?.mutedForeground;
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final ownFg = theme.colorScheme.onPrimary;
+    final mutedFg =
+        appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+
+    final readColor = appColors?.success ?? theme.colorScheme.primary;
+
     switch (message.status) {
       case 'sending':
         return Icon(
           Icons.access_time,
           size: 12,
-          color:
-              isOwn ? Colors.white.withValues(alpha: 0.6) : mutedFg,
+          color: isOwn ? ownFg.withValues(alpha: 0.7) : mutedFg,
         );
       case 'sent':
         return Icon(
           Icons.check,
           size: 12,
-          color:
-              isOwn ? Colors.white.withValues(alpha: 0.7) : mutedFg,
+          color: isOwn ? ownFg.withValues(alpha: 0.8) : mutedFg,
         );
       case 'delivered':
         return Icon(
           Icons.done_all,
           size: 12,
-          color:
-              isOwn ? Colors.white.withValues(alpha: 0.7) : mutedFg,
+          color: isOwn ? ownFg.withValues(alpha: 0.8) : mutedFg,
         );
       case 'read':
-        return const Icon(
+        return Icon(
           Icons.done_all,
           size: 12,
-          color: AppPalette.blue500, // blue check marks
+          color: readColor,
         );
       default:
         return const SizedBox.shrink();

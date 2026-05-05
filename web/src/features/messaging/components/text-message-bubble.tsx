@@ -13,14 +13,12 @@ import { isFileMetadata, isVoiceMetadata } from "./message-area-utils"
 import { Button } from "@/shared/components/ui/button"
 
 import { Input } from "@/shared/components/ui/input"
-// TextMessageBubble renders the chat-style "text/file/voice" bubble
-// with all interactive affordances: in-place edit, reply, delete,
-// report, plus a long-press context menu on touch devices. Kept apart
-// from message-bubble.tsx so the simple "system message" branches
-// stay focused and free of interactive state.
+
+// TextMessageBubble — Soleil v2 chat bubble (text/file/voice).
 //
-// We group the action handlers + viewer state into a single
-// `actions` object to keep the public surface ≤ 4 props per CLAUDE.md.
+// Own bubbles → corail bg right-aligned with last-corner squared.
+// Other bubbles → ivoire-card bg left-aligned with first-corner squared
+// (the standard chat shape). Time labels in Geist Mono mini.
 
 export interface TextBubbleActions {
   onEdit: (messageId: string, content: string) => void
@@ -89,10 +87,10 @@ export function TextMessageBubble({
       >
         <div
           className={cn(
-            "max-w-[75%] rounded-2xl px-4 py-2.5 select-none",
+            "max-w-[75%] select-none px-4 py-2.5",
             isOwn
-              ? "bg-rose-500 text-white"
-              : "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
+              ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground"
+              : "rounded-2xl rounded-bl-md bg-card text-foreground border border-border",
           )}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -131,7 +129,7 @@ export function TextMessageBubble({
             <span
               className={cn(
                 "text-[10px] italic",
-                isOwn ? "text-rose-200" : "text-slate-400 dark:text-slate-500",
+                isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
               )}
             >
               {" "}
@@ -147,8 +145,8 @@ export function TextMessageBubble({
           >
             <p
               className={cn(
-                "text-[10px]",
-                isOwn ? "text-rose-200" : "text-slate-400 dark:text-slate-500",
+                "font-mono text-[10px]",
+                isOwn ? "text-primary-foreground/80" : "text-muted-foreground",
               )}
             >
               {timeStr}
@@ -224,58 +222,66 @@ function MobileMenuOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 sm:hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 sm:hidden"
       onClick={onClose}
     >
       <div
-        className="w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        className="w-56 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_rgba(42,31,21,0.12)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <Button variant="ghost" size="auto"
+        <Button
+          variant="ghost"
+          size="auto"
           onClick={() => {
             onClose()
             onReply()
           }}
-          className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 active:bg-slate-50 dark:text-slate-300 dark:active:bg-slate-700"
+          className="flex w-full items-center gap-3 px-4 py-3 text-sm text-foreground active:bg-primary-soft"
         >
-          <Reply className="h-4 w-4" strokeWidth={1.5} />
+          <Reply className="h-4 w-4" strokeWidth={1.6} />
           {t("reply")}
         </Button>
         {isOwn && (
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => {
               onClose()
               onEdit()
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 active:bg-slate-50 dark:text-slate-300 dark:active:bg-slate-700"
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-foreground active:bg-primary-soft"
           >
-            <Pencil className="h-4 w-4" strokeWidth={1.5} />
+            <Pencil className="h-4 w-4" strokeWidth={1.6} />
             {t("editMessage")}
           </Button>
         )}
         {isOwn && (
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => {
               onClose()
               onDelete()
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 active:bg-red-50 dark:text-red-400 dark:active:bg-red-500/10"
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-destructive active:bg-primary-soft"
           >
-            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+            <Trash2 className="h-4 w-4" strokeWidth={1.6} />
             {t("deleteMessage")}
           </Button>
         )}
         {onReport && (
           <>
-            <div className="mx-3 border-t border-slate-200 dark:border-slate-700" />
-            <Button variant="ghost" size="auto"
+            <div className="mx-3 border-t border-border" />
+            <Button
+              variant="ghost"
+              size="auto"
               onClick={() => {
                 onClose()
                 onReport()
               }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 active:bg-red-50 dark:text-red-400 dark:active:bg-red-500/10"
+              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-destructive active:bg-primary-soft"
             >
-              <Flag className="h-4 w-4" strokeWidth={1.5} />
+              <Flag className="h-4 w-4" strokeWidth={1.6} />
               {t("report")}
             </Button>
           </>
@@ -305,14 +311,24 @@ function EditInput({ value, onChange, onSubmit, onCancel }: EditInputProps) {
           if (e.key === "Enter") onSubmit()
           if (e.key === "Escape") onCancel()
         }}
-        className="w-full rounded-lg bg-white/20 px-2 py-1 text-sm text-inherit outline-none"
+        className="w-full rounded-lg bg-card/30 px-2 py-1 text-sm text-inherit outline-none"
         autoFocus
       />
       <div className="flex gap-1 text-[10px]">
-        <Button variant="ghost" size="auto" onClick={onSubmit} className="rounded px-2 py-0.5 hover:bg-white/20">
+        <Button
+          variant="ghost"
+          size="auto"
+          onClick={onSubmit}
+          className="rounded px-2 py-0.5 hover:bg-card/30"
+        >
           {t("save")}
         </Button>
-        <Button variant="ghost" size="auto" onClick={onCancel} className="rounded px-2 py-0.5 hover:bg-white/20">
+        <Button
+          variant="ghost"
+          size="auto"
+          onClick={onCancel}
+          className="rounded px-2 py-0.5 hover:bg-card/30"
+        >
           {t("cancel")}
         </Button>
       </div>
@@ -328,19 +344,23 @@ function ReplyPreviewBlock({
   isOwn: boolean
 }) {
   const truncated =
-    replyTo.content.length > 80 ? replyTo.content.slice(0, 80) + "..." : replyTo.content
+    replyTo.content.length > 80
+      ? replyTo.content.slice(0, 80) + "..."
+      : replyTo.content
 
   return (
     <div
       className={cn(
-        "mb-1.5 rounded border-l-2 border-rose-400 px-2 py-1",
-        isOwn ? "bg-white/15" : "bg-rose-500/8 dark:bg-rose-400/10",
+        "mb-1.5 rounded border-l-2 px-2 py-1",
+        isOwn
+          ? "border-primary-foreground/40 bg-primary-foreground/15"
+          : "border-primary bg-primary-soft/40",
       )}
     >
       <p
         className={cn(
           "truncate text-xs",
-          isOwn ? "text-white/80" : "text-slate-500 dark:text-slate-400",
+          isOwn ? "text-primary-foreground/80" : "text-muted-foreground",
         )}
       >
         {truncated || "..."}

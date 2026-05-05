@@ -50,18 +50,27 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
     final convState = ref.watch(conversationsProvider);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: const IconButton(
           icon: Icon(Icons.menu),
           onPressed: openShellDrawer,
         ),
-        title: Text(l10n.messages),
+        title: Text(
+          l10n.messages,
+          style: SoleilTextStyles.headlineMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
       ),
       body: Column(
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: TextField(
               onChanged: (value) => setState(() => _searchQuery = value),
               decoration: InputDecoration(
@@ -73,8 +82,10 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 10,
+                  vertical: 12,
                 ),
+                fillColor: theme.colorScheme.surface,
+                filled: true,
               ),
             ),
           ),
