@@ -53,11 +53,11 @@ export function FreelancePublicProfileLoader({
   const displayName = profile.title || profile.organization_id
 
   // Soleil v2 W-16 v3 — history pinned LAST (brief #2). The aerated
-  // max-w-4xl wrapper (~896px) is set on the inner profile component
+  // max-w-5xl wrapper (~1024px) is set on the inner profile component
   // to keep the editorial column tight; the trailing social links and
   // project history adopt the same wrapper here for visual cohesion.
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <FreelancePublicProfile
         profile={profile}
         displayName={displayName}
@@ -74,7 +74,7 @@ export function FreelancePublicProfileLoader({
 function LoadingShell() {
   return (
     <div
-      className="mx-auto w-full max-w-4xl space-y-5"
+      className="mx-auto w-full max-w-5xl space-y-5"
       role="status"
       aria-live="polite"
     >

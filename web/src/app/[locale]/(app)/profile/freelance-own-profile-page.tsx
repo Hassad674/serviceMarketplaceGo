@@ -60,12 +60,12 @@ export function FreelanceOwnProfilePage() {
     user?.display_name ??
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
-  // Soleil v2 W-16 v3 — aerated max-w-4xl wrapper (~896px) keeps the
+  // Soleil v2 W-16 v3 — aerated max-w-5xl wrapper (~1024px) keeps the
   // editorial column tight on wide dashboards (brief #1). Project
   // history is composed LAST here so it sits below all editable shared
   // sections (location, languages, skills, social) — brief #2.
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5">
+    <div className="mx-auto w-full max-w-5xl space-y-5">
       <p className="font-serif text-[13px] italic text-muted-foreground">
         {t("editingMode")}
       </p>
@@ -140,7 +140,7 @@ export function FreelanceOwnProfilePage() {
 function ProfileSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-4xl space-y-5"
+      className="mx-auto w-full max-w-5xl space-y-5"
       role="status"
       aria-live="polite"
     >
