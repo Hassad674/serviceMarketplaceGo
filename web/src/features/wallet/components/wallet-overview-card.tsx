@@ -66,7 +66,11 @@ export function WalletOverviewCard({
     <section
       className={cn(
         "relative overflow-hidden rounded-2xl border border-border bg-card",
-        "p-6 sm:p-7",
+        // Narrow (<768px) mirrors the mobile native hero card
+        // (mobile/.../wallet_hero_card.dart): tighter padding, single
+        // column. Desktop (≥768px) keeps the original Soleil v2 layout
+        // unchanged.
+        "p-5 md:p-7",
       )}
       style={{ boxShadow: "var(--shadow-card)" }}
     >
@@ -96,13 +100,18 @@ export function WalletOverviewCard({
           </div>
         </div>
 
-        {/* Total earned + payout CTA row */}
-        <div className="grid items-end gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
+        {/* Total earned + payout CTA row.
+            Narrow viewports (<768px): mirror the mobile native hero
+            card — total stacks above a full-width CTA, balance number
+            uses the smaller display size.
+            Desktop (≥768px): two-column grid with the CTA aligned
+            right, exactly as the original Soleil v2 maquette. */}
+        <div className="grid items-end gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <p className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-subtle-foreground">
               Revenus totaux
             </p>
-            <p className="font-serif text-[44px] font-normal leading-none tracking-[-0.035em] text-foreground sm:text-[56px]">
+            <p className="font-serif text-[40px] font-normal leading-none tracking-[-0.035em] text-foreground md:text-[56px]">
               {formatEur(totalEarned)}
             </p>
             <div className="mt-3.5">
@@ -202,7 +211,7 @@ function PayoutButton({
   onPayout: () => void
 }) {
   return (
-    <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+    <div className="flex flex-col items-stretch gap-1.5 md:items-end">
       <Button
         variant="ghost"
         size="auto"
@@ -216,7 +225,10 @@ function PayoutButton({
         }
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-full",
-          "px-5 py-2.5 text-sm font-bold text-primary-foreground",
+          // Narrow viewports: full-width pill matching the mobile
+          // native ElevatedButton.icon. Desktop (≥768px): inline pill
+          // sized by content, aligned to the right.
+          "w-full px-5 py-2.5 text-sm font-bold text-primary-foreground md:w-auto",
           "bg-primary transition-all duration-200 ease-out",
           "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
           "active:scale-[0.98]",
@@ -232,7 +244,7 @@ function PayoutButton({
         Retirer {formatEur(available)}
       </Button>
       {available === 0 && (
-        <span className="text-[11px] text-subtle-foreground sm:text-right">
+        <span className="text-[11px] text-subtle-foreground md:text-right">
           Aucun fonds disponible
         </span>
       )}

@@ -62,7 +62,11 @@ export function WalletTransactionsList({
     <section className="space-y-4">
       <SectionHeader icon={Folder} title="Mes missions" />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Mini-stats row — 3 compact cards, always horizontal, mirroring
+          the mobile native WalletMissionsSection (3 Expanded cards in
+          a Row at 390px). Desktop (≥768px) keeps the wider Soleil
+          card content unchanged. */}
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         <BalanceCard
           icon={ShieldCheck}
           label="En séquestre"
@@ -92,16 +96,16 @@ export function WalletTransactionsList({
         )}
         style={{ boxShadow: "var(--shadow-card)" }}
       >
-        <div className="border-b border-border px-6 py-5">
-          <h3 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
+        <div className="border-b border-border px-4 py-4 md:px-6 md:py-5">
+          <h3 className="font-serif text-[18px] font-medium tracking-[-0.015em] text-foreground md:text-[22px]">
             Historique des missions
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+          <p className="mt-0.5 text-[12px] text-muted-foreground md:text-[12.5px]">
             Toutes vos missions — du séquestre au transfert
           </p>
         </div>
         {records.length === 0 ? (
-          <div className="px-6 py-10 text-center text-[13px] text-muted-foreground">
+          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground md:px-6 md:py-10">
             Aucune mission pour le moment
           </div>
         ) : (
@@ -186,13 +190,16 @@ export function BalanceCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-5",
+        // Narrow viewports: tighter padding mirrors the mobile native
+        // WalletBalanceCard (EdgeInsets.all(12)). Desktop (≥768px)
+        // keeps the original Soleil padding.
+        "rounded-2xl border border-border bg-card p-3 md:p-5",
         "transition-all duration-200 ease-out",
         "hover:-translate-y-0.5 hover:border-border-strong",
       )}
       style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <div className="mb-2.5 flex items-center gap-2">
+      <div className="mb-2 flex items-start gap-1.5 md:items-center md:gap-2">
         <div
           className={cn(
             "flex h-[22px] w-[22px] items-center justify-center rounded-md",
@@ -201,14 +208,17 @@ export function BalanceCard({
         >
           <Icon className={cn("h-3 w-3", tone.icon)} strokeWidth={1.8} />
         </div>
-        <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground md:text-[11.5px]">
           {label}
         </span>
       </div>
-      <p className="font-serif text-[26px] font-medium leading-none tracking-[-0.025em] text-foreground">
+      <p className="font-serif text-[18px] font-medium leading-none tracking-[-0.025em] text-foreground md:text-[26px]">
         {formatEur(amount)}
       </p>
-      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+      {/* Description is hidden on narrow viewports — the mobile native
+          balance card never shows it (label + amount only). It returns
+          on desktop (≥768px) for the fuller Soleil card. */}
+      <p className="mt-2 hidden text-[11.5px] leading-relaxed text-muted-foreground md:block">
         {description}
       </p>
     </div>
@@ -263,7 +273,9 @@ function RecordRow({
   return (
     <div
       className={cn(
-        "relative px-6 py-4",
+        // Narrow viewports: tighter horizontal padding matching the
+        // mobile native WalletMissionTile (EdgeInsets.fromLTRB(12,12,16,12)).
+        "relative px-3 py-3 md:px-6 md:py-4",
         !isLast && "border-b border-border",
       )}
     >
@@ -271,22 +283,22 @@ function RecordRow({
         aria-hidden="true"
         className={cn("absolute inset-y-0 left-0 w-[3px]", railColor)}
       />
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 md:gap-4">
         <div
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl md:h-9 md:w-9",
             iconBg,
           )}
         >
           <PaymentStatusIcon status={record.payment_status} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-foreground">
+          <p className="truncate text-[13px] font-semibold text-foreground md:text-[14px]">
             Mission du {formatDate(record.created_at)}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
             {isInEscrow && !isFailed && (
-              <span className="text-[11.5px] font-medium text-warning">
+              <span className="text-[11px] font-medium text-warning md:text-[11.5px]">
                 En séquestre — mission en cours
               </span>
             )}
@@ -294,10 +306,10 @@ function RecordRow({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-serif text-[18px] font-semibold leading-none tracking-[-0.015em] text-foreground">
+          <p className="font-serif text-[15px] font-semibold leading-none tracking-[-0.015em] text-foreground md:text-[18px]">
             {formatEur(record.provider_payout)}
           </p>
-          <p className="mt-1 text-[11px] text-subtle-foreground">
+          <p className="mt-1 text-[10.5px] text-subtle-foreground md:text-[11px]">
             -{formatEur(record.platform_fee)} Frais plateforme
           </p>
         </div>
