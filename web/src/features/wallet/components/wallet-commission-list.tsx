@@ -23,6 +23,11 @@ import type {
 // Commissions list = "Mes commissions d'apport" section. Hidden when
 // the provider has no apporteur activity at all (zero pending, paid,
 // clawed back, AND no historical record).
+//
+// Soleil v2: shares the BalanceCard + SectionHeader primitives from
+// wallet-transactions-list so the two sections feel like siblings.
+// Row treatment: 3px coloured rail + corail-toned mini badge, same
+// pattern as the missions history.
 
 function formatEur(centimes: number): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -61,7 +66,7 @@ export function WalletCommissionList({
     <section className="space-y-4">
       <SectionHeader icon={Sparkles} title="Mes commissions d'apport" />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <BalanceCard
           icon={Clock}
           label="En attente"
@@ -89,23 +94,32 @@ export function WalletCommissionList({
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+      <div
+        className={cn(
+          "overflow-hidden rounded-2xl border border-border bg-card",
+        )}
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="border-b border-border px-6 py-5">
+          <h3 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
             Historique des commissions
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
             Chaque mise en relation que vous avez facilitée
           </p>
         </div>
         {records.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500">
+          <div className="px-6 py-8 text-center text-[12.5px] text-muted-foreground">
             Aucune commission pour le moment
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {records.map((r) => (
-              <CommissionRow key={r.id} record={r} />
+          <div>
+            {records.map((r, index) => (
+              <CommissionRow
+                key={r.id}
+                record={r}
+                isLast={index === records.length - 1}
+              />
             ))}
           </div>
         )}
@@ -114,46 +128,85 @@ export function WalletCommissionList({
   )
 }
 
-function CommissionRow({ record }: { record: WalletCommissionRecord }) {
-  const status = commissionStatusLabel(record.status)
+function CommissionRow({
+  record,
+  isLast,
+}: {
+  record: WalletCommissionRecord
+  isLast: boolean
+}) {
+  const statusBadge = commissionStatusLabel(record.status)
   const isPending =
     record.status === "pending" || record.status === "pending_kyc"
 
-  const leftAccent = isPending
-    ? "border-l-4 border-l-amber-400 dark:border-l-amber-500/60"
+  // 3px left accent rail per status — same pattern as the missions
+  // history. Pending = amber, clawed_back = corail (warm), failed =
+  // destructive, paid = sapin, anything else = neutral border.
+  const railColor = isPending
+    ? "bg-warning"
     : record.status === "clawed_back"
-      ? "border-l-4 border-l-blue-400 dark:border-l-blue-500/60"
-      : "border-l-4 border-l-transparent"
+      ? "bg-primary"
+      : record.status === "failed"
+        ? "bg-destructive"
+        : record.status === "paid"
+          ? "bg-success"
+          : "bg-border-strong"
+
+  // Icon-square background — the icon foreground colour lives on the
+  // icon itself (see CommissionStatusIcon below) so the surface stays
+  // calm in Soleil tones while the icon keeps a single semantic tint.
+  const iconBg =
+    record.status === "paid"
+      ? "bg-success-soft"
+      : record.status === "failed"
+        ? "bg-destructive/10"
+        : record.status === "clawed_back"
+          ? "bg-primary-soft"
+          : "bg-amber-soft"
 
   const rowContent = (
-    <div className={cn("flex items-center gap-4 px-5 py-3", leftAccent)}>
-      <CommissionStatusIcon status={record.status} />
+    <div
+      className={cn(
+        "relative flex items-center gap-4 px-6 py-4",
+        !isLast && "border-b border-border",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn("absolute inset-y-0 left-0 w-[3px]", railColor)}
+      />
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          iconBg,
+        )}
+      >
+        <CommissionStatusIcon status={record.status} />
+      </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+        <p className="truncate text-[14px] font-semibold text-foreground">
           Commission du {formatDate(record.created_at)}
         </p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-xs text-slate-500">
-            sur {formatEur(record.gross_amount_cents)} de mission
-          </span>
-        </div>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
+          sur {formatEur(record.gross_amount_cents)} de mission
+        </p>
       </div>
-      <div className="text-right">
-        <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+      <div className="shrink-0 text-right">
+        <p className="font-serif text-[18px] font-semibold leading-none tracking-[-0.015em] text-foreground">
           {formatEur(record.commission_cents)}
         </p>
         <span
           className={cn(
-            "mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
-            status.cls,
+            "mt-1 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+            statusBadge.cls,
           )}
         >
-          {status.label}
+          {statusBadge.label}
         </span>
       </div>
       {record.referral_id ? (
         <ChevronRight
-          className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-rose-500"
+          className="h-4 w-4 shrink-0 text-subtle-foreground transition-colors group-hover:text-primary"
           aria-hidden="true"
         />
       ) : (
@@ -167,7 +220,7 @@ function CommissionRow({ record }: { record: WalletCommissionRecord }) {
       <Link
         href={`/referrals/${record.referral_id}`}
         aria-label="Voir la mise en relation"
-        className="group block transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+        className="group block transition-colors duration-150 hover:bg-primary-soft/30"
       >
         {rowContent}
       </Link>
@@ -184,41 +237,55 @@ function commissionStatusLabel(status: string): {
     case "paid":
       return {
         label: "Reçue",
-        cls: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+        cls: "bg-success-soft text-success",
       }
     case "pending":
       return {
         label: "En attente",
-        cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+        cls: "bg-amber-soft text-warning",
       }
     case "pending_kyc":
       return {
         label: "KYC requis",
-        cls: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400",
+        cls: "bg-amber-soft text-warning",
       }
     case "clawed_back":
       return {
         label: "Reprise",
-        cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+        cls: "bg-primary-soft text-primary-deep",
       }
     case "failed":
       return {
         label: "Échec",
-        cls: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
+        cls: "bg-destructive/10 text-destructive",
       }
     case "cancelled":
-      return { label: "Annulée", cls: "bg-slate-100 text-slate-600" }
+      return {
+        label: "Annulée",
+        cls: "bg-border text-muted-foreground",
+      }
     default:
-      return { label: status, cls: "bg-slate-100 text-slate-600" }
+      return {
+        label: status,
+        cls: "bg-border text-muted-foreground",
+      }
   }
 }
 
+// Icon foreground = single semantic tint (matches PaymentStatusIcon
+// pattern in wallet-transactions-list). Background stays in Soleil
+// tones via the iconBg square in CommissionRow.
 function CommissionStatusIcon({ status }: { status: string }) {
   if (status === "paid")
-    return <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+    return (
+      <CheckCircle2
+        className="h-4 w-4 text-green-500"
+        strokeWidth={1.8}
+      />
+    )
   if (status === "failed")
-    return <XCircle className="h-5 w-5 shrink-0 text-red-500" />
+    return <XCircle className="h-4 w-4 text-red-500" strokeWidth={1.8} />
   if (status === "clawed_back")
-    return <Undo2 className="h-5 w-5 shrink-0 text-blue-500" />
-  return <Clock className="h-5 w-5 shrink-0 text-amber-500" />
+    return <Undo2 className="h-4 w-4 text-blue-500" strokeWidth={1.8} />
+  return <Clock className="h-4 w-4 text-amber-500" strokeWidth={1.8} />
 }
