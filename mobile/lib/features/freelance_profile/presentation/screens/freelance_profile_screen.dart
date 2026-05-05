@@ -23,6 +23,7 @@ import '../widgets/freelance_edit_sheets.dart';
 import '../widgets/freelance_logout_button.dart';
 import '../widgets/freelance_pricing_section_widget.dart';
 import '../widgets/freelance_profile_header.dart';
+import '../widgets/freelance_profile_meta_row.dart';
 import '../widgets/freelance_section_card.dart';
 import '../widgets/freelance_social_links_section_widget.dart';
 import '../widgets/freelance_states.dart';
@@ -82,6 +83,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
     final authState = ref.watch(authProvider);
     final canEdit = ref.watch(
       hasPermissionProvider(OrgPermission.orgProfileEdit),
@@ -91,11 +93,16 @@ class _FreelanceProfileBody extends ConsumerWidget {
         user?['first_name'] as String? ??
         '';
 
+    // Soleil v2 polish: tighten the gap between section cards. Inside
+    // each card padding stays the same; only the inter-card spacing
+    // shrinks from 16 → 12 lp so the screen scrolls less.
+    const sectionGap = SizedBox(height: 12);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Header with shared photo + availability pill
+          // Header with shared photo + Soleil meta row
           SharedPhotoUploadWidget(
             canEdit: canEdit,
             child: FreelanceProfileHeader(
@@ -104,9 +111,15 @@ class _FreelanceProfileBody extends ConsumerWidget {
               photoUrl: profile.photoUrl,
               initials: _buildInitials(displayName),
               availabilityWireValue: profile.availabilityStatus,
+              portraitSeed: _portraitSeed(profile),
+              trailing: FreelanceProfileMetaRow(
+                pricing: profile.pricing,
+                availabilityWireValue: profile.availabilityStatus,
+                locale: locale,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Expertise + Skills — reuse existing feature widgets
           ExpertiseSectionWidget(
@@ -115,23 +128,23 @@ class _FreelanceProfileBody extends ConsumerWidget {
             canEdit: canEdit,
             onSaved: () => ref.invalidate(freelanceProfileProvider),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
           SkillsSectionWidget(
             orgType: 'provider_personal',
             expertiseKeys: profile.expertiseDomains,
             canEdit: canEdit,
             onSaved: () => ref.invalidate(freelanceProfileProvider),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Pricing (freelance variants only)
           FreelancePricingSectionWidget(canEdit: canEdit),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Social links (freelance persona — independent from the
           // referrer set on /referral).
           FreelanceSocialLinksSectionWidget(canEdit: canEdit),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Shared org fields rendered only on the freelance edit screen
           sharedAsync.when(
@@ -147,7 +160,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
                     ref.invalidate(freelanceProfileProvider);
                   },
                 ),
-                const SizedBox(height: 16),
+                sectionGap,
                 SharedLanguagesSectionWidget(
                   initial: shared,
                   canEdit: canEdit,
@@ -156,7 +169,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
                     ref.invalidate(freelanceProfileProvider);
                   },
                 ),
-                const SizedBox(height: 16),
+                sectionGap,
               ],
             ),
           ),
@@ -186,7 +199,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // About section
           GestureDetector(
@@ -217,7 +230,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Video section
           FreelanceVideoCard(
@@ -226,7 +239,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
             onUpload: () => _openVideoUpload(context, ref),
             onDelete: () => _confirmDeleteVideo(context, ref),
           ),
-          const SizedBox(height: 16),
+          sectionGap,
 
           // Portfolio
           if (profile.organizationId.isNotEmpty) ...[
@@ -234,9 +247,9 @@ class _FreelanceProfileBody extends ConsumerWidget {
               orgId: profile.organizationId,
               readOnly: false,
             ),
-            const SizedBox(height: 16),
+            sectionGap,
             ProjectHistoryWidget(orgId: profile.organizationId),
-            const SizedBox(height: 16),
+            sectionGap,
           ],
 
           // Dark mode toggle + logout
@@ -252,6 +265,17 @@ class _FreelanceProfileBody extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Stable seed for the [Portrait] palette. Prefers the org id
+  /// because it never changes for a given freelance; falls back to
+  /// the profile id, then to 0 when the entity is still empty.
+  int _portraitSeed(FreelanceProfile profile) {
+    if (profile.organizationId.isNotEmpty) {
+      return profile.organizationId.hashCode;
+    }
+    if (profile.id.isNotEmpty) return profile.id.hashCode;
+    return 0;
   }
 
   String _buildInitials(String name) {

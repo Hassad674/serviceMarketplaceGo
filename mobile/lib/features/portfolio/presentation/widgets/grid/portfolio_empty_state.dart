@@ -70,13 +70,18 @@ class PortfolioEmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          // Soleil v2 polish: corail primary instead of legacy rose-600
+          // and a fully rounded pill (StadiumBorder) — matches the rest
+          // of the Atelier CTA family. See design/DESIGN_SYSTEM.md §6.
           FilledButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.auto_awesome, size: 16),
             label: const Text('Add your first project'),
             style: FilledButton.styleFrom(
-              backgroundColor: AppPalette.rose600,
-              foregroundColor: Colors.white,
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              shape: const StadiumBorder(),
+              minimumSize: const Size.fromHeight(52),
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
