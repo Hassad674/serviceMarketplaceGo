@@ -66,7 +66,9 @@ export function WalletCommissionList({
     <section className="space-y-4">
       <SectionHeader icon={Sparkles} title="Mes commissions d'apport" />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Mini-stats row — 3 compact cards, always horizontal, mirroring
+          the mobile native WalletCommissionsSection. */}
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         <BalanceCard
           icon={Clock}
           label="En attente"
@@ -100,16 +102,16 @@ export function WalletCommissionList({
         )}
         style={{ boxShadow: "var(--shadow-card)" }}
       >
-        <div className="border-b border-border px-6 py-5">
-          <h3 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
+        <div className="border-b border-border px-4 py-4 md:px-6 md:py-5">
+          <h3 className="font-serif text-[18px] font-medium tracking-[-0.015em] text-foreground md:text-[22px]">
             Historique des commissions
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+          <p className="mt-0.5 text-[12px] text-muted-foreground md:text-[12.5px]">
             Chaque mise en relation que vous avez facilitée
           </p>
         </div>
         {records.length === 0 ? (
-          <div className="px-6 py-8 text-center text-[12.5px] text-muted-foreground">
+          <div className="px-4 py-6 text-center text-[12.5px] text-muted-foreground md:px-6 md:py-8">
             Aucune commission pour le moment
           </div>
         ) : (
@@ -167,7 +169,9 @@ function CommissionRow({
   const rowContent = (
     <div
       className={cn(
-        "relative flex items-center gap-4 px-6 py-4",
+        // Narrow viewports: tighter horizontal padding/gap matching
+        // the mobile native WalletCommissionTile.
+        "relative flex items-center gap-2.5 px-3 py-3 md:gap-4 md:px-6 md:py-4",
         !isLast && "border-b border-border",
       )}
     >
@@ -177,22 +181,22 @@ function CommissionRow({
       />
       <div
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl md:h-9 md:w-9",
           iconBg,
         )}
       >
         <CommissionStatusIcon status={record.status} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-foreground">
+        <p className="truncate text-[13px] font-semibold text-foreground md:text-[14px]">
           Commission du {formatDate(record.created_at)}
         </p>
-        <p className="mt-0.5 text-[12px] text-muted-foreground">
+        <p className="mt-0.5 text-[11.5px] text-muted-foreground md:text-[12px]">
           sur {formatEur(record.gross_amount_cents)} de mission
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="font-serif text-[18px] font-semibold leading-none tracking-[-0.015em] text-foreground">
+        <p className="font-serif text-[15px] font-semibold leading-none tracking-[-0.015em] text-foreground md:text-[18px]">
           {formatEur(record.commission_cents)}
         </p>
         <span

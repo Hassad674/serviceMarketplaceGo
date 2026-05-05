@@ -125,7 +125,12 @@ class WalletHeroCard extends StatelessWidget {
       children: [
         Text(
           'TOTAL EARNINGS',
-          style: theme.textTheme.labelSmall?.copyWith(
+          // labelSmall is not overridden in the Soleil textTheme so the
+          // base style can fall back to a Material default that renders
+          // white on light bg. Anchor on bodySmall (which IS defined and
+          // points to the muted foreground) to guarantee a visible tone.
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 11,
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -134,9 +139,14 @@ class WalletHeroCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           WalletOverview.formatCents(totalEarned),
+          // displaySmall is not overridden in the Soleil textTheme — it
+          // falls back to the Material default whose color can be white
+          // on the light ivoire surface. Force onSurface (encre) so the
+          // hero balance number is always legible.
           style: theme.textTheme.displaySmall?.copyWith(
             fontWeight: FontWeight.w800,
             fontFamily: 'monospace',
+            color: theme.colorScheme.onSurface,
           ),
         ),
       ],
