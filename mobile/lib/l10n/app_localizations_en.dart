@@ -2580,6 +2580,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1AvailabilityEditButton => 'Update availability';
 
   @override
+  String freelanceMetaPerDay(String amount) {
+    return '$amount /day';
+  }
+
+  @override
   String get tier1LocationSectionTitle => 'Location';
 
   @override

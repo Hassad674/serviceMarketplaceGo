@@ -1039,6 +1039,11 @@
   "tier1AvailabilityDirectLabel": "Prestation",
   "tier1AvailabilityReferrerLabel": "Apport d'affaires",
   "tier1AvailabilityEditButton": "Mettre à jour ma disponibilité",
+  "freelanceMetaPerDay": "{amount} /jour",
+  "@freelanceMetaPerDay": {
+    "description": "Tarif journalier formaté pour le bloc méta de l'en-tête freelance.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "tier1LocationSectionTitle": "Localisation",
   "tier1LocationCityLabel": "Ville",
   "tier1LocationCityPlaceholder": "Paris",

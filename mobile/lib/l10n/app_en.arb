@@ -1046,6 +1046,11 @@
   "tier1AvailabilityDirectLabel": "Services",
   "tier1AvailabilityReferrerLabel": "Referrer",
   "tier1AvailabilityEditButton": "Update availability",
+  "freelanceMetaPerDay": "{amount} /day",
+  "@freelanceMetaPerDay": {
+    "description": "Daily rate formatted for the freelance header meta row.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "tier1LocationSectionTitle": "Location",
   "tier1LocationCityLabel": "City",
   "tier1LocationCityPlaceholder": "Paris",
