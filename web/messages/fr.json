@@ -1566,7 +1566,17 @@
     "creditsExplanation2": "Chaque lundi, votre solde est remis à 10 crédits s'il est inférieur à 10",
     "creditsExplanation3": "Chaque mission signée vous rapporte 5 crédits bonus",
     "creditsExplanation4": "Votre solde peut aller jusqu'à 50 crédits maximum",
-    "close": "Fermer"
+    "close": "Fermer",
+    "eyebrow": "ATELIER · OPPORTUNITÉS",
+    "heroTitlePart1": "Trouve ta",
+    "heroTitleAccent": "prochaine mission.",
+    "heroSubtitle": "On t'a sélectionné les missions qui correspondent à ton profil et tes envies. Filtre, suis tes favoris, postule en deux clics.",
+    "filterLabel": "Filtrer par",
+    "applySidebarEyebrow": "PRÊT À CANDIDATER ?",
+    "applySidebarTitle": "Réponds en quelques mots, ils te répondent en moyenne sous 24 h.",
+    "applySidebarBody": "Une lettre de motivation, ta vidéo de présentation et tu peux y aller.",
+    "postedOn": "Publiée le",
+    "budget": "Budget"
   },
   "portfolio": {
     "sectionTitle": "Portfolio",
