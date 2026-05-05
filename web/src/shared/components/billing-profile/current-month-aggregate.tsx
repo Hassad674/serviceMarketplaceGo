@@ -2,70 +2,97 @@
 
 import { useState } from "react"
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn, formatCurrency, formatDate } from "@/shared/lib/utils"
 import { useCurrentMonth } from "@/shared/hooks/billing-profile/use-current-month"
 import type { CurrentMonthLine } from "@/shared/types/billing-profile"
 
 import { Button } from "@/shared/components/ui/button"
+
 /**
  * Compact card showing the running fee total for the current
  * billing month. Sits above the wallet's withdraw block so
  * providers always know how much commission is being accrued.
+ *
+ * W-19 — Soleil v2 visual port. Card uses the surface/border tokens,
+ * the running total is rendered in Geist Mono (`font-mono`), and the
+ * icon plate is corail-soft (`bg-primary-soft`). Wallet renders the
+ * same component, so its visual stays consistent across both screens.
  */
 export function CurrentMonthAggregate() {
+  const t = useTranslations("invoicesList")
   const { data, isLoading, isError } = useCurrentMonth()
   const [expanded, setExpanded] = useState(false)
 
   if (isLoading) {
     return (
-      <div className="h-24 animate-shimmer rounded-2xl bg-slate-100 dark:bg-slate-800" />
+      <div
+        className="h-28 animate-shimmer rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      />
     )
   }
   if (isError || !data) return null
 
   const isEmpty = data.milestone_count === 0
+  const totalAmount = formatCurrency(data.total_fee_cents / 100)
 
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <header className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
-          <CalendarDays className="h-4 w-4" aria-hidden="true" />
+    <section
+      className="rounded-2xl border border-border bg-card p-6"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <header className="flex items-start gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+          <CalendarDays className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Mois en cours
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Du {formatDate(data.period_start)} au {formatDate(data.period_end)}
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
+            {t("currentMonthEyebrow")}
+          </p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {t("currentMonthPeriod", {
+              start: formatDate(data.period_start),
+              end: formatDate(data.period_end),
+            })}
           </p>
         </div>
+        {!isEmpty && (
+          <p className="shrink-0 font-mono text-[22px] font-semibold tracking-tight text-foreground">
+            {totalAmount}
+          </p>
+        )}
       </header>
 
       {isEmpty ? (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          Aucun jalon livré ce mois-ci.
+        <p className="mt-4 text-[14px] italic text-muted-foreground">
+          {t("currentMonthEmpty")}
         </p>
       ) : (
         <>
-          <p className="mt-3 text-sm text-slate-700 dark:text-slate-200">
-            <strong className="font-semibold">{data.milestone_count}</strong>{" "}
-            {data.milestone_count > 1 ? "jalons livrés" : "jalon livré"} ·{" "}
-            <strong className="font-mono font-semibold">
-              {formatCurrency(data.total_fee_cents / 100)}
-            </strong>{" "}
-            de commission
+          <p className="mt-4 text-[14px] text-foreground">
+            <span className="font-medium">
+              {t("currentMonthMilestones", { count: data.milestone_count })}
+            </span>{" "}
+            <span className="text-muted-foreground">
+              · {t("currentMonthCommission")}
+            </span>
           </p>
           {data.lines.length > 0 && (
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setExpanded((p) => !p)}
               className={cn(
-                "mt-3 inline-flex items-center gap-1 text-xs font-medium",
-                "text-rose-600 hover:underline dark:text-rose-400",
+                "mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5",
+                "text-[12.5px] font-semibold text-foreground transition-colors hover:border-border-strong",
               )}
               aria-expanded={expanded}
             >
-              {expanded ? "Masquer le détail" : "Voir le détail"}
+              {expanded
+                ? t("currentMonthHideDetail")
+                : t("currentMonthShowDetail")}
               {expanded ? (
                 <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
               ) : (
@@ -76,11 +103,11 @@ export function CurrentMonthAggregate() {
           {expanded && (
             <ul
               role="list"
-              className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100 dark:divide-slate-800 dark:border-slate-700"
+              className="mt-4 divide-y divide-border rounded-2xl border border-border bg-background"
             >
               {data.lines.map((line) => (
                 <li key={line.payment_record_id}>
-                  <LineRow line={line} />
+                  <LineRow line={line} t={t} />
                 </li>
               ))}
             </ul>
@@ -91,18 +118,24 @@ export function CurrentMonthAggregate() {
   )
 }
 
-function LineRow({ line }: { line: CurrentMonthLine }) {
+type Translator = ReturnType<typeof useTranslations>
+
+function LineRow({ line, t }: { line: CurrentMonthLine; t: Translator }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
-      <div>
-        <p className="text-slate-700 dark:text-slate-200">
-          Livré le {formatDate(line.released_at)}
+    <div className="flex items-center justify-between gap-3 px-4 py-3 text-[12.5px]">
+      <div className="min-w-0">
+        <p className="text-foreground">
+          {t("currentMonthLineDelivered", {
+            date: formatDate(line.released_at),
+          })}
         </p>
-        <p className="text-slate-500 dark:text-slate-400">
-          Sur {formatCurrency(line.proposal_amount_cents / 100)} de prestation
+        <p className="text-muted-foreground">
+          {t("currentMonthLineProposalAmount", {
+            amount: formatCurrency(line.proposal_amount_cents / 100),
+          })}
         </p>
       </div>
-      <p className="font-mono font-semibold text-slate-900 dark:text-white">
+      <p className="shrink-0 font-mono text-[13px] font-semibold text-foreground">
         {formatCurrency(line.platform_fee_cents / 100)}
       </p>
     </div>
