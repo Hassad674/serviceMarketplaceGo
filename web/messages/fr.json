@@ -333,6 +333,31 @@
     "W02_enterpriseBullet2": "Profils vérifiés",
     "W02_enterpriseBullet3": "Séquestre sécurisé"
   },
+  "registerFix": {
+    "shared": {
+      "stepEyebrow": "↳ Étape 2/2",
+      "changeProfile": "Changer de profil",
+      "alreadyAccount": "Déjà inscrit ?"
+    },
+    "provider": {
+      "eyebrow": "Étape 2/2 · Compte freelance",
+      "titlePrefix": "Crée ton",
+      "titleAccent": "compte freelance.",
+      "subtitle": "Quelques infos pour démarrer. Tu pourras compléter ton profil éditorial juste après."
+    },
+    "agency": {
+      "eyebrow": "Étape 2/2 · Compte agence",
+      "titlePrefix": "Crée ton",
+      "titleAccent": "compte agence.",
+      "subtitle": "Quelques infos pour ouvrir ta vitrine d'équipe. Le reste se précise dans ton espace agence."
+    },
+    "enterprise": {
+      "eyebrow": "Étape 2/2 · Compte entreprise",
+      "titlePrefix": "Crée ton",
+      "titleAccent": "compte entreprise.",
+      "subtitle": "Quelques infos pour publier tes premières missions et contacter les profils qui te plaisent."
+    }
+  },
   "dashboard": {
     "welcomeBack": "Bonjour, {name}",
     "welcomeEyebrow": "Tableau de bord",

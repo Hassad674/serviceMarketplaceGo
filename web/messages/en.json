@@ -333,6 +333,31 @@
     "W02_enterpriseBullet2": "Verified profiles",
     "W02_enterpriseBullet3": "Protected escrow"
   },
+  "registerFix": {
+    "shared": {
+      "stepEyebrow": "↳ Step 2/2",
+      "changeProfile": "Change profile",
+      "alreadyAccount": "Already registered?"
+    },
+    "provider": {
+      "eyebrow": "Step 2/2 · Freelance account",
+      "titlePrefix": "Create your",
+      "titleAccent": "freelance account.",
+      "subtitle": "Just a few details to get started. You'll round out your editorial profile right after."
+    },
+    "agency": {
+      "eyebrow": "Step 2/2 · Agency account",
+      "titlePrefix": "Create your",
+      "titleAccent": "agency account.",
+      "subtitle": "Just a few details to open your team showcase. The rest comes together in your agency workspace."
+    },
+    "enterprise": {
+      "eyebrow": "Step 2/2 · Enterprise account",
+      "titlePrefix": "Create your",
+      "titleAccent": "enterprise account.",
+      "subtitle": "Just a few details to publish your first briefs and reach the profiles that catch your eye."
+    }
+  },
   "dashboard": {
     "welcomeBack": "Welcome back, {name}",
     "welcomeEyebrow": "Dashboard",
