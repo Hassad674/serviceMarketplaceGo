@@ -1204,5 +1204,15 @@
   "@gdprBannerBody": {
     "placeholders": {"date": {"type": "String"}}
   },
-  "gdprBannerBodyNoDate": "Your account is scheduled for deletion. Tap to cancel."
+  "gdprBannerBodyNoDate": "Your account is scheduled for deletion. Tap to cancel.",
+  "m02_eyebrowLabel": "Account creation",
+  "m02_stepIndicator": "Step 1 of 3",
+  "m02_titlePrefix": "How would you like to use",
+  "m02_titleAccent": "Atelier?",
+  "m02_subtitle": "You can add the second role later.",
+  "m02_continue": "Continue",
+  "m02_recommendedBadge": "Recommended",
+  "m02_agencyDesc": "Studio, agency, collective… You lead a team and look for structuring missions.",
+  "m02_providerDesc": "Find missions, build your profile and get paid securely.",
+  "m02_enterpriseDesc": "Post your needs, recruit verified freelancers, manage your projects."
 }
