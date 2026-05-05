@@ -45,6 +45,9 @@ type FeePreviewProps = {
   renderPremiumCta?: ReactNode
 }
 
+// Soleil v2 styling: ivoire surface card (rounded-2xl), corail-soft
+// icon disc when not subscribed (sapin-soft when subscribed), Fraunces
+// heading, Geist Mono numerals, corail-tinted active-tier highlight.
 export function FeePreview({
   milestones,
   mode,
@@ -68,10 +71,7 @@ export function FeePreview({
   return (
     <section
       aria-labelledby="fee-preview-heading"
-      className={cn(
-        "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800/80",
-      )}
+      className="rounded-2xl border border-border bg-surface p-6"
     >
       <FeePreviewHeader
         heading={heading}
@@ -99,18 +99,14 @@ function FeePreviewHeader({
     <div className="mb-4 flex items-start gap-3">
       <div
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-xl",
-          subscribed
-            ? "bg-emerald-100 dark:bg-emerald-500/20"
-            : "bg-rose-100 dark:bg-rose-500/20",
+          "flex h-10 w-10 items-center justify-center rounded-2xl",
+          subscribed ? "bg-success-soft" : "bg-primary-soft",
         )}
       >
         <Icon
           className={cn(
-            "h-4 w-4",
-            subscribed
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-rose-600 dark:text-rose-400",
+            "h-4.5 w-4.5",
+            subscribed ? "text-success" : "text-primary-deep",
           )}
           aria-hidden="true"
         />
@@ -118,11 +114,11 @@ function FeePreviewHeader({
       <div>
         <h3
           id="fee-preview-heading"
-          className="text-sm font-semibold text-slate-900 dark:text-white"
+          className="font-serif text-[18px] font-semibold tracking-[-0.01em] text-foreground"
         >
           {heading ?? "Frais plateforme"}
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {subscribed
             ? "Premium actif"
             : "Frais fixes par jalon, selon votre grille tarifaire"}
@@ -148,7 +144,7 @@ function FeePreviewBody({
     return (
       <p
         role="alert"
-        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+        className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
       >
         Impossible d&apos;afficher les frais
       </p>
@@ -182,7 +178,7 @@ function FeePreviewBody({
         <MilestoneBreakdown milestones={milestones} tiers={query.data.tiers} />
       )}
       {renderPremiumCta ? (
-        <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
+        <div className="border-t border-border pt-3">
           {renderPremiumCta}
         </div>
       ) : null}
@@ -192,8 +188,8 @@ function FeePreviewBody({
 
 function PremiumActiveNotice() {
   return (
-    <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-slate-900/40">
-      <p className="text-sm text-slate-800 dark:text-slate-100">
+    <div className="rounded-2xl border border-success/30 bg-success-soft p-4">
+      <p className="text-sm text-foreground">
         Grâce à votre abonnement, vous ne payez aucun frais plateforme sur
         vos missions.
       </p>
@@ -203,7 +199,7 @@ function PremiumActiveNotice() {
 
 function FeePreviewEmpty() {
   return (
-    <p className="text-xs text-slate-500 dark:text-slate-400">
+    <p className="text-xs text-muted-foreground">
       Renseignez un montant pour simuler les frais plateforme.
     </p>
   )
@@ -213,7 +209,7 @@ function TierGrid({ tiers, activeIndex }: { tiers: FeePreviewTier[]; activeIndex
   return (
     <ul
       aria-live="polite"
-      className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-700 dark:border-slate-700"
+      className="divide-y divide-border overflow-hidden rounded-2xl border border-border"
     >
       {tiers.map((tier, idx) => (
         <TierRow
@@ -232,23 +228,23 @@ function TierRow({ tier, isActive }: { tier: FeePreviewTier; isActive: boolean }
       className={cn(
         "flex items-center justify-between px-4 py-2.5 text-sm transition-colors duration-200",
         isActive
-          ? "border-l-4 border-l-rose-500 bg-rose-50 dark:border-l-rose-400 dark:bg-rose-500/10"
+          ? "border-l-4 border-l-primary bg-primary-soft"
           : "border-l-4 border-l-transparent",
       )}
       aria-current={isActive ? "true" : undefined}
     >
       <span
         className={cn(
-          "text-slate-700 dark:text-slate-300",
-          isActive && "font-medium text-rose-700 dark:text-rose-300",
+          "text-foreground",
+          isActive && "font-semibold text-primary-deep",
         )}
       >
         {tier.label}
       </span>
       <span
         className={cn(
-          "font-mono text-sm font-semibold text-slate-900 dark:text-white",
-          isActive && "text-rose-700 dark:text-rose-200",
+          "font-mono text-sm font-semibold text-foreground",
+          isActive && "text-primary-deep",
         )}
       >
         {formatEur(tier.fee_cents)}
@@ -259,13 +255,13 @@ function TierRow({ tier, isActive }: { tier: FeePreviewTier; isActive: boolean }
 
 function OneTimeSummary({ preview }: { preview: FeePreview }) {
   return (
-    <div className="rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-900/40">
-      <p className="text-sm text-slate-700 dark:text-slate-200">
+    <div className="rounded-2xl border border-border bg-background px-4 py-3">
+      <p className="text-sm text-foreground">
         Tu encaisses{" "}
-        <span className="font-mono font-semibold text-slate-900 dark:text-white">
+        <span className="font-mono font-semibold text-foreground">
           {formatEur(preview.net_cents)}
         </span>{" "}
-        <span className="text-slate-500 dark:text-slate-400">
+        <span className="text-muted-foreground">
           (frais {formatEur(preview.fee_cents)})
         </span>
       </p>
@@ -305,7 +301,7 @@ function MilestoneRows({
 }) {
   if (milestones.length === 0) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-muted-foreground">
         Ajoutez au moins un jalon pour simuler les frais.
       </p>
     )
@@ -336,18 +332,18 @@ function feeForAmount(amountCents: number, tiers: FeePreviewTier[]): number {
 function MilestoneRow({ milestone, fee }: { milestone: Milestone; fee: number }) {
   const hasAmount = milestone.amountCents > 0
   return (
-    <li className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+    <li className="flex items-center justify-between text-xs text-foreground">
       <span className="truncate pr-3">{milestone.label}</span>
       <span className="font-mono">
         {hasAmount ? (
           <>
             {formatEur(milestone.amountCents)}{" "}
-            <span className="text-slate-400">
+            <span className="text-subtle-foreground">
               (-{formatEur(fee)})
             </span>
           </>
         ) : (
-          <span className="text-slate-400">&mdash;</span>
+          <span className="text-subtle-foreground">&mdash;</span>
         )}
       </span>
     </li>
@@ -356,11 +352,11 @@ function MilestoneRow({ milestone, fee }: { milestone: Milestone; fee: number })
 
 function MilestoneTotals({ totalFees }: { totalFees: number }) {
   return (
-    <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm dark:border-slate-700">
-      <span className="font-medium text-slate-700 dark:text-slate-300">
+    <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+      <span className="font-medium text-foreground">
         Total frais plateforme
       </span>
-      <span className="font-mono font-semibold text-slate-900 dark:text-white">
+      <span className="font-mono font-semibold text-primary-deep">
         {formatEur(totalFees)}
       </span>
     </div>
@@ -370,10 +366,10 @@ function MilestoneTotals({ totalFees }: { totalFees: number }) {
 function FeePreviewSkeleton() {
   return (
     <div className="space-y-3" aria-hidden="true">
-      <div className="h-10 animate-shimmer rounded-xl bg-slate-200 dark:bg-slate-700" />
-      <div className="h-10 animate-shimmer rounded-xl bg-slate-200 dark:bg-slate-700" />
-      <div className="h-10 animate-shimmer rounded-xl bg-slate-200 dark:bg-slate-700" />
-      <div className="h-8 animate-shimmer rounded-lg bg-slate-200 dark:bg-slate-700" />
+      <div className="h-10 animate-shimmer rounded-2xl bg-border" />
+      <div className="h-10 animate-shimmer rounded-2xl bg-border" />
+      <div className="h-10 animate-shimmer rounded-2xl bg-border" />
+      <div className="h-8 animate-shimmer rounded-xl bg-border" />
     </div>
   )
 }

@@ -12,6 +12,9 @@ import { Input } from "@/shared/components/ui/input"
 // security. The fetch is restricted to country === "FR" so we never
 // hit the FR API with a non-FR query and confuse the user with
 // French-only results.
+//
+// Soleil v2 styling: ivoire input with corail focus ring + corail-soft
+// hover on result rows. Dropdown is rounded-2xl on a sable border.
 const BAN_ENDPOINT = "https://api-adresse.data.gouv.fr/search/"
 
 type BANFeature = {
@@ -145,7 +148,7 @@ export function AddressAutocomplete({
     // Non-FR or explicitly disabled — render a static hint rather
     // than a dead input so users know to fill the fields below.
     return (
-      <div className="flex items-start gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+      <div className="flex items-start gap-2 rounded-xl border border-dashed border-border-strong bg-background p-3 text-xs text-muted-foreground">
         <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <p>
           La saisie automatique d&apos;adresse n&apos;est disponible que pour
@@ -159,7 +162,7 @@ export function AddressAutocomplete({
     <div ref={containerRef} className="relative">
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground"
           aria-hidden="true"
         />
         <Input
@@ -177,15 +180,14 @@ export function AddressAutocomplete({
           aria-label="Rechercher une adresse"
           autoComplete="off"
           className={cn(
-            "h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm",
-            "shadow-xs transition-colors duration-200 placeholder:text-slate-400",
-            "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
-            "dark:border-slate-700 dark:bg-slate-900 dark:text-white",
+            "h-10 w-full rounded-xl border border-border bg-surface pl-9 pr-9 text-sm text-foreground",
+            "transition-colors duration-200 placeholder:text-subtle-foreground",
+            "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
           )}
         />
         {isLoading && (
           <Loader2
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400"
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
             aria-hidden="true"
           />
         )}
@@ -194,17 +196,14 @@ export function AddressAutocomplete({
       {isOpen && results.length > 0 && (
         <ul
           role="listbox"
-          className={cn(
-            "absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg",
-            "dark:border-slate-700 dark:bg-slate-800",
-          )}
+          className="absolute z-20 mt-1.5 max-h-72 w-full overflow-auto rounded-2xl border border-border bg-surface py-1 shadow-[0_4px_24px_rgba(42,31,21,0.06)]"
         >
           {results.map((feature, idx) => (
             <li
               key={`${feature.properties.label}-${idx}`}
               role="option"
               aria-selected={false}
-              className="cursor-pointer px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700"
+              className="cursor-pointer px-3 py-2 transition-colors hover:bg-primary-soft/40"
               onMouseDown={(e) => {
                 // mousedown so the click fires before the input's
                 // blur tears down the dropdown via outside-click.
@@ -212,10 +211,10 @@ export function AddressAutocomplete({
                 handlePick(feature)
               }}
             >
-              <p className="text-sm font-medium text-slate-900 dark:text-white">
+              <p className="text-sm font-medium text-foreground">
                 {feature.properties.name}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 {feature.properties.postcode} {feature.properties.city}
               </p>
             </li>
