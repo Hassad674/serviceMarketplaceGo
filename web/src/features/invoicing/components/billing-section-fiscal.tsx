@@ -14,13 +14,16 @@ import { Input } from "@/shared/components/ui/input"
 // "régime fiscal" toggle that the backend does not yet expose, so
 // the section is only rendered when the country is EU.
 //
+// Soleil v2: ivoire surface card (rounded-2xl), Fraunces section
+// title, sable border, corail focus + corail-soft validate pill.
+//
 // VAT validation runs through a dedicated mutation (`onValidateVat`)
 // that the parent owns — this component only reports the outcome.
 
 const inputClasses = cn(
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs",
-  "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
-  "dark:border-slate-700 dark:bg-slate-900 dark:text-white",
+  "w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground",
+  "transition-colors duration-200 placeholder:text-subtle-foreground",
+  "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
 )
 
 export interface BillingSectionFiscalProps {
@@ -74,9 +77,8 @@ export function BillingSectionFiscal({
             onClick={onValidate}
             disabled={!canValidate || isValidating}
             className={cn(
-              "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
-              "hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed",
-              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+              "inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-1.5 text-xs font-semibold text-foreground transition-colors",
+              "hover:bg-primary-soft/40 disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
             {isValidating ? (
@@ -87,13 +89,13 @@ export function BillingSectionFiscal({
             Valider mon n° TVA
           </Button>
           {validatedAt && !validateError && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
               Validé le {formatDate(validatedAt)}
             </span>
           )}
           {validateError && (
-            <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
               <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
               Numéro non reconnu par VIES
             </span>
@@ -112,8 +114,8 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+    <div className="rounded-2xl border border-border bg-surface p-6">
+      <h2 className="font-serif text-[18px] font-semibold tracking-[-0.01em] text-foreground">
         {title}
       </h2>
       <div className="mt-4 space-y-3">{children}</div>
@@ -136,7 +138,7 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300"
+        className="mb-1.5 block text-xs font-medium text-foreground"
       >
         {label}
       </label>
@@ -144,7 +146,7 @@ function Field({
       {error && (
         <p
           role="alert"
-          className="mt-1 text-[11px] text-red-600 dark:text-red-400"
+          className="mt-1 text-[11px] text-destructive"
         >
           {error}
         </p>

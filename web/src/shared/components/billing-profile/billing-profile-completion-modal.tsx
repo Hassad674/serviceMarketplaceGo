@@ -41,6 +41,11 @@ type BillingProfileCompletionModalProps = {
  * billing profile is incomplete. The modal explains what is
  * missing and routes to `/settings/billing-profile`. We never
  * embed the form here — completion modals must stay short.
+ *
+ * Soleil v2 styling: ivoire surface inside the shared `Modal`
+ * primitive (rounded-2xl). Amber-soft warning banner, corail-soft
+ * bullet markers on missing-fields, ghost outline "Plus tard" pill
+ * + corail rounded-full "Compléter mon profil" CTA.
  */
 export function BillingProfileCompletionModal({
   open,
@@ -67,8 +72,8 @@ export function BillingProfileCompletionModal({
       maxWidthClassName="max-w-md"
     >
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-amber-soft p-3 text-sm text-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <p>
             Avant de pouvoir effectuer cette opération, complète les
             informations suivantes. Elles apparaîtront sur tes factures.
@@ -76,7 +81,7 @@ export function BillingProfileCompletionModal({
         </div>
 
         {missingFields.length > 0 ? (
-          <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
+          <ul className="space-y-1.5 text-sm text-foreground">
             {missingFields.map((field) => (
               <li
                 key={`${field.field}:${field.reason}`}
@@ -84,14 +89,14 @@ export function BillingProfileCompletionModal({
               >
                 <span
                   aria-hidden="true"
-                  className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
                 />
                 <span>{describeMissing(field)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Quelques informations restent à compléter sur ton profil de
             facturation.
           </p>
@@ -102,9 +107,8 @@ export function BillingProfileCompletionModal({
             type="button"
             onClick={onClose}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2",
-              "text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50",
-              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+              "inline-flex items-center justify-center rounded-full border border-border bg-surface px-5 py-2",
+              "text-sm font-semibold text-foreground transition-colors hover:bg-primary-soft/30",
             )}
           >
             Plus tard
@@ -113,10 +117,11 @@ export function BillingProfileCompletionModal({
             type="button"
             onClick={handleCta}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-              "text-sm font-semibold text-white",
-              "gradient-primary hover:shadow-glow active:scale-[0.98]",
-              "transition-all duration-200",
+              "inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2",
+              "text-sm font-bold text-primary-foreground",
+              "transition-all duration-200 ease-out",
+              "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+              "active:scale-[0.98]",
             )}
           >
             Compléter mon profil

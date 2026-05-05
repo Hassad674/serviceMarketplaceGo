@@ -1827,5 +1827,27 @@
     "currentMonthHideDetail": "Hide detail",
     "currentMonthLineDelivered": "Delivered on {date}",
     "currentMonthLineProposalAmount": "On {amount} of service"
+  },
+  "billingProfile": {
+    "billingProfile_w20_eyebrow": "ATELIER · BILLING PROFILE",
+    "billingProfile_w20_titlePrefix": "Set up your",
+    "billingProfile_w20_titleAccent": "billing profile.",
+    "billingProfile_w20_subtitle": "These details appear on the invoices the platform issues to your organization. They must be complete to withdraw your balance and subscribe to Premium.",
+    "billingProfile_w20_backToDashboardCta": "Back to dashboard",
+    "billingProfile_w20_successPendingEyebrow": "ATELIER · ACTIVATION",
+    "billingProfile_w20_successPendingTitle": "Activation in progress…",
+    "billingProfile_w20_successPendingBody": "Payment confirmed. We're finalising your Premium subscription — it takes a few seconds.",
+    "billingProfile_w20_successReadyEyebrow": "ATELIER · PREMIUM",
+    "billingProfile_w20_successReadyTitlePrefix": "Premium",
+    "billingProfile_w20_successReadyTitleAccent": "activated.",
+    "billingProfile_w20_successReadyBody": "Your upcoming missions will no longer be subject to platform fees.",
+    "billingProfile_w20_successTimeoutEyebrow": "ATELIER · CONFIRMATION",
+    "billingProfile_w20_successTimeoutTitlePrefix": "Payment",
+    "billingProfile_w20_successTimeoutTitleAccent": "confirmed.",
+    "billingProfile_w20_successTimeoutBody": "Your payment went through. Premium activation sometimes takes a bit longer — refresh the dashboard in a minute.",
+    "billingProfile_w20_cancelEyebrow": "ATELIER · PAYMENT",
+    "billingProfile_w20_cancelTitlePrefix": "Payment",
+    "billingProfile_w20_cancelTitleAccent": "cancelled.",
+    "billingProfile_w20_cancelBody": "No charge was made. You can retry at any time from the Premium badge at the top of the page."
   }
 }
