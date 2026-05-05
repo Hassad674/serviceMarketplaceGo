@@ -79,7 +79,7 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
   // The aerated max-width wrapper (max-w-3xl) keeps the editorial
   // column under ~960px even on wide dashboards (item #1).
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5">
+    <div className="mx-auto w-full max-w-5xl space-y-5">
       <FreelanceProfileHeader
         profile={profile}
         displayName={displayName}
