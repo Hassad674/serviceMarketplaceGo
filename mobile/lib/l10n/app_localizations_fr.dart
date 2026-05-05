@@ -3409,4 +3409,145 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get jobDetail_m08_sendMessage => 'Envoyer un message';
+
+  @override
+  String get proposalFlow_create_eyebrow => 'ATELIER · NOUVELLE PROPOSITION';
+
+  @override
+  String get proposalFlow_create_titlePrefix => 'Crée ta';
+
+  @override
+  String get proposalFlow_create_titleAccent => 'proposition d\'offre.';
+
+  @override
+  String get proposalFlow_create_subtitle =>
+      'Précise le brief, le budget et la deadline. Plus c\'est clair, plus la mission démarre vite.';
+
+  @override
+  String get proposalFlow_create_modifyTitleAccent => 'proposition modifiée.';
+
+  @override
+  String get proposalFlow_create_modifySubtitle =>
+      'Ajuste les termes. Chaque modification crée une nouvelle version envoyée à ton interlocuteur.';
+
+  @override
+  String get proposalFlow_create_sectionBrief => 'Brief de la mission';
+
+  @override
+  String get proposalFlow_create_sectionPayment => 'Modalités';
+
+  @override
+  String get proposalFlow_create_sectionDeadline => 'Échéance';
+
+  @override
+  String get proposalFlow_pay_eyebrow => 'ATELIER · PAIEMENT';
+
+  @override
+  String get proposalFlow_pay_titlePrefix => 'Confirme';
+
+  @override
+  String get proposalFlow_pay_titleAccent => 'le paiement.';
+
+  @override
+  String get proposalFlow_pay_subtitle =>
+      'Le montant est sécurisé en escrow et libéré une fois la mission validée.';
+
+  @override
+  String get proposalFlow_pay_secureNotice =>
+      'Paiement sécurisé · escrow garanti par la plateforme';
+
+  @override
+  String get proposalFlow_detail_eyebrowPending =>
+      'ATELIER · PROPOSITION EN ATTENTE';
+
+  @override
+  String get proposalFlow_detail_eyebrowAccepted =>
+      'ATELIER · PROPOSITION ACCEPTÉE';
+
+  @override
+  String get proposalFlow_detail_eyebrowActive => 'ATELIER · MISSION EN COURS';
+
+  @override
+  String get proposalFlow_detail_eyebrowCompleted =>
+      'ATELIER · MISSION TERMINÉE';
+
+  @override
+  String get proposalFlow_detail_eyebrowDisputed => 'ATELIER · LITIGE EN COURS';
+
+  @override
+  String get proposalFlow_detail_eyebrowDeclined =>
+      'ATELIER · PROPOSITION REFUSÉE';
+
+  @override
+  String get proposalFlow_detail_eyebrowDefault => 'ATELIER · PROPOSITION';
+
+  @override
+  String get proposalFlow_detail_subtitle =>
+      'Suis l\'avancement, valide les jalons et reste en lien avec ton interlocuteur.';
+
+  @override
+  String get proposalFlow_list_eyebrow => 'ATELIER · MES PROJETS';
+
+  @override
+  String get proposalFlow_list_titlePrefix => 'Tes';
+
+  @override
+  String get proposalFlow_list_titleAccent => 'missions en cours.';
+
+  @override
+  String get proposalFlow_list_subtitle =>
+      'Suis la facturation, les jalons et les livraisons sur tes projets actifs.';
+
+  @override
+  String get proposalFlow_list_emptyTitle => 'Aucune mission active.';
+
+  @override
+  String get proposalFlow_list_emptyBody =>
+      'Tes projets payés apparaîtront ici dès que le client aura financé la mission.';
+
+  @override
+  String get proposalFlow_progress => 'Avancement';
+
+  @override
+  String get proposalFlow_milestoneTrackerTitle => 'Suivi du projet';
+
+  @override
+  String proposalFlow_milestoneCount(int total) {
+    return '$total jalons';
+  }
+
+  @override
+  String proposalFlow_milestoneSequence(int sequence) {
+    return 'Jalon $sequence';
+  }
+
+  @override
+  String get proposalFlow_milestoneOneTime => 'Paiement unique';
+
+  @override
+  String get proposalFlow_milestoneDueNow => 'À financer';
+
+  @override
+  String get proposalFlow_status_pendingFunding => 'En attente de financement';
+
+  @override
+  String get proposalFlow_status_funded => 'Travail en cours';
+
+  @override
+  String get proposalFlow_status_submitted => 'En attente de validation';
+
+  @override
+  String get proposalFlow_status_approved => 'Validé';
+
+  @override
+  String get proposalFlow_status_released => 'Payé';
+
+  @override
+  String get proposalFlow_status_disputed => 'En litige';
+
+  @override
+  String get proposalFlow_status_cancelled => 'Annulé';
+
+  @override
+  String get proposalFlow_status_refunded => 'Remboursé';
 }

@@ -3,7 +3,15 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
-import { Shield, CheckCircle2, Loader2, ArrowLeft, CreditCard, AlertTriangle, RefreshCw } from "lucide-react"
+import {
+  Shield,
+  CheckCircle2,
+  Loader2,
+  ArrowLeft,
+  CreditCard,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -13,19 +21,13 @@ import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-ap
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
 
+// Soleil v2 — Payment confirmation page (escrow). Soleil card with
+// editorial header, Geist Mono amount summary, corail "Confirmer" pill.
+
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null
 
-// PaymentErrorKind discriminates the two terminal failure modes the
-// page can be in. Previously every error collapsed to "Proposal not
-// found", which was misleading (a 500 from /pay made the user think
-// the resource was missing instead of retrying / reporting). The
-// distinction:
-//   - "not_found": the proposal really does not exist (or the id is
-//     missing from the URL). Retry would not help.
-//   - "init_failed": the proposal exists but initiatePayment failed
-//     (5xx, network drop, rate limit). Retry usually fixes it.
 type PaymentErrorKind = "not_found" | "init_failed" | null
 
 export function PaymentSimulation() {
@@ -36,14 +38,9 @@ export function PaymentSimulation() {
 
   const [proposal, setProposal] = useState<ProposalResponse | null>(null)
   const [paymentData, setPaymentData] = useState<PaymentIntentResponse | null>(null)
-  // errorKind disambiguates "real not found" vs "transient backend
-  // failure" so the UI can pick the right message + retry affordance.
   const [errorKind, setErrorKind] = useState<PaymentErrorKind>(null)
   const [loading, setLoading] = useState(true)
   const [paid, setPaid] = useState(false)
-  // retryNonce bumps every time the user clicks "Retry" — restarts the
-  // load effect without remounting the page (which would lose the
-  // already-fetched proposal data).
   const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
@@ -53,13 +50,6 @@ export function PaymentSimulation() {
     setLoading(true)
     setErrorKind(null)
 
-    // Two-phase load with phase-specific error mapping. A 404 on
-    // getProposal collapses to errorKind="not_found"; anything else
-    // (5xx, network, 4xx other than 404) becomes "init_failed" with
-    // a retry button. Same logic for initiatePayment, except a 404
-    // there means the proposal vanished mid-flow — still rare, but
-    // we surface it as "not_found" too so the user lands on the
-    // correct copy.
     const classify = (err: unknown): PaymentErrorKind => {
       if (err instanceof ApiError && err.status === 404) return "not_found"
       return "init_failed"
@@ -69,14 +59,6 @@ export function PaymentSimulation() {
       .then((p) => {
         if (cancelled) return
         setProposal(p)
-        // The payment page is valid for two states:
-        //   1. accepted — client funds the FIRST milestone (no
-        //      milestone has been paid yet).
-        //   2. active AND current milestone is pending_funding —
-        //      client funds the NEXT milestone after a previous one
-        //      has been released.
-        // Any other state (pending, disputed, completed, etc.)
-        // redirects back to the detail page.
         const currentMs = p.milestones?.find(
           (m) => m.sequence === p.current_milestone_sequence,
         )
@@ -100,36 +82,45 @@ export function PaymentSimulation() {
         if (cancelled) return
         setErrorKind(classify(err))
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [proposalId, router, retryNonce])
 
-  // No id in the URL -> truly not found. Retry would not help.
   if (!proposalId || errorKind === "not_found") {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
   }
 
-  // Transient backend / network failure on getProposal or
-  // initiatePayment. Show a recoverable error with a Retry button —
-  // the previous behaviour silently masked this as "Proposal not
-  // found", leaving users stuck.
   if (errorKind === "init_failed") {
     return (
       <CenteredMessage>
-        <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" strokeWidth={1.5} />
-        <p className="text-lg font-semibold text-slate-900 dark:text-white">{t("paymentInitFailed")}</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{t("paymentInitFailedHint")}</p>
-        <Button variant="ghost" size="auto"
+        <AlertTriangle
+          className="mx-auto h-12 w-12 text-warning"
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+        <p className="font-serif text-[18px] font-medium text-foreground">
+          {t("paymentInitFailed")}
+        </p>
+        <p className="text-[13.5px] text-muted-foreground">
+          {t("paymentInitFailedHint")}
+        </p>
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={() => setRetryNonce((n) => n + 1)}
           className={cn(
-            "mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5",
-            "text-sm font-semibold text-white transition-all duration-200",
-            "gradient-primary hover:shadow-glow active:scale-[0.98]",
+            "mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5",
+            "text-[13.5px] font-bold text-primary-foreground transition-all duration-200 ease-out",
+            "bg-primary hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]",
           )}
         >
-          <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
+          <RefreshCw className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
           {t("paymentRetry")}
         </Button>
       </CenteredMessage>
@@ -137,14 +128,24 @@ export function PaymentSimulation() {
   }
 
   if (loading) {
-    return <CenteredMessage><Loader2 className="h-6 w-6 animate-spin text-rose-500" /></CenteredMessage>
+    return (
+      <CenteredMessage>
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </CenteredMessage>
+    )
   }
 
   if (paid) {
     return (
       <CenteredMessage>
-        <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
-        <p className="text-lg font-semibold text-slate-900 dark:text-white">{t("paymentSuccess")}</p>
+        <CheckCircle2
+          className="mx-auto h-12 w-12 text-success"
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+        <p className="font-serif text-[18px] font-medium text-foreground">
+          {t("paymentSuccess")}
+        </p>
       </CenteredMessage>
     )
   }
@@ -153,93 +154,114 @@ export function PaymentSimulation() {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
   }
 
-  // Stripe mode: render Elements
   if (paymentData.client_secret && stripePromise) {
     return (
       <PaymentLayout proposal={proposal} onBack={() => router.back()}>
         <FeeBreakdown amounts={paymentData.amounts} />
         <Elements
           stripe={stripePromise}
-          options={{ clientSecret: paymentData.client_secret, appearance: { theme: "stripe" } }}
+          options={{
+            clientSecret: paymentData.client_secret,
+            appearance: { theme: "stripe" },
+          }}
         >
-          <StripePaymentForm proposalId={proposalId} onSuccess={() => {
-            setPaid(true)
-            setTimeout(() => router.push("/projects"), 2000)
-          }} />
+          <StripePaymentForm
+            proposalId={proposalId}
+            onSuccess={() => {
+              setPaid(true)
+              setTimeout(() => router.push("/projects"), 2000)
+            }}
+          />
         </Elements>
       </PaymentLayout>
     )
   }
 
-  // Simulation fallback (no Stripe key configured)
   return (
     <PaymentLayout proposal={proposal} onBack={() => router.back()}>
-      <SimulationFallback proposalId={proposalId} onPaid={() => {
-        setPaid(true)
-        setTimeout(() => router.push("/projects"), 1500)
-      }} />
+      <SimulationFallback
+        proposalId={proposalId}
+        onPaid={() => {
+          setPaid(true)
+          setTimeout(() => router.push("/projects"), 1500)
+        }}
+      />
     </PaymentLayout>
   )
 }
 
-function StripePaymentForm({ proposalId, onSuccess }: { proposalId: string; onSuccess: () => void }) {
+function StripePaymentForm({
+  proposalId,
+  onSuccess,
+}: {
+  proposalId: string
+  onSuccess: () => void
+}) {
   const t = useTranslations("proposal")
   const stripe = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!stripe || !elements) return
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!stripe || !elements) return
 
-    setSubmitting(true)
-    setError("")
+      setSubmitting(true)
+      setError("")
 
-    const { error: stripeError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}${window.location.pathname}?paid=true`,
-      },
-      redirect: "if_required",
-    })
+      const { error: stripeError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}${window.location.pathname}?paid=true`,
+        },
+        redirect: "if_required",
+      })
 
-    if (stripeError) {
-      setError(stripeError.message ?? t("paymentError"))
-      setSubmitting(false)
-      return
-    }
+      if (stripeError) {
+        setError(stripeError.message ?? t("paymentError"))
+        setSubmitting(false)
+        return
+      }
 
-    // Payment succeeded — tell backend to activate the proposal
-    try {
-      await confirmPayment(proposalId)
-    } catch {
-      // Webhook will handle it as fallback
-    }
-    onSuccess()
-  }, [stripe, elements, proposalId, onSuccess, t])
+      try {
+        await confirmPayment(proposalId)
+      } catch {
+        // Webhook will handle it as fallback
+      }
+      onSuccess()
+    },
+    [stripe, elements, proposalId, onSuccess, t],
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="submit"
         disabled={!stripe || submitting}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3",
-          "text-sm font-semibold text-white transition-all duration-200",
-          "gradient-primary hover:shadow-glow active:scale-[0.98]",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
+          "flex w-full items-center justify-center gap-2 rounded-full px-5 py-3",
+          "text-[13.5px] font-bold text-primary-foreground transition-all duration-200 ease-out",
+          "bg-primary hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]",
+          "disabled:cursor-not-allowed disabled:opacity-60",
         )}
       >
         {submitting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <CreditCard className="h-4 w-4" strokeWidth={1.5} />
+          <CreditCard className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
         )}
         {submitting ? t("processing") : t("confirmPayment")}
       </Button>
-      {error && <p className="text-center text-sm text-red-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-center text-[13px] text-destructive">
+          {error}
+        </p>
+      )}
     </form>
   )
 }
@@ -249,17 +271,33 @@ function FeeBreakdown({ amounts }: { amounts?: PaymentIntentResponse["amounts"] 
   if (!amounts) return null
 
   return (
-    <div className="space-y-2 rounded-xl bg-slate-50 dark:bg-slate-700/30 p-4">
-      <DetailRow label={t("totalAmount")} value={formatCurrency(amounts.proposal_amount / 100)} />
-      <DetailRow label={t("stripeFees")} value={formatCurrency(amounts.stripe_fee / 100)} />
-      <div className="border-t border-slate-200 dark:border-slate-600 pt-2">
-        <DetailRow label={t("totalToPay")} value={formatCurrency(amounts.client_total / 100)} highlight />
+    <div className="space-y-2 rounded-2xl border border-border bg-background p-4">
+      <DetailRow
+        label={t("totalAmount")}
+        value={formatCurrency(amounts.proposal_amount / 100)}
+      />
+      <DetailRow
+        label={t("stripeFees")}
+        value={formatCurrency(amounts.stripe_fee / 100)}
+      />
+      <div className="border-t border-dashed border-border pt-2">
+        <DetailRow
+          label={t("totalToPay")}
+          value={formatCurrency(amounts.client_total / 100)}
+          highlight
+        />
       </div>
     </div>
   )
 }
 
-function SimulationFallback({ proposalId, onPaid }: { proposalId: string; onPaid: () => void }) {
+function SimulationFallback({
+  proposalId,
+  onPaid,
+}: {
+  proposalId: string
+  onPaid: () => void
+}) {
   const t = useTranslations("proposal")
   const [submitting, setSubmitting] = useState(false)
 
@@ -272,64 +310,132 @@ function SimulationFallback({ proposalId, onPaid }: { proposalId: string; onPaid
 
   return (
     <>
-      <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+      <p className="text-center text-[12px] text-warning">
         {t("paymentSimulationDesc")}
       </p>
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={handlePay}
         disabled={submitting}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3",
-          "text-sm font-semibold text-white transition-all duration-200",
-          "gradient-primary hover:shadow-glow active:scale-[0.98]",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
+          "flex w-full items-center justify-center gap-2 rounded-full px-5 py-3",
+          "text-[13.5px] font-bold text-primary-foreground transition-all duration-200 ease-out",
+          "bg-primary hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]",
+          "disabled:cursor-not-allowed disabled:opacity-60",
         )}
       >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" strokeWidth={1.5} />}
+        {submitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Shield className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+        )}
         {submitting ? t("processing") : t("confirmPayment")}
       </Button>
     </>
   )
 }
 
-function PaymentLayout({ proposal, onBack, children }: { proposal: ProposalResponse; onBack: () => void; children: React.ReactNode }) {
+function PaymentLayout({
+  proposal,
+  onBack,
+  children,
+}: {
+  proposal: ProposalResponse
+  onBack: () => void
+  children: React.ReactNode
+}) {
   const t = useTranslations("proposal")
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
-      <Button variant="ghost" size="auto" type="button" onClick={onBack} className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
-        <ArrowLeft className="h-4 w-4" />
+      <Button
+        variant="ghost"
+        size="auto"
+        type="button"
+        onClick={onBack}
+        className={cn(
+          "mb-6 inline-flex items-center gap-1.5 px-2 py-1 text-[13px] font-medium",
+          "text-muted-foreground hover:text-primary transition-colors duration-150",
+        )}
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
         {t("proposalCancel")}
       </Button>
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
-        <div className="h-1.5 gradient-primary" />
-        <div className="px-6 pt-6 pb-8 space-y-6">
+
+      {/* Editorial header */}
+      <div className="mb-6 space-y-2">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+          {t("proposalFlow_pay_eyebrow")}
+        </p>
+        <h1 className="font-serif text-[28px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[32px]">
+          {t("proposalFlow_pay_titlePrefix")}{" "}
+          <span className="italic text-primary">
+            {t("proposalFlow_pay_titleAccent")}
+          </span>
+        </h1>
+        <p className="text-[14.5px] leading-relaxed text-muted-foreground">
+          {t("proposalFlow_pay_subtitle")}
+        </p>
+      </div>
+
+      <div
+        className="overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="space-y-5 px-6 pb-8 pt-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
-              <CreditCard className="h-5 w-5 text-rose-600 dark:text-rose-400" strokeWidth={1.5} />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+              <CreditCard className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white">{t("payment")}</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{proposal.title}</p>
+            <div className="min-w-0">
+              <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
+                {t("proposalFlow_pay_summary")}
+              </p>
+              <p className="truncate text-[14.5px] font-semibold text-foreground">
+                {proposal.title}
+              </p>
             </div>
           </div>
-          <div className="border-t border-slate-100 dark:border-slate-700" />
+          <div className="border-t border-dashed border-border" />
           {children}
+          <p className="text-center font-mono text-[11px] font-medium text-subtle-foreground">
+            {t("proposalFlow_pay_secureNotice")}
+          </p>
         </div>
       </div>
     </div>
   )
 }
 
-function DetailRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function DetailRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
-      <span className={cn("text-sm", highlight ? "font-bold text-slate-900 dark:text-white" : "font-medium text-slate-700 dark:text-slate-300")}>{value}</span>
+      <span className="text-[13px] text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "font-mono text-[14px]",
+          highlight ? "font-bold text-foreground" : "font-medium text-foreground",
+        )}
+      >
+        {value}
+      </span>
     </div>
   )
 }
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-[60vh] items-center justify-center"><div className="text-center space-y-3">{children}</div></div>
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="space-y-3 text-center">{children}</div>
+    </div>
+  )
 }

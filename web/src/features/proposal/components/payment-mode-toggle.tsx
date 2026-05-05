@@ -5,22 +5,16 @@ import { useTranslations } from "next-intl"
 import type { PaymentMode } from "../types"
 import { Button } from "@/shared/components/ui/button"
 
+// Soleil v2 — Payment-mode 2-card segmented toggle.
+// One-shot vs phased: corail-soft active, ivoire off. Tablist semantics
+// preserved for the existing keyboard / a11y contract.
+
 type PaymentModeToggleProps = {
   value: PaymentMode
   onChange: (mode: PaymentMode) => void
   disabled?: boolean
 }
 
-/**
- * PaymentModeToggle is the segmented control at the top of the
- * create-proposal form. It lets the client choose between a
- * single-payment "one-time" mission and a multi-step "milestone"
- * project.
- *
- * The backend treats both modes identically (every proposal has at
- * least one milestone) — this toggle only swaps the form layout
- * between the simple amount field and the multi-milestone editor.
- */
 export function PaymentModeToggle({
   value,
   onChange,
@@ -29,57 +23,57 @@ export function PaymentModeToggle({
   const t = useTranslations("proposal.paymentMode")
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+    <div className="space-y-3">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
         {t("label")}
       </p>
       <div
-        className={cn(
-          "inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1",
-          "dark:border-gray-700 dark:bg-gray-800",
-        )}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         role="tablist"
         aria-label={t("label")}
       >
-        <PaymentModeButton
+        <PaymentModeCard
           mode="one_time"
           active={value === "one_time"}
           disabled={disabled}
           onClick={() => onChange("one_time")}
           label={t("oneTime")}
+          hint={t("oneTimeHint")}
         />
-        <PaymentModeButton
+        <PaymentModeCard
           mode="milestone"
           active={value === "milestone"}
           disabled={disabled}
           onClick={() => onChange("milestone")}
           label={t("milestone")}
+          hint={t("milestoneHint")}
         />
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        {value === "one_time" ? t("oneTimeHint") : t("milestoneHint")}
-      </p>
     </div>
   )
 }
 
-type PaymentModeButtonProps = {
+type PaymentModeCardProps = {
   mode: PaymentMode
   active: boolean
   disabled: boolean
   onClick: () => void
   label: string
+  hint: string
 }
 
-function PaymentModeButton({
+function PaymentModeCard({
   mode,
   active,
   disabled,
   onClick,
   label,
-}: PaymentModeButtonProps) {
+  hint,
+}: PaymentModeCardProps) {
   return (
-    <Button variant="ghost" size="auto"
+    <Button
+      variant="ghost"
+      size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -87,15 +81,38 @@ function PaymentModeButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "relative rounded-lg px-5 py-2 text-sm font-medium transition-all duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50",
+        "group relative flex h-auto w-full flex-col items-start gap-1 rounded-2xl border px-5 py-4 text-left",
+        "transition-all duration-200 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         active
-          ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
-          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
-        disabled && "cursor-not-allowed opacity-50",
+          ? "border-primary bg-primary-soft"
+          : "border-border bg-card hover:border-border-strong",
+        disabled && "cursor-not-allowed opacity-60",
       )}
     >
-      {label}
+      <span
+        className={cn(
+          "font-serif text-[16px] font-medium tracking-[-0.01em]",
+          active ? "text-primary-deep" : "text-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-[12.5px] leading-snug",
+          active ? "text-primary-deep/80" : "text-muted-foreground",
+        )}
+      >
+        {hint}
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute right-4 top-4 block h-3 w-3 rounded-full border transition-colors duration-200",
+          active ? "border-primary bg-primary" : "border-border",
+        )}
+      />
     </Button>
   )
 }

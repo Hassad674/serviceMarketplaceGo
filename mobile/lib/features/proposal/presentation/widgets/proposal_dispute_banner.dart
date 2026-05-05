@@ -8,13 +8,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
 import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
 import '../../../dispute/presentation/widgets/dispute_resolution_card.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Wraps the active dispute banner with the proposal-specific callbacks
-/// (open counter-proposal, accept/reject counter, cancel, etc.).
-///
-/// Renders nothing while the dispute is loading or in error so the
-/// surrounding layout doesn't shift unexpectedly.
+/// Soleil v2 — Proposal-side dispute wrappers.
 class ProposalDisputeBanner extends ConsumerWidget {
   const ProposalDisputeBanner({
     super.key,
@@ -33,106 +28,107 @@ class ProposalDisputeBanner extends ConsumerWidget {
     return asyncDispute.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
-      data: (dispute) => DisputeBannerWidget(
-        dispute: dispute,
-        currentUserId: currentUserId,
-        onCounterPropose: () => GoRouter.of(context).push(
-          RoutePaths.disputeCounter,
-          extra: {
-            'disputeId': disputeId,
-            'proposalAmount': proposalAmount,
-          },
-        ),
-        onAcceptProposal: (cpId) async {
-          final ok = await respondToCounter(
-            ref,
-            disputeId: disputeId,
-            counterProposalId: cpId,
-            accept: true,
-          );
-          if (context.mounted && !ok) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content:
-                    Text(AppLocalizations.of(context)!.unexpectedError),
-              ),
+      data: (dispute) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: DisputeBannerWidget(
+          dispute: dispute,
+          currentUserId: currentUserId,
+          onCounterPropose: () => GoRouter.of(context).push(
+            RoutePaths.disputeCounter,
+            extra: {
+              'disputeId': disputeId,
+              'proposalAmount': proposalAmount,
+            },
+          ),
+          onAcceptProposal: (cpId) async {
+            final ok = await respondToCounter(
+              ref,
+              disputeId: disputeId,
+              counterProposalId: cpId,
+              accept: true,
             );
-          }
-        },
-        onRejectProposal: (cpId) async {
-          final ok = await respondToCounter(
-            ref,
-            disputeId: disputeId,
-            counterProposalId: cpId,
-            accept: false,
-          );
-          if (context.mounted && !ok) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content:
-                    Text(AppLocalizations.of(context)!.unexpectedError),
-              ),
-            );
-          }
-        },
-        onCancel: () async {
-          final outcome = await cancelDispute(ref, disputeId);
-          if (!context.mounted) return;
-          final l10n = AppLocalizations.of(context)!;
-          switch (outcome) {
-            case CancelDisputeOutcome.cancelled:
-              break;
-            case CancelDisputeOutcome.requested:
+            if (context.mounted && !ok) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(l10n.disputeCancellationRequestSent),
+                  content:
+                      Text(AppLocalizations.of(context)!.unexpectedError),
                 ),
               );
-              break;
-            case CancelDisputeOutcome.failed:
+            }
+          },
+          onRejectProposal: (cpId) async {
+            final ok = await respondToCounter(
+              ref,
+              disputeId: disputeId,
+              counterProposalId: cpId,
+              accept: false,
+            );
+            if (context.mounted && !ok) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.unexpectedError)),
+                SnackBar(
+                  content:
+                      Text(AppLocalizations.of(context)!.unexpectedError),
+                ),
               );
-              break;
-          }
-        },
-        onAcceptCancellation: () async {
-          final ok = await respondToCancellation(
-            ref,
-            disputeId: disputeId,
-            accept: true,
-          );
-          if (context.mounted && !ok) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content:
-                    Text(AppLocalizations.of(context)!.unexpectedError),
-              ),
+            }
+          },
+          onCancel: () async {
+            final outcome = await cancelDispute(ref, disputeId);
+            if (!context.mounted) return;
+            final l10n = AppLocalizations.of(context)!;
+            switch (outcome) {
+              case CancelDisputeOutcome.cancelled:
+                break;
+              case CancelDisputeOutcome.requested:
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.disputeCancellationRequestSent),
+                  ),
+                );
+                break;
+              case CancelDisputeOutcome.failed:
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.unexpectedError)),
+                );
+                break;
+            }
+          },
+          onAcceptCancellation: () async {
+            final ok = await respondToCancellation(
+              ref,
+              disputeId: disputeId,
+              accept: true,
             );
-          }
-        },
-        onRefuseCancellation: () async {
-          final ok = await respondToCancellation(
-            ref,
-            disputeId: disputeId,
-            accept: false,
-          );
-          if (context.mounted && !ok) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content:
-                    Text(AppLocalizations.of(context)!.unexpectedError),
-              ),
+            if (context.mounted && !ok) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text(AppLocalizations.of(context)!.unexpectedError),
+                ),
+              );
+            }
+          },
+          onRefuseCancellation: () async {
+            final ok = await respondToCancellation(
+              ref,
+              disputeId: disputeId,
+              accept: false,
             );
-          }
-        },
+            if (context.mounted && !ok) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text(AppLocalizations.of(context)!.unexpectedError),
+                ),
+              );
+            }
+          },
+        ),
       ),
     );
   }
 }
 
-/// Resolution card shown after a dispute has been settled — both
-/// parties always see how the dispute ended (split + admin note + date).
 class ProposalDisputeResolution extends ConsumerWidget {
   const ProposalDisputeResolution({
     super.key,
@@ -149,17 +145,18 @@ class ProposalDisputeResolution extends ConsumerWidget {
     return asyncDispute.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
-      data: (dispute) => DisputeResolutionCard(
-        dispute: dispute,
-        currentUserId: currentUserId,
+      data: (dispute) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: DisputeResolutionCard(
+          dispute: dispute,
+          currentUserId: currentUserId,
+        ),
       ),
     );
   }
 }
 
-/// Amber "Report a problem" call to action, only visible when no dispute
-/// is currently active and the mission is in active or
-/// completion-requested state.
+/// Amber-soft "Report a problem" CTA — Soleil tabac border + soft bg.
 class ProposalReportProblemButton extends StatelessWidget {
   const ProposalReportProblemButton({
     super.key,
@@ -174,26 +171,30 @@ class ProposalReportProblemButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final ambre = appColors?.warning ?? theme.colorScheme.primary;
+    final ambreSoft =
+        appColors?.amberSoft ?? theme.colorScheme.primaryContainer;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: OutlinedButton.icon(
-        icon: const Icon(
+        icon: Icon(
           Icons.warning_amber_rounded,
-          color: AppPalette.orange600,
+          color: ambre,
           size: 18,
         ),
         label: Text(
           l10n.disputeReportProblem,
-          style: const TextStyle(color: AppPalette.orange700),
+          style: SoleilTextStyles.button.copyWith(color: ambre),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppPalette.orange50,
-          side: const BorderSide(color: AppPalette.orange300),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          ),
+          backgroundColor: ambreSoft,
+          side: BorderSide(color: ambre.withValues(alpha: 0.4)),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: const StadiumBorder(),
         ),
         onPressed: () => GoRouter.of(context).push(
           RoutePaths.disputeOpen,

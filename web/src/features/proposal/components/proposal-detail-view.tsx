@@ -23,11 +23,17 @@ import {
 import { ProposalStepper } from "./proposal-stepper"
 import { ActionsPanel, type ActionsPanelProps } from "./proposal-actions-panel"
 import { MilestoneTracker } from "./milestone-tracker"
-import type { ProposalResponse } from "../types"
+import type { ProposalResponse, ProposalStatus } from "../types"
 import { FeePreview } from "@/shared/components/billing/fee-preview"
 import { UpgradeCta } from "@/shared/components/subscription/upgrade-cta"
 import { UpgradeModal } from "@/shared/components/subscription/upgrade-modal"
+import { Portrait } from "@/shared/components/ui/portrait"
 import { Button } from "@/shared/components/ui/button"
+
+// Soleil v2 — Proposal detail view (covers W-10 client + W-15 provider).
+// Editorial header per status (corail eyebrow + Fraunces italic-corail
+// title + tabac subtitle), 2-col layout on desktop with sticky sidebar,
+// Soleil card sections, milestone tracker with progress.
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -65,20 +71,10 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const isClient = user?.id === proposal.client_id
   const isProvider = user?.id === proposal.provider_id
 
-  // Subscription role pricing for the upgrade CTA. Only providers /
-  // agencies ever reach this code path (isProvider is true), so the
-  // fallback branch is defensive — enterprises can never own a
-  // subscription.
   const subscriptionRole: "freelance" | "agency" =
     user?.role === "agency" ? "agency" : "freelance"
   const monthlyPrice = subscriptionRole === "agency" ? 49 : 19
 
-  // The backend sets current_milestone_sequence to the active milestone's
-  // sequence while the proposal is in a milestone-driven state (active,
-  // completion_requested, etc.). Grab the matching milestone so action
-  // handlers can pass its id to the per-milestone endpoints — a stale
-  // client view returns 409 on the action, and the TanStack Query
-  // invalidation on success will refetch the fresh sequence.
   const currentMilestone = proposal.milestones?.find(
     (m) => m.sequence === proposal.current_milestone_sequence,
   )
@@ -121,25 +117,34 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 pb-24 pt-6 sm:pb-12 sm:pt-8">
       {/* Back button */}
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={() => router.push("/projects")}
-        className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+        className={cn(
+          "mb-6 flex items-center gap-1.5 px-2 py-1 text-[13px] font-medium",
+          "text-muted-foreground hover:text-primary transition-colors duration-150",
+        )}
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
         {t("backToProjects")}
       </Button>
 
-      {/* Stepper (proposal-level macro state) */}
-      <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+      {/* Editorial header */}
+      <DetailHeader proposal={proposal} />
+
+      {/* Stepper */}
+      <div
+        className="mt-6 mb-8 rounded-2xl border border-border bg-card p-6"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
         <ProposalStepper status={proposal.status} />
       </div>
 
-      {/* Milestone tracker (phase 11). Renders the project's milestone
-          list as a vertical timeline for milestone-mode proposals, or
-          collapses to a compact single card for one-time mode. */}
+      {/* Milestone tracker */}
       {proposal.milestones && proposal.milestones.length > 0 && (
         <div className="mb-8">
           <MilestoneTracker
@@ -151,14 +156,10 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
       )}
 
       {/* Split layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         {/* Left column - content */}
         <div className="flex-1 min-w-0 space-y-6">
           <ContentPanel proposal={proposal} />
-          {/* Platform fee preview — only the designated provider ever
-              sees this panel. The backend also fails closed via
-              `viewer_is_provider`, so even a stale client view cannot
-              reveal fee data to a client. */}
           {isProvider && (
             <FeePreview
               mode={proposal.payment_mode}
@@ -178,7 +179,13 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
         {/* Right column - actions (sticky on desktop) */}
         <div className="w-full lg:w-80 shrink-0">
           <div className="lg:sticky lg:top-24 space-y-4">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+            <div
+              className="rounded-2xl border border-border bg-card p-5"
+              style={{ boxShadow: "var(--shadow-card)" }}
+            >
+              <p className="mb-3 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
+                {t("proposalFlow_detail_actionsHeading")}
+              </p>
               <ActionsPanel
                 proposal={proposal}
                 currentMilestone={currentMilestone}
@@ -242,11 +249,52 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   )
 }
 
-// buildDetailFeeMilestones maps the received proposal into the shape
-// expected by <FeePreview>. In milestone mode each milestone is
-// forwarded with its sequence/title and amount; in one-time mode a
-// single synthetic "Paiement unique" entry is emitted with the total
-// proposal amount so the one-time summary fires.
+function DetailHeader({ proposal }: { proposal: ProposalResponse }) {
+  const t = useTranslations("proposal")
+  const eyebrow = eyebrowKeyForStatus(proposal.status)
+
+  return (
+    <div className="space-y-2">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+        {t(eyebrow)}
+      </p>
+      <h1 className="font-serif text-[28px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[34px]">
+        {proposal.title}{" "}
+        {proposal.version > 1 && (
+          <span className="font-mono text-[14px] font-medium text-subtle-foreground align-middle">
+            · v{proposal.version}
+          </span>
+        )}
+      </h1>
+      <p className="max-w-2xl text-[14.5px] leading-relaxed text-muted-foreground">
+        {t("proposalFlow_detail_subtitle")}
+      </p>
+    </div>
+  )
+}
+
+function eyebrowKeyForStatus(status: ProposalStatus): string {
+  switch (status) {
+    case "pending":
+      return "proposalFlow_detail_eyebrowPending"
+    case "accepted":
+    case "paid":
+      return "proposalFlow_detail_eyebrowAccepted"
+    case "active":
+    case "completion_requested":
+      return "proposalFlow_detail_eyebrowActive"
+    case "completed":
+      return "proposalFlow_detail_eyebrowCompleted"
+    case "disputed":
+      return "proposalFlow_detail_eyebrowDisputed"
+    case "declined":
+    case "withdrawn":
+      return "proposalFlow_detail_eyebrowDeclined"
+    default:
+      return "proposalFlow_detail_eyebrowDefault"
+  }
+}
+
 function buildDetailFeeMilestones(
   proposal: ProposalResponse,
 ): { key: string; label: string; amountCents: number }[] {
@@ -270,49 +318,33 @@ function ContentPanel({ proposal }: { proposal: ProposalResponse }) {
   const t = useTranslations("proposal")
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
-      <div className="h-1 gradient-primary" />
-      <div className="p-6 space-y-6">
-        {/* Title */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            {proposal.title}
-          </h1>
-          {proposal.version > 1 && (
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {t("versionLabel", { version: proposal.version })}
-            </p>
-          )}
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div
+      className="overflow-hidden rounded-2xl border border-border bg-card"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <div className="space-y-6 p-6">
+        {/* Stats row — Geist Mono numerals */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StatCard
             icon={DollarSign}
             label={t("totalAmount")}
             value={formatCurrency(proposal.amount / 100)}
-            iconBg="bg-green-50 dark:bg-green-500/10"
-            iconColor="text-green-600 dark:text-green-400"
           />
           <StatCard
             icon={Calendar}
             label={t("deadline")}
             value={
-              proposal.deadline
-                ? formatDate(proposal.deadline)
-                : t("noDeadline")
+              proposal.deadline ? formatDate(proposal.deadline) : t("noDeadline")
             }
-            iconBg="bg-blue-50 dark:bg-blue-500/10"
-            iconColor="text-blue-600 dark:text-blue-400"
           />
         </div>
 
         {/* Description */}
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+          <p className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
             {t("description")}
           </p>
-          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+          <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
             {proposal.description}
           </p>
         </div>
@@ -330,19 +362,19 @@ interface StatCardProps {
   icon: React.ElementType
   label: string
   value: string
-  iconBg: string
-  iconColor: string
 }
 
-function StatCard({ icon: Icon, label, value, iconBg, iconColor }: StatCardProps) {
+function StatCard({ icon: Icon, label, value }: StatCardProps) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
-      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", iconBg)}>
-        <Icon className={cn("h-5 w-5", iconColor)} strokeWidth={1.5} />
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+        <Icon className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+        <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-subtle-foreground">
+          {label}
+        </p>
+        <p className="truncate font-mono text-[14.5px] font-semibold text-foreground">
           {value}
         </p>
       </div>
@@ -355,12 +387,14 @@ function DocumentsList({ documents }: { documents: ProposalResponse["documents"]
 
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">
+      <p className="mb-3 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
         {t("documents")} ({documents.length})
       </p>
       <div className="space-y-2">
         {documents.map((doc) => (
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             key={doc.id}
             type="button"
             onClick={async () => {
@@ -380,16 +414,15 @@ function DocumentsList({ documents }: { documents: ProposalResponse["documents"]
               }
             }}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left",
-              "border border-slate-100 dark:border-slate-700",
-              "hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors",
+              "flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left",
+              "transition-colors duration-150 hover:border-primary hover:bg-primary-soft/30",
             )}
           >
-            <FileText className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.5} />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
+            <FileText className="h-4 w-4 shrink-0 text-subtle-foreground" strokeWidth={1.7} aria-hidden="true" />
+            <span className="truncate text-[13.5px] font-medium text-foreground">
               {doc.filename}
             </span>
-            <Download className="ml-auto h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.5} />
+            <Download className="ml-auto h-4 w-4 shrink-0 text-subtle-foreground" strokeWidth={1.7} aria-hidden="true" />
           </Button>
         ))}
       </div>
@@ -406,23 +439,16 @@ function ParticipantsCard({ clientName, providerName }: ParticipantsCardProps) {
   const t = useTranslations("proposal")
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">
+    <div
+      className="rounded-2xl border border-border bg-card p-5"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <p className="mb-3 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
         {t("participants")}
       </p>
       <div className="space-y-3">
-        <ParticipantRow
-          name={clientName}
-          role={t("client")}
-          badgeClass="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400"
-          avatarClass="bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
-        />
-        <ParticipantRow
-          name={providerName}
-          role={t("provider")}
-          badgeClass="bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
-          avatarClass="bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
-        />
+        <ParticipantRow name={clientName} role={t("client")} portraitId={3} />
+        <ParticipantRow name={providerName} role={t("provider")} portraitId={1} />
       </div>
     </div>
   )
@@ -431,33 +457,28 @@ function ParticipantsCard({ clientName, providerName }: ParticipantsCardProps) {
 interface ParticipantRowProps {
   name: string
   role: string
-  badgeClass: string
-  avatarClass: string
+  portraitId: number
 }
 
-function ParticipantRow({ name, role, badgeClass, avatarClass }: ParticipantRowProps) {
+function ParticipantRow({ name, role, portraitId }: ParticipantRowProps) {
   const displayName = name || role
-  const initial = displayName.charAt(0).toUpperCase()
 
   return (
     <div className="flex items-center gap-3">
-      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold", avatarClass)}>
-        {initial}
-      </div>
+      <Portrait id={portraitId} size={36} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+        <p className="truncate text-[13.5px] font-medium text-foreground">
           {displayName}
         </p>
+        <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-subtle-foreground">
+          {role}
+        </p>
       </div>
-      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", badgeClass)}>
-        {role}
-      </span>
     </div>
   )
 }
 
 function MobileActionBar(props: React.ComponentProps<typeof ActionsPanel>) {
-  // Only show on mobile when there are actions
   const hasActions = shouldShowActions(props.proposal, {
     isRecipient: props.isRecipient,
     isClient: props.isClient,
@@ -467,7 +488,12 @@ function MobileActionBar(props: React.ComponentProps<typeof ActionsPanel>) {
   if (!hasActions) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur-xl p-4 lg:hidden dark:border-slate-700 dark:bg-slate-900/90">
+    <div
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card p-4 lg:hidden",
+        "glass-strong",
+      )}
+    >
       <ActionsPanel {...props} />
     </div>
   )
@@ -485,10 +511,6 @@ function shouldShowActions(
   if (proposal.status === "pending" && flags.isRecipient) return true
   if (proposal.status === "accepted" && flags.isClient) return true
   if (proposal.status === "active") {
-    // In the milestone world, `active` maps to two different CTAs
-    // depending on the current milestone's sub-state:
-    //   pending_funding → client funds the next milestone
-    //   funded          → provider submits it for approval
     if (
       flags.isClient &&
       flags.currentMilestone?.status === "pending_funding"
@@ -511,15 +533,17 @@ function ErrorState({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="text-center space-y-3">
-        <FileText className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="space-y-3 text-center">
+        <FileText className="mx-auto h-10 w-10 text-subtle-foreground" strokeWidth={1.5} aria-hidden="true" />
+        <p className="text-[13.5px] text-muted-foreground">
           {t("proposalNotFound")}
         </p>
-        <Button variant="ghost" size="auto"
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={onBack}
-          className="text-sm text-rose-500 hover:text-rose-600 font-medium"
+          className="text-[13.5px] font-bold text-primary hover:text-primary-deep"
         >
           {t("backToProjects")}
         </Button>
@@ -531,40 +555,45 @@ function ErrorState({ onBack }: { onBack: () => void }) {
 function DetailSkeleton() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="h-5 w-32 animate-shimmer rounded bg-slate-200 dark:bg-slate-700 mb-6" />
-      {/* Stepper skeleton */}
-      <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="mb-6 h-5 w-32 animate-shimmer rounded bg-border" />
+      <div className="mb-8 space-y-2">
+        <div className="h-3 w-40 animate-shimmer rounded bg-border" />
+        <div className="h-9 w-3/4 animate-shimmer rounded bg-border" />
+        <div className="h-3 w-2/3 animate-shimmer rounded bg-border/60" />
+      </div>
+      <div
+        className="mb-8 rounded-2xl border border-border bg-card p-6"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
         <div className="flex items-center justify-between">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center flex-1 last:flex-none">
+            <div key={i} className="flex flex-1 items-center last:flex-none">
               <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 animate-shimmer rounded-full bg-slate-200 dark:bg-slate-700" />
-                <div className="h-3 w-12 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+                <div className="h-8 w-8 animate-shimmer rounded-full bg-border" />
+                <div className="h-3 w-12 animate-shimmer rounded bg-border/60" />
               </div>
-              {i < 5 && <div className="flex-1 h-0.5 mx-2 mt-[-1.25rem] bg-slate-200 dark:bg-slate-700" />}
+              {i < 5 && <div className="mx-2 mt-[-1.25rem] h-px flex-1 bg-border" />}
             </div>
           ))}
         </div>
       </div>
-      {/* Content skeleton */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         <div className="flex-1">
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/80 space-y-6">
-            <div className="h-7 w-3/4 animate-shimmer rounded bg-slate-200 dark:bg-slate-700" />
+          <div className="space-y-6 rounded-2xl border border-border bg-card p-6">
             <div className="grid grid-cols-2 gap-3">
-              <div className="h-16 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
-              <div className="h-16 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
+              <div className="h-16 animate-shimmer rounded-2xl bg-border/60" />
+              <div className="h-16 animate-shimmer rounded-2xl bg-border/60" />
             </div>
             <div className="space-y-2">
-              <div className="h-3 w-full animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
-              <div className="h-3 w-3/4 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
-              <div className="h-3 w-1/2 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+              <div className="h-3 w-full animate-shimmer rounded bg-border/60" />
+              <div className="h-3 w-3/4 animate-shimmer rounded bg-border/60" />
+              <div className="h-3 w-1/2 animate-shimmer rounded bg-border/60" />
             </div>
           </div>
         </div>
         <div className="w-full lg:w-80">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-700 dark:bg-slate-800/80">
-            <div className="h-24 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="h-24 animate-shimmer rounded-2xl bg-border/60" />
           </div>
         </div>
       </div>

@@ -6265,6 +6265,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send message'**
   String get jobDetail_m08_sendMessage;
+
+  /// No description provided for @proposalFlow_create_eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · NEW PROPOSAL'**
+  String get proposalFlow_create_eyebrow;
+
+  /// No description provided for @proposalFlow_create_titlePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft your'**
+  String get proposalFlow_create_titlePrefix;
+
+  /// No description provided for @proposalFlow_create_titleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'proposal.'**
+  String get proposalFlow_create_titleAccent;
+
+  /// No description provided for @proposalFlow_create_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spell out the brief, budget and deadline. The clearer the scope, the faster the mission starts.'**
+  String get proposalFlow_create_subtitle;
+
+  /// No description provided for @proposalFlow_create_modifyTitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'amended proposal.'**
+  String get proposalFlow_create_modifyTitleAccent;
+
+  /// No description provided for @proposalFlow_create_modifySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust the terms. Every change creates a new version sent to your counterpart.'**
+  String get proposalFlow_create_modifySubtitle;
+
+  /// No description provided for @proposalFlow_create_sectionBrief.
+  ///
+  /// In en, this message translates to:
+  /// **'Mission brief'**
+  String get proposalFlow_create_sectionBrief;
+
+  /// No description provided for @proposalFlow_create_sectionPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment terms'**
+  String get proposalFlow_create_sectionPayment;
+
+  /// No description provided for @proposalFlow_create_sectionDeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Deadline'**
+  String get proposalFlow_create_sectionDeadline;
+
+  /// No description provided for @proposalFlow_pay_eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · PAYMENT'**
+  String get proposalFlow_pay_eyebrow;
+
+  /// No description provided for @proposalFlow_pay_titlePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get proposalFlow_pay_titlePrefix;
+
+  /// No description provided for @proposalFlow_pay_titleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'the payment.'**
+  String get proposalFlow_pay_titleAccent;
+
+  /// No description provided for @proposalFlow_pay_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Funds are held in escrow and released once the mission is validated.'**
+  String get proposalFlow_pay_subtitle;
+
+  /// No description provided for @proposalFlow_pay_secureNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Secured payment · escrow guaranteed by the platform'**
+  String get proposalFlow_pay_secureNotice;
+
+  /// No description provided for @proposalFlow_detail_eyebrowPending.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · PENDING PROPOSAL'**
+  String get proposalFlow_detail_eyebrowPending;
+
+  /// No description provided for @proposalFlow_detail_eyebrowAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · ACCEPTED PROPOSAL'**
+  String get proposalFlow_detail_eyebrowAccepted;
+
+  /// No description provided for @proposalFlow_detail_eyebrowActive.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · MISSION IN PROGRESS'**
+  String get proposalFlow_detail_eyebrowActive;
+
+  /// No description provided for @proposalFlow_detail_eyebrowCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · MISSION COMPLETED'**
+  String get proposalFlow_detail_eyebrowCompleted;
+
+  /// No description provided for @proposalFlow_detail_eyebrowDisputed.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · DISPUTE OPEN'**
+  String get proposalFlow_detail_eyebrowDisputed;
+
+  /// No description provided for @proposalFlow_detail_eyebrowDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · DECLINED PROPOSAL'**
+  String get proposalFlow_detail_eyebrowDeclined;
+
+  /// No description provided for @proposalFlow_detail_eyebrowDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · PROPOSAL'**
+  String get proposalFlow_detail_eyebrowDefault;
+
+  /// No description provided for @proposalFlow_detail_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track progress, validate milestones and stay in touch with your counterpart.'**
+  String get proposalFlow_detail_subtitle;
+
+  /// No description provided for @proposalFlow_list_eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · MY PROJECTS'**
+  String get proposalFlow_list_eyebrow;
+
+  /// No description provided for @proposalFlow_list_titlePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Your'**
+  String get proposalFlow_list_titlePrefix;
+
+  /// No description provided for @proposalFlow_list_titleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'active missions.'**
+  String get proposalFlow_list_titleAccent;
+
+  /// No description provided for @proposalFlow_list_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track invoicing, milestones and deliveries on your active projects.'**
+  String get proposalFlow_list_subtitle;
+
+  /// No description provided for @proposalFlow_list_emptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No active mission yet.'**
+  String get proposalFlow_list_emptyTitle;
+
+  /// No description provided for @proposalFlow_list_emptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your paid projects will show up here once the client has funded the mission.'**
+  String get proposalFlow_list_emptyBody;
+
+  /// No description provided for @proposalFlow_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress'**
+  String get proposalFlow_progress;
+
+  /// No description provided for @proposalFlow_milestoneTrackerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Project progress'**
+  String get proposalFlow_milestoneTrackerTitle;
+
+  /// No description provided for @proposalFlow_milestoneCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} milestones'**
+  String proposalFlow_milestoneCount(int total);
+
+  /// No description provided for @proposalFlow_milestoneSequence.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone {sequence}'**
+  String proposalFlow_milestoneSequence(int sequence);
+
+  /// No description provided for @proposalFlow_milestoneOneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time payment'**
+  String get proposalFlow_milestoneOneTime;
+
+  /// No description provided for @proposalFlow_milestoneDueNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Fund now'**
+  String get proposalFlow_milestoneDueNow;
+
+  /// No description provided for @proposalFlow_status_pendingFunding.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting funding'**
+  String get proposalFlow_status_pendingFunding;
+
+  /// No description provided for @proposalFlow_status_funded.
+  ///
+  /// In en, this message translates to:
+  /// **'Work in progress'**
+  String get proposalFlow_status_funded;
+
+  /// No description provided for @proposalFlow_status_submitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting approval'**
+  String get proposalFlow_status_submitted;
+
+  /// No description provided for @proposalFlow_status_approved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get proposalFlow_status_approved;
+
+  /// No description provided for @proposalFlow_status_released.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get proposalFlow_status_released;
+
+  /// No description provided for @proposalFlow_status_disputed.
+  ///
+  /// In en, this message translates to:
+  /// **'Disputed'**
+  String get proposalFlow_status_disputed;
+
+  /// No description provided for @proposalFlow_status_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get proposalFlow_status_cancelled;
+
+  /// No description provided for @proposalFlow_status_refunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get proposalFlow_status_refunded;
 }
 
 class _AppLocalizationsDelegate

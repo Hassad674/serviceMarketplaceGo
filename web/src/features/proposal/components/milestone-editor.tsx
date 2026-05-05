@@ -14,6 +14,11 @@ import {
 
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+
+// Soleil v2 — Milestone editor. Repeatable card-per-milestone with
+// rounded corail StadiumBorder + / - buttons, sticky total footer in
+// corail-soft with Geist Mono numerals.
+
 type MilestoneEditorProps = {
   milestones: MilestoneFormItem[]
   onChange: (milestones: MilestoneFormItem[]) => void
@@ -26,20 +31,6 @@ type MilestoneEditorProps = {
   projectDeadline?: string
 }
 
-/**
- * MilestoneEditor is the repeatable form that lets the client define
- * a multi-step project: each row holds a title, description, amount,
- * and optional deadline. The user can add up to 20 milestones and
- * remove any extra ones, but never the last one (a proposal must
- * always have at least one milestone — backend invariant).
- *
- * Sequence numbers are derived from the array index at submit time —
- * the editor itself only stores the form-level fields and reorders
- * are not exposed in V1 (V2 contract-change feature handles edits).
- *
- * The sticky footer shows the running total in EUR so the client
- * sees the full price as they type.
- */
 export function MilestoneEditor({
   milestones,
   onChange,
@@ -76,10 +67,10 @@ export function MilestoneEditor({
   return (
     <div className="space-y-4" id="payment-mode-panel-milestone">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <h2 className="font-serif text-[16px] font-medium tracking-[-0.01em] text-foreground">
           {t("label")}
         </h2>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-subtle-foreground">
           {t("count", { current: milestones.length, max: MAX_MILESTONES_PER_PROPOSAL })}
         </span>
       </div>
@@ -101,33 +92,34 @@ export function MilestoneEditor({
         ))}
       </div>
 
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={addMilestone}
         disabled={disabled || !canAddMore}
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed",
-          "px-4 py-3 text-sm font-medium transition-all duration-200",
+          "flex w-full items-center justify-center gap-2 rounded-full border-2 border-dashed",
+          "px-5 py-3 text-[13.5px] font-bold transition-all duration-200 ease-out",
           canAddMore && !disabled
-            ? "border-gray-300 text-gray-600 hover:border-rose-400 hover:text-rose-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-rose-400 dark:hover:text-rose-400"
-            : "cursor-not-allowed border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600",
+            ? "border-primary/60 text-primary hover:border-primary hover:bg-primary-soft"
+            : "cursor-not-allowed border-border text-subtle-foreground",
         )}
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-4 w-4" strokeWidth={2} />
         {t("addMilestone")}
       </Button>
 
       {/* Sticky total footer */}
       <div
         className={cn(
-          "flex items-center justify-between rounded-xl border bg-rose-50/50 px-5 py-4",
-          "border-rose-200 dark:border-rose-900/50 dark:bg-rose-900/10",
+          "flex items-center justify-between rounded-2xl border border-primary/30 bg-primary-soft px-5 py-4",
         )}
       >
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-primary-deep">
           {t("total")}
         </span>
-        <span className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+        <span className="font-mono text-[22px] font-bold text-primary-deep">
           {totalEuros}&nbsp;&euro;
         </span>
       </div>
@@ -166,34 +158,34 @@ function MilestoneRow({
   return (
     <div
       className={cn(
-        "rounded-xl border border-gray-200 bg-white p-4 shadow-sm",
-        "dark:border-gray-700 dark:bg-gray-800",
+        "rounded-2xl border border-border bg-card p-5",
       )}
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <span
           className={cn(
-            "inline-flex h-7 min-w-[2rem] items-center justify-center rounded-full",
-            "bg-rose-100 px-2 text-xs font-semibold text-rose-700",
-            "dark:bg-rose-900/40 dark:text-rose-300",
+            "inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1",
+            "font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-primary-deep",
           )}
         >
           {t("milestone")} {sequence}
         </span>
         {canRemove && (
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={onRemove}
             disabled={disabled}
             className={cn(
-              "rounded-lg p-2 text-gray-400 transition-colors",
-              "hover:bg-red-50 hover:text-red-600",
-              "dark:hover:bg-red-900/20 dark:hover:text-red-400",
+              "rounded-full p-2 text-subtle-foreground transition-colors duration-150",
+              "hover:bg-destructive/10 hover:text-destructive",
               disabled && "cursor-not-allowed opacity-50",
             )}
             aria-label={t("remove")}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" strokeWidth={1.7} />
           </Button>
         )}
       </div>
@@ -206,11 +198,10 @@ function MilestoneRow({
           placeholder={t("titlePlaceholder")}
           disabled={disabled}
           className={cn(
-            "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm",
-            "shadow-xs transition-all duration-200",
-            "placeholder:text-gray-400",
-            "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-            "dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500",
+            "h-11 w-full rounded-xl border border-border bg-background px-4 text-[14px]",
+            "transition-all duration-200 ease-out",
+            "placeholder:text-subtle-foreground",
+            "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
           )}
           aria-label={`${t("milestone")} ${sequence} ${t("titleAriaLabel")}`}
         />
@@ -222,18 +213,17 @@ function MilestoneRow({
           rows={2}
           disabled={disabled}
           className={cn(
-            "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm",
-            "shadow-xs transition-all duration-200 resize-none",
-            "placeholder:text-gray-400",
-            "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-            "dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500",
+            "w-full rounded-xl border border-border bg-background px-4 py-3 text-[14px] resize-none",
+            "transition-all duration-200 ease-out",
+            "placeholder:text-subtle-foreground",
+            "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
           )}
           aria-label={`${t("milestone")} ${sequence} ${t("descriptionAriaLabel")}`}
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-[14px] font-medium text-subtle-foreground">
               &euro;
             </span>
             <Input
@@ -245,11 +235,10 @@ function MilestoneRow({
               placeholder={t("amountPlaceholder")}
               disabled={disabled}
               className={cn(
-                "h-10 w-full rounded-lg border border-gray-200 bg-white pl-8 pr-3 text-sm",
-                "shadow-xs transition-all duration-200",
-                "placeholder:text-gray-400",
-                "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                "dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500",
+                "h-11 w-full rounded-xl border border-border bg-background pl-9 pr-4 text-[14px] font-mono",
+                "transition-all duration-200 ease-out",
+                "placeholder:text-subtle-foreground",
+                "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
                 "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
               )}
               aria-label={`${t("milestone")} ${sequence} ${t("amountAriaLabel")}`}
@@ -268,14 +257,12 @@ function MilestoneRow({
                 deadlineError ? `milestone-${sequence}-deadline-error` : undefined
               }
               className={cn(
-                "h-10 w-full rounded-lg border bg-white px-3 text-sm",
-                "shadow-xs transition-all duration-200",
-                "text-gray-700 dark:text-gray-300",
+                "h-11 w-full rounded-xl border bg-background px-4 text-[14px] font-mono",
+                "transition-all duration-200 ease-out text-foreground",
                 "focus:ring-4 focus:outline-none",
                 deadlineError
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500/10 dark:border-red-500"
-                  : "border-gray-200 focus:border-rose-500 focus:ring-rose-500/10 dark:border-gray-700",
-                "dark:bg-gray-900",
+                  ? "border-destructive focus:border-destructive focus:ring-destructive/15"
+                  : "border-border focus:border-primary focus:ring-primary/15",
               )}
               aria-label={`${t("milestone")} ${sequence} ${t("deadlineAriaLabel")}`}
             />
@@ -283,7 +270,7 @@ function MilestoneRow({
               <p
                 id={`milestone-${sequence}-deadline-error`}
                 role="alert"
-                className="mt-1 text-xs text-red-600 dark:text-red-400"
+                className="mt-1.5 text-[12px] text-destructive"
               >
                 {t(`error.${deadlineError}`)}
               </p>

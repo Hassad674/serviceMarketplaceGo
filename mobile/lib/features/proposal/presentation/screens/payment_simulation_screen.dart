@@ -7,13 +7,12 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Simulates a payment flow for an accepted proposal.
+/// Soleil v2 — Payment confirmation screen (escrow).
 ///
-/// Fetches proposal details, displays a summary (title, amount, deadline),
-/// and provides a "Confirm Payment" button that calls the backend
-/// `POST /api/v1/proposals/{id}/pay` endpoint.
+/// Editorial header (corail eyebrow + Fraunces italic-corail title +
+/// tabac subtitle), Soleil card with Geist Mono amount summary, corail
+/// rounded-full pill confirm.
 class PaymentSimulationScreen extends ConsumerStatefulWidget {
   const PaymentSimulationScreen({super.key, required this.proposalId});
 
@@ -41,10 +40,8 @@ class _PaymentSimulationScreenState
         _paymentSuccess = true;
       });
 
-      // Refresh the projects list after payment.
       ref.invalidate(projectsProvider);
 
-      // Navigate to projects list after a short delay.
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         GoRouter.of(context).go(RoutePaths.missions);
@@ -65,200 +62,197 @@ class _PaymentSimulationScreenState
     final proposalAsync = ref.watch(proposalByIdProvider(widget.proposalId));
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.paymentSimulation)),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l10n.paymentSimulation,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => GoRouter.of(context).pop(),
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
       body: SafeArea(
         child: proposalAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l10n.unexpectedError),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () =>
-                      ref.invalidate(proposalByIdProvider(widget.proposalId)),
-                  child: Text(l10n.retry),
-                ),
-              ],
-            ),
+          error: (_, __) => _ErrorBlock(
+            onRetry: () =>
+                ref.invalidate(proposalByIdProvider(widget.proposalId)),
           ),
           data: (proposal) => _paymentSuccess
-              ? _buildSuccessState(theme, l10n)
-              : _buildPaymentForm(theme, l10n, proposal),
+              ? _SuccessState(theme: theme, l10n: l10n)
+              : _PaymentForm(
+                  proposal: proposal,
+                  isProcessing: _isProcessing,
+                  onConfirm: _confirmPayment,
+                ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildPaymentForm(
-    ThemeData theme,
-    AppLocalizations l10n,
-    ProposalEntity proposal,
-  ) {
+class _PaymentForm extends StatelessWidget {
+  const _PaymentForm({
+    required this.proposal,
+    required this.isProcessing,
+    required this.onConfirm,
+  });
+
+  final ProposalEntity proposal;
+  final bool isProcessing;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Payment icon
-          Center(
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              ),
-              child: Icon(
-                Icons.payment_outlined,
-                size: 40,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
+        Text(
+          l10n.proposalFlow_pay_eyebrow,
+          style: SoleilTextStyles.mono.copyWith(
+            color: primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
           ),
-          const SizedBox(height: 32),
-
-          // Proposal summary card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              border: Border.all(
-                color: appColors?.border ?? theme.dividerColor,
-              ),
-              boxShadow: AppTheme.cardShadow,
+        ),
+        const SizedBox(height: 8),
+        RichText(
+          text: TextSpan(
+            style: SoleilTextStyles.headlineLarge.copyWith(
+              color: theme.colorScheme.onSurface,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  proposal.title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+            children: [
+              TextSpan(text: '${l10n.proposalFlow_pay_titlePrefix} '),
+              TextSpan(
+                text: l10n.proposalFlow_pay_titleAccent,
+                style: SoleilTextStyles.headlineLarge.copyWith(
+                  color: primary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.proposalFlow_pay_subtitle,
+          style: SoleilTextStyles.bodyLarge.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+            border: Border.all(
+              color: appColors?.border ?? theme.dividerColor,
+            ),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.payments_rounded, size: 22, color: primary),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildDetailRow(
-                  theme,
-                  appColors,
-                  Icons.euro_outlined,
-                  l10n.proposalTotalAmount,
-                  '\u20AC ${proposal.amountInEuros.toStringAsFixed(2)}',
-                ),
-                if (proposal.deadline != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    theme,
-                    appColors,
-                    Icons.calendar_today_outlined,
-                    l10n.proposalDeadline,
-                    _formatDeadline(proposal.deadline!),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          proposal.title,
+                          style: SoleilTextStyles.titleMedium.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          const Spacer(),
-
-          // Confirm payment button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isProcessing ? null : _confirmPayment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                ),
               ),
-              child: _isProcessing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(l10n.confirmPayment),
+              const SizedBox(height: 18),
+              _InfoRow(
+                label: l10n.proposalTotalAmount,
+                value: '€ ${proposal.amountInEuros.toStringAsFixed(2)}',
+                emphasised: true,
+              ),
+              if (proposal.deadline != null) ...[
+                const SizedBox(height: 10),
+                _InfoRow(
+                  label: l10n.proposalDeadline,
+                  value: _formatDeadline(proposal.deadline!),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            l10n.proposalFlow_pay_secureNotice,
+            style: SoleilTextStyles.mono.copyWith(
+              color: appColors?.subtleForeground ??
+                  theme.colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => GoRouter.of(context).pop(),
-              child: Text(l10n.cancel),
-            ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: isProcessing ? null : onConfirm,
+          icon: isProcessing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(Icons.lock_rounded, size: 18),
+          label: Text(l10n.confirmPayment),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: const StadiumBorder(),
+            textStyle: SoleilTextStyles.button,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuccessState(ThemeData theme, AppLocalizations l10n) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppPalette.green500.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle_outline,
-              size: 48,
-              color: AppPalette.green500,
-            ),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => GoRouter.of(context).pop(),
+          style: TextButton.styleFrom(
+            shape: const StadiumBorder(),
+            minimumSize: const Size.fromHeight(48),
           ),
-          const SizedBox(height: 24),
-          Text(
-            l10n.paymentSuccess,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.paymentSuccessDesc,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    ThemeData theme,
-    AppColors? appColors,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: appColors?.mutedForeground),
-        const SizedBox(width: 8),
-        Text(label, style: theme.textTheme.bodySmall),
-        const Spacer(),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          child: Text(l10n.cancel),
         ),
       ],
     );
@@ -273,5 +267,146 @@ class _PaymentSimulationScreenState
     } catch (_) {
       return isoDate;
     }
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.emphasised = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasised;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text(
+          label,
+          style: SoleilTextStyles.body.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: emphasised
+              ? SoleilTextStyles.monoLarge.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                )
+              : SoleilTextStyles.mono.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SuccessState extends StatelessWidget {
+  const _SuccessState({required this.theme, required this.l10n});
+
+  final ThemeData theme;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = theme.extension<AppColors>();
+    final success = appColors?.success ?? theme.colorScheme.primary;
+    final successSoft = appColors?.successSoft ??
+        theme.colorScheme.primaryContainer;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: successSoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle_rounded,
+                size: 44,
+                color: success,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              l10n.paymentSuccess,
+              style: SoleilTextStyles.headlineMedium.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.paymentSuccessDesc,
+              style: SoleilTextStyles.bodyLarge.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBlock extends StatelessWidget {
+  const _ErrorBlock({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 40,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.unexpectedError,
+              style: SoleilTextStyles.body.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text(l10n.retry),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

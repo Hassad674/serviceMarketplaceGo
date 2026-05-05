@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
 
-/// Phase 13 (mobile) — vertical milestone tracker rendered on the
-/// proposal detail screen. Mirrors the web `MilestoneTracker`
-/// component (phase 11): each milestone is a card with a status
-/// icon, title, amount, and an optional deadline. The current
-/// active milestone is highlighted with a rose accent border and
-/// a "Due now" badge for pending_funding.
-///
-/// One-time mode (single synthetic milestone) collapses to a
-/// compact single card so the legacy detail-view UX is preserved
-/// for pre-phase-4 proposals backfilled with a synthetic milestone.
+/// Soleil v2 — Milestone tracker. Vertical timeline with Soleil status
+/// pills (sapin / amber / corail / mute), progress bar showing % of
+/// released milestones, Geist Mono amounts, Fraunces titles.
 class MilestoneTrackerWidget extends StatelessWidget {
   const MilestoneTrackerWidget({
     super.key,
@@ -30,55 +25,102 @@ class MilestoneTrackerWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // One-time mode collapses to a clean single card so the legacy
-    // detail-view UX is preserved.
     if (paymentMode == 'one_time' && milestones.length == 1) {
       return _CompactSingleMilestone(milestone: milestones.first);
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Suivi du projet',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${milestones.length} jalons',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...milestones.asMap().entries.map((entry) {
-              final index = entry.key;
-              final m = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _MilestoneCard(
-                  milestone: m,
-                  isCurrent: m.sequence == currentSequence,
-                  isLast: index == milestones.length - 1,
-                ),
-              );
-            }),
-          ],
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    final released =
+        milestones.where((m) => m.status == 'released').length;
+    final progress = (released / milestones.length).clamp(0.0, 1.0);
+    final percent = (progress * 100).round();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
         ),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.proposalFlow_milestoneTrackerTitle,
+                  style: SoleilTextStyles.titleLarge.copyWith(
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                l10n.proposalFlow_milestoneCount(milestones.length),
+                style: SoleilTextStyles.mono.copyWith(
+                  color: appColors?.subtleForeground ??
+                      theme.colorScheme.onSurfaceVariant,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Text(
+                l10n.proposalFlow_progress.toUpperCase(),
+                style: SoleilTextStyles.mono.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$percent%',
+                style: SoleilTextStyles.mono.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor:
+                  theme.colorScheme.outline.withValues(alpha: 0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          ...milestones.asMap().entries.map((entry) {
+            final index = entry.key;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _MilestoneCard(
+                milestone: entry.value,
+                isCurrent: entry.value.sequence == currentSequence,
+                isLast: index == milestones.length - 1,
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -97,23 +139,29 @@ class _MilestoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cfg = _statusConfig(milestone.status);
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    final cfg = _statusConfig(milestone.status, theme, appColors, l10n);
     final amountEuros = milestone.amountInEuros.toStringAsFixed(2);
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
-          color: isCurrent ? Colors.pink.shade300 : Colors.grey.shade200,
+          color: isCurrent
+              ? theme.colorScheme.primary
+              : (appColors?.border ?? theme.dividerColor),
           width: isCurrent ? 1.5 : 1,
         ),
-        color: isCurrent ? Colors.pink.shade50.withValues(alpha: 0.4) : Colors.white,
+        color: isCurrent
+            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+            : theme.colorScheme.surfaceContainerLowest,
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status icon with circular background
           Container(
             width: 36,
             height: 36,
@@ -124,8 +172,6 @@ class _MilestoneCard extends StatelessWidget {
             child: Icon(cfg.icon, size: 18, color: cfg.iconColor),
           ),
           const SizedBox(width: 12),
-
-          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,9 +181,9 @@ class _MilestoneCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Jalon ${milestone.sequence} — ${milestone.title}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                        '${l10n.proposalFlow_milestoneSequence(milestone.sequence)} — ${milestone.title}',
+                        style: SoleilTextStyles.bodyEmphasis.copyWith(
+                          color: theme.colorScheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -146,7 +192,9 @@ class _MilestoneCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       '$amountEuros €',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: SoleilTextStyles.mono.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -156,24 +204,29 @@ class _MilestoneCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     milestone.description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                    style: SoleilTextStyles.body.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12.5,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    _StatusBadge(label: cfg.label, bg: cfg.badgeBg, fg: cfg.badgeText),
+                    _StatusBadge(
+                      label: cfg.label,
+                      bg: cfg.badgeBg,
+                      fg: cfg.badgeText,
+                    ),
                     if (isCurrent && milestone.status == 'pending_funding')
                       _StatusBadge(
-                        label: 'À financer',
-                        bg: Colors.pink.shade100,
-                        fg: Colors.pink.shade700,
+                        label: l10n.proposalFlow_milestoneDueNow,
+                        bg: theme.colorScheme.primary,
+                        fg: theme.colorScheme.onPrimary,
                       ),
                   ],
                 ),
@@ -193,64 +246,76 @@ class _CompactSingleMilestone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cfg = _statusConfig(milestone.status);
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    final cfg = _statusConfig(milestone.status, theme, appColors, l10n);
     final amountEuros = milestone.amountInEuros.toStringAsFixed(2);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cfg.iconBg,
-              ),
-              child: Icon(cfg.icon, size: 24, color: cfg.iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Paiement unique',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Text(
-                    cfg.label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '$amountEuros €',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
         ),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: cfg.iconBg,
+            ),
+            child: Icon(cfg.icon, size: 24, color: cfg.iconColor),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.proposalFlow_milestoneOneTime,
+                  style: SoleilTextStyles.mono.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  cfg.label,
+                  style: SoleilTextStyles.bodyEmphasis.copyWith(
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$amountEuros €',
+            style: SoleilTextStyles.headlineMedium.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label, required this.bg, required this.fg});
+  const _StatusBadge({
+    required this.label,
+    required this.bg,
+    required this.fg,
+  });
 
   final String label;
   final Color bg;
@@ -259,17 +324,18 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+        style: SoleilTextStyles.mono.copyWith(
           color: fg,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );
@@ -294,88 +360,102 @@ class _StatusConfig {
   final Color badgeText;
 }
 
-_StatusConfig _statusConfig(String status) {
+_StatusConfig _statusConfig(
+  String status,
+  ThemeData theme,
+  AppColors? appColors,
+  AppLocalizations l10n,
+) {
+  final corail = theme.colorScheme.primary;
+  final corailSoft = theme.colorScheme.primaryContainer;
+  final sapin = appColors?.success ?? corail;
+  final sapinSoft = appColors?.successSoft ?? corailSoft;
+  final ambre = appColors?.warning ?? corail;
+  final ambreSoft = appColors?.amberSoft ?? corailSoft;
+  final muted = theme.colorScheme.onSurfaceVariant;
+  final mutedSoft = theme.colorScheme.outline.withValues(alpha: 0.2);
+
   switch (status) {
     case 'pending_funding':
       return _StatusConfig(
-        icon: Icons.credit_card,
-        label: 'En attente de financement',
-        iconBg: Colors.amber.shade100,
-        iconColor: Colors.amber.shade700,
-        badgeBg: Colors.amber.shade50,
-        badgeText: Colors.amber.shade800,
+        icon: Icons.payments_rounded,
+        label: l10n.proposalFlow_status_pendingFunding,
+        iconBg: ambreSoft,
+        iconColor: ambre,
+        badgeBg: ambreSoft,
+        badgeText: ambre,
       );
     case 'funded':
       return _StatusConfig(
-        icon: Icons.play_circle_outline,
-        label: 'Travail en cours',
-        iconBg: Colors.blue.shade100,
-        iconColor: Colors.blue.shade700,
-        badgeBg: Colors.blue.shade50,
-        badgeText: Colors.blue.shade800,
+        icon: Icons.play_circle_outline_rounded,
+        label: l10n.proposalFlow_status_funded,
+        iconBg: corailSoft,
+        iconColor: corail,
+        badgeBg: corailSoft,
+        badgeText: appColors?.primaryDeep ?? corail,
       );
     case 'submitted':
       return _StatusConfig(
-        icon: Icons.hourglass_top,
-        label: 'En attente de validation',
-        iconBg: Colors.indigo.shade100,
-        iconColor: Colors.indigo.shade700,
-        badgeBg: Colors.indigo.shade50,
-        badgeText: Colors.indigo.shade800,
+        icon: Icons.hourglass_top_rounded,
+        label: l10n.proposalFlow_status_submitted,
+        iconBg: ambreSoft,
+        iconColor: ambre,
+        badgeBg: ambreSoft,
+        badgeText: ambre,
       );
     case 'approved':
       return _StatusConfig(
-        icon: Icons.thumb_up_outlined,
-        label: 'Validé',
-        iconBg: Colors.green.shade100,
-        iconColor: Colors.green.shade700,
-        badgeBg: Colors.green.shade50,
-        badgeText: Colors.green.shade800,
+        icon: Icons.thumb_up_rounded,
+        label: l10n.proposalFlow_status_approved,
+        iconBg: sapinSoft,
+        iconColor: sapin,
+        badgeBg: sapinSoft,
+        badgeText: sapin,
       );
     case 'released':
       return _StatusConfig(
-        icon: Icons.check_circle,
-        label: 'Payé',
-        iconBg: Colors.green.shade100,
-        iconColor: Colors.green.shade700,
-        badgeBg: Colors.green.shade50,
-        badgeText: Colors.green.shade800,
+        icon: Icons.check_circle_rounded,
+        label: l10n.proposalFlow_status_released,
+        iconBg: sapinSoft,
+        iconColor: sapin,
+        badgeBg: sapinSoft,
+        badgeText: sapin,
       );
     case 'disputed':
       return _StatusConfig(
         icon: Icons.warning_amber_rounded,
-        label: 'En litige',
-        iconBg: Colors.orange.shade100,
-        iconColor: Colors.orange.shade700,
-        badgeBg: Colors.orange.shade50,
-        badgeText: Colors.orange.shade800,
+        label: l10n.proposalFlow_status_disputed,
+        iconBg: ambreSoft,
+        iconColor: ambre,
+        badgeBg: ambreSoft,
+        badgeText: ambre,
       );
     case 'cancelled':
       return _StatusConfig(
         icon: Icons.cancel_outlined,
-        label: 'Annulé',
-        iconBg: Colors.grey.shade200,
-        iconColor: Colors.grey.shade600,
-        badgeBg: Colors.grey.shade100,
-        badgeText: Colors.grey.shade700,
+        label: l10n.proposalFlow_status_cancelled,
+        iconBg: mutedSoft,
+        iconColor: muted,
+        badgeBg: mutedSoft,
+        badgeText: muted,
       );
     case 'refunded':
       return _StatusConfig(
-        icon: Icons.replay,
-        label: 'Remboursé',
-        iconBg: Colors.pink.shade100,
-        iconColor: Colors.pink.shade700,
-        badgeBg: Colors.pink.shade50,
-        badgeText: Colors.pink.shade800,
+        icon: Icons.replay_rounded,
+        label: l10n.proposalFlow_status_refunded,
+        iconBg: corailSoft,
+        iconColor: appColors?.primaryDeep ?? corail,
+        badgeBg: corailSoft,
+        badgeText: appColors?.primaryDeep ?? corail,
       );
     default:
       return _StatusConfig(
         icon: Icons.circle_outlined,
         label: status,
-        iconBg: Colors.grey.shade200,
-        iconColor: Colors.grey.shade600,
-        badgeBg: Colors.grey.shade100,
-        badgeText: Colors.grey.shade700,
+        iconBg: mutedSoft,
+        iconColor: muted,
+        badgeBg: mutedSoft,
+        badgeText: muted,
       );
   }
 }
