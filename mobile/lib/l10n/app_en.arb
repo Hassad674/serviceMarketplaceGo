@@ -1011,6 +1011,32 @@
   "teamRoleMember": "Member",
   "teamRoleViewer": "Viewer",
 
+  "teamW22Eyebrow": "ATELIER · TEAM",
+  "teamW22TitleLead": "Your",
+  "teamW22TitleAccent": "teammates and permissions",
+  "teamW22Subtitle": "Run your organization: invite, adjust roles, hand over the wheel when it's time.",
+  "teamMembersCount": "{count, plural, =0{No members} =1{1 member} other{{count} members}}",
+  "@teamMembersCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "freelancesSearchM12Eyebrow": "ATELIER · TALENT",
+  "freelancesSearchM12TitleLead": "Find the",
+  "freelancesSearchM12TitleAccent": "very best talent",
+  "freelancesSearchM12Subtitle": "Build your team with vetted freelancers. Search by skill, city, or availability.",
+  "freelancesSearchM12SearchHint": "Search a freelancer, a skill, a city…",
+  "freelancesSearchM12Filters": "Filters",
+  "freelancesSearchM12FilterExpertise": "Expertise",
+  "freelancesSearchM12FilterLocation": "Location",
+  "freelancesSearchM12FilterRate": "Rate",
+  "freelancesSearchM12FilterAvailability": "Availability",
+  "freelancesSearchM12EmptyTitle": "No talent yet",
+  "freelancesSearchM12EmptyDescription": "Adjust your search or reset the filters to discover more profiles.",
+  "freelancesSearchM12EmptyCta": "Reset filters",
+  "freelancesSearchM12ErrorTitle": "Something went wrong",
+  "freelancesSearchM12ErrorDescription": "Couldn't load profiles. Pull to refresh or try again.",
+  "freelancesSearchM12RetryCta": "Try again",
+
   "expertiseSectionTitle": "Areas of expertise",
   "expertiseSectionSubtitle": "Pick up to {max} domains that showcase what you do best",
   "@expertiseSectionSubtitle": {

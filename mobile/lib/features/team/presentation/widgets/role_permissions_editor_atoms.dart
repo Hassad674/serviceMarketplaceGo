@@ -70,7 +70,7 @@ class _PermissionRow extends StatelessWidget {
           Switch.adaptive(
             value: effectiveGranted,
             onChanged: canEdit ? (_) => onToggle() : null,
-            activeThumbColor: AppPalette.rose600,
+            activeThumbColor: theme.colorScheme.primary,
           ),
         ],
       ),
@@ -85,26 +85,27 @@ class _StateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final label = granted
         ? l10n.teamRolePermissionsStateGrantedOverride
         : l10n.teamRolePermissionsStateRevokedOverride;
-    final color =
-        granted ? AppPalette.emerald600 : AppPalette.red600;
-    final background =
-        granted ? AppPalette.emerald100 : AppPalette.red100;
+    final color = granted ? colors.success : colors.primaryDeep;
+    final background = granted ? colors.successSoft : colors.accentSoft;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: SoleilTextStyles.mono.copyWith(
           color: color,
           fontSize: 10,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );
@@ -118,18 +119,21 @@ class _PendingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: AppPalette.amber100,
-        borderRadius: BorderRadius.circular(999),
+        color: colors.amberSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppPalette.amber700,
+        style: SoleilTextStyles.mono.copyWith(
+          color: colors.warning,
           fontSize: 11,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );
@@ -153,12 +157,14 @@ class _SaveBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: const Border(
-          top: BorderSide(color: AppPalette.slate200),
+        color: colorScheme.surfaceContainerLowest,
+        border: Border(
+          top: BorderSide(color: colors.border),
         ),
       ),
       child: Row(
@@ -166,8 +172,9 @@ class _SaveBar extends StatelessWidget {
           Expanded(
             child: Text(
               l10n.teamRolePermissionsPending(pendingCount),
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: SoleilTextStyles.body.copyWith(
                 fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
               ),
             ),
           ),
@@ -177,17 +184,22 @@ class _SaveBar extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              shape: const StadiumBorder(),
+            ),
             onPressed: onSave,
             icon: saving
-                ? const SizedBox(
+                ? SizedBox(
                     height: 16,
                     width: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                     ),
                   )
-                : const Icon(Icons.check, size: 18),
+                : const Icon(Icons.check_rounded, size: 16),
             label: Text(l10n.teamRolePermissionsSave),
           ),
         ],
@@ -206,34 +218,33 @@ class _OwnerExclusiveSection extends StatelessWidget {
     if (cells.isEmpty) return const SizedBox.shrink();
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppPalette.neutral50,
-        border: Border.all(
-          color: appColors?.border ?? theme.dividerColor,
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: colors.muted,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.lock_outline,
-                color: AppPalette.slate500,
+              Icon(
+                Icons.lock_outline_rounded,
+                color: colorScheme.onSurfaceVariant,
                 size: 16,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   l10n.teamRolePermissionsOwnerExclusiveTitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: SoleilTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -242,8 +253,10 @@ class _OwnerExclusiveSection extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             l10n.teamRolePermissionsOwnerExclusiveDescription,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: appColors?.mutedForeground,
+            style: SoleilTextStyles.body.copyWith(
+              fontSize: 12.5,
+              fontStyle: FontStyle.italic,
+              color: colorScheme.onSurfaceVariant,
               height: 1.4,
             ),
           ),
@@ -254,12 +267,17 @@ class _OwnerExclusiveSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('•  ', style: TextStyle(fontSize: 12)),
+                  Text(
+                    '•  ',
+                    style: SoleilTextStyles.caption.copyWith(
+                      color: colors.subtleForeground,
+                    ),
+                  ),
                   Expanded(
                     child: Text(
                       cell.label.isNotEmpty ? cell.label : cell.key,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
+                      style: SoleilTextStyles.caption.copyWith(
+                        color: colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -279,30 +297,33 @@ class _RoleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final IconData icon;
     final Color background;
     final Color foreground;
     switch (role) {
       case 'owner':
         icon = Icons.workspace_premium_outlined;
-        background = AppPalette.amber100;
-        foreground = AppPalette.amber700;
+        background = colors.amberSoft;
+        foreground = colors.warning;
         break;
       case 'admin':
         icon = Icons.shield_outlined;
-        background = AppPalette.violet100;
-        foreground = AppPalette.violet700;
+        background = colors.accentSoft;
+        foreground = colors.primaryDeep;
         break;
       case 'member':
         icon = Icons.person_outline;
-        background = AppPalette.blue100;
-        foreground = AppPalette.blue700;
+        background = colors.successSoft;
+        foreground = colors.success;
         break;
       case 'viewer':
       default:
         icon = Icons.visibility_outlined;
-        background = AppPalette.slate200;
-        foreground = AppPalette.slate700;
+        background = colorScheme.surface;
+        foreground = colorScheme.onSurfaceVariant;
         break;
     }
     return Container(
@@ -355,25 +376,26 @@ class _ErrorCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppPalette.red50,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: AppPalette.red300),
+        color: colors.accentSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: colors.primaryDeep.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppPalette.red600,
+          Icon(
+            Icons.error_outline_rounded,
+            color: colors.primaryDeep,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               l10n.teamRolePermissionsLoadError,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppPalette.red700,
+              style: SoleilTextStyles.body.copyWith(
+                color: colors.primaryDeep,
                 fontWeight: FontWeight.w600,
               ),
             ),

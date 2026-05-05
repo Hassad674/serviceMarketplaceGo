@@ -4,9 +4,8 @@ import { Loader2, X, LogOut } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useLeaveOrganization } from "../hooks/use-team"
 
-import { Button } from "@/shared/components/ui/button"
-// Self-leave confirmation dialog. On success we hard-redirect to
-// /dashboard — the user's session has been invalidated (operator
+// Soleil v2 — Leave organization dialog. On success we hard-redirect
+// to "/" — the user's session has been invalidated (operator
 // accounts are deleted entirely) so a re-auth may be required.
 
 type LeaveOrgDialogProps = {
@@ -32,57 +31,63 @@ export function LeaveOrgDialog({ open, onClose, orgID }: LeaveOrgDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(42,31,21,0.45)] p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 animate-scale-in"
+        className="animate-scale-in w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card-strong)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <LogOut className="h-5 w-5 text-rose-500" />
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary-deep)]"
+            >
+              <LogOut className="h-5 w-5" strokeWidth={1.8} />
+            </span>
+            <h3 className="font-serif text-[20px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
               {t("leaveTitle")}
             </h3>
           </div>
-          <Button variant="ghost" size="auto"
+          <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
+            aria-label={t("cancel")}
+            className="rounded-full p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--foreground)]"
           >
-            <X className="h-5 w-5 text-slate-400" />
-          </Button>
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <p className="text-sm text-slate-600 dark:text-slate-300">
+        <p className="font-serif text-[14px] italic text-[var(--muted-foreground)]">
           {t("leaveConfirm")}
         </p>
 
         {mutation.isError && (
-          <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">
+          <p className="mt-3 rounded-xl border border-[var(--primary-soft)] bg-[var(--primary-soft)] px-3 py-2 text-[13px] text-[var(--primary-deep)]">
             {t("errors.leaveFailed")}
           </p>
         )}
 
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" size="auto"
+        <div className="mt-6 flex justify-end gap-2">
+          <button
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[13px] font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--background)] disabled:opacity-50"
           >
             {t("cancel")}
-          </Button>
-          <Button variant="ghost" size="auto"
+          </button>
+          <button
             type="button"
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2 text-[13px] font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-message)] transition-colors hover:bg-[var(--primary-deep)] disabled:opacity-50"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("leaveConfirmButton")}
-          </Button>
+          </button>
         </div>
       </div>
     </div>

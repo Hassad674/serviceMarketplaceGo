@@ -1004,6 +1004,32 @@
   "teamRoleMember": "Membre",
   "teamRoleViewer": "Observateur",
 
+  "teamW22Eyebrow": "ATELIER · ÉQUIPE",
+  "teamW22TitleLead": "Tes",
+  "teamW22TitleAccent": "coéquipiers et permissions",
+  "teamW22Subtitle": "Pilote ton organisation : invite, ajuste les rôles, transfère la barre quand il faut.",
+  "teamMembersCount": "{count, plural, =0{Aucun membre} =1{1 membre} other{{count} membres}}",
+  "@teamMembersCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "freelancesSearchM12Eyebrow": "ATELIER · TALENTS",
+  "freelancesSearchM12TitleLead": "Trouve les",
+  "freelancesSearchM12TitleAccent": "meilleurs talents",
+  "freelancesSearchM12Subtitle": "Compose ton équipe avec des freelances vérifiés. Recherche par compétence, ville ou disponibilité.",
+  "freelancesSearchM12SearchHint": "Rechercher un freelance, une compétence, une ville…",
+  "freelancesSearchM12Filters": "Filtres",
+  "freelancesSearchM12FilterExpertise": "Expertise",
+  "freelancesSearchM12FilterLocation": "Localisation",
+  "freelancesSearchM12FilterRate": "Tarif",
+  "freelancesSearchM12FilterAvailability": "Disponibilité",
+  "freelancesSearchM12EmptyTitle": "Pas encore de talents",
+  "freelancesSearchM12EmptyDescription": "Affine ta recherche ou réinitialise les filtres pour découvrir plus de profils.",
+  "freelancesSearchM12EmptyCta": "Réinitialiser",
+  "freelancesSearchM12ErrorTitle": "Petit pépin",
+  "freelancesSearchM12ErrorDescription": "Impossible de charger les profils. Tire pour rafraîchir ou réessaie.",
+  "freelancesSearchM12RetryCta": "Réessayer",
+
   "expertiseSectionTitle": "Domaines d'expertise",
   "expertiseSectionSubtitle": "Choisissez jusqu'à {max} domaines qui mettent en valeur votre savoir-faire",
   "@expertiseSectionSubtitle": {
