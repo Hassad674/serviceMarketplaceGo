@@ -4,11 +4,11 @@ import 'package:intl/intl.dart';
 import '../../../../core/data/stripe_countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'billing_form_atoms.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// "Pays" dropdown — every Stripe-supported country grouped by region.
-/// Region headers render as disabled visual separators (Flutter has no
-/// native optgroup concept on `DropdownButtonFormField`).
+/// Soleil v2 "Pays" dropdown — every Stripe-supported country grouped
+/// by region. Region headers render as disabled visual separators
+/// (Flutter has no native optgroup concept on
+/// `DropdownButtonFormField`).
 class BillingCountryDropdown extends StatelessWidget {
   const BillingCountryDropdown({
     super.key,
@@ -21,6 +21,7 @@ class BillingCountryDropdown extends StatelessWidget {
 
   List<DropdownMenuItem<String>> _buildItems(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final items = <DropdownMenuItem<String>>[];
     for (final region in kStripeRegionOrder) {
       final entries = stripeCountriesByRegion(region);
@@ -31,10 +32,11 @@ class BillingCountryDropdown extends StatelessWidget {
           value: '__header_${region.name}',
           child: Text(
             kStripeRegionLabelsFr[region]!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+            style: SoleilTextStyles.mono.copyWith(
+              color: colorScheme.primary,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
             ),
           ),
         ),
@@ -43,7 +45,12 @@ class BillingCountryDropdown extends StatelessWidget {
         items.add(
           DropdownMenuItem<String>(
             value: c.code,
-            child: Text('${c.flag}  ${c.labelFr}'),
+            child: Text(
+              '${c.flag}  ${c.labelFr}',
+              style: SoleilTextStyles.body.copyWith(
+                color: colorScheme.onSurface,
+              ),
+            ),
           ),
         );
       }
@@ -56,12 +63,9 @@ class BillingCountryDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value.isEmpty ? null : value,
       isExpanded: true,
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         isDense: true,
         hintText: '— Sélectionne ton pays —',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        ),
       ),
       items: _buildItems(context),
       onChanged: onChanged,
@@ -71,8 +75,9 @@ class BillingCountryDropdown extends StatelessWidget {
   }
 }
 
-/// "Numéro de TVA intracommunautaire" row — input + validate button +
-/// optional success line ("Validé le ... ") and error chip.
+/// Soleil v2 "Numéro de TVA intracommunautaire" row — labelled input,
+/// validate pill button, optional sapin success line ("Validé le ...")
+/// and corail-deep error chip.
 class BillingVatRow extends StatelessWidget {
   const BillingVatRow({
     super.key,
@@ -94,6 +99,10 @@ class BillingVatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    final success = appColors?.success ?? colorScheme.primary;
+    final canTap = !validating && controller.text.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -102,32 +111,44 @@ class BillingVatRow extends StatelessWidget {
           controller: controller,
           hint: 'FR12345678901',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
-            onPressed: validating || controller.text.trim().isEmpty
-                ? null
-                : onValidate,
+            onPressed: canTap ? onValidate : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              foregroundColor: colorScheme.onSurface,
+              side: BorderSide(
+                color: appColors?.borderStrong ?? theme.dividerColor,
+              ),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button.copyWith(fontSize: 12.5),
+            ),
             icon: validating
-                ? const SizedBox(
+                ? SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
                   )
-                : const Icon(Icons.check_circle_outline, size: 16),
+                : Icon(
+                    Icons.check_circle_outline,
+                    size: 14,
+                    color: colorScheme.primary,
+                  ),
             label: const Text('Valider mon n° TVA'),
           ),
         ),
         if (validatedAt != null && error == null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(
-                Icons.check_circle,
-                size: 14,
-                color: AppPalette.green500,
-              ),
+              Icon(Icons.check_circle, size: 14, color: success),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -135,29 +156,24 @@ class BillingVatRow extends StatelessWidget {
                       ? '$registeredName · validé le '
                           '${DateFormat('dd/MM/yyyy').format(validatedAt!)}'
                       : 'Validé le ${DateFormat('dd/MM/yyyy').format(validatedAt!)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppPalette.green700,
-                  ),
+                  style: SoleilTextStyles.caption.copyWith(color: success),
                 ),
               ),
             ],
           ),
         ],
         if (error != null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Icon(
-                Icons.cancel,
-                size: 14,
-                color: theme.colorScheme.error,
-              ),
+              Icon(Icons.cancel, size: 14, color: colorScheme.error),
               const SizedBox(width: 6),
-              Text(
-                error!,
-                style: TextStyle(
-                  color: theme.colorScheme.error,
-                  fontSize: 12,
+              Expanded(
+                child: Text(
+                  error!,
+                  style: SoleilTextStyles.caption.copyWith(
+                    color: colorScheme.error,
+                  ),
                 ),
               ),
             ],
@@ -168,8 +184,8 @@ class BillingVatRow extends StatelessWidget {
   }
 }
 
-/// "Identifiants fiscaux" section — SIRET (FR) or generic tax id (other),
-/// optional VAT row when the country is in the EU.
+/// Soleil v2 "Identifiants fiscaux" section — SIRET (FR) or generic
+/// tax id (other), optional VAT row when the country is in the EU.
 class BillingFiscalSection extends StatelessWidget {
   const BillingFiscalSection({
     super.key,
@@ -216,7 +232,7 @@ class BillingFiscalSection extends StatelessWidget {
               controller: taxId,
             ),
           if (isEu) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             BillingVatRow(
               controller: vatNumber,
               validatedAt: vatValidatedAt,

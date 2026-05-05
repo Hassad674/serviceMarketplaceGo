@@ -5,10 +5,9 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/missing_field.dart';
 import '_missing_fields_copy.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Opens the gate modal explaining that the billing profile is
-/// incomplete and routing to `/settings/billing-profile`.
+/// Soleil v2 — opens the gate modal explaining that the billing
+/// profile is incomplete and routing to `/settings/billing-profile`.
 ///
 /// Mirrors the web `BillingProfileCompletionModal`: same title, same
 /// FR copies, same primary CTA. Implemented as a bottom-sheet here
@@ -32,10 +31,10 @@ Future<void> showBillingProfileCompletionModal(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
-        top: Radius.circular(AppTheme.radiusLg),
+        top: Radius.circular(AppTheme.radius2xl),
       ),
     ),
     builder: (_) => _BillingProfileCompletionSheet(
@@ -60,7 +59,11 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final appColors = theme.extension<AppColors>();
+    final amberSoft =
+        appColors?.amberSoft ?? colorScheme.surfaceContainerHigh;
+    final warning = appColors?.warning ?? colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Column(
@@ -72,35 +75,44 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: appColors?.mutedForeground.withValues(alpha: 0.3) ??
-                    theme.dividerColor,
+                color: (appColors?.border ?? theme.dividerColor)
+                    .withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          Text(
+            'ATELIER · PROFIL DE FACTURATION',
+            style: SoleilTextStyles.mono.copyWith(
+              color: colorScheme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             'Complète ton profil de facturation pour continuer',
-            style: theme.textTheme.titleLarge,
+            style: SoleilTextStyles.titleLarge.copyWith(
+              color: colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppPalette.orange50, // amber-50
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(
-                color: AppPalette.amber300, // amber-300
-                width: 1,
-              ),
+              color: amberSoft,
+              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+              border: Border.all(color: warning.withValues(alpha: 0.4)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.warning_amber_rounded,
                   size: 18,
-                  color: AppPalette.amber800, // amber-800
+                  color: warning,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -109,8 +121,8 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                         'Avant de pouvoir effectuer cette opération, '
                             'complète les informations suivantes. Elles '
                             'apparaîtront sur tes factures.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.amber800,
+                    style: SoleilTextStyles.body.copyWith(
+                      color: colorScheme.onSurface,
                       fontSize: 13,
                     ),
                   ),
@@ -123,16 +135,28 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
             Text(
               'Quelques informations restent à compléter sur ton profil '
               'de facturation.',
-              style: theme.textTheme.bodyMedium,
+              style: SoleilTextStyles.bodyLarge.copyWith(
+                color: colorScheme.onSurface,
+              ),
             )
           else
             _MissingList(fields: missingFields),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    foregroundColor: colorScheme.onSurface,
+                    side: BorderSide(
+                      color:
+                          appColors?.borderStrong ?? theme.dividerColor,
+                    ),
+                    shape: const StadiumBorder(),
+                    textStyle: SoleilTextStyles.button,
+                  ),
                   child: const Text('Plus tard'),
                 ),
               ),
@@ -154,11 +178,12 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward, size: 16),
                   label: const Text('Compléter mon profil'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppPalette.rose500,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                    ),
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    minimumSize: const Size(0, 48),
+                    shape: const StadiumBorder(),
+                    textStyle: SoleilTextStyles.button,
+                    elevation: 0,
                   ),
                 ),
               ),
@@ -178,6 +203,7 @@ class _MissingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: fields.map((field) {
@@ -191,15 +217,17 @@ class _MissingList extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 7, right: 10),
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
-                  color: AppPalette.rose500,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
                   shape: BoxShape.circle,
                 ),
               ),
               Expanded(
                 child: Text(
                   label,
-                  style: theme.textTheme.bodyMedium,
+                  style: SoleilTextStyles.bodyLarge.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
             ],

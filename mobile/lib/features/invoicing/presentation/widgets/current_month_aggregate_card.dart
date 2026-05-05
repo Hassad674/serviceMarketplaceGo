@@ -5,15 +5,20 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/current_month_aggregate.dart';
 import '../providers/invoicing_providers.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Compact card showing the running fee total for the current billing
-/// month. Sits above the wallet's withdraw block so providers always
-/// know how much commission is being accrued.
+/// Compact Soleil v2 card showing the running fee total for the current
+/// billing month. Sits above the wallet's withdraw block so providers
+/// always know how much commission is being accrued.
 ///
-/// Mirrors the web `CurrentMonthAggregate` component: header with
-/// rose icon + period range, total line, and an expander revealing
-/// each milestone fee row.
+/// Soleil grammar:
+///   - ivoire surface card with subtle border, calm shadow.
+///   - corail-soft icon disc + Geist Mono "MOIS EN COURS" eyebrow.
+///   - Geist Mono running total, plural-aware milestone count.
+///   - "Voir le détail" expander reveals one row per delivered milestone.
+///
+/// Strings stay hardcoded to match the existing widget tests (off-limits)
+/// which query "Mois en cours" / "Aucun jalon livré ce mois-ci." /
+/// "Voir le détail" / "jalons livrés" via `find.text`.
 class CurrentMonthAggregateCard extends ConsumerStatefulWidget {
   const CurrentMonthAggregateCard({super.key});
 
@@ -38,15 +43,18 @@ class _CurrentMonthAggregateCardState
 
   Widget _buildCard(CurrentMonthAggregate data) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
     final isEmpty = data.milestoneCount == 0;
+    final primary = colorScheme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
+          color: appColors?.border ?? theme.dividerColor,
         ),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -54,47 +62,79 @@ class _CurrentMonthAggregateCardState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: AppPalette.rose100,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  color: appColors?.accentSoft ?? colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.calendar_today_rounded,
-                  size: 18,
-                  color: AppPalette.rose700,
+                  size: 20,
+                  color: primary,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      'ATELIER · MOIS EN COURS',
+                      style: SoleilTextStyles.mono.copyWith(
+                        color: primary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Title kept as "Mois en cours" so the existing
+                    // widget test (`find.text('Mois en cours')`) keeps
+                    // matching. Rendered in Fraunces for the editorial
+                    // tone.
+                    Text(
                       'Mois en cours',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: SoleilTextStyles.titleMedium.copyWith(
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Du ${_formatDate(data.periodStart)} au '
                       '${_formatDate(data.periodEnd)}',
-                      style: theme.textTheme.bodySmall,
+                      style: SoleilTextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
+              if (!isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 2),
+                  child: Text(
+                    _formatCurrency(data.totalFeeCents),
+                    style: SoleilTextStyles.monoLarge.copyWith(
+                      color: colorScheme.onSurface,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           if (isEmpty)
             Text(
               'Aucun jalon livré ce mois-ci.',
-              style: theme.textTheme.bodyMedium,
+              style: SoleilTextStyles.bodyLarge.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
             )
           else ...[
             _Total(
@@ -102,38 +142,13 @@ class _CurrentMonthAggregateCardState
               totalFeeCents: data.totalFeeCents,
             ),
             if (data.lines.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              InkWell(
+              const SizedBox(height: 12),
+              _ExpanderPill(
+                expanded: _expanded,
                 onTap: () => setState(() => _expanded = !_expanded),
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _expanded ? 'Masquer le détail' : 'Voir le détail',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppPalette.rose700,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _expanded ? Icons.expand_less : Icons.expand_more,
-                        size: 18,
-                        color: AppPalette.rose700,
-                      ),
-                    ],
-                  ),
-                ),
               ),
               if (_expanded) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _LineList(lines: data.lines),
               ],
             ],
@@ -144,6 +159,7 @@ class _CurrentMonthAggregateCardState
   }
 }
 
+/// Plural-aware total line: "<n> jalon(s) livré(s) · <amount> de commission".
 class _Total extends StatelessWidget {
   const _Total({
     required this.milestoneCount,
@@ -156,25 +172,83 @@ class _Total extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final word = milestoneCount > 1 ? 'jalons livrés' : 'jalon livré';
+    final body = SoleilTextStyles.body.copyWith(color: colorScheme.onSurface);
+    final mute =
+        SoleilTextStyles.body.copyWith(color: colorScheme.onSurfaceVariant);
+    final mono = SoleilTextStyles.mono.copyWith(
+      color: colorScheme.onSurface,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.4,
+    );
     return RichText(
       text: TextSpan(
-        style: theme.textTheme.bodyMedium,
+        style: body,
         children: [
           TextSpan(
             text: '$milestoneCount ',
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: body.copyWith(fontWeight: FontWeight.w600),
           ),
-          TextSpan(text: '$word · '),
           TextSpan(
-            text: _formatCurrency(totalFeeCents),
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
-            ),
+            text: '$word · ',
+            style: body.copyWith(fontWeight: FontWeight.w600),
           ),
-          const TextSpan(text: ' de commission'),
+          TextSpan(text: _formatCurrency(totalFeeCents), style: mono),
+          TextSpan(text: ' de commission', style: mute),
         ],
+      ),
+    );
+  }
+}
+
+/// "Voir le détail" pill — bordered stadium with chevron, no fill so the
+/// card stays calm.
+class _ExpanderPill extends StatelessWidget {
+  const _ExpanderPill({required this.expanded, required this.onTap});
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest,
+            border: Border.all(
+              color: appColors?.border ?? theme.dividerColor,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                expanded ? 'Masquer le détail' : 'Voir le détail',
+                style: SoleilTextStyles.bodyEmphasis.copyWith(
+                  color: colorScheme.onSurface,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: colorScheme.onSurface,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -188,12 +262,14 @@ class _LineList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
+          color: appColors?.border ?? theme.dividerColor,
         ),
       ),
       child: Column(
@@ -202,7 +278,8 @@ class _LineList extends StatelessWidget {
             if (i > 0)
               Divider(
                 height: 1,
-                color: theme.dividerColor.withValues(alpha: 0.3),
+                color: (appColors?.border ?? theme.dividerColor)
+                    .withValues(alpha: 0.6),
               ),
             _LineRow(line: lines[i]),
           ],
@@ -220,8 +297,9 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           Expanded(
@@ -230,22 +308,29 @@ class _LineRow extends StatelessWidget {
               children: [
                 Text(
                   'Livré le ${_formatDate(line.releasedAt)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  style: SoleilTextStyles.body.copyWith(
+                    color: colorScheme.onSurface,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   'Sur ${_formatCurrency(line.proposalAmountCents)} de prestation',
-                  style: theme.textTheme.bodySmall,
+                  style: SoleilTextStyles.caption.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ),
           Text(
             _formatCurrency(line.platformFeeCents),
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
+            style: SoleilTextStyles.mono.copyWith(
+              color: colorScheme.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
             ),
           ),
         ],
@@ -254,20 +339,25 @@ class _LineRow extends StatelessWidget {
   }
 }
 
+/// Loading placeholder — same shape as the loaded card, no spinner so
+/// the content pop-in stays calm.
 class _Skeleton extends StatelessWidget {
   const _Skeleton();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
     return Container(
-      height: 92,
+      height: 108,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
+          color: appColors?.border ?? theme.dividerColor,
         ),
+        boxShadow: AppTheme.cardShadow,
       ),
     );
   }

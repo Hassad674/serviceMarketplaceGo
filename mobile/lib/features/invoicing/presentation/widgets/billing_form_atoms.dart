@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Visual section card with a bold title, optional subtitle, and an
-/// arbitrary [child] body. Shared by every section of the billing form.
+/// Soleil v2 visual section card with a Fraunces title, optional
+/// caption subtitle, and an arbitrary [child] body. Shared by every
+/// section of the billing form.
 class BillingSection extends StatelessWidget {
   const BillingSection({
     super.key,
@@ -20,13 +20,15 @@ class BillingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
+          color: appColors?.border ?? theme.dividerColor,
         ),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -35,20 +37,20 @@ class BillingSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+            style: SoleilTextStyles.titleMedium.copyWith(
+              color: colorScheme.onSurface,
             ),
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              style: SoleilTextStyles.body.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),
@@ -57,7 +59,9 @@ class BillingSection extends StatelessWidget {
 }
 
 /// Single labelled `TextFormField` row — the universal input used by
-/// every section of the billing form.
+/// every section of the billing form. Border, fill, focus ring, and
+/// hint colors come from the global Soleil `inputDecorationTheme`, so
+/// the field gets the corail focus ring out of the box.
 class BillingLabeledField extends StatelessWidget {
   const BillingLabeledField({
     super.key,
@@ -79,13 +83,15 @@ class BillingLabeledField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
+          style: SoleilTextStyles.bodyEmphasis.copyWith(
+            color: colorScheme.onSurface,
+            fontSize: 13,
           ),
         ),
         const SizedBox(height: 6),
@@ -94,13 +100,13 @@ class BillingLabeledField extends StatelessWidget {
           keyboardType: keyboardType,
           maxLength: maxLength,
           validator: validator,
+          style: SoleilTextStyles.body.copyWith(
+            color: colorScheme.onSurface,
+          ),
           decoration: InputDecoration(
             isDense: true,
             counterText: '',
             hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
           ),
         ),
       ],
@@ -108,7 +114,7 @@ class BillingLabeledField extends StatelessWidget {
   }
 }
 
-/// Single radio tile (label + check icon + rose-tinted selected state)
+/// Single radio tile (label + check icon + corail-soft selected state)
 /// used by [BillingProfileTypeRadio]. Exposed publicly for tests.
 class BillingRadioTile extends StatelessWidget {
   const BillingRadioTile({
@@ -125,19 +131,26 @@ class BillingRadioTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    final selectedBg =
+        appColors?.accentSoft ?? colorScheme.primaryContainer;
+    final selectedFg = colorScheme.primary;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected
-              ? AppPalette.rose100
-              : theme.colorScheme.surface,
+              ? selectedBg
+              : colorScheme.surfaceContainerLowest,
           border: Border.all(
-            color: selected ? AppPalette.rose500 : theme.dividerColor,
+            color: selected
+                ? selectedFg
+                : (appColors?.border ?? theme.dividerColor),
           ),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         ),
         child: Row(
           children: [
@@ -147,18 +160,18 @@ class BillingRadioTile extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               size: 18,
               color: selected
-                  ? AppPalette.rose500
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ? selectedFg
+                  : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 10),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              style: SoleilTextStyles.bodyEmphasis.copyWith(
                 color: selected
-                    ? AppPalette.rose700
-                    : theme.colorScheme.onSurface,
+                    ? selectedFg
+                    : colorScheme.onSurface,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],
