@@ -320,6 +320,18 @@ abstract class AppLocalizations {
   /// **'Welcome back,'**
   String get welcomeBack;
 
+  /// No description provided for @loginTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back,'**
+  String get loginTitle;
+
+  /// No description provided for @loginSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to find your missions and conversations.'**
+  String get loginSubtitle;
+
   /// No description provided for @dashboard.
   ///
   /// In en, this message translates to:

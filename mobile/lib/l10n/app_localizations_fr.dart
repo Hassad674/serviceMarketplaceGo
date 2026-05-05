@@ -24,7 +24,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get email => 'Email';
 
   @override
-  String get emailHint => 'vous@exemple.com';
+  String get emailHint => 'vous@atelier.fr';
 
   @override
   String get password => 'Mot de passe';
@@ -122,6 +122,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get welcomeBack => 'Bonjour,';
+
+  @override
+  String get loginTitle => 'Bon retour parmi nous.';
+
+  @override
+  String get loginSubtitle =>
+      'Connectez-vous pour retrouver vos missions et conversations.';
 
   @override
   String get dashboard => 'Tableau de bord';
