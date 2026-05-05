@@ -4,13 +4,21 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState } from "react"
-import { Link, useRouter } from "@i18n/navigation"
-import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { useRouter } from "@i18n/navigation"
+import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
-import { Button } from "@/shared/components/ui/button"
 
-import { Input } from "@/shared/components/ui/input"
+// Step-2 enterprise form — visual port to Soleil v2.
+//
+// IMPORTANT (locked by the design batch contract):
+//   - The list of fields collected (display_name, email, password,
+//     confirm_password) is unchanged.
+//   - The zod schema and validation messages are unchanged.
+//   - The submit handler and redirect target are unchanged.
+//
+// Only the visual chrome moves — same primitive as login (raw `<input>`,
+// rounded-xl, focus ring on primary, corail submit pill).
 const enterpriseSchema = z
   .object({
     display_name: z.string().min(2, "Company name is required"),
@@ -30,6 +38,24 @@ const enterpriseSchema = z
   })
 
 type EnterpriseValues = z.infer<typeof enterpriseSchema>
+
+const inputBaseClasses = [
+  "block w-full rounded-xl border bg-card px-4 py-[13px] text-[14.5px] text-foreground",
+  "transition-colors duration-150 placeholder:text-subtle-foreground",
+  "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15",
+].join(" ")
+
+function inputStateClasses(hasError: boolean, padRight?: boolean): string {
+  return [
+    inputBaseClasses,
+    padRight ? "pr-11" : "",
+    hasError
+      ? "border-destructive focus:ring-destructive/15"
+      : "border-border-strong",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
 
 export function EnterpriseRegisterForm() {
   const router = useRouter()
@@ -65,130 +91,180 @@ export function EnterpriseRegisterForm() {
   }
 
   return (
-    <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <div className="rounded-2xl border border-border bg-card p-7 shadow-sm sm:p-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {error && (
-          <div role="alert" className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400">
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-primary-soft/40 p-3 text-sm text-destructive"
+          >
             {error}
           </div>
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="display_name"
+            className="block text-[13px] font-semibold text-foreground"
+          >
             {t("companyName")}
           </label>
-          <Input
+          <input
             id="display_name"
             type="text"
             autoComplete="organization"
             placeholder={t("companyNamePlaceholder")}
-            className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            aria-invalid={errors.display_name ? true : undefined}
+            aria-describedby={
+              errors.display_name ? "display_name-error" : "display_name-hint"
+            }
+            className={inputStateClasses(Boolean(errors.display_name))}
             {...registerField("display_name")}
           />
-          <p className="text-xs text-gray-400 dark:text-gray-500">{t("companyNameHint")}</p>
-          {errors.display_name && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.display_name.message}</p>
+          {errors.display_name?.message ? (
+            <p id="display_name-error" className="text-xs text-destructive">
+              {errors.display_name.message}
+            </p>
+          ) : (
+            <p id="display_name-hint" className="text-xs text-subtle-foreground">
+              {t("companyNameHint")}
+            </p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="email"
+            className="block text-[13px] font-semibold text-foreground"
+          >
             {t("email")}
           </label>
-          <Input
+          <input
             id="email"
             type="email"
             autoComplete="email"
             placeholder={t("enterpriseEmailPlaceholder")}
-            className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            className={inputStateClasses(Boolean(errors.email))}
             {...registerField("email")}
           />
-          {errors.email && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.email.message}</p>
+          {errors.email?.message && (
+            <p id="email-error" className="text-xs text-destructive">
+              {errors.email.message}
+            </p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="password"
+            className="block text-[13px] font-semibold text-foreground"
+          >
             {t("password")}
           </label>
           <div className="relative">
-            <Input
+            <input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("passwordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={
+                errors.password ? "password-error" : "password-hint"
+              }
+              className={inputStateClasses(Boolean(errors.password), true)}
               {...registerField("password")}
             />
-            <Button variant="ghost" size="auto"
+            <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-              aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label={
+                showPassword
+                  ? tCommon("hidePassword")
+                  : tCommon("showPassword")
+              }
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </Button>
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            {t("passwordHint")}
-          </p>
-          {errors.password && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.password.message}</p>
+          {errors.password?.message ? (
+            <p id="password-error" className="text-xs text-destructive">
+              {errors.password.message}
+            </p>
+          ) : (
+            <p id="password-hint" className="text-xs text-subtle-foreground">
+              {t("passwordHint")}
+            </p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="confirm_password"
+            className="block text-[13px] font-semibold text-foreground"
+          >
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <Input
+            <input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("confirmPasswordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              aria-invalid={errors.confirm_password ? true : undefined}
+              aria-describedby={
+                errors.confirm_password ? "confirm_password-error" : undefined
+              }
+              className={inputStateClasses(
+                Boolean(errors.confirm_password),
+                true,
+              )}
               {...registerField("confirm_password")}
             />
-            <Button variant="ghost" size="auto"
+            <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-              aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label={
+                showConfirm
+                  ? tCommon("hidePassword")
+                  : tCommon("showPassword")
+              }
             >
-              {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </Button>
+              {showConfirm ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
           </div>
-          {errors.confirm_password && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.confirm_password.message}</p>
+          {errors.confirm_password?.message && (
+            <p id="confirm_password-error" className="text-xs text-destructive">
+              {errors.confirm_password.message}
+            </p>
           )}
         </div>
 
-        <Button variant="primary" size="auto"
+        <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all disabled:opacity-50"
+          className={[
+            "mt-2 w-full rounded-full bg-primary px-4 py-3.5 text-[14.5px] font-semibold text-primary-foreground",
+            "transition-all duration-150 hover:bg-primary-deep active:scale-[0.99]",
+            "focus:outline-none focus:ring-4 focus:ring-primary/30",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          ].join(" ")}
+          style={{ boxShadow: "0 4px 14px rgba(232, 93, 74, 0.3)" }}
         >
           {isSubmitting ? t("signingUp") : t("createEnterpriseAccount")}
-        </Button>
+        </button>
       </form>
-
-      <div className="mt-6 flex flex-col items-center gap-3 text-sm">
-        <Link
-          href="/register"
-          className="inline-flex items-center gap-1.5 font-medium text-gray-600 dark:text-gray-400 transition-colors hover:text-gray-900 dark:hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("changeProfile")}
-        </Link>
-        <p className="text-gray-500 dark:text-gray-400">
-          {t("alreadyRegistered")}{" "}
-          <Link href="/login" className="font-medium text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300">
-            {tCommon("signIn")}
-          </Link>
-        </p>
-      </div>
     </div>
   )
 }
