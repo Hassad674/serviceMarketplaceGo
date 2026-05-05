@@ -8,7 +8,6 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
 import '../providers/team_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Banner shown at the TOP of the team screen whenever an ownership
 /// transfer is pending on the operator's organization.
@@ -207,8 +206,11 @@ class _PendingTransferBannerState extends ConsumerState<PendingTransferBanner> {
           FilledButton(
             style: destructive
                 ? FilledButton.styleFrom(
-                    backgroundColor: AppPalette.red600,
-                    foregroundColor: Colors.white,
+                    backgroundColor:
+                        Theme.of(dialogContext).colorScheme.primary,
+                    foregroundColor:
+                        Theme.of(dialogContext).colorScheme.onPrimary,
+                    shape: const StadiumBorder(),
                   )
                 : null,
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -239,6 +241,9 @@ class _TargetBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return _Shell(
       title: l10n.teamPendingTransferTargetTitle,
@@ -249,20 +254,21 @@ class _TargetBanner extends StatelessWidget {
           Expanded(
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.amber600,
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const StadiumBorder(),
               ),
               onPressed: busy ? null : onAccept,
               icon: busy
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 16,
                       width: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: colorScheme.onPrimary,
                       ),
                     )
-                  : const Icon(Icons.check, size: 18),
+                  : const Icon(Icons.check_rounded, size: 16),
               label: Text(l10n.teamPendingTransferAccept),
             ),
           ),
@@ -270,11 +276,12 @@ class _TargetBanner extends StatelessWidget {
           Expanded(
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppPalette.amber800,
-                side: const BorderSide(color: AppPalette.amber300),
+                foregroundColor: colorScheme.onSurface,
+                side: BorderSide(color: colors.borderStrong),
+                shape: const StadiumBorder(),
               ),
               onPressed: busy ? null : onDecline,
-              icon: const Icon(Icons.close, size: 18),
+              icon: const Icon(Icons.close_rounded, size: 16),
               label: Text(l10n.teamPendingTransferDecline),
             ),
           ),
@@ -297,6 +304,9 @@ class _InitiatorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return _Shell(
       title: l10n.teamPendingTransferInitiatorTitle,
@@ -306,17 +316,21 @@ class _InitiatorBanner extends StatelessWidget {
         alignment: Alignment.centerRight,
         child: OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppPalette.amber800,
-            side: const BorderSide(color: AppPalette.amber300),
+            foregroundColor: colorScheme.onSurface,
+            side: BorderSide(color: colors.borderStrong),
+            shape: const StadiumBorder(),
           ),
           onPressed: busy ? null : onCancel,
           icon: busy
-              ? const SizedBox(
+              ? SizedBox(
                   height: 14,
                   width: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
                 )
-              : const Icon(Icons.close, size: 16),
+              : const Icon(Icons.close_rounded, size: 14),
           label: Text(l10n.teamPendingTransferCancel),
         ),
       ),
@@ -357,58 +371,81 @@ class _Shell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final formattedExpiry = expiresAt != null
         ? '${expiresAt!.year.toString().padLeft(4, '0')}-${expiresAt!.month.toString().padLeft(2, '0')}-${expiresAt!.day.toString().padLeft(2, '0')}'
         : null;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppPalette.amber50, // amber-50
-        border: Border.all(color: AppPalette.amber300),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.amberSoft,
+            colors.accentSoft,
+          ],
+        ),
+        border: Border.all(color: colors.accentSoft),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.workspace_premium_outlined,
-                color: AppPalette.amber700,
-                size: 20,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLowest,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  color: colors.warning,
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppPalette.amber800,
-                    fontWeight: FontWeight.w700,
+                  style: SoleilTextStyles.titleLarge.copyWith(
+                    fontSize: 17,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             body,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppPalette.amber800,
+            style: SoleilTextStyles.body.copyWith(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           if (formattedExpiry != null) ...[
             const SizedBox(height: 4),
             Text(
               l10n.teamPendingTransferExpiresOn(formattedExpiry),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppPalette.amber800,
-                fontStyle: FontStyle.italic,
+              style: SoleilTextStyles.mono.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: colors.subtleForeground,
               ),
             ),
           ],
           if (child is! SizedBox) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             child,
           ],
         ],

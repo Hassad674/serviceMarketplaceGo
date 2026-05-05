@@ -17,22 +17,23 @@ class _HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
           Container(
-            height: 40,
-            width: 40,
-            decoration: const BoxDecoration(
-              color: AppPalette.rose100,
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: colors.accentSoft,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.auto_awesome_outlined,
-              color: AppPalette.rose600,
+              color: colorScheme.primary,
               size: 20,
             ),
           ),
@@ -43,15 +44,18 @@ class _HeaderSection extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: SoleilTextStyles.titleLarge.copyWith(
+                    fontSize: 17,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: appColors?.mutedForeground,
+                  style: SoleilTextStyles.body.copyWith(
+                    fontSize: 12.5,
+                    fontStyle: FontStyle.italic,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -72,20 +76,22 @@ class _ReadOnlyBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppPalette.blue50,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: AppPalette.blue200),
+        color: colors.muted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.info_outline,
-            color: AppPalette.blue700,
+          Icon(
+            Icons.info_outline_rounded,
+            color: colorScheme.onSurfaceVariant,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -95,16 +101,18 @@ class _ReadOnlyBanner extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: SoleilTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: AppPalette.blue900,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppPalette.blue800,
+                  style: SoleilTextStyles.body.copyWith(
+                    fontSize: 12.5,
+                    fontStyle: FontStyle.italic,
+                    color: colorScheme.onSurfaceVariant,
                     height: 1.4,
                   ),
                 ),
@@ -289,16 +297,18 @@ class _GroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 2),
       child: Text(
         _groupLabel(l10n, groupKey).toUpperCase(),
-        style: const TextStyle(
-          color: AppPalette.rose600,
+        style: SoleilTextStyles.mono.copyWith(
+          color: colors.subtleForeground,
           fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.7,
         ),
       ),
     );

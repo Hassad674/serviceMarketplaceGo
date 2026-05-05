@@ -8,7 +8,6 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Destructive confirmation dialog for `Remove member`.
 ///
@@ -88,31 +87,44 @@ class _RemoveMemberDialogState extends ConsumerState<RemoveMemberDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final displayName = widget.member.displayLabel(l10n.teamMemberFallbackName);
     return AlertDialog(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        side: BorderSide(color: colors.border),
       ),
-      icon: const CircleAvatar(
-        backgroundColor: AppPalette.red100,
-        child: Icon(Icons.person_remove_outlined, color: AppPalette.red600),
+      icon: CircleAvatar(
+        backgroundColor: colors.accentSoft,
+        child: Icon(Icons.person_remove_outlined, color: colors.primaryDeep),
       ),
-      title: Text(l10n.teamRemoveMemberDialogTitle),
+      title: Text(
+        l10n.teamRemoveMemberDialogTitle,
+        style: SoleilTextStyles.titleLarge.copyWith(
+          fontSize: 20,
+          color: colorScheme.onSurface,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.teamRemoveMemberConfirm(displayName),
-            style: theme.textTheme.bodyMedium,
+            style: SoleilTextStyles.body.copyWith(
+              fontSize: 13.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           if (_serverError != null) ...[
             const SizedBox(height: 12),
             Text(
               _serverError!,
-              style: const TextStyle(
-                color: AppPalette.red700,
-                fontSize: 13,
+              style: SoleilTextStyles.caption.copyWith(
+                color: colors.primaryDeep,
               ),
             ),
           ],
@@ -125,20 +137,21 @@ class _RemoveMemberDialogState extends ConsumerState<RemoveMemberDialog> {
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: AppPalette.red600,
-            foregroundColor: Colors.white,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            shape: const StadiumBorder(),
           ),
           onPressed: _submitting ? null : _confirm,
           icon: _submitting
-              ? const SizedBox(
+              ? SizedBox(
                   height: 16,
                   width: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                 )
-              : const Icon(Icons.delete_outline, size: 18),
+              : const Icon(Icons.delete_outline_rounded, size: 16),
           label: Text(l10n.teamRemoveMemberConfirmButton),
         ),
       ],

@@ -9,7 +9,6 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Modal that lets the current Owner pick an Admin to receive
 /// ownership. Eligible targets are members with `role == 'admin'`
@@ -49,6 +48,9 @@ class _TransferOwnershipDialogState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final currentUserId = ref.watch(currentUserIdProvider);
     final eligible = widget.members
@@ -56,9 +58,12 @@ class _TransferOwnershipDialogState
         .toList();
 
     return Dialog(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        side: BorderSide(color: colors.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -80,9 +85,8 @@ class _TransferOwnershipDialogState
                 const SizedBox(height: 12),
                 Text(
                   _serverError!,
-                  style: const TextStyle(
-                    color: AppPalette.red700,
-                    fontSize: 13,
+                  style: SoleilTextStyles.caption.copyWith(
+                    color: colors.primaryDeep,
                   ),
                 ),
               ],
@@ -133,6 +137,8 @@ class _TransferOwnershipDialogState
   }
 
   Widget _buildActions(AppLocalizations l10n, bool noEligible) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -143,22 +149,23 @@ class _TransferOwnershipDialogState
         const SizedBox(width: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: AppPalette.amber600,
-            foregroundColor: Colors.white,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            shape: const StadiumBorder(),
           ),
           onPressed: (_submitting || noEligible || _targetUserId == null)
               ? null
               : _submit,
           icon: _submitting
-              ? const SizedBox(
+              ? SizedBox(
                   height: 16,
                   width: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                 )
-              : const Icon(Icons.swap_horiz, size: 18),
+              : const Icon(Icons.swap_horiz_rounded, size: 16),
           label: Text(l10n.teamTransferConfirmButton),
         ),
       ],
@@ -216,19 +223,21 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Row(
       children: [
         Container(
-          height: 36,
-          width: 36,
-          decoration: const BoxDecoration(
-            color: AppPalette.amber100, // amber-100
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: colors.amberSoft,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
+          child: Icon(
             Icons.workspace_premium_outlined,
-            color: AppPalette.amber700, // amber-700
+            color: colors.warning,
             size: 18,
           ),
         ),
@@ -236,14 +245,15 @@ class _Header extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+            style: SoleilTextStyles.titleLarge.copyWith(
+              fontSize: 18,
+              color: colorScheme.onSurface,
             ),
           ),
         ),
         IconButton(
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-          icon: const Icon(Icons.close),
+          icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -258,28 +268,31 @@ class _WarningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.amber50, // amber-50
-        border: Border.all(color: AppPalette.amber300),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: colors.amberSoft,
+        border: Border.all(color: colors.amberSoft),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.warning_amber_outlined,
-            color: AppPalette.amber600,
+            color: colors.warning,
             size: 18,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: AppPalette.amber800,
+              style: SoleilTextStyles.body.copyWith(
                 fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: colors.warning,
               ),
             ),
           ),
@@ -297,18 +310,21 @@ class _EmptyEligible extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: appColors?.border ?? theme.dividerColor),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: colorScheme.surfaceContainerLowest,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Text(
         text,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: appColors?.mutedForeground,
+        style: SoleilTextStyles.body.copyWith(
+          fontSize: 13,
+          fontStyle: FontStyle.italic,
+          color: colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -333,24 +349,24 @@ class _TargetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
     final subtitle = member.title.isNotEmpty
         ? member.title
         : (member.user?.email ?? '');
     return InkWell(
       onTap: enabled ? onTap : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             Icon(
               selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
               size: 20,
               color: selected
-                  ? AppPalette.amber600
-                  : (appColors?.mutedForeground ?? Colors.grey),
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -359,16 +375,17 @@ class _TargetTile extends StatelessWidget {
                 children: [
                   Text(
                     member.displayLabel(fallbackName),
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: SoleilTextStyles.body.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: appColors?.mutedForeground,
+                      style: SoleilTextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],

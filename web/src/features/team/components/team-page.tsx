@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { UserPlus, LogOut, Users2 } from "lucide-react"
+import { UserPlus, LogOut, Users2, AlertTriangle } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useSession } from "@/shared/hooks/use-user"
 import { useTeamMembers, useTeamInvitations } from "../hooks/use-team"
@@ -15,25 +15,21 @@ import { LeaveOrgDialog } from "./leave-org-dialog"
 import { TeamPageSkeleton } from "./team-page-skeleton"
 import { RolePermissionsEditor } from "./role-permissions-editor"
 
-import { Button } from "@/shared/components/ui/button"
-// Client-side entry point for /team. Pulls the session slice (which
-// carries the current org + permissions + pending transfer) and
-// wires the three list views + all the action modals.
+// W-22 Team page — Soleil v2 visual port.
 //
-// Permission gates (all driven by organization.permissions string[]
-// which comes from the backend domain permission map):
-//   team.invite              → "Inviter" button + invitation actions
-//   team.manage              → member row dropdown (edit / remove)
-//   team.transfer_ownership  → "Transférer l'ownership" section
+// Editorial header (TeamHeader: corail eyebrow + Fraunces italic-corail
+// title + tabac subtitle), Soleil card sections for members/invitations,
+// rounded-2xl ivoire surfaces, corail-soft accents for the transfer
+// flow. ALL hooks/mutations/permission gates are unchanged — this is
+// purely a visual identity refit.
 //
-// The "Quitter l'organisation" button is gated on member_role, not
-// on a permission, because leaving is a self-action that the Owner
-// is the only role forbidden to perform.
-//
-// The "Rôles et permissions" section is shown to every team member —
-// the editor renders itself in read-only mode when the caller is not
-// the Owner (or during a pending ownership transfer). Owner-only
-// write enforcement lives in the backend service layer (R17).
+// Permission gates (driven by organization.permissions string[]):
+//   team.invite              -> "Inviter" CTA + invitation actions
+//   team.manage              -> member row dropdown
+//   team.transfer_ownership  -> Transfer ownership section
+// member_role drives Leave (Owner cannot leave; must transfer first).
+// Read-only mode of the role permissions editor is enforced backend-side
+// at the service layer — this UI only reflects the gate.
 
 export function TeamPage() {
   const t = useTranslations("team")
@@ -54,16 +50,20 @@ export function TeamPage() {
   }
 
   // No org means: solo Provider, unprovisioned account, or logged out.
-  // The sidebar link is role-gated so this is rare in practice —
-  // still, render a clean empty state instead of crashing.
+  // Render a Soleil empty state.
   if (!organization || !orgID) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-12 text-center">
-        <Users2 className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-        <h1 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-12 text-center shadow-[var(--shadow-card)]">
+        <span
+          aria-hidden="true"
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]"
+        >
+          <Users2 className="h-6 w-6" strokeWidth={1.6} />
+        </span>
+        <h1 className="mt-4 font-serif text-[20px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
           {t("noOrgTitle")}
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
           {t("noOrgDescription")}
         </p>
       </div>
@@ -80,10 +80,6 @@ export function TeamPage() {
   const members = membersData?.data ?? []
   const invitations = invitationsData?.data ?? []
 
-  // Pending transfer state — derived from the session payload which
-  // carries pending_transfer_* on the organization slice (added to
-  // OrganizationResponse in Phase 7). Undefined when no transfer is
-  // in flight.
   const pendingTransferToUserID = organization.pending_transfer_to_user_id
   const pendingTransferExpiresAt = organization.pending_transfer_expires_at
   const currentUserID = session?.user?.id
@@ -98,7 +94,7 @@ export function TeamPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {pendingTransferBannerRole && (
         <PendingTransferBanner
           orgID={orgID}
@@ -115,41 +111,33 @@ export function TeamPage() {
 
       {/* Members section + "Inviter" button when allowed */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--subtle-foreground)]">
             {t("sections.members")}
           </h2>
           {canInvite && !transferIsPending && (
-            <Button variant="ghost" size="auto"
+            <button
               type="button"
               onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-rose-600"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2 text-[13px] font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-message)] transition-colors hover:bg-[var(--primary-deep)]"
             >
-              <UserPlus className="h-4 w-4" />
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2} />
               {t("inviteButton")}
-            </Button>
+            </button>
           )}
         </div>
         <TeamMembersList orgID={orgID} members={members} canManage={canManage} />
       </section>
 
-      {/* Roles and permissions — unified reference + editor. Every
-          team member sees the matrix so they understand what each
-          role can actually do in this organization (including any
-          per-org customizations). Only the Owner can toggle the
-          switches and save — other members see the exact same UI in
-          read-only mode. The backend additionally enforces Owner-only
-          writes at the service layer so a compromised frontend cannot
-          bypass the gate (R17). */}
+      {/* Roles and permissions — always rendered; the editor is read-only
+          for non-Owners (and during a pending ownership transfer).
+          Backend enforces Owner-only writes at the service layer (R17). */}
       <RolePermissionsEditor orgID={orgID} readOnly={!isOwner || transferIsPending} />
 
-      {/* Pending invitations — only visible if there is at least one
-          or if the caller can invite (so Members/Viewers don't see
-          an empty "pending invitations" block that serves them no
-          purpose). */}
+      {/* Pending invitations — only render when relevant */}
       {(invitations.length > 0 || canInvite) && (
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--subtle-foreground)]">
             {t("sections.pendingInvitations")}
           </h2>
           <TeamInvitationsList
@@ -160,43 +148,52 @@ export function TeamPage() {
         </section>
       )}
 
-      {/* Ownership transfer — only visible if the caller is the Owner
-          and no transfer is already pending. */}
+      {/* Ownership transfer — only when caller is Owner and no transfer pending */}
       {canTransfer && !transferIsPending && (
-        <section className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 p-5">
-          <h2 className="text-base font-semibold text-amber-900 dark:text-amber-100">
-            {t("sections.transferOwnership")}
-          </h2>
-          <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-            {t("sections.transferOwnershipDescription")}
-          </p>
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={() => setShowTransferModal(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-400 dark:border-amber-500/50 px-3.5 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/10"
-          >
-            {t("transferButton")}
-          </Button>
+        <section className="rounded-2xl border border-[var(--primary-soft)] bg-gradient-to-br from-[var(--amber-soft)] to-[var(--primary-soft)] p-5 shadow-[var(--shadow-card)]">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-[var(--primary)]"
+            >
+              <AlertTriangle className="h-5 w-5" strokeWidth={1.8} />
+            </span>
+            <div className="flex-1">
+              <h2 className="font-serif text-[18px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
+                {t("sections.transferOwnership")}
+              </h2>
+              <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
+                {t("sections.transferOwnershipDescription")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(true)}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-[13px] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--primary-soft)] hover:text-[var(--primary-deep)]"
+              >
+                {t("transferButton")}
+              </button>
+            </div>
+          </div>
         </section>
       )}
 
-      {/* Leave org — hidden for the Owner (Owners must transfer first). */}
+      {/* Leave org — hidden for the Owner */}
       {!isOwner && (
-        <section className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+          <h2 className="font-serif text-[18px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
             {t("sections.leave")}
           </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
             {t("sections.leaveDescription")}
           </p>
-          <Button variant="ghost" size="auto"
+          <button
             type="button"
             onClick={() => setShowLeaveDialog(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-rose-200 dark:border-rose-500/30 px-3.5 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--primary-soft)] bg-[var(--surface)] px-4 py-2 text-[13px] font-semibold text-[var(--primary-deep)] transition-colors hover:bg-[var(--primary-soft)]"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
             {t("leaveButton")}
-          </Button>
+          </button>
         </section>
       )}
 

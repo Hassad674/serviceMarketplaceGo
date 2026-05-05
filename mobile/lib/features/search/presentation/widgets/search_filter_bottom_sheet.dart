@@ -20,7 +20,7 @@ import 'filter_sections/filter_primitives.dart';
 import 'filter_sections/location_section.dart';
 import 'filter_sections/price_range_section.dart';
 import 'filter_sections/skills_chip_input.dart';
-import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 
 export '../../../../shared/search/search_filters.dart';
 
@@ -284,9 +284,15 @@ class _SheetFooter extends StatelessWidget {
               key: const ValueKey('filter-apply'),
               onPressed: onApply,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kFilterRose500,
+                // Soleil corail when available, falls back to the legacy
+                // rose tone for tests that pump without our theme.
+                backgroundColor:
+                    Theme.of(context).extension<AppColors>() != null
+                        ? Theme.of(context).colorScheme.primary
+                        : kFilterRose500,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 48),
+                shape: const StadiumBorder(),
               ),
               child: Text(applyLabel),
             ),
@@ -444,9 +450,10 @@ class _RatingSection extends StatelessWidget {
             onPressed: () => onChanged(value == star ? 0 : star),
             tooltip: '$star',
             icon: Icon(
-              selected ? Icons.star : Icons.star_border,
+              selected ? Icons.star_rounded : Icons.star_border_rounded,
               color: selected
-                  ? AppPalette.amber400
+                  ? (Theme.of(context).extension<AppColors>()?.warning ??
+                      Theme.of(context).colorScheme.tertiary)
                   : Theme.of(context).disabledColor,
             ),
           );

@@ -13,17 +13,13 @@ import '../widgets/pending_transfer_banner.dart';
 import '../widgets/role_permissions_editor.dart';
 import '../widgets/team_member_tile.dart';
 import '../widgets/transfer_ownership_dialog.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Team management screen — feature parity with the web page (R20).
+/// W-22 / mobile-equivalent — Team management screen, Soleil v2 visual port.
 ///
-/// Sections:
-///   1. Pending ownership transfer banner (when applicable).
-///   2. Members list with edit/remove row actions.
-///   3. Role & permissions editor.
-///   4. Pending invitations section (when the operator can invite).
-///   5. App bar overflow menu with Leave organization and
-///      Transfer ownership entry points.
+/// Editorial Fraunces hero with italic-corail accent, Soleil card sections
+/// for members / invitations, calm corail FAB for inviting. ALL Riverpod
+/// providers + repository wiring stay untouched — this is purely the
+/// visual identity refit (no behavior change).
 class TeamScreen extends ConsumerWidget {
   const TeamScreen({super.key});
 
@@ -31,7 +27,7 @@ class TeamScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
     final orgId = ref.watch(currentOrganizationIdProvider);
     final membersAsync = ref.watch(teamMembersProvider);
     final canInvite = ref.watch(
@@ -49,9 +45,19 @@ class TeamScreen extends ConsumerWidget {
     final canLeave = memberRole != null && memberRole != 'owner';
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Text(l10n.teamScreenTitle),
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l10n.teamScreenTitle,
+          style: SoleilTextStyles.titleLarge.copyWith(
+            fontSize: 18,
+            color: colorScheme.onSurface,
+          ),
+        ),
         actions: [
           if (orgId != null && (canLeave || canTransferOwnership))
             _OverflowMenu(
@@ -66,35 +72,48 @@ class TeamScreen extends ConsumerWidget {
       floatingActionButton: (orgId != null && canInvite && pendingTransfer == null)
           ? FloatingActionButton.extended(
               onPressed: () => InviteMemberDialog.show(context, orgId),
-              icon: const Icon(Icons.person_add_alt_1),
-              label: Text(l10n.teamInviteButton),
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              elevation: 0,
+              icon: const Icon(Icons.person_add_alt_1, size: 18),
+              label: Text(
+                l10n.teamInviteButton,
+                style: SoleilTextStyles.button,
+              ),
             )
           : null,
-      body: orgId == null
-          ? _NoOrganizationState(appColors: appColors)
-          : RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(teamMembersProvider);
-                ref.invalidate(roleDefinitionsProvider);
-                ref.invalidate(rolePermissionsMatrixProvider);
-                ref.invalidate(pendingInvitationsProvider);
-                await ref.read(teamMembersProvider.future);
-              },
-              child: membersAsync.when(
-                data: (members) => _TeamBody(
-                  members: members,
-                  orgId: orgId,
-                  canEditRolePermissions: canEditRolePermissions,
-                  canInvite: canInvite,
-                ),
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (err, _) => _ErrorState(
-                  message: l10n.teamLoadError,
-                  onRetry: () => ref.invalidate(teamMembersProvider),
+      body: SafeArea(
+        top: false,
+        child: orgId == null
+            ? _NoOrganizationState()
+            : RefreshIndicator(
+                color: colorScheme.primary,
+                onRefresh: () async {
+                  ref.invalidate(teamMembersProvider);
+                  ref.invalidate(roleDefinitionsProvider);
+                  ref.invalidate(rolePermissionsMatrixProvider);
+                  ref.invalidate(pendingInvitationsProvider);
+                  await ref.read(teamMembersProvider.future);
+                },
+                child: membersAsync.when(
+                  data: (members) => _TeamBody(
+                    members: members,
+                    orgId: orgId,
+                    canEditRolePermissions: canEditRolePermissions,
+                    canInvite: canInvite,
+                  ),
+                  loading: () => Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  error: (err, _) => _ErrorState(
+                    message: l10n.teamLoadError,
+                    onRetry: () => ref.invalidate(teamMembersProvider),
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }
@@ -115,8 +134,17 @@ class _OverflowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return PopupMenuButton<_TeamAction>(
-      icon: const Icon(Icons.more_vert),
+      icon: Icon(Icons.more_vert_rounded, color: colorScheme.onSurface),
+      color: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        side: BorderSide(color: colors.border),
+      ),
       onSelected: (action) {
         switch (action) {
           case _TeamAction.transferOwnership:
@@ -139,13 +167,16 @@ class _OverflowMenu extends StatelessWidget {
             value: _TeamAction.transferOwnership,
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.workspace_premium_outlined,
                   size: 18,
-                  color: AppPalette.amber700,
+                  color: colors.warning,
                 ),
-                const SizedBox(width: 8),
-                Text(l10n.teamTransferAction),
+                const SizedBox(width: 10),
+                Text(
+                  l10n.teamTransferAction,
+                  style: SoleilTextStyles.body,
+                ),
               ],
             ),
           ),
@@ -154,15 +185,17 @@ class _OverflowMenu extends StatelessWidget {
             value: _TeamAction.leaveOrganization,
             child: Row(
               children: [
-                const Icon(
-                  Icons.logout,
+                Icon(
+                  Icons.logout_rounded,
                   size: 18,
-                  color: AppPalette.red600,
+                  color: colorScheme.error,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   l10n.teamLeaveAction,
-                  style: const TextStyle(color: AppPalette.red600),
+                  style: SoleilTextStyles.body.copyWith(
+                    color: colorScheme.error,
+                  ),
                 ),
               ],
             ),
@@ -190,30 +223,107 @@ class _TeamBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final pendingTransfer = ref.watch(pendingTransferProvider);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
       children: [
+        // Editorial header — eyebrow + Fraunces title with italic-corail
+        // accent + tabac italic subtitle. Anatomy matches the web header.
+        Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.teamW22Eyebrow,
+                style: SoleilTextStyles.mono.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${l10n.teamW22TitleLead} ',
+                      style: SoleilTextStyles.headlineLarge.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    TextSpan(
+                      text: l10n.teamW22TitleAccent,
+                      style: SoleilTextStyles.headlineLarge.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.5,
+                        fontStyle: FontStyle.italic,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '.',
+                      style: SoleilTextStyles.headlineLarge.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.teamW22Subtitle,
+                style: SoleilTextStyles.body.copyWith(
+                  fontSize: 13.5,
+                  fontStyle: FontStyle.italic,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _StatPill(
+                    label: l10n.teamMembersCount(members.length),
+                    icon: Icons.group_outlined,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
         if (pendingTransfer != null) ...[
           PendingTransferBanner(orgId: orgId),
           const SizedBox(height: 16),
         ],
-        Text(
-          l10n.teamMembersSection,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            l10n.teamMembersSection.toUpperCase(),
+            style: SoleilTextStyles.mono.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.7,
+              color: colors.subtleForeground,
+            ),
           ),
         ),
-        const SizedBox(height: 8),
         if (members.isEmpty)
-          _EmptyMembers(appColors: appColors)
+          _EmptyMembers()
         else
           ...members.map(
             (m) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: TeamMemberTile(member: m, orgId: orgId),
             ),
           ),
@@ -232,30 +342,73 @@ class _TeamBody extends ConsumerWidget {
   }
 }
 
-class _EmptyMembers extends StatelessWidget {
-  const _EmptyMembers({required this.appColors});
+// ---------------------------------------------------------------------------
+// Stat pill — calm rounded-full chip used for member counters.
+// ---------------------------------------------------------------------------
 
-  final AppColors? appColors;
+class _StatPill extends StatelessWidget {
+  const _StatPill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: SoleilTextStyles.caption.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyMembers extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: colorScheme.surfaceContainerLowest,
         border: Border.all(
-          color: appColors?.border ?? theme.dividerColor,
-          width: 1,
+          color: colors.border,
+          style: BorderStyle.solid,
         ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
       ),
       alignment: Alignment.center,
       child: Text(
         l10n.teamNoMembers,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: appColors?.mutedForeground,
+        textAlign: TextAlign.center,
+        style: SoleilTextStyles.body.copyWith(
+          fontStyle: FontStyle.italic,
+          color: colors.mutedForeground,
         ),
       ),
     );
@@ -263,13 +416,11 @@ class _EmptyMembers extends StatelessWidget {
 }
 
 class _NoOrganizationState extends StatelessWidget {
-  const _NoOrganizationState({required this.appColors});
-
-  final AppColors? appColors;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
@@ -277,24 +428,36 @@ class _NoOrganizationState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.group_outlined,
-              size: 48,
-              color: appColors?.mutedForeground ?? Colors.grey,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.teamNoOrganization,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colors.accentSoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.group_outlined,
+                size: 26,
+                color: colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            Text(
+              l10n.teamNoOrganization,
+              textAlign: TextAlign.center,
+              style: SoleilTextStyles.titleLarge.copyWith(
+                fontSize: 20,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               l10n.teamNoOrganizationDescription,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: appColors?.mutedForeground,
+              style: SoleilTextStyles.body.copyWith(
+                fontSize: 13.5,
+                fontStyle: FontStyle.italic,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -312,17 +475,32 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: colorScheme.error,
+          ),
           const SizedBox(height: 12),
-          Text(message),
+          Text(
+            message,
+            style: SoleilTextStyles.body.copyWith(
+              color: colorScheme.onSurface,
+            ),
+          ),
           const SizedBox(height: 12),
-          ElevatedButton(
+          FilledButton(
             onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+            ),
             child: Text(l10n.teamRetry),
           ),
         ],

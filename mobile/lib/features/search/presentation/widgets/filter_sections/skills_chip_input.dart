@@ -16,6 +16,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/search/search_filters.dart';
 import 'filter_primitives.dart';
 
@@ -147,6 +148,12 @@ class _SelectedSkillsChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>();
+    // Same legacy fallback strategy as filter_primitives.dart so
+    // tests rendering without the Soleil theme keep matching.
+    final chipBg = colors?.accentSoft ?? kFilterRose100;
+    final chipFg = colors?.primaryDeep ?? kFilterRose700;
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -155,14 +162,14 @@ class _SelectedSkillsChips extends StatelessWidget {
             (skill) => InputChip(
               key: ValueKey('selected-skill-$skill'),
               label: Text(skill),
-              backgroundColor: kFilterRose100,
-              labelStyle: const TextStyle(
-                color: kFilterRose700,
+              backgroundColor: chipBg,
+              labelStyle: TextStyle(
+                color: chipFg,
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),
               onDeleted: () => onRemove(skill),
-              deleteIconColor: kFilterRose700,
+              deleteIconColor: chipFg,
             ),
           )
           .toList(growable: false),

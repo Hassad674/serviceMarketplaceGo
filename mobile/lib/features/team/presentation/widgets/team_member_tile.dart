@@ -8,17 +8,15 @@ import '../../domain/entities/team_member.dart';
 import '../providers/team_provider.dart';
 import 'edit_member_dialog.dart';
 import 'remove_member_dialog.dart';
-import '../../../../core/theme/app_palette.dart';
 
-/// Single member row in the mobile team list. Shows an initials
-/// avatar, the resolved display name, the email (when available),
-/// a colored role badge (with a crown for the Owner), and a trailing
-/// overflow menu with Edit/Remove actions when the operator has
-/// the `team.manage` permission.
+/// Soleil v2 — Team member tile. Soleil card (ivoire bg, sable border,
+/// rounded-2xl), corail-soft Portrait-style avatar, calm role pill.
+/// Permission-gated overflow menu (Edit / Remove) for non-Owner rows
+/// when `team.manage` is held.
 ///
-/// The trailing menu is hidden entirely for:
-///   - Owner rows (their role is changed via the Transfer flow);
-///   - the operator's own row (use Leave Organization instead);
+/// Trailing menu hidden for:
+///   - Owner rows (handled via Transfer Ownership);
+///   - the operator's own row (use Leave Organization);
 ///   - operators that lack `team.manage`.
 class TeamMemberTile extends ConsumerWidget {
   final TeamMember member;
@@ -33,7 +31,8 @@ class TeamMemberTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final name = member.displayLabel(l10n.teamMemberFallbackName);
     final email = member.user?.email ?? '';
@@ -48,16 +47,15 @@ class TeamMemberTile extends ConsumerWidget {
     final showMenu = canManage && !isOwner && !isSelf;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(
-          color: appColors?.border ?? theme.dividerColor,
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        color: colorScheme.surfaceContainerLowest,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _Avatar(initials: initials),
           const SizedBox(width: 12),
@@ -65,42 +63,63 @@ class TeamMemberTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: SoleilTextStyles.titleMedium.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _RoleBadge(role: member.role),
+                  ],
                 ),
-                if (email.isNotEmpty) ...[
+                if (email.isNotEmpty || member.title.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    email,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: appColors?.mutedForeground,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (member.title.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    member.title,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: appColors?.mutedForeground,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    children: [
+                      if (email.isNotEmpty)
+                        Text(
+                          email,
+                          style: SoleilTextStyles.caption.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (email.isNotEmpty && member.title.isNotEmpty)
+                        Text(
+                          '·',
+                          style: SoleilTextStyles.caption.copyWith(
+                            color: colors.subtleForeground,
+                          ),
+                        ),
+                      if (member.title.isNotEmpty)
+                        Text(
+                          member.title,
+                          style: SoleilTextStyles.caption.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          _RoleBadge(role: member.role),
           if (showMenu) ...[
             const SizedBox(width: 4),
             _MemberActionsMenu(orgId: orgId, member: member),
@@ -119,10 +138,23 @@ class _MemberActionsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     return PopupMenuButton<_MemberAction>(
       tooltip: l10n.teamMemberActions,
-      icon: const Icon(Icons.more_vert, size: 20),
+      icon: Icon(
+        Icons.more_vert_rounded,
+        size: 18,
+        color: colorScheme.onSurfaceVariant,
+      ),
+      color: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        side: BorderSide(color: colors.border),
+      ),
       onSelected: (action) {
         switch (action) {
           case _MemberAction.edit:
@@ -136,9 +168,13 @@ class _MemberActionsMenu extends StatelessWidget {
           value: _MemberAction.edit,
           child: Row(
             children: [
-              const Icon(Icons.edit_outlined, size: 18),
-              const SizedBox(width: 8),
-              Text(l10n.teamMemberEdit),
+              Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 10),
+              Text(l10n.teamMemberEdit, style: SoleilTextStyles.body),
             ],
           ),
         ),
@@ -146,15 +182,17 @@ class _MemberActionsMenu extends StatelessWidget {
           value: _MemberAction.remove,
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.person_remove_outlined,
-                size: 18,
-                color: AppPalette.red600,
+                size: 16,
+                color: colorScheme.error,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 l10n.teamMemberRemove,
-                style: const TextStyle(color: AppPalette.red600),
+                style: SoleilTextStyles.body.copyWith(
+                  color: colorScheme.error,
+                ),
               ),
             ],
           ),
@@ -173,18 +211,22 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
-      height: 40,
-      width: 40,
-      decoration: const BoxDecoration(
-        color: AppPalette.rose100, // rose-100
+      height: 44,
+      width: 44,
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
         shape: BoxShape.circle,
+        boxShadow: AppTheme.portraitShadow,
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: const TextStyle(
-          color: AppPalette.rose600, // rose-600
+        style: SoleilTextStyles.titleMedium.copyWith(
+          color: colorScheme.primary,
           fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
@@ -200,13 +242,14 @@ class _RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final colors = _badgeColors(role);
+    final tones = _tonesFor(role, theme);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: colors.background,
-        borderRadius: BorderRadius.circular(999),
+        color: tones.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -215,16 +258,17 @@ class _RoleBadge extends StatelessWidget {
             Icon(
               Icons.workspace_premium_outlined,
               size: 12,
-              color: colors.foreground,
+              color: tones.foreground,
             ),
             const SizedBox(width: 4),
           ],
           Text(
             _label(role, l10n),
-            style: TextStyle(
-              color: colors.foreground,
-              fontSize: 11,
+            style: SoleilTextStyles.mono.copyWith(
+              color: tones.foreground,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -247,36 +291,38 @@ class _RoleBadge extends StatelessWidget {
     }
   }
 
-  _BadgeColors _badgeColors(String role) {
+  _BadgeTones _tonesFor(String role, ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     switch (role) {
       case 'owner':
-        return const _BadgeColors(
-          background: AppPalette.amber100, // amber-100
-          foreground: AppPalette.amber700, // amber-700
+        return _BadgeTones(
+          background: colors.amberSoft,
+          foreground: colors.warning,
         );
       case 'admin':
-        return const _BadgeColors(
-          background: AppPalette.violet100, // violet-100
-          foreground: AppPalette.violet700, // violet-700
+        return _BadgeTones(
+          background: colors.accentSoft,
+          foreground: colors.primaryDeep,
         );
       case 'member':
-        return const _BadgeColors(
-          background: AppPalette.blue100, // blue-100
-          foreground: AppPalette.blue700, // blue-700
+        return _BadgeTones(
+          background: colors.successSoft,
+          foreground: colors.success,
         );
       case 'viewer':
       default:
-        return const _BadgeColors(
-          background: AppPalette.slate200, // slate-200
-          foreground: AppPalette.slate700, // slate-700
+        return _BadgeTones(
+          background: colorScheme.surface,
+          foreground: colorScheme.onSurfaceVariant,
         );
     }
   }
 }
 
-class _BadgeColors {
+class _BadgeTones {
   final Color background;
   final Color foreground;
 
-  const _BadgeColors({required this.background, required this.foreground});
+  const _BadgeTones({required this.background, required this.foreground});
 }

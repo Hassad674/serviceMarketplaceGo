@@ -4772,6 +4772,132 @@ abstract class AppLocalizations {
   /// **'Viewer'**
   String get teamRoleViewer;
 
+  /// No description provided for @teamW22Eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · TEAM'**
+  String get teamW22Eyebrow;
+
+  /// No description provided for @teamW22TitleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Your'**
+  String get teamW22TitleLead;
+
+  /// No description provided for @teamW22TitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'teammates and permissions'**
+  String get teamW22TitleAccent;
+
+  /// No description provided for @teamW22Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Run your organization: invite, adjust roles, hand over the wheel when it\'s time.'**
+  String get teamW22Subtitle;
+
+  /// No description provided for @teamMembersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No members} =1{1 member} other{{count} members}}'**
+  String teamMembersCount(int count);
+
+  /// No description provided for @freelancesSearchM12Eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · TALENT'**
+  String get freelancesSearchM12Eyebrow;
+
+  /// No description provided for @freelancesSearchM12TitleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Find the'**
+  String get freelancesSearchM12TitleLead;
+
+  /// No description provided for @freelancesSearchM12TitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'very best talent'**
+  String get freelancesSearchM12TitleAccent;
+
+  /// No description provided for @freelancesSearchM12Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Build your team with vetted freelancers. Search by skill, city, or availability.'**
+  String get freelancesSearchM12Subtitle;
+
+  /// No description provided for @freelancesSearchM12SearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a freelancer, a skill, a city…'**
+  String get freelancesSearchM12SearchHint;
+
+  /// No description provided for @freelancesSearchM12Filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get freelancesSearchM12Filters;
+
+  /// No description provided for @freelancesSearchM12FilterExpertise.
+  ///
+  /// In en, this message translates to:
+  /// **'Expertise'**
+  String get freelancesSearchM12FilterExpertise;
+
+  /// No description provided for @freelancesSearchM12FilterLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get freelancesSearchM12FilterLocation;
+
+  /// No description provided for @freelancesSearchM12FilterRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get freelancesSearchM12FilterRate;
+
+  /// No description provided for @freelancesSearchM12FilterAvailability.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability'**
+  String get freelancesSearchM12FilterAvailability;
+
+  /// No description provided for @freelancesSearchM12EmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No talent yet'**
+  String get freelancesSearchM12EmptyTitle;
+
+  /// No description provided for @freelancesSearchM12EmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust your search or reset the filters to discover more profiles.'**
+  String get freelancesSearchM12EmptyDescription;
+
+  /// No description provided for @freelancesSearchM12EmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get freelancesSearchM12EmptyCta;
+
+  /// No description provided for @freelancesSearchM12ErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get freelancesSearchM12ErrorTitle;
+
+  /// No description provided for @freelancesSearchM12ErrorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load profiles. Pull to refresh or try again.'**
+  String get freelancesSearchM12ErrorDescription;
+
+  /// No description provided for @freelancesSearchM12RetryCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get freelancesSearchM12RetryCta;
+
   /// No description provided for @expertiseSectionTitle.
   ///
   /// In en, this message translates to:

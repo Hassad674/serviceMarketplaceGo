@@ -7,7 +7,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/team_repository_impl.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Strong-confirmation dialog for self-leaving an organization.
 ///
@@ -94,31 +93,46 @@ class _LeaveOrganizationDialogState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     final keyword = l10n.teamLeaveConfirmKeyword;
     final canSubmit = _confirmController.text.trim().toUpperCase() == keyword;
 
     return AlertDialog(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        side: BorderSide(color: colors.border),
       ),
-      icon: const CircleAvatar(
-        backgroundColor: AppPalette.red100,
-        child: Icon(Icons.logout, color: AppPalette.red600),
+      icon: CircleAvatar(
+        backgroundColor: colors.accentSoft,
+        child: Icon(Icons.logout_rounded, color: colors.primaryDeep),
       ),
-      title: Text(l10n.teamLeaveDialogTitle),
+      title: Text(
+        l10n.teamLeaveDialogTitle,
+        style: SoleilTextStyles.titleLarge.copyWith(
+          fontSize: 20,
+          color: colorScheme.onSurface,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.teamLeaveDialogBody,
-            style: theme.textTheme.bodyMedium,
+            style: SoleilTextStyles.body.copyWith(
+              fontSize: 13.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _confirmController,
             enabled: !_submitting,
             textCapitalization: TextCapitalization.characters,
+            style: SoleilTextStyles.body,
             decoration: InputDecoration(
               labelText: l10n.teamLeaveConfirmHint,
               border: const OutlineInputBorder(),
@@ -128,9 +142,8 @@ class _LeaveOrganizationDialogState
             const SizedBox(height: 12),
             Text(
               _serverError!,
-              style: const TextStyle(
-                color: AppPalette.red700,
-                fontSize: 13,
+              style: SoleilTextStyles.caption.copyWith(
+                color: colors.primaryDeep,
               ),
             ),
           ],
@@ -143,20 +156,21 @@ class _LeaveOrganizationDialogState
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: AppPalette.red600,
-            foregroundColor: Colors.white,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            shape: const StadiumBorder(),
           ),
           onPressed: (!canSubmit || _submitting) ? null : _confirm,
           icon: _submitting
-              ? const SizedBox(
+              ? SizedBox(
                   height: 16,
                   width: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                 )
-              : const Icon(Icons.logout, size: 18),
+              : const Icon(Icons.logout_rounded, size: 16),
           label: Text(l10n.teamLeaveConfirmButton),
         ),
       ],

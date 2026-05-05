@@ -7,17 +7,10 @@ import { toast } from "sonner"
 import { useRoleDefinitions, useUpdateMember } from "../hooks/use-team"
 import type { TeamMember, OrgRole, RoleDefinition } from "../types"
 
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Select } from "@/shared/components/ui/select"
-// Dialog for changing a member's role and/or title. Owner is never
-// the target here (the list hides the dropdown for Owner). The role
-// selector never includes "owner" — promotions to Owner go through
-// the Transfer Ownership flow.
-//
-// As of R13, the modal also shows an inline preview of every
-// permission the selected role grants, so the operator knows exactly
-// what they are about to assign before they hit Save.
+// Soleil v2 — Edit member modal. Ivoire surface, Fraunces title, corail
+// permission preview chips. Owner is never the target (the list hides
+// the dropdown for Owner). The role selector never includes "owner" —
+// promotions to Owner go through the Transfer Ownership flow.
 
 type EditMemberModalProps = {
   open: boolean
@@ -38,9 +31,6 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
   const [role, setRole] = useState<Exclude<OrgRole, "owner">>(initialRole)
   const [title, setTitle] = useState(member.title)
 
-  // Resolve the inline permission preview from the catalogue. Stays
-  // empty until the catalogue loads — the preview is "best effort"
-  // so the modal stays usable when the network is slow.
   const selectedRoleDef = useMemo<RoleDefinition | undefined>(
     () => roleDefinitions?.roles.find((r) => r.key === role),
     [roleDefinitions, role],
@@ -76,75 +66,84 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
     return found?.label || key
   }
 
+  const inputBase =
+    "w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[14px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-soft)]"
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(42,31,21,0.45)] p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 animate-scale-in max-h-[90vh] overflow-y-auto"
+        className="animate-scale-in max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card-strong)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h3 className="font-serif text-[20px] font-medium tracking-[-0.01em] text-[var(--foreground)]">
             {t("editMemberTitle", { name: displayName })}
           </h3>
-          <Button variant="ghost" size="auto"
+          <button
             type="button"
             onClick={onClose}
             aria-label={t("cancel")}
-            className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="rounded-full p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--foreground)]"
           >
-            <X className="h-5 w-5 text-slate-400" />
-          </Button>
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="space-y-4">
           <div>
             <label
               htmlFor="edit-member-role"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--muted-foreground)]"
             >
               {t("roleLabel")}
             </label>
-            <Select
+            <select
               id="edit-member-role"
               value={role}
               onChange={(e) => setRole(e.target.value as Exclude<OrgRole, "owner">)}
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              className={`${inputBase} cursor-pointer`}
             >
               {EDITABLE_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {t(`roles.${r}`)}
                 </option>
               ))}
-            </Select>
+            </select>
           </div>
 
           {/* Inline permission preview — refreshes whenever the user
-              picks a different role from the dropdown. Falls back to
-              an empty list while the catalogue loads. */}
-          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <ShieldCheck className="h-4 w-4 text-rose-500" aria-hidden="true" />
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+              picks a different role from the dropdown. */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3.5">
+            <div className="mb-2 flex items-center gap-2">
+              <ShieldCheck
+                className="h-4 w-4 text-[var(--primary)]"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
                 {t("editMember.rolePreviewLabel", { role: t(`roles.${role}`) })}
               </p>
             </div>
             {selectedRoleDef && selectedRoleDef.permissions.length > 0 ? (
-              <ul className="grid grid-cols-1 gap-1">
+              <ul className="grid grid-cols-1 gap-1.5">
                 {selectedRoleDef.permissions.map((permKey) => (
                   <li
                     key={permKey}
-                    className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2"
+                    className="flex items-center gap-2 text-[13px] text-[var(--foreground)]"
                   >
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden="true" />
+                    <span
+                      aria-hidden="true"
+                      className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
+                    />
                     {permissionLabel(permKey)}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="font-serif text-[12.5px] italic text-[var(--muted-foreground)]">
                 {t("editMember.rolePreviewEmpty")}
               </p>
             )}
@@ -153,46 +152,49 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
           <div>
             <label
               htmlFor="edit-member-title"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--muted-foreground)]"
             >
               {t("titleLabel")}
             </label>
-            <Input
+            <input
               id="edit-member-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
               placeholder={t("titlePlaceholder")}
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              className={inputBase}
             />
           </div>
 
           {mutation.isError && (
-            <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
+            <p
+              role="alert"
+              className="rounded-xl border border-[var(--primary-soft)] bg-[var(--primary-soft)] px-3 py-2 text-[13px] text-[var(--primary-deep)]"
+            >
               {t("errors.generic")}
             </p>
           )}
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" size="auto"
+        <div className="mt-6 flex justify-end gap-2">
+          <button
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[13px] font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--background)] disabled:opacity-50"
           >
             {t("cancel")}
-          </Button>
-          <Button variant="ghost" size="auto"
+          </button>
+          <button
             type="button"
             onClick={handleSubmit}
             disabled={mutation.isPending || !hasChanges}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2 text-[13px] font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-message)] transition-colors hover:bg-[var(--primary-deep)] disabled:opacity-50"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("save")}
-          </Button>
+          </button>
         </div>
       </div>
     </div>

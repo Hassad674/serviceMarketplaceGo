@@ -8,7 +8,6 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/team_repository_impl.dart';
 import '../../domain/entities/pending_invitation.dart';
 import '../providers/team_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Section displayed below the members list on the team screen.
 /// Mirrors the web `TeamInvitationsList` (R20 phase 2):
@@ -106,14 +105,15 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
     final inv = widget.invitation;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.colorScheme.surfaceContainerLowest,
         border: Border.all(
-          color: appColors?.border ?? theme.dividerColor,
+          color: appColors?.accentSoft ?? theme.dividerColor,
           width: 1,
         ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -161,10 +161,10 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
           ),
           IconButton(
             tooltip: l10n.teamInvitationCancelTooltip,
-            icon: const Icon(
-              Icons.delete_outline,
+            icon: Icon(
+              Icons.delete_outline_rounded,
               size: 18,
-              color: AppPalette.red600,
+              color: theme.colorScheme.error,
             ),
             onPressed: _busy ? null : _cancel,
           ),
@@ -232,8 +232,9 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppPalette.red600,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(dialogContext).colorScheme.primary,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onPrimary,
+              shape: const StadiumBorder(),
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(l10n.teamInvitationCancelConfirm),
@@ -321,6 +322,8 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final label = switch (role) {
       'admin' => l10n.teamRoleAdmin,
@@ -329,17 +332,18 @@ class _RoleChip extends StatelessWidget {
       _ => role,
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: AppPalette.slate200,
-        borderRadius: BorderRadius.circular(999),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppPalette.slate700,
-          fontSize: 11,
+        style: SoleilTextStyles.mono.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -351,17 +355,20 @@ class _MailAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
     return Container(
-      height: 40,
-      width: 40,
-      decoration: const BoxDecoration(
-        color: AppPalette.indigo100, // indigo-100
+      height: 44,
+      width: 44,
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.mail_outline,
-        color: AppPalette.indigo700, // indigo-700
+      child: Icon(
+        Icons.mail_outline_rounded,
+        color: colorScheme.primary,
         size: 18,
       ),
     );
@@ -435,7 +442,7 @@ class _LoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final colors = theme.extension<AppColors>()!;
     return Column(
       children: List.generate(
         2,
@@ -444,8 +451,8 @@ class _LoadingSkeleton extends StatelessWidget {
           child: Container(
             height: 72,
             decoration: BoxDecoration(
-              color: appColors?.muted ?? AppPalette.slate100,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              color: colors.muted,
+              borderRadius: BorderRadius.circular(AppTheme.radius2xl),
             ),
           ),
         ),
