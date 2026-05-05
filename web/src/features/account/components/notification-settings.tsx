@@ -11,8 +11,6 @@ import {
   type NotificationPreference,
 } from "../hooks/use-notification-preferences"
 
-import { Button } from "@/shared/components/ui/button"
-
 type Channel = "push" | "email"
 
 const GROUPS = [
@@ -73,9 +71,7 @@ function Toggle({
   ariaLabel?: string
 }) {
   return (
-    <Button
-      variant="ghost"
-      size="auto"
+    <button
       type="button"
       role="switch"
       aria-checked={checked}
@@ -83,20 +79,23 @@ function Toggle({
       onClick={disabled ? undefined : onChange}
       disabled={disabled}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0 transition-colors duration-150",
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0",
+        "transition-colors duration-200 ease-out",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
         checked
-          ? "bg-primary hover:bg-primary"
-          : "bg-border hover:bg-border",
+          ? "bg-primary"
+          : "bg-[var(--border-strong)]",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <span
         className={cn(
-          "inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-transform duration-150",
-          checked ? "translate-x-[18px]" : "translate-x-0.5",
+          "inline-block h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.10)]",
+          "transition-transform duration-200 ease-out",
+          checked ? "translate-x-[22px]" : "translate-x-0.5",
         )}
       />
-    </Button>
+    </button>
   )
 }
 
