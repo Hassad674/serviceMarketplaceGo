@@ -1197,5 +1197,15 @@
   "@gdprBannerBody": {
     "placeholders": {"date": {"type": "String"}}
   },
-  "gdprBannerBodyNoDate": "Votre compte est planifié pour suppression. Touchez pour annuler."
+  "gdprBannerBodyNoDate": "Votre compte est planifié pour suppression. Touchez pour annuler.",
+  "m02_eyebrowLabel": "Création de compte",
+  "m02_stepIndicator": "Étape 1 sur 3",
+  "m02_titlePrefix": "Comment souhaitez-vous utiliser",
+  "m02_titleAccent": "Atelier ?",
+  "m02_subtitle": "Vous pourrez ajouter le second rôle plus tard.",
+  "m02_continue": "Continuer",
+  "m02_recommendedBadge": "Recommandé",
+  "m02_agencyDesc": "Studio, agence, collectif… Vous pilotez une équipe et cherchez des missions structurantes.",
+  "m02_providerDesc": "Trouvez des missions, créez votre profil et soyez payé en toute sécurité.",
+  "m02_enterpriseDesc": "Publiez vos annonces, recrutez des freelances vérifiés, gérez vos projets."
 }

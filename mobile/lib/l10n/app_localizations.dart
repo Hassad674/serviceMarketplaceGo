@@ -5701,6 +5701,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your account is scheduled for deletion. Tap to cancel.'**
   String get gdprBannerBodyNoDate;
+
+  /// No description provided for @m02_eyebrowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Account creation'**
+  String get m02_eyebrowLabel;
+
+  /// No description provided for @m02_stepIndicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 1 of 3'**
+  String get m02_stepIndicator;
+
+  /// No description provided for @m02_titlePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'How would you like to use'**
+  String get m02_titlePrefix;
+
+  /// No description provided for @m02_titleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier?'**
+  String get m02_titleAccent;
+
+  /// No description provided for @m02_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You can add the second role later.'**
+  String get m02_subtitle;
+
+  /// No description provided for @m02_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get m02_continue;
+
+  /// No description provided for @m02_recommendedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get m02_recommendedBadge;
+
+  /// No description provided for @m02_agencyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio, agency, collective… You lead a team and look for structuring missions.'**
+  String get m02_agencyDesc;
+
+  /// No description provided for @m02_providerDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Find missions, build your profile and get paid securely.'**
+  String get m02_providerDesc;
+
+  /// No description provided for @m02_enterpriseDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Post your needs, recruit verified freelancers, manage your projects.'**
+  String get m02_enterpriseDesc;
 }
 
 class _AppLocalizationsDelegate
