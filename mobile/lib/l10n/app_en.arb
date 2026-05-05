@@ -1402,5 +1402,16 @@
   "proposalFlow_status_released": "Paid",
   "proposalFlow_status_disputed": "Disputed",
   "proposalFlow_status_cancelled": "Cancelled",
-  "proposalFlow_status_refunded": "Refunded"
+  "proposalFlow_status_refunded": "Refunded",
+  "mobileDashboard_eyebrow": "ATELIER · DASHBOARD",
+  "mobileDashboard_welcomePrefix": "Hello {name},",
+  "@mobileDashboard_welcomePrefix": {"placeholders": {"name": {"type": "String"}}},
+  "mobileDashboard_welcomeAccent": "a great day ahead.",
+  "mobileDashboard_providerSubtitle": "Track your missions, conversations and monthly earnings at a glance.",
+  "mobileDashboard_agencySubtitle": "Run your agency: missions, team and invoicing in one place.",
+  "mobileDashboard_enterpriseSubtitle": "Track your projects, conversations and budget at a glance.",
+  "mobileDashboard_referrerSubtitle": "Track your introductions, active missions and earned commissions.",
+  "mobileDashboard_referrerEyebrow": "ATELIER · BUSINESS REFERRER",
+  "mobileDashboard_switchToReferrer": "Switch to referrer mode",
+  "mobileDashboard_switchToFreelance": "Back to freelance mode"
 }

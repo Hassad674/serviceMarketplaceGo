@@ -6517,6 +6517,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Refunded'**
   String get proposalFlow_status_refunded;
+
+  /// No description provided for @mobileDashboard_eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · DASHBOARD'**
+  String get mobileDashboard_eyebrow;
+
+  /// No description provided for @mobileDashboard_welcomePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello {name},'**
+  String mobileDashboard_welcomePrefix(String name);
+
+  /// No description provided for @mobileDashboard_welcomeAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'a great day ahead.'**
+  String get mobileDashboard_welcomeAccent;
+
+  /// No description provided for @mobileDashboard_providerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your missions, conversations and monthly earnings at a glance.'**
+  String get mobileDashboard_providerSubtitle;
+
+  /// No description provided for @mobileDashboard_agencySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Run your agency: missions, team and invoicing in one place.'**
+  String get mobileDashboard_agencySubtitle;
+
+  /// No description provided for @mobileDashboard_enterpriseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your projects, conversations and budget at a glance.'**
+  String get mobileDashboard_enterpriseSubtitle;
+
+  /// No description provided for @mobileDashboard_referrerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your introductions, active missions and earned commissions.'**
+  String get mobileDashboard_referrerSubtitle;
+
+  /// No description provided for @mobileDashboard_referrerEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · BUSINESS REFERRER'**
+  String get mobileDashboard_referrerEyebrow;
+
+  /// No description provided for @mobileDashboard_switchToReferrer.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to referrer mode'**
+  String get mobileDashboard_switchToReferrer;
+
+  /// No description provided for @mobileDashboard_switchToFreelance.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to freelance mode'**
+  String get mobileDashboard_switchToFreelance;
 }
 
 class _AppLocalizationsDelegate

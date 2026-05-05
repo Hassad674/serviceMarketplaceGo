@@ -3526,4 +3526,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get proposalFlow_status_refunded => 'Refunded';
+
+  @override
+  String get mobileDashboard_eyebrow => 'ATELIER · DASHBOARD';
+
+  @override
+  String mobileDashboard_welcomePrefix(String name) {
+    return 'Hello $name,';
+  }
+
+  @override
+  String get mobileDashboard_welcomeAccent => 'a great day ahead.';
+
+  @override
+  String get mobileDashboard_providerSubtitle =>
+      'Track your missions, conversations and monthly earnings at a glance.';
+
+  @override
+  String get mobileDashboard_agencySubtitle =>
+      'Run your agency: missions, team and invoicing in one place.';
+
+  @override
+  String get mobileDashboard_enterpriseSubtitle =>
+      'Track your projects, conversations and budget at a glance.';
+
+  @override
+  String get mobileDashboard_referrerSubtitle =>
+      'Track your introductions, active missions and earned commissions.';
+
+  @override
+  String get mobileDashboard_referrerEyebrow => 'ATELIER · BUSINESS REFERRER';
+
+  @override
+  String get mobileDashboard_switchToReferrer => 'Switch to referrer mode';
+
+  @override
+  String get mobileDashboard_switchToFreelance => 'Back to freelance mode';
 }

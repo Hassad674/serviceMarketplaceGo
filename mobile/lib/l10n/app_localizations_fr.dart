@@ -3550,4 +3550,41 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proposalFlow_status_refunded => 'Remboursé';
+
+  @override
+  String get mobileDashboard_eyebrow => 'ATELIER · TABLEAU DE BORD';
+
+  @override
+  String mobileDashboard_welcomePrefix(String name) {
+    return 'Bonjour $name,';
+  }
+
+  @override
+  String get mobileDashboard_welcomeAccent => 'belle journée en perspective.';
+
+  @override
+  String get mobileDashboard_providerSubtitle =>
+      'Suis tes missions, tes conversations et tes revenus du mois en un coup d\'œil.';
+
+  @override
+  String get mobileDashboard_agencySubtitle =>
+      'Pilote l\'activité de ton agence : missions, équipe et facturation.';
+
+  @override
+  String get mobileDashboard_enterpriseSubtitle =>
+      'Pilote tes projets, tes conversations et ton budget en un coup d\'œil.';
+
+  @override
+  String get mobileDashboard_referrerSubtitle =>
+      'Suis tes mises en relation, missions actives et commissions accumulées.';
+
+  @override
+  String get mobileDashboard_referrerEyebrow =>
+      'ATELIER · APPORTEUR D\'AFFAIRES';
+
+  @override
+  String get mobileDashboard_switchToReferrer => 'Passer en mode apporteur';
+
+  @override
+  String get mobileDashboard_switchToFreelance => 'Revenir au mode freelance';
 }

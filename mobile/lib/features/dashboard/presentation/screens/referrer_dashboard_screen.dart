@@ -6,19 +6,21 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../../core/theme/app_palette.dart';
+import '../../../notification/presentation/widgets/notification_badge.dart';
+import '../widgets/dashboard_atoms.dart';
 
-// Rose color constant for the search chip.
-const Color _rose500 = AppPalette.rose500;
-
-/// Referrer (business referrer) dashboard for providers with referrer mode.
+/// Referrer (business referrer / "apporteur d'affaire") dashboard — Soleil v2.
 ///
-/// Shows referrer-specific stats and a button to switch back to freelance mode.
+/// Same editorial anatomy as [DashboardScreen] (corail mono eyebrow,
+/// Fraunces italic title, tabac subtitle, Soleil stat grid) but with the
+/// referrer-specific 4-stat layout: Filleuls / Missions actives /
+/// Missions terminées / Commissions.
 class ReferrerDashboardScreen extends ConsumerWidget {
   const ReferrerDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final authState = ref.watch(authProvider);
     final l10n = AppLocalizations.of(context)!;
 
@@ -29,254 +31,94 @@ class ReferrerDashboardScreen extends ConsumerWidget {
         'Referrer';
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        leading: const IconButton(
-          icon: Icon(Icons.menu),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded),
+          color: theme.colorScheme.onSurface,
           onPressed: openShellDrawer,
         ),
-        title: Text(l10n.referrerMode),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+        title: Text(
+          l10n.referrerMode,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
           ),
+        ),
+        actions: [
+          NotificationBadge(
+            onTap: () =>
+                GoRouter.of(context).go(RoutePaths.notifications),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome banner with gradient
-              _WelcomeBanner(
+              DashboardWelcomeBanner(
                 displayName: displayName,
-                subtitle: l10n.roleFreelanceDesc,
+                subtitle: l10n.mobileDashboard_referrerSubtitle,
+                eyebrow: l10n.mobileDashboard_referrerEyebrow,
               ),
-              const SizedBox(height: 16),
-
-              // Switch to freelance mode
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: DashboardSwitchPill(
+                  label: l10n.mobileDashboard_switchToFreelance,
+                  icon: Icons.swap_horiz_rounded,
                   onPressed: () => context.go(RoutePaths.dashboard),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: Text(l10n.freelanceDashboard),
+                  tone: DashboardTone.sapin(context),
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Search action
-              ActionChip(
-                avatar: const Icon(Icons.person_search, size: 18, color: _rose500),
-                label: Text(
-                  l10n.findFreelancers,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
+              DashboardSearchActions(
+                actions: [
+                  DashboardSearchAction(
+                    label: l10n.findFreelancers,
+                    icon: Icons.person_search_rounded,
+                    type: 'freelancer',
+                    tone: DashboardTone.corail(context),
                   ),
-                ),
-                backgroundColor: _rose500.withValues(alpha: 0.08),
-                side: BorderSide(color: _rose500.withValues(alpha: 0.2)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                ),
-                onPressed: () => context.push('/search/freelancer'),
+                ],
               ),
-              const SizedBox(height: 24),
-
-              // Stats grid — 4 cards for referrer
-              _StatCard(
-                icon: Icons.handshake_outlined,
-                title: l10n.referrals,
-                value: '0',
-                subtitle: l10n.pendingResponse,
-                color: AppPalette.teal500, // teal-500
-              ),
-              const SizedBox(height: 12),
-
-              _StatCard(
-                icon: Icons.schedule,
-                title: l10n.activeMissions,
-                value: '0',
-                subtitle: l10n.activeContracts,
-                color: AppPalette.amber500, // amber-500
-              ),
-              const SizedBox(height: 12),
-
-              _StatCard(
-                icon: Icons.check_circle_outline,
-                title: l10n.completedMissions,
-                value: '0',
-                subtitle: l10n.totalHistory,
-                color: AppPalette.green500, // emerald-500
-              ),
-              const SizedBox(height: 12),
-
-              _StatCard(
-                icon: Icons.trending_up,
-                title: l10n.commissions,
-                value: '0 EUR',
-                subtitle: l10n.totalEarned,
-                color: AppPalette.rose500, // rose-500
+              const SizedBox(height: 28),
+              DashboardStatGrid(
+                cards: [
+                  DashboardStatCard(
+                    icon: Icons.handshake_rounded,
+                    title: l10n.referrals,
+                    value: '0',
+                    tone: DashboardTone.corail(context),
+                  ),
+                  DashboardStatCard(
+                    icon: Icons.schedule_rounded,
+                    title: l10n.activeMissions,
+                    value: '0',
+                    tone: DashboardTone.pink(context),
+                  ),
+                  DashboardStatCard(
+                    icon: Icons.check_circle_outline_rounded,
+                    title: l10n.completedMissions,
+                    value: '0',
+                    tone: DashboardTone.sapin(context),
+                  ),
+                  DashboardStatCard(
+                    icon: Icons.trending_up_rounded,
+                    title: l10n.commissions,
+                    value: '0 EUR',
+                    tone: DashboardTone.amber(context),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Welcome banner — gradient rose to teal (referrer variant)
-// ---------------------------------------------------------------------------
-
-class _WelcomeBanner extends StatelessWidget {
-  const _WelcomeBanner({
-    required this.displayName,
-    required this.subtitle,
-  });
-
-  final String displayName;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppPalette.teal500, // teal-500
-            AppPalette.violet500, // violet-500
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppPalette.teal500.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Builder(
-        builder: (context) {
-          final l10n = AppLocalizations.of(context)!;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.welcomeBack,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                displayName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stat card — premium design
-// ---------------------------------------------------------------------------
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final String subtitle;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
-        ),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
