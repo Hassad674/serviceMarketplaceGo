@@ -1448,6 +1448,7 @@
   },
   "notifications": {
     "title": "Notifications",
+    "titleAccent": "récentes",
     "markAllAsRead": "Tout marquer comme lu",
     "seeAll": "Voir toutes les notifications",
     "empty": "Aucune notification",
@@ -1459,7 +1460,18 @@
     "preferences": "Préférences de notification",
     "inApp": "In-app",
     "push": "Push",
-    "email": "Email"
+    "email": "Email",
+    "groupToday": "Aujourd'hui",
+    "groupYesterday": "Hier",
+    "groupThisWeek": "Cette semaine",
+    "groupEarlier": "Plus ancien",
+    "subtitleNone": "Tout est calme — pas de nouvelles notifications.",
+    "subtitleAllRead": "Vous êtes à jour. Tout est marqué comme lu.",
+    "subtitleUnread": "{count, plural, one {# non lue} other {# non lues}} · tout marquer lu",
+    "timeJustNow": "à l'instant",
+    "timeMinutes": "il y a {n} min",
+    "timeHours": "il y a {n} h",
+    "timeDays": "il y a {n} j"
   },
   "review": {
     "titleClientToProvider": "Laisser un avis",

@@ -1448,6 +1448,7 @@
   },
   "notifications": {
     "title": "Notifications",
+    "titleAccent": "recent",
     "markAllAsRead": "Mark all as read",
     "seeAll": "See all notifications",
     "empty": "No notifications yet",
@@ -1459,7 +1460,18 @@
     "preferences": "Notification preferences",
     "inApp": "In-app",
     "push": "Push",
-    "email": "Email"
+    "email": "Email",
+    "groupToday": "Today",
+    "groupYesterday": "Yesterday",
+    "groupThisWeek": "This week",
+    "groupEarlier": "Earlier",
+    "subtitleNone": "All quiet — no new notifications.",
+    "subtitleAllRead": "You're all caught up. Everything is marked as read.",
+    "subtitleUnread": "{count, plural, one {# unread} other {# unread}} · mark all read",
+    "timeJustNow": "just now",
+    "timeMinutes": "{n}m ago",
+    "timeHours": "{n}h ago",
+    "timeDays": "{n}d ago"
   },
   "review": {
     "titleClientToProvider": "Leave a review",

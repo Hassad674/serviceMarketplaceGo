@@ -1261,6 +1261,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get markAllRead => 'Mark all read';
 
   @override
+  String get notificationsTitleAccent => 'recent';
+
+  @override
+  String get notificationsGroupToday => 'Today';
+
+  @override
+  String get notificationsGroupYesterday => 'Yesterday';
+
+  @override
+  String get notificationsGroupThisWeek => 'This week';
+
+  @override
+  String get notificationsGroupEarlier => 'Earlier';
+
+  @override
+  String get notificationsSubtitleAllRead =>
+      'You\'re all caught up. Everything is marked as read.';
+
+  @override
+  String notificationsSubtitleUnread(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# unread',
+      one: '# unread',
+    );
+    return '$_temp0 · mark all read';
+  }
+
+  @override
+  String get notificationsTimeJustNow => 'just now';
+
+  @override
+  String notificationsTimeMinutes(int n) {
+    return '${n}m ago';
+  }
+
+  @override
+  String notificationsTimeHours(int n) {
+    return '${n}h ago';
+  }
+
+  @override
+  String notificationsTimeDays(int n) {
+    return '${n}d ago';
+  }
+
+  @override
   String get proposalViewDetails => 'View details';
 
   @override

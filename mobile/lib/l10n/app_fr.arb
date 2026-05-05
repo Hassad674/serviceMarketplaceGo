@@ -438,6 +438,29 @@
   "noNotifications": "Aucune notification",
   "noNotificationsDesc": "Vous serez notifié lorsque quelque chose se passe",
   "markAllRead": "Tout marquer comme lu",
+  "notificationsTitleAccent": "récentes",
+  "notificationsGroupToday": "Aujourd'hui",
+  "notificationsGroupYesterday": "Hier",
+  "notificationsGroupThisWeek": "Cette semaine",
+  "notificationsGroupEarlier": "Plus ancien",
+  "notificationsSubtitleAllRead": "Vous êtes à jour. Tout est marqué comme lu.",
+  "notificationsSubtitleUnread": "{count, plural, one {# non lue} other {# non lues}} · tout marquer lu",
+  "@notificationsSubtitleUnread": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "notificationsTimeJustNow": "à l'instant",
+  "notificationsTimeMinutes": "il y a {n} min",
+  "@notificationsTimeMinutes": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "notificationsTimeHours": "il y a {n} h",
+  "@notificationsTimeHours": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "notificationsTimeDays": "il y a {n} j",
+  "@notificationsTimeDays": {
+    "placeholders": { "n": { "type": "int" } }
+  },
   "proposalViewDetails": "Voir les détails",
   "identityDocTitle": "Vérification d'identité",
   "identityDocSubtitle": "Téléversez un document d'identité officiel pour la vérification.",
