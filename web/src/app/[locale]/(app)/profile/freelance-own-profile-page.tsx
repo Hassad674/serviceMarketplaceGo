@@ -25,6 +25,7 @@ import { SharedLocationSection } from "@/features/organization-shared/components
 import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
 import { SkillsSection } from "@/features/skill/components/skills-section"
 import { FreelanceSocialLinksSection } from "@/features/freelance-profile/components/freelance-social-links-section"
+import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 
 // Editable /profile view for provider_personal users. Renders the
 // freelance persona: split pricing/availability/expertise on top of
@@ -59,8 +60,12 @@ export function FreelanceOwnProfilePage() {
     user?.display_name ??
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
+  // Soleil v2 W-16 v3 — aerated max-w-4xl wrapper (~896px) keeps the
+  // editorial column tight on wide dashboards (brief #1). Project
+  // history is composed LAST here so it sits below all editable shared
+  // sections (location, languages, skills, social) — brief #2.
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-4xl space-y-5">
       <p className="font-serif text-[13px] italic text-muted-foreground">
         {t("editingMode")}
       </p>
@@ -126,13 +131,19 @@ export function FreelanceOwnProfilePage() {
           <FreelanceSocialLinksSection />
         </div>
       ) : null}
+
+      <ProjectHistorySection orgId={org?.id} />
     </div>
   )
 }
 
 function ProfileSkeleton() {
   return (
-    <div className="space-y-5" role="status" aria-live="polite">
+    <div
+      className="mx-auto w-full max-w-4xl space-y-5"
+      role="status"
+      aria-live="polite"
+    >
       <div className="gradient-warm h-40 rounded-2xl" aria-hidden="true" />
       <div className="-mt-16 mx-4 h-40 rounded-2xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] sm:mx-6" />
       <div className="h-40 rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(42,31,21,0.04)] animate-shimmer" />
