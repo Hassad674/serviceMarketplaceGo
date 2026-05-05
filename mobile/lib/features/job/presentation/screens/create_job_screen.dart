@@ -15,12 +15,13 @@ import '../providers/job_provider.dart';
 import '../widgets/budget_section.dart';
 import '../widgets/job_details_section.dart';
 
-/// Full-page scrollable form for creating or editing a job posting.
+/// M-09 — Soleil v2 full-page form for creating or editing a job posting.
 ///
-/// Composed of two expandable sections. When [jobId] is provided, the form
-/// loads the existing job and pre-fills all fields (edit mode). Otherwise it
-/// starts blank (create mode). Tapping the submit button calls the appropriate
-/// backend API, then pops back to the previous screen.
+/// Composed of two expandable sections (details + budget) plus the
+/// description-type / video upload sub-section. When [jobId] is provided,
+/// the form loads the existing job and pre-fills all fields (edit mode).
+/// All API + form behaviour is unchanged from the previous version — this
+/// is a purely visual port to the ivoire/corail palette.
 class CreateJobScreen extends ConsumerStatefulWidget {
   const CreateJobScreen({super.key, this.jobId});
 
@@ -61,7 +62,6 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
 
   bool get _isEditMode => widget.jobId != null;
 
-  @override
   bool get _isAgency {
     final authState = ref.read(authProvider);
     return authState.user?['role'] == 'agency';
@@ -191,7 +191,10 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.videoUploadFailed), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.videoUploadFailed),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } finally {
@@ -285,6 +288,10 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+    final border = appColors?.border ?? theme.colorScheme.outline;
 
     return Scaffold(
       appBar: AppBar(
@@ -292,128 +299,210 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(_isEditMode ? l10n.jobEditJob : l10n.jobCreateJob),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilledButton(
-              onPressed: (_submitting || _loadingJob) ? null : _onSubmit,
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusSm),
-                ),
-              ),
-              child: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(_isEditMode ? l10n.jobSave : l10n.jobPublish),
-            ),
-          ),
-        ],
+        title: Text(
+          _isEditMode ? l10n.createJob_m09_titleEdit : l10n.createJob_m09_title,
+          style: SoleilTextStyles.titleLarge,
+        ),
       ),
       body: _loadingJob
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Section 1: Job details
-              JobDetailsSection(
-                titleController: _titleController,
-                descriptionController: _descriptionController,
-                skills: _formData.skills,
-                onSkillAdded: _onSkillAdded,
-                onSkillRemoved: _onSkillRemoved,
-                applicantType: _formData.applicantType,
-                onApplicantTypeChanged: _onApplicantTypeChanged,
-                isExpanded: _detailsExpanded,
-                onExpansionChanged: (expanded) {
-                  setState(() => _detailsExpanded = expanded);
-                },
-                showDescription: false,
-                hideApplicantType: _isAgency,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Form(
+                      key: _formKey,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        children: [
+                          _SoleilHero(
+                            eyebrow: l10n.createJob_m09_eyebrow,
+                            titlePrefix: l10n.createJob_m09_heroPrefix,
+                            titleAccent: l10n.createJob_m09_heroAccent,
+                            subtitle: l10n.createJob_m09_subtitle,
+                          ),
+                          const SizedBox(height: 22),
+                          JobDetailsSection(
+                            titleController: _titleController,
+                            descriptionController: _descriptionController,
+                            skills: _formData.skills,
+                            onSkillAdded: _onSkillAdded,
+                            onSkillRemoved: _onSkillRemoved,
+                            applicantType: _formData.applicantType,
+                            onApplicantTypeChanged: _onApplicantTypeChanged,
+                            isExpanded: _detailsExpanded,
+                            onExpansionChanged: (expanded) {
+                              setState(() => _detailsExpanded = expanded);
+                            },
+                            showDescription: false,
+                            hideApplicantType: _isAgency,
+                          ),
+                          const SizedBox(height: 14),
+                          _DescriptionTypeSection(
+                            descriptionType: _formData.descriptionType,
+                            onDescriptionTypeChanged: _onDescriptionTypeChanged,
+                            descriptionController: _descriptionController,
+                            videoUrl: _formData.videoUrl,
+                            videoName: _videoName,
+                            isUploading: _isUploadingVideo,
+                            uploadProgress: _uploadProgress,
+                            onPickVideo: _pickVideo,
+                            onRemoveVideo: _removeVideo,
+                          ),
+                          const SizedBox(height: 14),
+                          BudgetSection(
+                            budgetType: _formData.budgetType,
+                            onBudgetTypeChanged: _onBudgetTypeChanged,
+                            minBudgetController: _minBudgetController,
+                            maxBudgetController: _maxBudgetController,
+                            isExpanded: _budgetExpanded,
+                            onExpansionChanged: (expanded) {
+                              setState(() => _budgetExpanded = expanded);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Sticky bottom CTA bar
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerLowest,
+                      border: Border(top: BorderSide(color: border)),
+                    ),
+                    child: Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            foregroundColor: mute,
+                            side: BorderSide(color: border),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: Text(
+                            l10n.jobCancel,
+                            style: SoleilTextStyles.button.copyWith(color: mute),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: _submitting ? null : _onSubmit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
+                              minimumSize: const Size.fromHeight(48),
+                              shape: const StadiumBorder(),
+                              textStyle: SoleilTextStyles.button,
+                            ),
+                            child: _submitting
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.onPrimary,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        _isEditMode
+                                            ? l10n.jobSave
+                                            : l10n.createJob_m09_publishCta,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.arrow_forward, size: 16),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+            ),
+    );
+  }
+}
 
-              // Section: Description type + video upload
-              _DescriptionTypeSection(
-                descriptionType: _formData.descriptionType,
-                onDescriptionTypeChanged: _onDescriptionTypeChanged,
-                descriptionController: _descriptionController,
-                videoUrl: _formData.videoUrl,
-                videoName: _videoName,
-                isUploading: _isUploadingVideo,
-                uploadProgress: _uploadProgress,
-                onPickVideo: _pickVideo,
-                onRemoveVideo: _removeVideo,
+// ---------------------------------------------------------------------------
+// Soleil editorial hero (corail eyebrow + Fraunces display title with italic
+// corail accent + tabac subtitle)
+// ---------------------------------------------------------------------------
+
+class _SoleilHero extends StatelessWidget {
+  const _SoleilHero({
+    required this.eyebrow,
+    required this.titlePrefix,
+    required this.titleAccent,
+    required this.subtitle,
+  });
+
+  final String eyebrow;
+  final String titlePrefix;
+  final String titleAccent;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: SoleilTextStyles.mono.copyWith(
+              color: primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          RichText(
+            text: TextSpan(
+              style: SoleilTextStyles.displayM.copyWith(
+                color: theme.colorScheme.onSurface,
               ),
-              const SizedBox(height: 16),
-
-              // Section 2: Budget
-              BudgetSection(
-                budgetType: _formData.budgetType,
-                onBudgetTypeChanged: _onBudgetTypeChanged,
-                minBudgetController: _minBudgetController,
-                maxBudgetController: _maxBudgetController,
-                isExpanded: _budgetExpanded,
-                onExpansionChanged: (expanded) {
-                  setState(() => _budgetExpanded = expanded);
-                },
-              ),
-              const SizedBox(height: 32),
-
-              // Submit button (bottom)
-              ElevatedButton(
-                onPressed: _submitting ? null : _onSubmit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusMd),
+              children: [
+                TextSpan(text: '$titlePrefix '),
+                TextSpan(
+                  text: titleAccent,
+                  style: SoleilTextStyles.displayM.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: primary,
                   ),
                 ),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(_isEditMode ? l10n.jobSave : l10n.jobPublish),
-              ),
-              const SizedBox(height: 8),
-
-              // Cancel button
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(l10n.jobCancel),
-              ),
-              const SizedBox(height: 16),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: SoleilTextStyles.body.copyWith(color: mute, fontSize: 13.5),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Description type selector + video upload
+// Description type selector + video upload — Soleil-styled inside a card
+// matching the same ivoire surface as the other sections.
 // ---------------------------------------------------------------------------
 
 class _DescriptionTypeSection extends StatelessWidget {
@@ -453,90 +542,163 @@ class _DescriptionTypeSection extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
+    final accentSoft = appColors?.accentSoft ?? theme.colorScheme.primaryContainer;
+    final border = appColors?.border ?? theme.colorScheme.outline;
+    final borderStrong = appColors?.borderStrong ?? theme.colorScheme.outline;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: appColors?.border ?? theme.dividerColor,
-        ),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+        border: Border.all(color: border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                ),
-                child: Icon(Icons.videocam_outlined, color: primary, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                l10n.jobDescriptionType,
-                style: theme.textTheme.titleMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Segmented button for description type
-          SegmentedButton<DescriptionType>(
-            segments: [
-              ButtonSegment(
-                value: DescriptionType.text,
-                label: Text(l10n.jobDescriptionTypeText),
-                icon: const Icon(Icons.text_fields, size: 18),
-              ),
-              ButtonSegment(
-                value: DescriptionType.video,
-                label: Text(l10n.jobDescriptionTypeVideo),
-                icon: const Icon(Icons.videocam, size: 18),
-              ),
-              ButtonSegment(
-                value: DescriptionType.both,
-                label: Text(l10n.jobDescriptionTypeBoth),
-                icon: const Icon(Icons.dashboard, size: 18),
-              ),
-            ],
-            selected: {descriptionType},
-            onSelectionChanged: (set) => onDescriptionTypeChanged(set.first),
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: primary.withValues(alpha: 0.12),
-              selectedForegroundColor: primary,
+          Text(
+            l10n.jobDescriptionType.toUpperCase(),
+            style: SoleilTextStyles.mono.copyWith(
+              color: mute,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
             ),
           ),
-
-          // Text description field
+          const SizedBox(height: 12),
+          // Soleil pill segmented selector
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              border: Border.all(color: border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _DescTypePill(
+                    label: l10n.jobDescriptionTypeText,
+                    icon: Icons.text_fields,
+                    selected: descriptionType == DescriptionType.text,
+                    onTap: () => onDescriptionTypeChanged(DescriptionType.text),
+                  ),
+                ),
+                Expanded(
+                  child: _DescTypePill(
+                    label: l10n.jobDescriptionTypeVideo,
+                    icon: Icons.videocam_outlined,
+                    selected: descriptionType == DescriptionType.video,
+                    onTap: () => onDescriptionTypeChanged(DescriptionType.video),
+                  ),
+                ),
+                Expanded(
+                  child: _DescTypePill(
+                    label: l10n.jobDescriptionTypeBoth,
+                    icon: Icons.dashboard_outlined,
+                    selected: descriptionType == DescriptionType.both,
+                    onTap: () => onDescriptionTypeChanged(DescriptionType.both),
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (_showTextDescription) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+            Text(
+              l10n.jobDescription.toUpperCase(),
+              style: SoleilTextStyles.mono.copyWith(
+                color: mute,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 8),
             TextFormField(
               controller: descriptionController,
-              decoration: InputDecoration(
-                labelText: l10n.jobDescription,
+              decoration: const InputDecoration(
                 alignLabelWithHint: true,
               ),
               maxLines: 5,
               textInputAction: TextInputAction.newline,
             ),
           ],
-
-          // Video upload area
           if (_showVideoUpload) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             if (videoUrl.isEmpty && !isUploading)
-              OutlinedButton.icon(
-                onPressed: onPickVideo,
-                icon: const Icon(Icons.videocam_outlined),
-                label: Text(l10n.jobAddVideo),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(44),
+              InkWell(
+                onTap: onPickVideo,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: borderStrong,
+                      width: 1.5,
+                      style: BorderStyle.solid,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                    color: theme.colorScheme.surface,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              appColors?.amberSoft ?? accentSoft,
+                              appColors?.pinkSoft ?? accentSoft,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        ),
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.colorScheme.surfaceContainerLowest,
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.play_arrow,
+                            size: 14,
+                            color: primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.jobAddVideo,
+                              style: SoleilTextStyles.bodyEmphasis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              l10n.createJob_m09_subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SoleilTextStyles.caption.copyWith(
+                                color: mute,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.add, size: 18, color: mute),
+                    ],
+                  ),
                 ),
               ),
             if (isUploading)
@@ -547,26 +709,27 @@ class _DescriptionTypeSection extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l10n.jobVideoUploading),
                         Text(
-                          l10n.uploadProgress(
-                            (uploadProgress * 100).round(),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                          l10n.jobVideoUploading,
+                          style: SoleilTextStyles.body,
+                        ),
+                        Text(
+                          l10n.uploadProgress((uploadProgress * 100).round()),
+                          style: SoleilTextStyles.mono.copyWith(
+                            fontSize: 12,
+                            color: primary,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                       child: LinearProgressIndicator(
                         value: uploadProgress,
                         minHeight: 6,
-                        backgroundColor: primary.withValues(alpha: 0.12),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(primary),
+                        backgroundColor: accentSoft,
+                        valueColor: AlwaysStoppedAnimation<Color>(primary),
                       ),
                     ),
                   ],
@@ -580,7 +743,7 @@ class _DescriptionTypeSection extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: Text(videoName ?? l10n.jobVideoUploaded),
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
+                  foregroundColor: theme.colorScheme.error,
                 ),
               ),
             ],
@@ -591,3 +754,64 @@ class _DescriptionTypeSection extends StatelessWidget {
   }
 }
 
+class _DescTypePill extends StatelessWidget {
+  const _DescTypePill({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: selected ? theme.colorScheme.onPrimary : mute,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: SoleilTextStyles.button.copyWith(
+                    color: selected ? theme.colorScheme.onPrimary : mute,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

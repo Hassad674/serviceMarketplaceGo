@@ -6061,6 +6061,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete my account'**
   String get accountDeleteAccountAction;
+
+  /// No description provided for @createJob_m09_title.
+  ///
+  /// In en, this message translates to:
+  /// **'New job'**
+  String get createJob_m09_title;
+
+  /// No description provided for @createJob_m09_titleEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit job'**
+  String get createJob_m09_titleEdit;
+
+  /// No description provided for @createJob_m09_eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · NEW JOB'**
+  String get createJob_m09_eyebrow;
+
+  /// No description provided for @createJob_m09_heroPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Post your'**
+  String get createJob_m09_heroPrefix;
+
+  /// No description provided for @createJob_m09_heroAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'new job.'**
+  String get createJob_m09_heroAccent;
+
+  /// No description provided for @createJob_m09_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the mission. The more precise, the more relevant the applications.'**
+  String get createJob_m09_subtitle;
+
+  /// No description provided for @createJob_m09_publishCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish job'**
+  String get createJob_m09_publishCta;
 }
 
 class _AppLocalizationsDelegate

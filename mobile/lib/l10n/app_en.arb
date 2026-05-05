@@ -1315,5 +1315,12 @@
   "accountComingSoon": "Coming soon",
   "accountManageDeletion": "Manage account deletion",
   "accountCancelDeletionAction": "Cancel deletion",
-  "accountDeleteAccountAction": "Delete my account"
+  "accountDeleteAccountAction": "Delete my account",
+  "createJob_m09_title": "New job",
+  "createJob_m09_titleEdit": "Edit job",
+  "createJob_m09_eyebrow": "ATELIER · NEW JOB",
+  "createJob_m09_heroPrefix": "Post your",
+  "createJob_m09_heroAccent": "new job.",
+  "createJob_m09_subtitle": "Describe the mission. The more precise, the more relevant the applications.",
+  "createJob_m09_publishCta": "Publish job"
 }
