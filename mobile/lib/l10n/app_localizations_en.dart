@@ -3042,4 +3042,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get gdprBannerBodyNoDate =>
       'Your account is scheduled for deletion. Tap to cancel.';
+
+  @override
+  String get m02_eyebrowLabel => 'Account creation';
+
+  @override
+  String get m02_stepIndicator => 'Step 1 of 3';
+
+  @override
+  String get m02_titlePrefix => 'How would you like to use';
+
+  @override
+  String get m02_titleAccent => 'Atelier?';
+
+  @override
+  String get m02_subtitle => 'You can add the second role later.';
+
+  @override
+  String get m02_continue => 'Continue';
+
+  @override
+  String get m02_recommendedBadge => 'Recommended';
+
+  @override
+  String get m02_agencyDesc =>
+      'Studio, agency, collective… You lead a team and look for structuring missions.';
+
+  @override
+  String get m02_providerDesc =>
+      'Find missions, build your profile and get paid securely.';
+
+  @override
+  String get m02_enterpriseDesc =>
+      'Post your needs, recruit verified freelancers, manage your projects.';
 }
