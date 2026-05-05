@@ -2595,6 +2595,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1AvailabilityEditButton => 'Mettre à jour ma disponibilité';
 
   @override
+  String freelanceMetaPerDay(String amount) {
+    return '$amount /jour';
+  }
+
+  @override
   String get tier1LocationSectionTitle => 'Localisation';
 
   @override

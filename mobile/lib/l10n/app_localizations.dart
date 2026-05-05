@@ -4838,6 +4838,12 @@ abstract class AppLocalizations {
   /// **'Update availability'**
   String get tier1AvailabilityEditButton;
 
+  /// Daily rate formatted for the freelance header meta row.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} /day'**
+  String freelanceMetaPerDay(String amount);
+
   /// No description provided for @tier1LocationSectionTitle.
   ///
   /// In en, this message translates to:

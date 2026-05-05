@@ -16,6 +16,8 @@ class FreelanceProfileHeader extends StatelessWidget {
     required this.photoUrl,
     required this.initials,
     required this.availabilityWireValue,
+    this.portraitSeed,
+    this.trailing,
   });
 
   /// Freelance persona accent — rose-500 to match the primary tone.
@@ -27,6 +29,16 @@ class FreelanceProfileHeader extends StatelessWidget {
   final String initials;
   final String availabilityWireValue;
 
+  /// Stable seed used to pick a Soleil [Portrait] palette when no
+  /// [photoUrl] is set. Falls back to the legacy initials avatar
+  /// when null so existing callers keep their behaviour.
+  final int? portraitSeed;
+
+  /// Optional override for the trailing slot. When null the header
+  /// renders the default availability pill so old callers keep
+  /// working unchanged.
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -36,10 +48,12 @@ class FreelanceProfileHeader extends StatelessWidget {
       accentColor: kAccent,
       title: title,
       photoUrl: photoUrl,
-      trailing: AvailabilityPill(
-        wireValue: availabilityWireValue,
-        label: _availabilityLabel(l10n, availabilityWireValue),
-      ),
+      portraitSeed: portraitSeed,
+      trailing: trailing ??
+          AvailabilityPill(
+            wireValue: availabilityWireValue,
+            label: _availabilityLabel(l10n, availabilityWireValue),
+          ),
     );
   }
 
