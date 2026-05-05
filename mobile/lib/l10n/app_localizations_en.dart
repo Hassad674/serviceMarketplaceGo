@@ -3284,4 +3284,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createJob_m09_publishCta => 'Publish job';
+
+  @override
+  String get jobDetail_m08_eyebrowOpen => 'ATELIER · LIVE LISTING';
+
+  @override
+  String get jobDetail_m08_eyebrowClosed => 'ATELIER · CLOSED LISTING';
+
+  @override
+  String get jobDetail_m08_tabDescription => 'Description';
+
+  @override
+  String get jobDetail_m08_tabCandidates => 'Applications';
+
+  @override
+  String get jobDetail_m08_descriptionHeading => 'Description';
+
+  @override
+  String get jobDetail_m08_videoHeading => 'Video pitch';
+
+  @override
+  String get jobDetail_m08_skillsHeading => 'Required skills';
+
+  @override
+  String get jobDetail_m08_budgetHeading => 'Budget';
+
+  @override
+  String get jobDetail_m08_durationLabel => 'Duration';
+
+  @override
+  String get jobDetail_m08_durationIndefinite => 'Open-ended';
+
+  @override
+  String jobDetail_m08_durationWeeks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# weeks',
+      one: '# week',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get jobDetail_m08_summaryApplicants => 'Applicants';
+
+  @override
+  String jobDetail_m08_summaryApplicantsValue(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# applicants',
+      one: '# applicant',
+      zero: '0',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get jobDetail_m08_summaryProfiles => 'Targeted profiles';
+
+  @override
+  String get jobDetail_m08_summaryPublished => 'Published';
+
+  @override
+  String get jobDetail_m08_emptyTitle => 'No applications yet.';
+
+  @override
+  String get jobDetail_m08_emptyBody =>
+      'Hold on, or share the listing to boost its visibility to freelancers and agencies.';
+
+  @override
+  String jobDetail_m08_appliedRelative(String when) {
+    return 'Applied $when';
+  }
+
+  @override
+  String get jobDetail_m08_orgFreelance => 'Freelance';
+
+  @override
+  String get jobDetail_m08_orgAgency => 'Agency';
+
+  @override
+  String get jobDetail_m08_orgEnterprise => 'Enterprise';
+
+  @override
+  String get jobDetail_m08_videoBadge => 'Video';
+
+  @override
+  String get jobDetail_m08_panelEyebrow => 'APPLICATION';
+
+  @override
+  String get jobDetail_m08_messageHeading => 'Cover letter';
+
+  @override
+  String get jobDetail_m08_videoPitchHeading => 'Video pitch';
+
+  @override
+  String get jobDetail_m08_viewProfile => 'View profile';
+
+  @override
+  String get jobDetail_m08_sendMessage => 'Send message';
 }

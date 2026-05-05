@@ -1315,5 +1315,41 @@
   "createJob_m09_heroPrefix": "Publie ta",
   "createJob_m09_heroAccent": "nouvelle annonce.",
   "createJob_m09_subtitle": "Décris la mission. Plus c'est précis, plus les candidatures sont pertinentes.",
-  "createJob_m09_publishCta": "Publier l'annonce"
+  "createJob_m09_publishCta": "Publier l'annonce",
+  "jobDetail_m08_eyebrowOpen": "ATELIER · ANNONCE EN LIGNE",
+  "jobDetail_m08_eyebrowClosed": "ATELIER · ANNONCE FERMÉE",
+  "jobDetail_m08_tabDescription": "Description",
+  "jobDetail_m08_tabCandidates": "Candidatures",
+  "jobDetail_m08_descriptionHeading": "Description",
+  "jobDetail_m08_videoHeading": "Présentation vidéo",
+  "jobDetail_m08_skillsHeading": "Compétences attendues",
+  "jobDetail_m08_budgetHeading": "Budget",
+  "jobDetail_m08_durationLabel": "Durée",
+  "jobDetail_m08_durationIndefinite": "Durée indéterminée",
+  "jobDetail_m08_durationWeeks": "{count, plural, one {# semaine} other {# semaines}}",
+  "@jobDetail_m08_durationWeeks": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "jobDetail_m08_summaryApplicants": "Candidatures",
+  "jobDetail_m08_summaryApplicantsValue": "{count, plural, =0 {0} one {# candidature} other {# candidatures}}",
+  "@jobDetail_m08_summaryApplicantsValue": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "jobDetail_m08_summaryProfiles": "Profils ciblés",
+  "jobDetail_m08_summaryPublished": "Publiée",
+  "jobDetail_m08_emptyTitle": "Aucune candidature pour le moment.",
+  "jobDetail_m08_emptyBody": "Patiente ou partage l'annonce pour booster sa visibilité auprès des freelances et agences.",
+  "jobDetail_m08_appliedRelative": "Candidature {when}",
+  "@jobDetail_m08_appliedRelative": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "jobDetail_m08_orgFreelance": "Freelance",
+  "jobDetail_m08_orgAgency": "Agence",
+  "jobDetail_m08_orgEnterprise": "Entreprise",
+  "jobDetail_m08_videoBadge": "Vidéo",
+  "jobDetail_m08_panelEyebrow": "CANDIDATURE",
+  "jobDetail_m08_messageHeading": "Lettre de motivation",
+  "jobDetail_m08_videoPitchHeading": "Vidéo de présentation",
+  "jobDetail_m08_viewProfile": "Voir le profil",
+  "jobDetail_m08_sendMessage": "Envoyer un message"
 }

@@ -3308,4 +3308,105 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get createJob_m09_publishCta => 'Publier l\'annonce';
+
+  @override
+  String get jobDetail_m08_eyebrowOpen => 'ATELIER · ANNONCE EN LIGNE';
+
+  @override
+  String get jobDetail_m08_eyebrowClosed => 'ATELIER · ANNONCE FERMÉE';
+
+  @override
+  String get jobDetail_m08_tabDescription => 'Description';
+
+  @override
+  String get jobDetail_m08_tabCandidates => 'Candidatures';
+
+  @override
+  String get jobDetail_m08_descriptionHeading => 'Description';
+
+  @override
+  String get jobDetail_m08_videoHeading => 'Présentation vidéo';
+
+  @override
+  String get jobDetail_m08_skillsHeading => 'Compétences attendues';
+
+  @override
+  String get jobDetail_m08_budgetHeading => 'Budget';
+
+  @override
+  String get jobDetail_m08_durationLabel => 'Durée';
+
+  @override
+  String get jobDetail_m08_durationIndefinite => 'Durée indéterminée';
+
+  @override
+  String jobDetail_m08_durationWeeks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# semaines',
+      one: '# semaine',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get jobDetail_m08_summaryApplicants => 'Candidatures';
+
+  @override
+  String jobDetail_m08_summaryApplicantsValue(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# candidatures',
+      one: '# candidature',
+      zero: '0',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get jobDetail_m08_summaryProfiles => 'Profils ciblés';
+
+  @override
+  String get jobDetail_m08_summaryPublished => 'Publiée';
+
+  @override
+  String get jobDetail_m08_emptyTitle => 'Aucune candidature pour le moment.';
+
+  @override
+  String get jobDetail_m08_emptyBody =>
+      'Patiente ou partage l\'annonce pour booster sa visibilité auprès des freelances et agences.';
+
+  @override
+  String jobDetail_m08_appliedRelative(String when) {
+    return 'Candidature $when';
+  }
+
+  @override
+  String get jobDetail_m08_orgFreelance => 'Freelance';
+
+  @override
+  String get jobDetail_m08_orgAgency => 'Agence';
+
+  @override
+  String get jobDetail_m08_orgEnterprise => 'Entreprise';
+
+  @override
+  String get jobDetail_m08_videoBadge => 'Vidéo';
+
+  @override
+  String get jobDetail_m08_panelEyebrow => 'CANDIDATURE';
+
+  @override
+  String get jobDetail_m08_messageHeading => 'Lettre de motivation';
+
+  @override
+  String get jobDetail_m08_videoPitchHeading => 'Vidéo de présentation';
+
+  @override
+  String get jobDetail_m08_viewProfile => 'Voir le profil';
+
+  @override
+  String get jobDetail_m08_sendMessage => 'Envoyer un message';
 }

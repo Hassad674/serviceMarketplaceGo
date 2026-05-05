@@ -3,13 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../../shared/widgets/video_player_widget.dart';
 import '../../../domain/entities/job_entity.dart';
 import '../../providers/job_provider.dart';
 import '../candidate_card.dart';
 import 'job_detail_cards.dart';
 
-/// Read-only "Details" tab content.
+/// M-08 description tab — Soleil v2 layout.
+///
+/// Stacked Soleil cards: status header card, budget hero, optional
+/// video, full description body, skills as corail-soft pills, and a
+/// dedicated duration card. Editorial calm, no neon.
 class JobDetailDetailsTab extends StatelessWidget {
   const JobDetailDetailsTab({super.key, required this.job});
 
@@ -18,80 +21,145 @@ class JobDetailDetailsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
+    final cs = theme.colorScheme;
+    final soleil = theme.extension<AppColors>()!;
     final l10n = AppLocalizations.of(context)!;
     final hasVideo = job.videoUrl != null && job.videoUrl!.isNotEmpty;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           JobDetailHeaderCard(job: job),
           const SizedBox(height: 16),
-          if (hasVideo) ...[
-            VideoPlayerWidget(videoUrl: job.videoUrl!),
-            const SizedBox(height: 16),
-          ],
           JobDetailBudgetCard(job: job),
           const SizedBox(height: 16),
-          if (job.skills.isNotEmpty) ...[
-            Text(
-              l10n.jobSkills,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: job.skills
-                  .map(
-                    (s) => Chip(
-                      label: Text(
-                        s,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      backgroundColor:
-                          theme.colorScheme.primary.withValues(alpha: 0.08),
-                      side: BorderSide.none,
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
+          if (hasVideo) ...[
+            _SectionCard(
+              heading: l10n.jobDetail_m08_videoHeading,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: ColoredBox(
+                    color: cs.onSurface,
+                    child: const Icon(
+                      Icons.play_circle_outline,
+                      color: Colors.white,
+                      size: 48,
                     ),
-                  )
-                  .toList(),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
           ],
-          Text(
-            l10n.jobDescription,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
+          _SectionCard(
+            heading: l10n.jobDetail_m08_descriptionHeading,
+            child: Text(
+              job.description,
+              style: SoleilTextStyles.bodyLarge.copyWith(
+                color: cs.onSurface,
+                height: 1.6,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            job.description,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: appColors?.mutedForeground,
-              height: 1.5,
+          if (job.skills.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _SectionCard(
+              heading: l10n.jobDetail_m08_skillsHeading,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: job.skills
+                    .map(
+                      (skill) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: soleil.accentSoft,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusFull),
+                        ),
+                        child: Text(
+                          skill,
+                          style: SoleilTextStyles.caption.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: soleil.primaryDeep,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
+          ],
+          if (job.durationWeeks != null || job.isIndefinite) ...[
+            const SizedBox(height: 16),
+            _SectionCard(
+              heading: l10n.jobDetail_m08_durationLabel,
+              child: Text(
+                job.isIndefinite
+                    ? l10n.jobDetail_m08_durationIndefinite
+                    : l10n.jobDetail_m08_durationWeeks(
+                        job.durationWeeks ?? 0,
+                      ),
+                style: SoleilTextStyles.bodyLarge.copyWith(
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// "Candidates" tab content — list of applicants.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.heading, required this.child});
+
+  final String heading;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: cs.outline),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            heading,
+            style: SoleilTextStyles.titleMedium.copyWith(
+              color: cs.onSurface,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// M-08 candidates tab — list of Soleil candidate cards or a soft empty
+/// state. Underlying Riverpod provider is unchanged.
 class JobDetailCandidatesTab extends ConsumerWidget {
   const JobDetailCandidatesTab({super.key, required this.jobId});
 
@@ -100,61 +168,16 @@ class JobDetailCandidatesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final candidates = ref.watch(jobApplicationsProvider(jobId));
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(jobApplicationsProvider(jobId)),
       child: candidates.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-              const SizedBox(height: 12),
-              Text(
-                l10n.somethingWentWrong,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () =>
-                    ref.invalidate(jobApplicationsProvider(jobId)),
-                child: Text(l10n.retry),
-              ),
-            ],
-          ),
-        ),
+        error: (e, _) => _CandidatesError(jobId: jobId),
         data: (items) {
-          if (items.isEmpty) {
-            return ListView(
-              children: [
-                SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                Icon(
-                  Icons.people_outline,
-                  size: 48,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.jobNoCandidates,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.jobNoCandidatesDesc,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            );
-          }
+          if (items.isEmpty) return const _CandidatesEmpty();
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) => CandidateCard(
@@ -166,6 +189,105 @@ class JobDetailCandidatesTab extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _CandidatesError extends ConsumerWidget {
+  const _CandidatesError({required this.jobId});
+
+  final String jobId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 28),
+      children: [
+        Icon(
+          Icons.error_outline,
+          size: 48,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          l10n.somethingWentWrong,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: () => ref.invalidate(jobApplicationsProvider(jobId)),
+            child: Text(l10n.retry),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CandidatesEmpty extends StatelessWidget {
+  const _CandidatesEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final soleil = theme.extension<AppColors>()!;
+    final l10n = AppLocalizations.of(context)!;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 28),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: soleil.accentSoft,
+            borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+            border: Border.all(color: cs.outline),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                ),
+                child: Icon(
+                  Icons.groups_outlined,
+                  color: soleil.primaryDeep,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.jobDetail_m08_emptyTitle,
+                textAlign: TextAlign.center,
+                style: SoleilTextStyles.titleMedium.copyWith(
+                  color: cs.onSurface,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.jobDetail_m08_emptyBody,
+                textAlign: TextAlign.center,
+                style: SoleilTextStyles.body.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
