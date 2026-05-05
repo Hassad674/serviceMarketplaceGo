@@ -26,12 +26,12 @@ export function LanguagesDisplayCard({
   return (
     <section
       aria-labelledby="public-languages-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4">
         <h2
           id="public-languages-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t("sectionTitle")}
         </h2>
@@ -67,17 +67,19 @@ interface LanguageGroupProps {
 
 function LanguageGroup({ label, codes, locale, primary }: LanguageGroupProps) {
   return (
-    <div className={primary ? "" : "mt-4"}>
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-        {label}
-      </p>
+    <div className={primary ? "" : "mt-5"}>
+      <p className="text-xs font-semibold text-foreground mb-2">{label}</p>
       <ul className="flex flex-wrap gap-1.5" aria-label={label}>
         {codes.map((code) => {
           const flag = getFlagEmoji(getLanguageFlagCountry(code))
           return (
             <li
               key={code}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-foreground"
+              className={
+                primary
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-deep"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
+              }
             >
               {flag ? <span aria-hidden="true">{flag}</span> : null}
               {getLanguageLabel(code, locale)}

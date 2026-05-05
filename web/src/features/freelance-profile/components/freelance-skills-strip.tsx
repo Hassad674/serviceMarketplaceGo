@@ -18,7 +18,7 @@ export function FreelanceSkillsStrip({ skills }: FreelanceSkillsStripProps) {
   return (
     <section
       aria-labelledby="freelance-skills-strip-title"
-      className="rounded-xl border border-border bg-card p-6 shadow-[0_4px_24px_rgba(42,31,21,0.04)]"
+      className="rounded-2xl border border-border bg-card p-7 shadow-[var(--shadow-card)]"
     >
       <h2
         id="freelance-skills-strip-title"

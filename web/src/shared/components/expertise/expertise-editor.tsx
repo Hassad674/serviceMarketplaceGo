@@ -118,12 +118,12 @@ export function ExpertiseEditor({
   return (
     <section
       aria-labelledby="expertise-section-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4 flex flex-col gap-1">
         <h2
           id="expertise-section-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t("sectionTitle")}
         </h2>
@@ -165,10 +165,10 @@ function ReadOnlyPillList({ selected }: { selected: ExpertiseDomainKey[] }) {
   const t = useTranslations("profile.expertise.domains")
   if (selected.length === 0) return null
   return (
-    <ul className="flex flex-wrap gap-2" aria-label="expertise list">
+    <ul className="flex flex-wrap gap-1.5" aria-label="expertise list">
       {selected.map((key) => (
         <li key={key}>
-          <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-medium border border-primary/20">
+          <span className="inline-flex items-center rounded-full border border-primary bg-primary-soft px-3.5 py-1.5 text-[13px] font-semibold text-primary-deep">
             {t(key)}
           </span>
         </li>
@@ -374,12 +374,12 @@ function DomainPickerGrid({
             aria-pressed={isSelected}
             disabled={isDisabled}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-all duration-150",
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium border transition-all duration-150",
               "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
               isSelected
-                ? "bg-primary text-primary-foreground border-primary shadow-sm hover:opacity-90"
-                : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
-              isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-background",
+                ? "bg-primary-soft text-primary-deep border-primary font-semibold hover:bg-primary-soft/80"
+                : "bg-card text-foreground border-border hover:border-primary/60 hover:bg-muted",
+              isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-card",
             )}
           >
             {isSelected ? (

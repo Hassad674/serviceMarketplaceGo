@@ -27,30 +27,30 @@ export function PricingDisplayCard({
   return (
     <section
       aria-labelledby={`public-pricing-title-${titleKey}`}
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4">
         <h2
           id={`public-pricing-title-${titleKey}`}
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t(titleKey)}
         </h2>
       </header>
 
-      <div className="flex items-baseline flex-wrap gap-2">
-        <span className="text-2xl font-bold text-foreground">
+      <div className="flex items-baseline flex-wrap gap-3">
+        <span className="font-serif text-[30px] font-medium leading-none tracking-[-0.02em] text-foreground">
           {formatPricing(pricing, locale)}
         </span>
         {pricing.negotiable ? (
-          <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-xs font-medium dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30">
+          <span className="inline-flex items-center rounded-full border border-success bg-success-soft px-3 py-1 text-xs font-semibold text-success">
             {t("negotiableYes")}
           </span>
         ) : null}
       </div>
 
       {pricing.note.trim() !== "" ? (
-        <p className="mt-3 text-sm text-muted-foreground italic">
+        <p className="mt-3 font-serif text-sm italic text-muted-foreground">
           {pricing.note}
         </p>
       ) : null}

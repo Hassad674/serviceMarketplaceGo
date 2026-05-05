@@ -17,16 +17,17 @@ const STATUS_VALUES: AvailabilityStatus[] = [
   "not_available",
 ]
 
-// Tailwind pill styles per status — colored idle + colored selected
-// so the picker reads the same as the public-profile availability
-// strip elsewhere in the app.
+// Soleil v2 pill styles per status — calm tinted backgrounds, bolder
+// border + font weight on the selected chip. Selected uses semantic
+// soft tokens (success-soft / amber-soft / muted) plus the matching
+// strong border for clear focus, matching soleil-lotD.jsx.
 const STATUS_STYLES: Record<AvailabilityStatus, string> = {
   available_now:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 aria-checked:bg-emerald-500 aria-checked:text-white aria-checked:border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30",
+    "bg-card border-border text-muted-foreground hover:border-success/60 aria-checked:bg-success-soft aria-checked:text-success aria-checked:border-success aria-checked:font-semibold",
   available_soon:
-    "bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400 aria-checked:bg-amber-500 aria-checked:text-white aria-checked:border-amber-500 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30",
+    "bg-card border-border text-muted-foreground hover:border-warning/60 aria-checked:bg-amber-soft aria-checked:text-warning aria-checked:border-warning aria-checked:font-semibold",
   not_available:
-    "bg-rose-50 text-rose-700 border-rose-200 hover:border-rose-400 aria-checked:bg-rose-500 aria-checked:text-white aria-checked:border-rose-500 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
+    "bg-card border-border text-muted-foreground hover:border-border-strong aria-checked:bg-muted aria-checked:text-foreground aria-checked:border-border-strong aria-checked:font-semibold",
 }
 
 interface AvailabilityEditorCardProps {
@@ -70,12 +71,12 @@ export function AvailabilityEditorCard({
   return (
     <section
       aria-labelledby="availability-editor-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4 flex flex-col gap-1">
         <h2
           id="availability-editor-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {titleOverride ?? t("sectionTitle")}
         </h2>
@@ -87,7 +88,7 @@ export function AvailabilityEditorCard({
       <div
         role="radiogroup"
         aria-label={titleOverride ?? t("sectionTitle")}
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap gap-1.5"
       >
         {STATUS_VALUES.map((status) => {
           const isSelected = status === draft
@@ -102,7 +103,7 @@ export function AvailabilityEditorCard({
                 setJustSaved(false)
               }}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-all duration-150",
+                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium border transition-all duration-150",
                 "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
                 STATUS_STYLES[status],
               )}
@@ -120,7 +121,7 @@ export function AvailabilityEditorCard({
         {justSaved && !isDirty ? (
           <span
             role="status"
-            className="text-xs text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1"
+            className="text-xs text-success inline-flex items-center gap-1"
           >
             <Check className="w-3 h-3" aria-hidden="true" />
             {t("saved")}
