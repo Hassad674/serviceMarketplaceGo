@@ -139,8 +139,15 @@ class WalletHistoryCard extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  // titleSmall is not overridden in the Soleil textTheme,
+                  // so its color falls back to a Material default that
+                  // can render white on the light ivoire surface. Force
+                  // onSurface (encre) so the section title is always
+                  // legible (e.g. "Mission history", "Commission
+                  // history").
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
