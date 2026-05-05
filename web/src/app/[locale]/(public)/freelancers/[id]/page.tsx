@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
+import { ArrowLeft } from "lucide-react"
+import { Link } from "@i18n/navigation"
 import { SendMessageButton } from "@/features/messaging/components/send-message-button"
 import {
   FreelancePublicProfileLoader,
@@ -54,13 +56,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function FreelancerProfilePage({ params }: Props) {
-  const { id } = await params
+  const { id, locale } = await params
   const profile = await fetchFreelanceProfileForMetadata(id)
+  const t = await getTranslations({ locale, namespace: "profile.freelance" })
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-5">
+      <Link
+        href="/freelancers"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+        {t("backToList")}
+      </Link>
       <FreelancePublicProfileLoader orgId={id} />
       {profile ? <JsonLd profileId={id} profile={profile} /> : null}
-      <div className="flex justify-center">
+      <div className="flex justify-center pt-2">
         <SendMessageButton targetOrgId={id} />
       </div>
     </div>

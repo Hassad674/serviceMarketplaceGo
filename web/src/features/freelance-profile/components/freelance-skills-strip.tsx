@@ -18,22 +18,22 @@ export function FreelanceSkillsStrip({ skills }: FreelanceSkillsStripProps) {
   return (
     <section
       aria-labelledby="freelance-skills-strip-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="rounded-xl border border-border bg-card p-6 shadow-[0_4px_24px_rgba(42,31,21,0.04)]"
     >
       <h2
         id="freelance-skills-strip-title"
-        className="text-lg font-semibold text-foreground mb-3"
+        className="mb-4 font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
       >
         {t("sectionTitle")}
       </h2>
       <ul
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap gap-1.5"
         aria-label={t("listLabel")}
         data-testid="freelance-skills-list"
       >
         {skills.map((skill) => (
           <li key={skill.skill_text}>
-            <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
+            <span className="inline-flex items-center rounded-full bg-background px-3 py-1.5 text-[12.5px] font-medium text-foreground">
               {skill.display_text}
             </span>
           </li>

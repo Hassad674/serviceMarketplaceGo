@@ -64,7 +64,7 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
   const readOnly = !editable
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <FreelanceProfileHeader
         profile={profile}
         displayName={displayName}
