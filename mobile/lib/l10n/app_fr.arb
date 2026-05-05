@@ -1395,5 +1395,16 @@
   "proposalFlow_status_released": "Payé",
   "proposalFlow_status_disputed": "En litige",
   "proposalFlow_status_cancelled": "Annulé",
-  "proposalFlow_status_refunded": "Remboursé"
+  "proposalFlow_status_refunded": "Remboursé",
+  "mobileDashboard_eyebrow": "ATELIER · TABLEAU DE BORD",
+  "mobileDashboard_welcomePrefix": "Bonjour {name},",
+  "@mobileDashboard_welcomePrefix": {"placeholders": {"name": {"type": "String"}}},
+  "mobileDashboard_welcomeAccent": "belle journée en perspective.",
+  "mobileDashboard_providerSubtitle": "Suis tes missions, tes conversations et tes revenus du mois en un coup d'œil.",
+  "mobileDashboard_agencySubtitle": "Pilote l'activité de ton agence : missions, équipe et facturation.",
+  "mobileDashboard_enterpriseSubtitle": "Pilote tes projets, tes conversations et ton budget en un coup d'œil.",
+  "mobileDashboard_referrerSubtitle": "Suis tes mises en relation, missions actives et commissions accumulées.",
+  "mobileDashboard_referrerEyebrow": "ATELIER · APPORTEUR D'AFFAIRES",
+  "mobileDashboard_switchToReferrer": "Passer en mode apporteur",
+  "mobileDashboard_switchToFreelance": "Revenir au mode freelance"
 }
