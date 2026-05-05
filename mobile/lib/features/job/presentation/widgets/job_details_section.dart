@@ -5,7 +5,11 @@ import '../../../../l10n/app_localizations.dart';
 import '../../types/job.dart';
 import 'applicant_type_selector.dart';
 
-/// Section 1: Job details -- title, description, skills, and applicant type.
+/// M-09 — Soleil v2 job details section.
+///
+/// Public prop interface (controllers, callbacks, expanded state) is
+/// unchanged. Visual identity ports to ivoire/corail with mono labels,
+/// rounded inputs and a corail-on-soft chip palette.
 class JobDetailsSection extends StatelessWidget {
   const JobDetailsSection({
     super.key,
@@ -37,23 +41,18 @@ class JobDetailsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
 
-    return _buildExpandableContainer(
-      context: context,
-      theme: theme,
-      appColors: appColors,
+    return _SoleilSectionCard(
       title: l10n.jobDetails,
-      icon: Icons.description_outlined,
+      number: 1,
       isExpanded: isExpanded,
       onExpansionChanged: onExpansionChanged,
       children: [
-        // Title
+        _MonoLabel(text: l10n.jobTitle),
+        const SizedBox(height: 8),
         TextFormField(
           controller: titleController,
           decoration: InputDecoration(
-            labelText: l10n.jobTitle,
             hintText: l10n.jobTitleHint,
           ),
           maxLength: 100,
@@ -65,14 +64,13 @@ class JobDetailsSection extends StatelessWidget {
             return null;
           },
         ),
-        const SizedBox(height: 16),
-
-        // Description (hidden when description type is video-only)
         if (showDescription) ...[
+          const SizedBox(height: 18),
+          _MonoLabel(text: l10n.jobDescription),
+          const SizedBox(height: 8),
           TextFormField(
             controller: descriptionController,
-            decoration: InputDecoration(
-              labelText: l10n.jobDescription,
+            decoration: const InputDecoration(
               alignLabelWithHint: true,
             ),
             maxLines: 5,
@@ -85,10 +83,9 @@ class JobDetailsSection extends StatelessWidget {
               return null;
             },
           ),
-          const SizedBox(height: 20),
-        ],
-
-        // Skills
+          const SizedBox(height: 18),
+        ] else
+          const SizedBox(height: 18),
         _ChipInput(
           label: l10n.jobSkills,
           hintText: l10n.jobSkillsHint,
@@ -98,9 +95,7 @@ class JobDetailsSection extends StatelessWidget {
           onRemoved: onSkillRemoved,
         ),
         if (!hideApplicantType) ...[
-          const SizedBox(height: 20),
-
-          // Applicant type
+          const SizedBox(height: 22),
           ApplicantTypeSelector(
             selected: applicantType,
             onChanged: onApplicantTypeChanged,
@@ -109,77 +104,127 @@ class JobDetailsSection extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildExpandableContainer({
-    required BuildContext context,
-    required ThemeData theme,
-    required AppColors? appColors,
-    required String title,
-    required IconData icon,
-    required bool isExpanded,
-    required ValueChanged<bool> onExpansionChanged,
-    required List<Widget> children,
-  }) {
+// ---------------------------------------------------------------------------
+// Mono uppercase label (Soleil signature)
+// ---------------------------------------------------------------------------
+
+class _MonoLabel extends StatelessWidget {
+  const _MonoLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+
+    return Text(
+      text.toUpperCase(),
+      style: SoleilTextStyles.mono.copyWith(
+        color: mute,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Soleil section card with numbered badge + chevron toggle
+// ---------------------------------------------------------------------------
+
+class _SoleilSectionCard extends StatelessWidget {
+  const _SoleilSectionCard({
+    required this.title,
+    required this.number,
+    required this.isExpanded,
+    required this.onExpansionChanged,
+    required this.children,
+  });
+
+  final String title;
+  final int number;
+  final bool isExpanded;
+  final ValueChanged<bool> onExpansionChanged;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
+    final accentSoft = appColors?.accentSoft ?? theme.colorScheme.primaryContainer;
+    final primaryDeep = appColors?.primaryDeep ?? primary;
+    final border = appColors?.border ?? theme.colorScheme.outline;
+    final borderStrong = appColors?.borderStrong ?? theme.colorScheme.outline;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radius2xl),
         border: Border.all(
-          color: isExpanded
-              ? primary.withValues(alpha: 0.3)
-              : appColors?.border ?? theme.dividerColor,
+          color: isExpanded ? borderStrong : border,
         ),
         boxShadow: isExpanded ? AppTheme.cardShadow : null,
       ),
       child: Column(
         children: [
-          // Header
           InkWell(
             onTap: () => onExpansionChanged(!isExpanded),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            borderRadius: BorderRadius.circular(AppTheme.radius2xl),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.1),
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusSm),
+                      shape: BoxShape.circle,
+                      color: isExpanded ? accentSoft : theme.colorScheme.surface,
+                      border: Border.all(
+                        color: isExpanded ? primary : borderStrong,
+                      ),
                     ),
-                    child: Icon(icon, color: primary, size: 20),
+                    child: Text(
+                      '$number',
+                      style: SoleilTextStyles.mono.copyWith(
+                        color: isExpanded ? primaryDeep : mute,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       title,
-                      style: theme.textTheme.titleMedium,
+                      style: SoleilTextStyles.titleMedium,
                     ),
                   ),
                   AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
+                    turns: isExpanded ? 0.25 : 0,
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      Icons.keyboard_arrow_down,
-                      color: appColors?.mutedForeground ??
-                          theme.colorScheme.onSurface,
+                      Icons.chevron_right,
+                      color: mute,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          // Content
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: children,
@@ -197,7 +242,8 @@ class JobDetailsSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Reusable chip input for skills
+// Reusable chip input for skills — Soleil-styled (corail-soft chips on mute
+// border, "+" button on corail surface)
 // ---------------------------------------------------------------------------
 
 class _ChipInput extends StatefulWidget {
@@ -242,14 +288,18 @@ class _ChipInputState extends State<_ChipInput> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
+    final primaryDeep = appColors?.primaryDeep ?? primary;
+    final accentSoft = appColors?.accentSoft ?? theme.colorScheme.primaryContainer;
+    final mute = appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
     final canAdd = widget.items.length < widget.maxItems;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.label, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+        _MonoLabel(text: widget.label),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -260,29 +310,29 @@ class _ChipInputState extends State<_ChipInput> {
                   hintText: canAdd
                       ? widget.hintText
                       : '${widget.maxItems} max',
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
                 ),
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _addItem(),
               ),
             ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: canAdd ? _addItem : null,
-              icon: const Icon(Icons.add, size: 20),
-              style: IconButton.styleFrom(
-                backgroundColor:
-                    canAdd ? primary : primary.withValues(alpha: 0.3),
-                foregroundColor: Colors.white,
+            const SizedBox(width: 10),
+            Material(
+              color: canAdd ? primary : primary.withValues(alpha: 0.4),
+              shape: const StadiumBorder(),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: canAdd ? _addItem : null,
+                child: const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(Icons.add, size: 22, color: Colors.white),
+                ),
               ),
             ),
           ],
         ),
         if (widget.items.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -291,30 +341,27 @@ class _ChipInputState extends State<_ChipInput> {
                 Chip(
                   label: Text(
                     widget.items[i],
-                    style: TextStyle(
-                      color: primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    style: SoleilTextStyles.bodyEmphasis.copyWith(
+                      color: primaryDeep,
+                      fontSize: 12.5,
                     ),
                   ),
                   deleteIcon: Icon(
                     Icons.close,
-                    size: 16,
-                    color: primary,
+                    size: 14,
+                    color: primaryDeep,
                   ),
                   onDeleted: () => widget.onRemoved(i),
-                  backgroundColor: primary.withValues(alpha: 0.08),
-                  side: BorderSide(
-                    color: primary.withValues(alpha: 0.2),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusSm),
-                  ),
+                  backgroundColor: accentSoft,
+                  side: BorderSide(color: primary.withValues(alpha: 0.18)),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                  visualDensity: VisualDensity.compact,
                 ),
             ],
           ),
-        ],
+        ] else if (mute != Colors.transparent)
+          const SizedBox.shrink(),
       ],
     );
   }
