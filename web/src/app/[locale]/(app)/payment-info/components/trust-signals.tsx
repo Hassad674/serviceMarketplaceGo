@@ -18,17 +18,21 @@ export function TrustSignals() {
         return (
           <li
             key={signal.labelKey}
-            className="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-white px-3 py-2.5"
+            className="flex items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5"
           >
             <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-50 to-rose-100 text-rose-600"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary"
               aria-hidden
             >
               <Icon className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">
-              <div className="text-[12px] font-semibold text-slate-900">{t(signal.labelKey)}</div>
-              <div className="text-[11px] leading-tight text-slate-500">{t(signal.detailKey)}</div>
+              <div className="text-[12px] font-semibold text-foreground">
+                {t(signal.labelKey)}
+              </div>
+              <div className="text-[11px] leading-snug text-muted-foreground">
+                {t(signal.detailKey)}
+              </div>
             </div>
           </li>
         )

@@ -3380,6 +3380,36 @@ abstract class AppLocalizations {
   /// **'Transfers'**
   String get paymentInfoPayouts;
 
+  /// No description provided for @kycW05Eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · TAX IDENTITY'**
+  String get kycW05Eyebrow;
+
+  /// No description provided for @kycW05TitlePart1.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your'**
+  String get kycW05TitlePart1;
+
+  /// No description provided for @kycW05TitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'tax identity.'**
+  String get kycW05TitleAccent;
+
+  /// No description provided for @kycW05Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A few details handed to Stripe to activate payments and transfers with peace of mind.'**
+  String get kycW05Subtitle;
+
+  /// No description provided for @kycW05OpenWebViewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification continues in a secure Stripe window.'**
+  String get kycW05OpenWebViewHint;
+
   /// No description provided for @kycBannerPendingTitle.
   ///
   /// In en, this message translates to:

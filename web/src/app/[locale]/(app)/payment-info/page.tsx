@@ -10,11 +10,12 @@ import {
   ConnectComponentsProvider,
   ConnectNotificationBanner,
 } from "@stripe/react-connect-js"
-import { AlertCircle, ArrowLeft, Loader2, ShieldX, Sparkles } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2, ShieldX } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
 import { usePermissionStatus } from "@/shared/hooks/use-permissions"
+import { cn } from "@/shared/lib/utils"
 
 import {
   AccountStatusCard,
@@ -34,6 +35,11 @@ import { Button } from "@/shared/components/ui/button"
  *  - If account exists → shows status card + NotificationBanner + AccountManagement.
  *  - If account exists but details_submitted=false → shows AccountOnboarding to resume.
  *  - Polls account-status every 10s when user is actively editing to catch webhook updates.
+ *
+ * Soleil v2 (W-05): visual identity port — editorial header, ivoire surface,
+ * soft-tinted banners and Soleil card wrappers around Stripe Embedded mounts.
+ * Behavior, props, callbacks and Stripe Embedded Components themselves are
+ * unchanged.
  */
 
 type AccountSessionResponse = {
@@ -54,6 +60,7 @@ export default function PaymentInfoV2Page() {
   const stripeLocale = useMemo(() => mapAppLocaleToStripe(appLocale), [appLocale])
   const t = useTranslations("paymentInfo")
   const tPerm = useTranslations("permissions")
+  const tW05 = useTranslations("kyc_w05")
   const kycPermission = usePermissionStatus("kyc.manage")
   const canManageKyc = kycPermission.granted
   const isPermissionLoading = kycPermission.status === "loading"
@@ -246,27 +253,24 @@ export default function PaymentInfoV2Page() {
 
   /* ---------- Render ---------- */
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-rose-50/30 pb-16">
-      {/* Header */}
-      <header className="border-b border-slate-100 bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-5">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-sm">
-              <Sparkles className="h-4 w-4" aria-hidden />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-600">
-                {t("header")}
-              </div>
-              <h1 className="text-[15px] font-bold text-slate-900">
-                {t("subheader")}
-              </h1>
-            </div>
-          </div>
+    <main className="min-h-screen bg-background pb-16">
+      {/* Editorial header — Soleil v2 */}
+      <header className="border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 sm:py-9">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+            {tW05("eyebrow")}
+          </p>
+          <h1 className="mt-2 font-serif text-[26px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[32px]">
+            {tW05("titlePart1")}{" "}
+            <span className="italic text-primary">{tW05("titleAccent")}</span>
+          </h1>
+          <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-muted-foreground">
+            {tW05("subtitle")}
+          </p>
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-0 pt-3 sm:px-6 sm:pt-8">
+      <div className="mx-auto max-w-5xl px-3 pt-5 sm:px-6 sm:pt-8">
         {/* Loading skeleton — render while the permission check is still
             in flight so we never flash the "Accès restreint" card. */}
         {isPermissionLoading ? (
@@ -275,10 +279,10 @@ export default function PaymentInfoV2Page() {
             className="flex items-center justify-center py-20"
           >
             <Loader2
-              className="h-6 w-6 animate-spin text-rose-500"
+              className="h-6 w-6 animate-spin text-primary"
               aria-hidden
             />
-            <span className="ml-3 text-sm text-slate-600">
+            <span className="ml-3 text-sm text-muted-foreground">
               {t("loadingAccount")}
             </span>
           </div>
@@ -287,18 +291,18 @@ export default function PaymentInfoV2Page() {
         {/* Permission denied card — only after the permission check has
             settled with a definitive `denied`. */}
         {isPermissionDenied ? (
-          <div className="mx-3 mt-4 flex flex-col items-center gap-4 rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm sm:mx-0 sm:mt-8 sm:p-12">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
-              <ShieldX className="h-7 w-7 text-rose-500" aria-hidden />
+          <div className="mx-1 mt-4 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center shadow-card sm:mx-0 sm:mt-8 sm:p-12">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft">
+              <ShieldX className="h-7 w-7 text-primary" aria-hidden />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="font-serif text-[22px] font-medium tracking-[-0.01em] text-foreground">
                 {tPerm("restrictedTitle")}
               </h2>
-              <p className="mt-2 max-w-md text-sm text-slate-500">
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
                 {tPerm("noKycManage")}
               </p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-subtle-foreground">
                 {tPerm("restrictedDescription")}
               </p>
             </div>
@@ -309,16 +313,18 @@ export default function PaymentInfoV2Page() {
         {canManageKyc && errorMessage ? (
           <div
             role="alert"
-            className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 animate-slide-up"
+            className="mb-6 flex items-start gap-3 rounded-2xl border border-destructive/40 bg-primary-soft/60 p-4 animate-slide-up"
           >
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" aria-hidden />
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-red-900">{t("errorOccurred")}</p>
-              <p className="mt-1 text-sm text-red-700">{errorMessage}</p>
+              <p className="text-sm font-semibold text-foreground">{t("errorOccurred")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
             </div>
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               onClick={() => setErrorMessage("")}
-              className="text-xs font-medium text-red-600 hover:text-red-700"
+              className="text-xs font-semibold text-destructive hover:text-primary-deep"
             >
               {t("dismiss")}
             </Button>
@@ -327,8 +333,8 @@ export default function PaymentInfoV2Page() {
 
         {canManageKyc && mode === "loading" ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-rose-500" aria-hidden />
-            <span className="ml-3 text-sm text-slate-600">{t("loadingAccount")}</span>
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+            <span className="ml-3 text-sm text-muted-foreground">{t("loadingAccount")}</span>
           </div>
         ) : null}
 
@@ -352,22 +358,31 @@ export default function PaymentInfoV2Page() {
               {/* Status card — always visible when account exists */}
               {status ? <AccountStatusCard status={status} /> : null}
 
-              {/* Onboarding resume OR management editor */}
+              {/* Onboarding resume OR management editor. Each section is a
+                  Soleil card wrapping the Stripe Embedded mount — the
+                  iframe component itself stays untouched. */}
               {mode === "onboarding" ? (
-                <section className="overflow-hidden sm:rounded-2xl sm:border sm:border-slate-100 sm:bg-white sm:shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-2 py-2.5 sm:px-6 sm:py-3">
-                    <h3 className="text-[13px] font-semibold text-slate-900">
+                <section
+                  className={cn(
+                    "overflow-hidden border-y border-border bg-card",
+                    "sm:rounded-2xl sm:border sm:shadow-card",
+                  )}
+                >
+                  <div className="flex items-center justify-between border-b border-border bg-background/60 px-4 py-3 sm:px-6 sm:py-4">
+                    <h3 className="font-serif text-[18px] font-medium tracking-[-0.01em] text-foreground">
                       {t("completeVerification")}
                     </h3>
-                    <Button variant="ghost" size="auto"
+                    <Button
+                      variant="ghost"
+                      size="auto"
                       onClick={handleResetToWizard}
-                      className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:text-rose-600"
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-primary-soft/40 hover:text-primary"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                       {t("changeCountry")}
                     </Button>
                   </div>
-                  <div className="sm:p-6">
+                  <div className="px-3 py-4 sm:p-6">
                     <ConnectAccountOnboarding
                       onExit={handleOnboardingExit}
                       collectionOptions={{
@@ -378,16 +393,21 @@ export default function PaymentInfoV2Page() {
                   </div>
                 </section>
               ) : (
-                <section className="overflow-hidden sm:rounded-2xl sm:border sm:border-slate-100 sm:bg-white sm:shadow-sm">
-                  <div className="border-b border-slate-100 bg-slate-50 px-2 py-2.5 sm:px-6 sm:py-3">
-                    <h3 className="text-[13px] font-semibold text-slate-900">
+                <section
+                  className={cn(
+                    "overflow-hidden border-y border-border bg-card",
+                    "sm:rounded-2xl sm:border sm:shadow-card",
+                  )}
+                >
+                  <div className="border-b border-border bg-background/60 px-4 py-3 sm:px-6 sm:py-4">
+                    <h3 className="font-serif text-[18px] font-medium tracking-[-0.01em] text-foreground">
                       {t("manageInfo")}
                     </h3>
-                    <p className="mt-0.5 text-[12px] text-slate-500">
+                    <p className="mt-1 text-[13px] text-muted-foreground">
                       {t("manageInfoHint")}
                     </p>
                   </div>
-                  <div className="sm:p-6">
+                  <div className="px-3 py-4 sm:p-6">
                     <ConnectAccountManagement
                       collectionOptions={{
                         fields: "eventually_due",
