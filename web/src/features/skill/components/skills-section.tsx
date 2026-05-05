@@ -39,12 +39,12 @@ export function SkillsSection({
   return (
     <section
       aria-labelledby="skills-section-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4 flex flex-col gap-1">
         <h2
           id="skills-section-title"
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t("sectionTitle")}
         </h2>
@@ -75,7 +75,7 @@ export function SkillsSection({
         <Button variant="ghost" size="auto"
           type="button"
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-border h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-card h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           {t("editButton")}
