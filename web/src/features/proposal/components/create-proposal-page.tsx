@@ -309,11 +309,11 @@ export function CreateProposalPage() {
             <FormSection eyebrow={t("proposalFlow_create_sectionBrief")}>
               <RecipientField name={recipientName} />
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="proposal-title" required>
                   {t("proposalTitle")}
                 </Label>
-                <div className="relative">
+                <div className="relative min-w-0">
                   <Input
                     id="proposal-title"
                     type="text"
@@ -324,7 +324,7 @@ export function CreateProposalPage() {
                     placeholder={t("proposalTitlePlaceholder")}
                     maxLength={TITLE_MAX_LENGTH}
                     className={cn(
-                      "h-11 w-full rounded-xl border border-border bg-card px-4 pr-16 text-[14.5px]",
+                      "h-11 w-full min-w-0 rounded-xl border border-border bg-card px-4 pr-16 text-[14.5px] break-words",
                       "transition-all duration-200 ease-out",
                       "placeholder:text-subtle-foreground",
                       "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
@@ -337,7 +337,7 @@ export function CreateProposalPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="proposal-description" required>
                   {t("proposalDescription")}
                 </Label>
@@ -348,7 +348,7 @@ export function CreateProposalPage() {
                   placeholder={t("proposalDescriptionPlaceholder")}
                   rows={5}
                   className={cn(
-                    "w-full rounded-xl border border-border bg-card px-4 py-3 text-[14.5px] resize-none",
+                    "w-full min-w-0 rounded-xl border border-border bg-card px-4 py-3 text-[14.5px] resize-none break-words",
                     "transition-all duration-200 ease-out",
                     "placeholder:text-subtle-foreground",
                     "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
