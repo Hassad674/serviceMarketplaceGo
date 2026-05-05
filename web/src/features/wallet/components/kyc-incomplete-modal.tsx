@@ -33,6 +33,9 @@ type KYCIncompleteModalProps = {
  * modal will be the first thing a brand-new provider sees when they
  * click "Retirer" — directing them to the Stripe onboarding rather
  * than to a billing form they cannot save before KYC is done.
+ *
+ * Soleil v2: amber-soft warning panel + outline "Plus tard" + filled
+ * corail "Aller à Infos paiement" pill (rounded-full, calm tinted shadow).
  */
 export function KYCIncompleteModal({
   open,
@@ -55,37 +58,48 @@ export function KYCIncompleteModal({
       maxWidthClassName="max-w-md"
     >
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-xl p-3 text-[13.5px]",
+            "bg-amber-soft text-foreground",
+          )}
+        >
           <AlertTriangle
-            className="mt-0.5 h-4 w-4 shrink-0"
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
             aria-hidden="true"
           />
-          <p>
+          <p className="leading-relaxed">
             {message ??
               "Avant de pouvoir retirer tes gains, finalise ton onboarding Stripe sur la page Infos paiement. Les virements ne sont activés qu'après vérification de ton identité par Stripe."}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={onClose}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2",
-              "text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50",
-              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+              "inline-flex items-center justify-center rounded-full px-5 py-2.5",
+              "border border-border-strong bg-card",
+              "text-sm font-semibold text-foreground",
+              "transition-colors duration-150 hover:bg-primary-soft/40",
             )}
           >
             Plus tard
           </Button>
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleCta}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-              "text-sm font-semibold text-white",
-              "gradient-primary hover:shadow-glow active:scale-[0.98]",
-              "transition-all duration-200",
+              "inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5",
+              "bg-primary text-sm font-bold text-primary-foreground",
+              "transition-all duration-200 ease-out",
+              "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+              "active:scale-[0.98]",
             )}
           >
             Aller à Infos paiement

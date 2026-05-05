@@ -9,6 +9,10 @@ import { WalletCommissionList } from "./wallet-commission-list"
 // Orchestrator for the /wallet page. The actual rendering is owned
 // by four sub-components — this file only resolves the wallet
 // snapshot, picks the loading / error states, and composes them.
+//
+// Soleil v2 layout: max-w-[1100px] inner column matching the source
+// SoleilWallet maquette. The DashboardShell + Sidebar/Header chrome
+// is supplied by the (app) route group — we only render the content.
 
 export function WalletPage() {
   const { data: wallet, isLoading, isError } = useWallet()
@@ -16,8 +20,8 @@ export function WalletPage() {
   if (isLoading) return <WalletSkeleton />
   if (isError || !wallet) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <p className="text-center text-slate-500">
+      <div className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6">
+        <p className="text-center text-[14px] text-muted-foreground">
           Impossible de charger le wallet
         </p>
       </div>
@@ -30,7 +34,7 @@ export function WalletPage() {
     wallet.transferred_amount + wallet.commissions.paid_cents
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 space-y-8">
+    <div className="mx-auto w-full max-w-[1100px] space-y-6 px-4 py-8 sm:px-6">
       {/* Hero — total earned + Stripe status + withdraw CTA + modals */}
       <WalletPayoutSection
         totalEarned={totalEarned}
@@ -61,17 +65,17 @@ export function WalletPage() {
 
 function WalletSkeleton() {
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="h-32 animate-shimmer rounded-2xl bg-slate-200 dark:bg-slate-700" />
-      <div className="grid grid-cols-3 gap-4">
+    <div className="mx-auto w-full max-w-[1100px] space-y-6 px-4 py-8 sm:px-6">
+      <div className="h-40 animate-shimmer rounded-2xl bg-border" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-28 animate-shimmer rounded-xl bg-slate-200 dark:bg-slate-700"
+            className="h-28 animate-shimmer rounded-2xl bg-border"
           />
         ))}
       </div>
-      <div className="h-64 animate-shimmer rounded-2xl bg-slate-200 dark:bg-slate-700" />
+      <div className="h-64 animate-shimmer rounded-2xl bg-border" />
     </div>
   )
 }
