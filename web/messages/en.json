@@ -1566,7 +1566,17 @@
     "creditsExplanation2": "Every Monday, your balance is reset to 10 credits if it's below 10",
     "creditsExplanation3": "Each signed mission earns you 5 bonus credits",
     "creditsExplanation4": "Your balance can go up to 50 credits maximum",
-    "close": "Close"
+    "close": "Close",
+    "eyebrow": "ATELIER · OPPORTUNITIES",
+    "heroTitlePart1": "Find your",
+    "heroTitleAccent": "next mission.",
+    "heroSubtitle": "We've selected missions that match your profile and aspirations. Filter, follow your favorites, apply in two clicks.",
+    "filterLabel": "Filter by",
+    "applySidebarEyebrow": "READY TO APPLY?",
+    "applySidebarTitle": "Reply in a few words, they typically respond within 24h.",
+    "applySidebarBody": "A short cover letter, your intro video, and you're good to go.",
+    "postedOn": "Posted on",
+    "budget": "Budget"
   },
   "portfolio": {
     "sectionTitle": "Portfolio",

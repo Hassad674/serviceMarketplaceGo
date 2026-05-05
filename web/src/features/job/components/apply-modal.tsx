@@ -9,12 +9,18 @@ import { uploadVideo } from "@/shared/lib/upload-api"
 import { Button } from "@/shared/components/ui/button"
 
 import { Input } from "@/shared/components/ui/input"
+
 interface ApplyModalProps {
   open: boolean
   onClose: () => void
   jobId: string
 }
 
+// W-13 · Apply modal — Soleil v2 dressing.
+// Form behaviour, mutation, video-upload flow are preserved exactly
+// (zod / react-hook-form bindings already at the field level via
+// useApplyToJob). This file only re-skins the chrome: ivoire panel,
+// Fraunces title, corail submit button, soft borders.
 export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
   const t = useTranslations("opportunity")
   const [message, setMessage] = useState("")
@@ -62,42 +68,61 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 animate-scale-in"
+        className="animate-scale-in w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-7"
+        style={{ boxShadow: "var(--shadow-card-strong)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("apply")}</h3>
-          <Button variant="ghost" size="auto" type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700">
-            <X className="h-5 w-5 text-slate-400" />
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
+            {t("apply")}
+          </h3>
+          <Button
+            variant="ghost"
+            size="auto"
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+            aria-label={t("close")}
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Message (optional) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label
+              htmlFor="apply-message"
+              className="mb-2 block text-[13px] font-semibold text-foreground"
+            >
               {t("yourMessage")}
             </label>
             <textarea
+              id="apply-message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t("messagePlaceholder")}
               rows={5}
               maxLength={5000}
               className={cn(
-                "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-xs resize-none",
-                "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all",
-                "dark:border-slate-600 dark:bg-slate-700 dark:text-white",
+                "w-full resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground",
+                "placeholder:text-muted-foreground",
+                "focus:border-border-strong focus:ring-2 focus:ring-primary/20 outline-none transition-all",
               )}
             />
-            <p className="text-xs text-slate-400 mt-1 text-right">{message.length}/5000</p>
+            <p className="mt-1.5 text-right font-mono text-[11px] text-subtle-foreground">
+              {message.length}/5000
+            </p>
           </div>
 
           {/* Video upload (optional) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="mb-2 block text-[13px] font-semibold text-foreground">
               {t("optionalVideo")}
             </label>
             <Input
@@ -109,22 +134,23 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
             />
 
             {!videoUrl && !isUploading && (
-              <Button variant="ghost" size="auto"
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "w-full rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-600 p-4",
-                  "flex items-center justify-center gap-2 text-sm text-slate-500 transition-colors",
-                  "hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/30",
+                  "flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border-strong bg-background p-5 text-sm font-medium text-muted-foreground transition-colors",
+                  "hover:border-primary hover:bg-primary-soft hover:text-primary-deep",
                 )}
               >
-                <Upload className="h-4 w-4" />
+                <Upload className="h-4 w-4" strokeWidth={1.6} />
                 {t("uploadVideo")}
               </Button>
             )}
 
             {isUploading && (
-              <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 p-4 text-sm text-slate-500">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t("uploading")}
               </div>
@@ -132,12 +158,18 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
 
             {videoUrl && (
               <div className="space-y-2">
-                <div className="aspect-video max-h-[200px] overflow-hidden rounded-lg bg-black">
+                <div className="aspect-video max-h-[200px] overflow-hidden rounded-xl bg-foreground">
                   <video src={videoUrl} controls className="h-full w-full object-contain">
                     <track kind="captions" />
                   </video>
                 </div>
-                <Button variant="ghost" size="auto" type="button" onClick={removeVideo} className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600">
+                <Button
+                  variant="ghost"
+                  size="auto"
+                  type="button"
+                  onClick={removeVideo}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary-deep hover:text-primary"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                   {videoName}
                 </Button>
@@ -147,21 +179,30 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
 
           {/* Error */}
           {applyMutation.isError && (
-            <p className="text-sm text-red-500">{applyMutation.error?.message || t("error")}</p>
+            <p className="text-sm text-primary-deep">
+              {applyMutation.error?.message || t("error")}
+            </p>
           )}
 
-          {/* Submit */}
-          <Button variant="ghost" size="auto"
+          {/* Submit — corail pill */}
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleSubmit}
             disabled={applyMutation.isPending || isUploading}
             className={cn(
-              "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
-              "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-[14px] font-semibold transition-all",
+              "bg-primary text-white hover:bg-primary-deep active:scale-[0.98]",
+              "disabled:cursor-not-allowed disabled:opacity-50",
             )}
+            style={{ boxShadow: "var(--shadow-message)" }}
           >
-            {applyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {applyMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" strokeWidth={1.8} />
+            )}
             {t("apply")}
           </Button>
         </div>

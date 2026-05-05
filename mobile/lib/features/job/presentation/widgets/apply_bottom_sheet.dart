@@ -4,20 +4,29 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../providers/job_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 void showApplyBottomSheet(BuildContext context, WidgetRef ref, String jobId) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (_) => _ApplyForm(jobId: jobId),
   );
 }
 
+/// W-13 mobile · Apply form bottom sheet — Soleil v2.
+///
+/// Behaviour preserved exactly: video upload, message length cap,
+/// applyToJobAction, status code → user-friendly message. Only the
+/// chrome is updated (Fraunces title, corail FilledButton with
+/// StadiumBorder, Soleil-aware progress bar).
 class _ApplyForm extends ConsumerStatefulWidget {
   const _ApplyForm({required this.jobId});
 
@@ -82,7 +91,10 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.videoUploadFailed), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.videoUploadFailed),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } finally {
@@ -108,9 +120,13 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     Navigator.pop(context);
 
     final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.applicationSent), backgroundColor: AppPalette.rose500),
+        SnackBar(
+          content: Text(l10n.applicationSent),
+          backgroundColor: cs.primary,
+        ),
       );
     } else {
       final msg = switch (result.statusCode) {
@@ -119,7 +135,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
         _ => l10n.applicationSendError,
       };
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: cs.error),
       );
     }
   }
@@ -127,10 +143,14 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final soleil = Theme.of(context).extension<AppColors>()!;
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
@@ -138,10 +158,23 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.outline,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(l10n.applyTitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Text(
+            l10n.applyTitle,
+            style: SoleilTextStyles.headlineMedium.copyWith(
+              color: cs.onSurface,
+              fontSize: 22,
+            ),
+          ),
           const SizedBox(height: 16),
 
           // Message (optional)
@@ -149,11 +182,16 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
             controller: _messageController,
             maxLines: 5,
             maxLength: 5000,
-            buildCounter: (context, {required currentLength, required isFocused, required maxLength}) => null,
+            buildCounter:
+                (
+                  context, {
+                  required currentLength,
+                  required isFocused,
+                  required maxLength,
+                }) => null,
             decoration: InputDecoration(
               labelText: l10n.applyMessageLabel,
               hintText: l10n.applyMessageHint,
-              border: const OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
           ),
@@ -164,7 +202,10 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '$_messageLength/5000',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                style: SoleilTextStyles.mono.copyWith(
+                  color: soleil.subtleForeground,
+                  fontSize: 11,
+                ),
               ),
             ),
           ),
@@ -174,9 +215,14 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
           if (_videoUrl == null && !_isUploading)
             OutlinedButton.icon(
               onPressed: _pickVideo,
-              icon: const Icon(Icons.videocam_outlined),
+              icon: const Icon(Icons.videocam_rounded),
               label: Text(l10n.applyAddVideo),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                shape: const StadiumBorder(),
+                side: BorderSide(color: soleil.borderStrong),
+                foregroundColor: cs.onSurface,
+              ),
             ),
           if (_isUploading)
             Padding(
@@ -186,14 +232,20 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(l10n.applyUploading),
+                      Text(
+                        l10n.applyUploading,
+                        style: SoleilTextStyles.body.copyWith(
+                          color: cs.onSurface,
+                        ),
+                      ),
                       Text(
                         l10n.uploadProgress(
                           (_uploadProgress * 100).round(),
                         ),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                        style: SoleilTextStyles.bodyEmphasis.copyWith(
+                          color: cs.primary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -203,11 +255,8 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
                     child: LinearProgressIndicator(
                       value: _uploadProgress,
                       minHeight: 6,
-                      backgroundColor:
-                          AppPalette.rose500.withValues(alpha: 0.12),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppPalette.rose500,
-                      ),
+                      backgroundColor: soleil.accentSoft,
+                      valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
                     ),
                   ),
                 ],
@@ -216,7 +265,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
           if (_videoUrl != null) ...[
             // Video player preview
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               child: SizedBox(
                 height: 200,
                 width: double.infinity,
@@ -229,27 +278,47 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _removeVideo,
-                icon: Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: cs.error,
+                ),
                 label: Text(
                   l10n.applyRemoveVideo,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  style: TextStyle(color: cs.error),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
+                  shape: const StadiumBorder(),
+                  side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
                 ),
               ),
             ),
           ],
           const SizedBox(height: 16),
 
-          // Submit
+          // Submit — corail pill
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: (_isSubmitting || _isUploading) ? null : _submit,
-              style: FilledButton.styleFrom(backgroundColor: AppPalette.rose500),
+              style: FilledButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                disabledBackgroundColor: soleil.borderStrong,
+                disabledForegroundColor: cs.onSurfaceVariant,
+                minimumSize: const Size.fromHeight(48),
+                shape: const StadiumBorder(),
+                textStyle: SoleilTextStyles.button,
+              ),
               child: _isSubmitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.onPrimary,
+                      ),
+                    )
                   : Text(l10n.applySubmit),
             ),
           ),

@@ -8,8 +8,12 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/opportunity_card.dart';
-import '../../../../core/theme/app_palette.dart';
 
+/// W-12 mobile parity · Opportunities feed.
+///
+/// Soleil v2 ivoire scaffold, AppBar with Fraunces title (themed),
+/// editorial credits chip on top, calm card list. The role-based filter
+/// + applied-set logic is preserved exactly — only the chrome changes.
 class OpportunitiesScreen extends ConsumerWidget {
   const OpportunitiesScreen({super.key});
 
@@ -20,30 +24,30 @@ class OpportunitiesScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
     final userRole = authState.user?['role'] as String?;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.opportunities)),
+      appBar: AppBar(
+        title: Text(
+          l10n.opportunities,
+          style: SoleilTextStyles.titleLarge.copyWith(
+            color: cs.onSurface,
+            fontSize: 20,
+          ),
+        ),
+      ),
       body: RefreshIndicator(
+        color: cs.primary,
         onRefresh: () async {
           ref.invalidate(openJobsProvider);
           ref.invalidate(creditsProvider);
         },
         child: openJobs.when(
           loading: () => const _OpportunitySkeleton(),
-          error: (e, _) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                const SizedBox(height: 12),
-                Text(l10n.somethingWentWrong, style: const TextStyle(color: Colors.grey)),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => ref.invalidate(openJobsProvider),
-                  child: Text(l10n.retry),
-                ),
-              ],
-            ),
+          error: (e, _) => _ErrorState(
+            onRetry: () => ref.invalidate(openJobsProvider),
+            message: l10n.somethingWentWrong,
+            retryLabel: l10n.retry,
           ),
           data: (jobs) {
             final userId = authState.user?['id'] as String?;
@@ -54,16 +58,11 @@ class OpportunitiesScreen extends ConsumerWidget {
 
             if (filtered.isEmpty) {
               return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   _CreditsHeader(credits: credits, l10n: l10n),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                  const Icon(Icons.work_off_outlined, size: 48, color: Colors.grey),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.noOpportunities,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
+                  const SizedBox(height: 32),
+                  _EmptyState(message: l10n.noOpportunities),
                 ],
               );
             }
@@ -75,7 +74,7 @@ class OpportunitiesScreen extends ConsumerWidget {
               }
             });
             return ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: filtered.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -86,7 +85,9 @@ class OpportunitiesScreen extends ConsumerWidget {
                 }
                 final jobIndex = index - 1;
                 return Padding(
-                  padding: EdgeInsets.only(bottom: jobIndex < filtered.length - 1 ? 12 : 0),
+                  padding: EdgeInsets.only(
+                    bottom: jobIndex < filtered.length - 1 ? 12 : 0,
+                  ),
                   child: OpportunityCard(
                     job: filtered[jobIndex],
                     hasApplied: appliedJobIds.contains(filtered[jobIndex].id),
@@ -110,13 +111,18 @@ class OpportunitiesScreen extends ConsumerWidget {
     switch (userRole) {
       case 'provider':
         return jobs
-            .where((j) =>
-                j.applicantType == 'freelancers' || j.applicantType == 'all')
+            .where(
+              (j) =>
+                  j.applicantType == 'freelancers' ||
+                  j.applicantType == 'all',
+            )
             .toList();
       case 'agency':
         return jobs
-            .where((j) =>
-                j.applicantType == 'agencies' || j.applicantType == 'all')
+            .where(
+              (j) =>
+                  j.applicantType == 'agencies' || j.applicantType == 'all',
+            )
             .toList();
       default:
         return jobs;
@@ -125,7 +131,7 @@ class OpportunitiesScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Credits header + explanation modal
+// Soleil credits chip (corail-soft pill) — replaces legacy red banner
 // ---------------------------------------------------------------------------
 
 class _CreditsHeader extends StatelessWidget {
@@ -136,7 +142,8 @@ class _CreditsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final soleil = Theme.of(context).extension<AppColors>()!;
     final creditCount = credits.valueOrNull ?? 0;
     final isLoading = credits.isLoading;
     final hasNoCredits = !isLoading && creditCount == 0;
@@ -145,53 +152,53 @@ class _CreditsHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: hasNoCredits
-                ? AppPalette.red50
-                : AppPalette.rose50,
-            borderRadius: BorderRadius.circular(12),
+                ? soleil.amberSoft
+                : soleil.accentSoft,
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
             border: Border.all(
-              color: hasNoCredits
-                  ? AppPalette.red200
-                  : AppPalette.rose300,
+              color: hasNoCredits ? soleil.borderStrong : soleil.primaryDeep,
+              width: 0.6,
             ),
           ),
           child: Row(
             children: [
               Icon(
-                Icons.confirmation_number_outlined,
-                color: hasNoCredits
-                    ? AppPalette.red500
-                    : AppPalette.rose500,
-                size: 22,
+                Icons.confirmation_number_rounded,
+                color: hasNoCredits ? soleil.warning : soleil.primaryDeep,
+                size: 18,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: isLoading
                     ? Text(
                         '...',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface,
+                        style: SoleilTextStyles.bodyEmphasis.copyWith(
+                          color: cs.onSurface,
                         ),
                       )
                     : Text(
                         l10n.creditsRemaining(creditCount),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                        style: SoleilTextStyles.bodyEmphasis.copyWith(
                           color: hasNoCredits
-                              ? AppPalette.red500
-                              : theme.colorScheme.onSurface,
+                              ? cs.onSurface
+                              : soleil.primaryDeep,
+                          fontSize: 13,
                         ),
                       ),
               ),
               IconButton(
                 onPressed: () => _showCreditsExplanation(context),
-                icon: const Icon(Icons.help_outline, size: 20),
-                color: AppPalette.rose500,
+                icon: const Icon(Icons.help_outline_rounded, size: 18),
+                color: soleil.primaryDeep,
                 tooltip: l10n.creditsHowItWorks,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                constraints: const BoxConstraints(
+                  minWidth: 28,
+                  minHeight: 28,
+                ),
               ),
             ],
           ),
@@ -201,19 +208,24 @@ class _CreditsHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppPalette.red50,
-              borderRadius: BorderRadius.circular(8),
+              color: soleil.amberSoft,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, size: 18, color: AppPalette.red500),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 18,
+                  color: soleil.warning,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.noCreditsLeft,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppPalette.red500,
+                    style: SoleilTextStyles.caption.copyWith(
+                      color: cs.onSurface,
                       fontWeight: FontWeight.w500,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -227,10 +239,12 @@ class _CreditsHeader extends StatelessWidget {
 
   void _showCreditsExplanation(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final soleil = Theme.of(context).extension<AppColors>()!;
 
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: cs.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -247,7 +261,7 @@ class _CreditsHeader extends StatelessWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: cs.outline,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -255,29 +269,34 @@ class _CreditsHeader extends StatelessWidget {
                 const SizedBox(height: 20),
                 Text(
                   l10n.creditsHowItWorks,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: SoleilTextStyles.headlineMedium.copyWith(
+                    color: cs.onSurface,
+                    fontSize: 22,
                   ),
                 ),
                 const SizedBox(height: 20),
                 _ExplanationRow(
                   icon: Icons.touch_app_outlined,
                   text: l10n.creditsExplanation1,
+                  color: soleil.primaryDeep,
                 ),
                 const SizedBox(height: 12),
                 _ExplanationRow(
                   icon: Icons.calendar_today_outlined,
                   text: l10n.creditsExplanation2,
+                  color: soleil.primaryDeep,
                 ),
                 const SizedBox(height: 12),
                 _ExplanationRow(
                   icon: Icons.star_outline,
                   text: l10n.creditsExplanation3,
+                  color: soleil.primaryDeep,
                 ),
                 const SizedBox(height: 12),
                 _ExplanationRow(
                   icon: Icons.inventory_2_outlined,
                   text: l10n.creditsExplanation4,
+                  color: soleil.primaryDeep,
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -285,7 +304,11 @@ class _CreditsHeader extends StatelessWidget {
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppPalette.rose500,
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const StadiumBorder(),
+                      textStyle: SoleilTextStyles.button,
                     ),
                     child: Text(l10n.cancel),
                   ),
@@ -300,22 +323,27 @@ class _CreditsHeader extends StatelessWidget {
 }
 
 class _ExplanationRow extends StatelessWidget {
-  const _ExplanationRow({required this.icon, required this.text});
+  const _ExplanationRow({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
 
   final IconData icon;
   final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: AppPalette.rose500),
+        Icon(icon, size: 20, color: color),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: SoleilTextStyles.body.copyWith(
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
@@ -326,7 +354,95 @@ class _ExplanationRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton shimmer loader
+// Empty / error states — Soleil ivoire cards
+// ---------------------------------------------------------------------------
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final soleil = Theme.of(context).extension<AppColors>()!;
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: cs.outline),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: soleil.accentSoft,
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            ),
+            child: Icon(Icons.work_off_rounded, color: cs.primary, size: 24),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: SoleilTextStyles.titleMedium.copyWith(
+              color: cs.onSurface,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.onRetry,
+    required this.message,
+    required this.retryLabel,
+  });
+
+  final VoidCallback onRetry;
+  final String message;
+  final String retryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: SoleilTextStyles.body.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: cs.primary,
+              textStyle: SoleilTextStyles.bodyEmphasis,
+            ),
+            child: Text(retryLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton shimmer loader (Soleil ivoire surfaces)
 // ---------------------------------------------------------------------------
 
 class _OpportunitySkeleton extends StatelessWidget {
@@ -334,9 +450,11 @@ class _OpportunitySkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade200,
-      highlightColor: Colors.grey.shade50,
+      baseColor: cs.outline,
+      highlightColor: cs.surfaceContainerLowest,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         physics: const NeverScrollableScrollPhysics(),
@@ -345,8 +463,8 @@ class _OpportunitySkeleton extends StatelessWidget {
         itemBuilder: (_, __) => Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +473,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                 width: 200,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cs.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -364,7 +482,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                 width: double.infinity,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cs.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -373,7 +491,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                 width: 160,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cs.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -384,7 +502,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                     width: 60,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cs.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -393,7 +511,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                     width: 80,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cs.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -404,7 +522,7 @@ class _OpportunitySkeleton extends StatelessWidget {
                 width: 100,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cs.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
