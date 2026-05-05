@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useTranslations } from "next-intl"
 
 import type { CurrentUser } from "@/shared/hooks/use-user"
+import { cn } from "@/shared/lib/utils"
 
 interface KYCBannerProps {
   user: CurrentUser
@@ -22,34 +23,29 @@ export function KYCBanner({ user }: KYCBannerProps) {
   return (
     <div
       role="alert"
-      className={
+      className={cn(
+        "mb-5 flex items-start gap-3 rounded-2xl border p-4 animate-slide-up",
         isRestricted
-          ? "mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10 animate-slide-up"
-          : "mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10 animate-slide-up"
-      }
+          ? "border-destructive/40 bg-primary-soft/60"
+          : "border-warning/30 bg-amber-soft",
+      )}
     >
       {isRestricted ? (
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-500" aria-hidden />
+        <ShieldAlert
+          className="mt-0.5 h-5 w-5 shrink-0 text-destructive"
+          aria-hidden
+        />
       ) : (
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" aria-hidden />
+        <AlertTriangle
+          className="mt-0.5 h-5 w-5 shrink-0 text-warning"
+          aria-hidden
+        />
       )}
       <div className="flex-1 min-w-0">
-        <p
-          className={
-            isRestricted
-              ? "text-sm font-semibold text-red-900 dark:text-red-300"
-              : "text-sm font-semibold text-amber-900 dark:text-amber-300"
-          }
-        >
+        <p className="font-serif text-[16px] font-medium tracking-[-0.01em] text-foreground">
           {isRestricted ? t("restrictedTitle") : t("pendingTitle")}
         </p>
-        <p
-          className={
-            isRestricted
-              ? "mt-1 text-sm text-red-700 dark:text-red-400"
-              : "mt-1 text-sm text-amber-700 dark:text-amber-400"
-          }
-        >
+        <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
           {isRestricted
             ? t("restrictedBody")
             : t("pendingBody", { days: daysLeft ?? "?" })}
@@ -57,11 +53,12 @@ export function KYCBanner({ user }: KYCBannerProps) {
       </div>
       <Link
         href="/payment-info"
-        className={
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-bold transition-all duration-200 ease-out",
           isRestricted
-            ? "inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-            : "inline-flex shrink-0 items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-        }
+            ? "bg-destructive text-primary-foreground hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(196,58,38,0.28)]"
+            : "bg-primary text-primary-foreground hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+        )}
       >
         {t("cta")}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden />

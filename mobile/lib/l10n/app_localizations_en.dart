@@ -1765,6 +1765,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentInfoPayouts => 'Transfers';
 
   @override
+  String get kycW05Eyebrow => 'ATELIER · TAX IDENTITY';
+
+  @override
+  String get kycW05TitlePart1 => 'Verify your';
+
+  @override
+  String get kycW05TitleAccent => 'tax identity.';
+
+  @override
+  String get kycW05Subtitle =>
+      'A few details handed to Stripe to activate payments and transfers with peace of mind.';
+
+  @override
+  String get kycW05OpenWebViewHint =>
+      'Verification continues in a secure Stripe window.';
+
+  @override
   String get kycBannerPendingTitle => 'Set up your payment info';
 
   @override

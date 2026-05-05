@@ -684,6 +684,11 @@
   "paymentInfoNotConfiguredDesc": "Set up your payment account to start receiving funds.",
   "paymentInfoCharges": "Payments",
   "paymentInfoPayouts": "Transfers",
+  "kycW05Eyebrow": "ATELIER · TAX IDENTITY",
+  "kycW05TitlePart1": "Verify your",
+  "kycW05TitleAccent": "tax identity.",
+  "kycW05Subtitle": "A few details handed to Stripe to activate payments and transfers with peace of mind.",
+  "kycW05OpenWebViewHint": "Verification continues in a secure Stripe window.",
 
   "kycBannerPendingTitle": "Set up your payment info",
   "kycBannerPendingBody": "You have funds pending. Complete setup within {days} days to avoid restrictions.",

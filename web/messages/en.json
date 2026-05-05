@@ -1474,6 +1474,14 @@
     "restrictedBody": "You cannot apply to jobs or create proposals until you complete your payment setup.",
     "cta": "Set up now"
   },
+  "kyc_w05": {
+    "eyebrow": "ATELIER · TAX IDENTITY",
+    "titlePart1": "Verify your",
+    "titleAccent": "tax identity.",
+    "subtitle": "A few details handed to Stripe to activate payments and transfers with peace of mind. We keep the layout under our roof, Stripe handles the rest.",
+    "wizardTitlePart1": "Let's set up your",
+    "wizardTitleAccent": "payments."
+  },
   "disputes": {
     "status": {
       "open": "Dispute in progress",

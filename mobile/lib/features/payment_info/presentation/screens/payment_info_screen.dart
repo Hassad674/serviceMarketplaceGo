@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/secure_storage.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 
 /// Stripe account status fetched from GET /payment-info/account-status.
@@ -41,29 +42,48 @@ class _AccountStatus {
 
 /// Payment info screen — shows Stripe account status and opens a WebView
 /// to the Next.js /payment-info page for KYC onboarding and management.
+///
+/// Soleil v2 (M-W-05): editorial header + ivoire/corail tokens. The WebView
+/// shell stays untouched — controller, navigation handlers and postMessage
+/// flow are identical to before the visual port.
 class PaymentInfoScreen extends ConsumerWidget {
   const PaymentInfoScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final statusAsync = ref.watch(_accountStatusProvider);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text(l10n.drawerPaymentInfo),
+        title: Text(
+          l10n.drawerPaymentInfo,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
         elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: RefreshIndicator(
+        color: theme.colorScheme.primary,
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
         onRefresh: () async => ref.invalidate(_accountStatusProvider),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
+            _EditorialHeader(l10n: l10n),
+            const SizedBox(height: 24),
             statusAsync.when(
-              loading: () => const Center(
+              loading: () => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(48),
-                  child: CircularProgressIndicator(),
+                  padding: const EdgeInsets.all(48),
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
               error: (_, __) => _buildContent(context, ref, l10n, null),
@@ -81,39 +101,27 @@ class PaymentInfoScreen extends ConsumerWidget {
     AppLocalizations l10n,
     _AccountStatus? status,
   ) {
-    final theme = Theme.of(context);
     final hasAccount = status != null;
     final fullyActive = status?.fullyActive ?? false;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Status card
         _StatusCard(status: status),
-        const SizedBox(height: 24),
-
-        // Action button
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: () => _openWebView(context, ref),
-            icon: Icon(
-              fullyActive ? Icons.edit_outlined : Icons.arrow_forward_rounded,
-            ),
-            label: Text(
-              fullyActive
-                  ? l10n.paymentInfoEdit
-                  : hasAccount
-                      ? l10n.paymentInfoComplete
-                      : l10n.paymentInfoSetup,
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        const SizedBox(height: 16),
+        _WebViewHintCard(
+          message: l10n.kycW05OpenWebViewHint,
+        ),
+        const SizedBox(height: 20),
+        _PrimaryActionButton(
+          fullyActive: fullyActive,
+          hasAccount: hasAccount,
+          label: fullyActive
+              ? l10n.paymentInfoEdit
+              : hasAccount
+                  ? l10n.paymentInfoComplete
+                  : l10n.paymentInfoSetup,
+          onPressed: () => _openWebView(context, ref),
         ),
       ],
     );
@@ -156,7 +164,59 @@ class PaymentInfoScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Status card
+// Editorial header — Soleil eyebrow + Fraunces italic accent
+// ---------------------------------------------------------------------------
+
+class _EditorialHeader extends StatelessWidget {
+  final AppLocalizations l10n;
+
+  const _EditorialHeader({required this.l10n});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final mute = theme.colorScheme.onSurfaceVariant;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.kycW05Eyebrow,
+          style: SoleilTextStyles.mono.copyWith(
+            color: primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        RichText(
+          text: TextSpan(
+            style: SoleilTextStyles.headlineLarge.copyWith(color: onSurface),
+            children: [
+              TextSpan(text: '${l10n.kycW05TitlePart1} '),
+              TextSpan(
+                text: l10n.kycW05TitleAccent,
+                style: SoleilTextStyles.headlineLarge.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          l10n.kycW05Subtitle,
+          style: SoleilTextStyles.body.copyWith(color: mute, fontSize: 13.5),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status card — Soleil tinted band, no flashy gradient
 // ---------------------------------------------------------------------------
 
 class _StatusCard extends StatelessWidget {
@@ -168,107 +228,159 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
     final hasAccount = status != null;
     final fullyActive = status?.fullyActive ?? false;
 
+    final Color tintBg;
+    final Color tintFg;
+    final IconData icon;
+    final String title;
+    final String subtitle;
+
+    if (fullyActive) {
+      tintBg = colors.successSoft;
+      tintFg = colors.success;
+      icon = Icons.check_circle_rounded;
+      title = l10n.paymentInfoActive;
+      subtitle = l10n.paymentInfoActiveDesc;
+    } else if (hasAccount) {
+      tintBg = colors.amberSoft;
+      tintFg = colors.warning;
+      icon = Icons.schedule_rounded;
+      title = l10n.paymentInfoPending;
+      subtitle = l10n.paymentInfoPendingDesc(status!.requirementsCount);
+    } else {
+      tintBg = colors.accentSoft;
+      tintFg = theme.colorScheme.primary;
+      icon = Icons.credit_card_off_rounded;
+      title = l10n.paymentInfoNotConfigured;
+      subtitle = l10n.paymentInfoNotConfiguredDesc;
+    }
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: fullyActive
-              ? [Colors.green.shade500, Colors.green.shade600]
-              : hasAccount
-                  ? [Colors.orange.shade500, Colors.orange.shade600]
-                  : [Colors.grey.shade400, Colors.grey.shade500],
-        ),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: colors.border),
+        boxShadow: AppTheme.cardShadow,
       ),
-      padding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            fullyActive
-                ? Icons.check_circle_rounded
-                : hasAccount
-                    ? Icons.warning_rounded
-                    : Icons.credit_card_off_rounded,
-            color: Colors.white,
-            size: 32,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            fullyActive
-                ? l10n.paymentInfoActive
-                : hasAccount
-                    ? l10n.paymentInfoPending
-                    : l10n.paymentInfoNotConfigured,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            fullyActive
-                ? l10n.paymentInfoActiveDesc
-                : hasAccount
-                    ? l10n.paymentInfoPendingDesc(status!.requirementsCount)
-                    : l10n.paymentInfoNotConfiguredDesc,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-          if (hasAccount) ...[
-            const SizedBox(height: 16),
-            Row(
+          // Tinted header band
+          Container(
+            color: tintBg,
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _CapabilityChip(
-                  label: l10n.paymentInfoCharges,
-                  enabled: status!.chargesEnabled,
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: Icon(icon, color: tintFg, size: 22),
                 ),
-                const SizedBox(width: 8),
-                _CapabilityChip(
-                  label: l10n.paymentInfoPayouts,
-                  enabled: status!.payoutsEnabled,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: SoleilTextStyles.titleLarge.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: SoleilTextStyles.body.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ],
+          ),
+          if (hasAccount)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _CapabilityRow(
+                      label: l10n.paymentInfoCharges,
+                      enabled: status!.chargesEnabled,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _CapabilityRow(
+                      label: l10n.paymentInfoPayouts,
+                      enabled: status!.payoutsEnabled,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _CapabilityChip extends StatelessWidget {
+class _CapabilityRow extends StatelessWidget {
   final String label;
   final bool enabled;
 
-  const _CapabilityChip({required this.label, required this.enabled});
+  const _CapabilityRow({required this.label, required this.enabled});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
+    final tone = enabled ? colors.success : colors.warning;
+    final toneSoft = enabled ? colors.successSoft : colors.amberSoft;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(20),
+        color: toneSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        border: Border.all(color: tone.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             width: 6,
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: enabled ? Colors.greenAccent : Colors.orangeAccent,
+              color: tone,
             ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: SoleilTextStyles.caption.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -277,7 +389,97 @@ class _CapabilityChip extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// WebView screen (full-screen modal)
+// Hint card — Soleil ivory surface, sable border, mono caption
+// ---------------------------------------------------------------------------
+
+class _WebViewHintCard extends StatelessWidget {
+  final String message;
+
+  const _WebViewHintCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<AppColors>()!;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: SoleilTextStyles.body.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Primary action — Soleil pill (corail filled)
+// ---------------------------------------------------------------------------
+
+class _PrimaryActionButton extends StatelessWidget {
+  final bool fullyActive;
+  final bool hasAccount;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _PrimaryActionButton({
+    required this.fullyActive,
+    required this.hasAccount,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(
+          fullyActive ? Icons.edit_outlined : Icons.arrow_forward_rounded,
+          size: 18,
+        ),
+        label: Text(
+          label,
+          style: SoleilTextStyles.button.copyWith(fontSize: 15),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          shape: const StadiumBorder(),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WebView screen (full-screen modal) — Soleil chrome, untouched controller
 // ---------------------------------------------------------------------------
 
 class _PaymentInfoWebView extends StatelessWidget {
@@ -293,11 +495,25 @@ class _PaymentInfoWebView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text(title),
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          title,
+          style: SoleilTextStyles.titleMedium.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: Icon(
+            Icons.close_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
           onPressed: onDone,
         ),
       ),
