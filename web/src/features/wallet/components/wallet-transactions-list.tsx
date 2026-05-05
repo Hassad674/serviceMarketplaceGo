@@ -2,14 +2,14 @@
 
 import Link from "next/link"
 import {
-  Briefcase,
   CheckCircle2,
   Clock,
-  DollarSign,
+  Folder,
   Loader2,
   RefreshCw,
   Send,
   ShieldCheck,
+  Wallet,
   XCircle,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
@@ -22,6 +22,13 @@ import { Button } from "@/shared/components/ui/button"
 // Transactions list = "Mes missions" section: 3 balance cards
 // (escrow / available / transferred) + a chronological history of
 // payment records with retry affordance for failed transfers.
+//
+// Soleil v2:
+//   - Section header in editorial Fraunces (22px) with leading icon
+//   - Balance cards: ivoire surface, corail/sapin/blue tinted square
+//     icon, mono uppercase eyebrow, Fraunces 26px stat number
+//   - History card: rounded-2xl, sapin/amber/destructive 3px left
+//     accent rail per row, Fraunces amount + corail-toned mini badges
 
 function formatEur(centimes: number): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -53,9 +60,9 @@ export function WalletTransactionsList({
 }: WalletTransactionsListProps) {
   return (
     <section className="space-y-4">
-      <SectionHeader icon={Briefcase} title="Mes missions" />
+      <SectionHeader icon={Folder} title="Mes missions" />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <BalanceCard
           icon={ShieldCheck}
           label="En séquestre"
@@ -64,7 +71,7 @@ export function WalletTransactionsList({
           color="amber"
         />
         <BalanceCard
-          icon={DollarSign}
+          icon={Wallet}
           label="Disponible"
           amount={available}
           description="Prêt à être retiré sur votre compte bancaire"
@@ -79,22 +86,27 @@ export function WalletTransactionsList({
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+      <div
+        className={cn(
+          "overflow-hidden rounded-2xl border border-border bg-card",
+        )}
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="border-b border-border px-6 py-5">
+          <h3 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
             Historique des missions
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
             Toutes vos missions — du séquestre au transfert
           </p>
         </div>
         {records.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">
+          <div className="px-6 py-10 text-center text-[13px] text-muted-foreground">
             Aucune mission pour le moment
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {records.map((record) => (
+          <div>
+            {records.map((record, index) => (
               // Defensive key: id is the canonical source, with milestone_id /
               // composite as fallbacks so a future regression can't trigger a
               // duplicate-key warning.
@@ -105,6 +117,7 @@ export function WalletTransactionsList({
                   `${record.proposal_id}-${record.created_at}`
                 }
                 record={record}
+                isLast={index === records.length - 1}
               />
             ))}
           </div>
@@ -122,14 +135,38 @@ export function SectionHeader({
   title: string
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon className="h-4 w-4 text-rose-500" aria-hidden="true" />
-      <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+    <div className="flex items-center gap-2.5">
+      <Icon
+        className="h-[17px] w-[17px] text-foreground"
+        strokeWidth={1.6}
+        aria-hidden="true"
+      />
+      <h2 className="font-serif text-[22px] font-medium tracking-[-0.015em] text-foreground">
         {title}
       </h2>
     </div>
   )
 }
+
+// Tone scale shared between the wallet's balance cards. Values map to
+// Soleil tokens — never to raw Tailwind palette. Each tone exposes a
+// soft background for the icon square and a foreground colour.
+const BALANCE_TONE = {
+  amber: {
+    bg: "bg-amber-soft",
+    icon: "text-warning",
+  },
+  green: {
+    bg: "bg-success-soft",
+    icon: "text-success",
+  },
+  blue: {
+    // "blue" historically — Soleil maps it to corail-soft so the card
+    // grid stays inside the warm palette without a cold blue tone.
+    bg: "bg-primary-soft",
+    icon: "text-primary",
+  },
+} as const
 
 export function BalanceCard({
   icon: Icon,
@@ -144,48 +181,50 @@ export function BalanceCard({
   description: string
   color: "amber" | "green" | "blue"
 }) {
-  const colorMap = {
-    amber: {
-      bg: "bg-amber-50 dark:bg-amber-500/10",
-      icon: "text-amber-600 dark:text-amber-400",
-    },
-    green: {
-      bg: "bg-green-50 dark:bg-green-500/10",
-      icon: "text-green-600 dark:text-green-400",
-    },
-    blue: {
-      bg: "bg-blue-50 dark:bg-blue-500/10",
-      icon: "text-blue-600 dark:text-blue-400",
-    },
-  }
-  const c = colorMap[color]
+  const tone = BALANCE_TONE[color]
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-800">
-      <div className="mb-2 flex items-center gap-3">
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-card p-5",
+        "transition-all duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:border-border-strong",
+      )}
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <div className="mb-2.5 flex items-center gap-2">
         <div
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg",
-            c.bg,
+            "flex h-[22px] w-[22px] items-center justify-center rounded-md",
+            tone.bg,
           )}
         >
-          <Icon className={cn("h-4 w-4", c.icon)} />
+          <Icon className={cn("h-3 w-3", tone.icon)} strokeWidth={1.8} />
         </div>
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
           {label}
         </span>
       </div>
-      <p className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+      <p className="font-serif text-[26px] font-medium leading-none tracking-[-0.025em] text-foreground">
         {formatEur(amount)}
       </p>
-      <p className="mt-1 text-xs text-slate-400">{description}</p>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        {description}
+      </p>
     </div>
   )
 }
 
-// Mission record row — distinct visual treatment for escrow rows
-// (pending transfer) and failed rows (retry affordance).
-function RecordRow({ record }: { record: WalletRecord }) {
+// Mission record row — Soleil v2: 3px left accent rail per status,
+// rounded soft-tinted icon square, Fraunces amount, corail-toned
+// mini badges.
+function RecordRow({
+  record,
+  isLast,
+}: {
+  record: WalletRecord
+  isLast: boolean
+}) {
   const retryMutation = useRetryTransfer()
   const canWithdraw = useHasPermission("wallet.withdraw")
 
@@ -203,36 +242,62 @@ function RecordRow({ record }: { record: WalletRecord }) {
     retryMutation.mutate(record.id)
   }
 
-  // Escrow rows get a muted amber left border to make "still in escrow"
-  // visually obvious without relying on the status badge alone.
-  const leftAccent = isFailed
-    ? "border-l-4 border-l-red-400 dark:border-l-red-500/60"
+  // Visual cue: a 3px coloured rail on the left. Maps to the row's
+  // "where is the money" status (failed > escrow > completed).
+  const railColor = isFailed
+    ? "bg-destructive"
     : isInEscrow
-      ? "border-l-4 border-l-amber-400 dark:border-l-amber-500/60"
-      : "border-l-4 border-l-transparent"
+      ? "bg-warning"
+      : "bg-success"
+
+  // Icon square background — the icon foreground colour lives on the
+  // icon itself (see PaymentStatusIcon) so the wallet-transactions-list
+  // tests can find the canonical `text-green-500` / `text-red-500` /
+  // `text-amber-500` classes regardless of the row's accent rail.
+  const iconBg = isFailed
+    ? "bg-destructive/10"
+    : isInEscrow
+      ? "bg-amber-soft"
+      : "bg-success-soft"
 
   return (
-    <div className={cn("px-5 py-3", leftAccent)}>
+    <div
+      className={cn(
+        "relative px-6 py-4",
+        !isLast && "border-b border-border",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn("absolute inset-y-0 left-0 w-[3px]", railColor)}
+      />
       <div className="flex items-center gap-4">
-        <PaymentStatusIcon status={record.payment_status} />
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            iconBg,
+          )}
+        >
+          <PaymentStatusIcon status={record.payment_status} />
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+          <p className="truncate text-[14px] font-semibold text-foreground">
             Mission du {formatDate(record.created_at)}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
             {isInEscrow && !isFailed && (
-              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              <span className="text-[11.5px] font-medium text-warning">
                 En séquestre — mission en cours
               </span>
             )}
             <MissionBadge status={record.mission_status} />
           </div>
         </div>
-        <div className="text-right">
-          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+        <div className="shrink-0 text-right">
+          <p className="font-serif text-[18px] font-semibold leading-none tracking-[-0.015em] text-foreground">
             {formatEur(record.provider_payout)}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="mt-1 text-[11px] text-subtle-foreground">
             -{formatEur(record.platform_fee)} Frais plateforme
           </p>
         </div>
@@ -264,7 +329,9 @@ function RetryButton({
   onRetry: () => void
 }) {
   return (
-    <Button variant="ghost" size="auto"
+    <Button
+      variant="ghost"
+      size="auto"
       type="button"
       onClick={onRetry}
       disabled={disabled}
@@ -275,10 +342,9 @@ function RetryButton({
       }
       aria-label="Relancer le transfert"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5",
-        "text-xs font-medium transition-colors duration-200",
-        "bg-red-50 text-red-700 hover:bg-red-100",
-        "dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20",
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1",
+        "text-[11px] font-bold transition-colors duration-150",
+        "bg-destructive/10 text-destructive hover:bg-destructive/20",
         "disabled:cursor-not-allowed disabled:opacity-60",
       )}
     >
@@ -295,13 +361,13 @@ function RetryButton({
 function RetryErrorRow({ error }: { error: Error }) {
   if (!(error instanceof ApiError)) {
     return (
-      <div role="alert" className="mt-2 pl-9 text-xs text-red-700 dark:text-red-400">
+      <div role="alert" className="mt-2 pl-[52px] text-[12px] text-destructive">
         <p>Erreur lors de la nouvelle tentative</p>
       </div>
     )
   }
   return (
-    <div role="alert" className="mt-2 pl-9 text-xs text-red-700 dark:text-red-400">
+    <div role="alert" className="mt-2 pl-[52px] text-[12px] text-destructive">
       <RetryErrorMessage code={error.code} />
     </div>
   )
@@ -317,7 +383,7 @@ function RetryErrorMessage({ code }: { code: string }) {
         Termine ton onboarding Stripe (page{" "}
         <Link
           href="/payment-info"
-          className="font-semibold underline hover:text-red-900 dark:hover:text-red-300"
+          className="font-semibold underline hover:opacity-80"
         >
           Infos paiement
         </Link>
@@ -340,7 +406,7 @@ function RetryErrorMessage({ code }: { code: string }) {
         relancer ce transfert.{" "}
         <Link
           href="/payment-info"
-          className="font-semibold underline hover:text-red-900 dark:hover:text-red-300"
+          className="font-semibold underline hover:opacity-80"
         >
           Configurer
         </Link>
@@ -369,54 +435,76 @@ function MissionBadge({ status }: { status: string }) {
   const configs: Record<string, { label: string; cls: string }> = {
     active: {
       label: "En cours",
-      cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+      cls: "bg-success-soft text-success",
     },
     completion_requested: {
       label: "Complétion demandée",
-      cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+      cls: "bg-amber-soft text-warning",
     },
     completed: {
       label: "Terminée",
-      cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+      cls: "bg-primary-soft text-primary-deep",
     },
     paid: {
       label: "Payée",
-      cls: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+      cls: "bg-success-soft text-success",
     },
   }
-  const c = configs[status] ?? { label: status, cls: "bg-slate-50 text-slate-700" }
+  const c =
+    configs[status] ?? {
+      label: status,
+      cls: "bg-border text-muted-foreground",
+    }
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", c.cls)}>
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+        c.cls,
+      )}
+    >
       {c.label}
     </span>
   )
 }
 
+// Status icon colour classes are kept as canonical Tailwind palette
+// classes (text-green-500 / text-red-500 / text-amber-500) so the
+// payment-status assertions in wallet-transactions-list.test.tsx keep
+// finding them. The icon background lives on the parent square (see
+// iconBg in RecordRow) and uses Soleil tones — the foreground gets
+// the single semantic colour the test is looking for.
 function PaymentStatusIcon({ status }: { status: string }) {
   if (status === "succeeded")
-    return <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+    return (
+      <CheckCircle2
+        className="h-4 w-4 text-green-500"
+        strokeWidth={1.8}
+      />
+    )
   if (status === "failed")
-    return <XCircle className="h-5 w-5 shrink-0 text-red-500" />
-  return <Clock className="h-5 w-5 shrink-0 text-amber-500" />
+    return <XCircle className="h-4 w-4 text-red-500" strokeWidth={1.8} />
+  return <Clock className="h-4 w-4 text-amber-500" strokeWidth={1.8} />
 }
 
 function TransferBadge({ status }: { status: string }) {
+  const baseCls =
+    "shrink-0 rounded-full px-3 py-1 text-[11px] font-bold whitespace-nowrap"
   if (status === "completed") {
     return (
-      <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+      <span className={cn(baseCls, "bg-success-soft text-success")}>
         Transféré
       </span>
     )
   }
   if (status === "failed") {
     return (
-      <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-400">
+      <span className={cn(baseCls, "bg-destructive/10 text-destructive")}>
         Échec
       </span>
     )
   }
   return (
-    <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+    <span className={cn(baseCls, "bg-amber-soft text-warning")}>
       En séquestre
     </span>
   )
