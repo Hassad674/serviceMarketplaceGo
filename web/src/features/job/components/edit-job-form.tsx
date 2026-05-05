@@ -1,17 +1,30 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Check } from "lucide-react"
+import { ChevronDown, Check, ArrowLeft, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
-import type { JobFormData, JobResponse, DescriptionType, ApplicantType, BudgetType, PaymentFrequency } from "../types"
+import type {
+  JobFormData,
+  JobResponse,
+  DescriptionType,
+  ApplicantType,
+  BudgetType,
+  PaymentFrequency,
+} from "../types"
 import { useUpdateJob } from "../hooks/use-jobs"
 import { uploadVideo } from "@/shared/lib/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
 import { Button } from "@/shared/components/ui/button"
+
+// W-07-edit · Edit job form — Soleil v2 chrome.
+// Form behaviour, react-hook-form + zod + mutations preserved as-is.
+// `JobDetailsSection`, `BudgetSection` and `ApplicantTypeSelector`
+// are sibling-owned (creation lane) and rendered AS-IS so they auto
+// inherit the sibling's Soleil styling once both PRs land.
 
 type EditJobFormProps = {
   job: JobResponse
@@ -26,7 +39,8 @@ function jobToFormData(job: JobResponse): JobFormData {
     budgetType: job.budget_type as BudgetType,
     minBudget: String(job.min_budget),
     maxBudget: String(job.max_budget),
-    paymentFrequency: (job.payment_frequency as PaymentFrequency) ?? "monthly",
+    paymentFrequency:
+      (job.payment_frequency as PaymentFrequency) ?? "monthly",
     durationWeeks: job.duration_weeks ? String(job.duration_weeks) : "",
     isIndefinite: job.is_indefinite,
     descriptionType: job.description_type as DescriptionType,
@@ -42,8 +56,12 @@ export function EditJobForm({ job }: EditJobFormProps) {
   const router = useRouter()
   const updateJob = useUpdateJob(job.id)
   const { data: user } = useUser()
-  const [formData, setFormData] = useState<JobFormData>(() => jobToFormData(job))
-  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["details", "budget"]))
+  const [formData, setFormData] = useState<JobFormData>(() =>
+    jobToFormData(job),
+  )
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(
+    new Set(["details", "budget"]),
+  )
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -59,7 +77,10 @@ export function EditJobForm({ job }: EditJobFormProps) {
     }
   }
 
-  function updateField<K extends keyof JobFormData>(field: K, value: JobFormData[K]) {
+  function updateField<K extends keyof JobFormData>(
+    field: K,
+    value: JobFormData[K],
+  ) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -119,12 +140,17 @@ export function EditJobForm({ job }: EditJobFormProps) {
           min_budget: minBudget,
           max_budget: maxBudget,
           payment_frequency:
-            formData.budgetType === "long_term" ? formData.paymentFrequency : undefined,
+            formData.budgetType === "long_term"
+              ? formData.paymentFrequency
+              : undefined,
           duration_weeks:
-            formData.budgetType === "long_term" && !formData.isIndefinite && durationWeeks > 0
+            formData.budgetType === "long_term" &&
+            !formData.isIndefinite &&
+            durationWeeks > 0
               ? durationWeeks
               : undefined,
-          is_indefinite: formData.budgetType === "long_term" ? formData.isIndefinite : false,
+          is_indefinite:
+            formData.budgetType === "long_term" ? formData.isIndefinite : false,
           description_type: formData.descriptionType,
           video_url: videoUrl,
         },
@@ -141,52 +167,94 @@ export function EditJobForm({ job }: EditJobFormProps) {
     formData.title.trim() !== "" &&
     (formData.descriptionType === "video" || formData.description.trim() !== "")
   const isBudgetComplete = formData.minBudget !== "" && formData.maxBudget !== ""
+  const isPending = updateJob.isPending || isSubmitting
 
   return (
-    <div className="mx-auto max-w-[680px]">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-          {t("editJobTitle")}
-        </h1>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="auto"
+    <div className="mx-auto max-w-[760px] space-y-6">
+      {/* Back link */}
+      <Button
+        variant="ghost"
+        size="auto"
+        type="button"
+        onClick={handleCancel}
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.7} />
+        {t("title")}
+      </Button>
+
+      {/* Editorial header */}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-primary-deep">
+            {t("jobDetail_w07edit_eyebrow")}
+          </p>
+          <h1 className="mt-2 font-serif text-[30px] font-medium leading-[1.1] tracking-[-0.025em] text-foreground sm:text-[36px]">
+            {t("jobDetail_w07edit_titlePrefix")}{" "}
+            <span className="italic text-primary">
+              {t("jobDetail_w07edit_titleAccent")}
+            </span>
+          </h1>
+          <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-muted-foreground">
+            {t("jobDetail_w07edit_subtitle")}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 sm:self-end">
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleCancel}
             className={cn(
-              "rounded-xl px-5 py-2.5 text-sm font-medium",
-              "text-gray-600 dark:text-gray-400 transition-all duration-200",
-              "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white",
+              "inline-flex items-center justify-center rounded-full px-4 py-2",
+              "border border-border-strong bg-card text-[13px] font-medium text-foreground",
+              "transition-colors duration-150 hover:bg-primary-soft hover:text-primary-deep",
             )}
           >
-            {t("cancel")}
+            {t("jobDetail_w07edit_cancel")}
           </Button>
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleSubmit}
-            disabled={updateJob.isPending || isSubmitting}
+            disabled={isPending}
             className={cn(
-              "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
-              "gradient-primary transition-all duration-200",
-              "hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2",
+              "bg-primary text-[13px] font-semibold text-white",
+              "transition-colors duration-150 hover:bg-primary-deep active:scale-[0.98]",
+              "disabled:cursor-not-allowed disabled:bg-border-strong disabled:text-muted-foreground",
             )}
+            style={
+              isPending ? undefined : { boxShadow: "var(--shadow-message)" }
+            }
           >
-            {updateJob.isPending || isSubmitting ? "..." : t("save")}
+            {isPending && (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.7} />
+            )}
+            {isPending
+              ? t("jobDetail_w07edit_saving")
+              : t("jobDetail_w07edit_save")}
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Error */}
+      {/* Error banner */}
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+        <div
+          role="alert"
+          className={cn(
+            "rounded-2xl border border-primary-deep/30 bg-primary-soft/70 px-4 py-3",
+            "text-[13.5px] font-medium text-primary-deep",
+          )}
+        >
           {error}
         </div>
       )}
 
       {/* Sections */}
       <div className="space-y-4">
-        <AccordionSection
+        <SoleilAccordion
           number={1}
           title={t("jobDetails")}
           isOpen={openSections.has("details")}
@@ -198,9 +266,9 @@ export function EditJobForm({ job }: EditJobFormProps) {
             updateField={updateField}
             hideApplicantType={isAgency}
           />
-        </AccordionSection>
+        </SoleilAccordion>
 
-        <AccordionSection
+        <SoleilAccordion
           number={2}
           title={t("budgetAndDuration")}
           isOpen={openSections.has("budget")}
@@ -209,31 +277,39 @@ export function EditJobForm({ job }: EditJobFormProps) {
         >
           <BudgetSection formData={formData} updateField={updateField} />
           <div className="mt-6 flex justify-end">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={handleSubmit}
-              disabled={updateJob.isPending || isSubmitting}
+              disabled={isPending}
               className={cn(
-                "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
-                "gradient-primary transition-all duration-200",
-                "hover:shadow-glow active:scale-[0.98]",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
+                "inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5",
+                "bg-primary text-[13px] font-semibold text-white",
+                "transition-colors duration-150 hover:bg-primary-deep active:scale-[0.98]",
+                "disabled:cursor-not-allowed disabled:bg-border-strong disabled:text-muted-foreground",
               )}
+              style={
+                isPending ? undefined : { boxShadow: "var(--shadow-message)" }
+              }
             >
-              {updateJob.isPending || isSubmitting ? "..." : t("save")}
+              {isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.7} />
+              )}
+              {isPending
+                ? t("jobDetail_w07edit_saving")
+                : t("jobDetail_w07edit_save")}
             </Button>
           </div>
-        </AccordionSection>
+        </SoleilAccordion>
       </div>
     </div>
   )
 }
 
-/* -------------------------------------------------- */
-/* Accordion section with number + validation circle  */
-/* -------------------------------------------------- */
+// ─── Soleil-styled accordion ────────────────────────────────────────
 
-type AccordionSectionProps = {
+type SoleilAccordionProps = {
   number: number
   title: string
   isOpen: boolean
@@ -242,58 +318,64 @@ type AccordionSectionProps = {
   children: React.ReactNode
 }
 
-function AccordionSection({
+function SoleilAccordion({
   number,
   title,
   isOpen,
   isComplete,
   onToggle,
   children,
-}: AccordionSectionProps) {
+}: SoleilAccordionProps) {
   return (
     <section
       className={cn(
-        "rounded-2xl border transition-all duration-200",
-        isOpen
-          ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-          : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700",
+        "rounded-2xl border bg-card transition-colors duration-150",
+        isOpen ? "border-border-strong" : "border-border hover:border-border-strong",
       )}
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-4 px-6 py-5 text-left"
+        className="flex w-full items-center gap-4 px-5 py-4 text-left sm:px-6 sm:py-5"
         aria-expanded={isOpen}
       >
         <div
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+            "font-mono text-[12.5px] font-semibold transition-colors duration-150",
             isComplete
-              ? "bg-rose-500 text-white"
-              : "border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500",
+              ? "bg-primary text-white"
+              : "border-2 border-border-strong bg-card text-muted-foreground",
           )}
         >
-          {isComplete ? <Check className="h-4 w-4" strokeWidth={2.5} /> : number}
+          {isComplete ? (
+            <Check className="h-4 w-4" strokeWidth={2.2} />
+          ) : (
+            number
+          )}
         </div>
-        <span className="flex-1 text-base font-semibold text-gray-900 dark:text-white">
+        <span className="flex-1 font-serif text-[18px] font-medium tracking-[-0.005em] text-foreground">
           {title}
         </span>
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform duration-200",
+            "h-5 w-5 text-muted-foreground transition-transform duration-200",
             isOpen && "rotate-180",
           )}
-          strokeWidth={1.5}
+          strokeWidth={1.6}
         />
       </Button>
 
       <div
         className={cn(
           "overflow-hidden transition-all duration-300 ease-out",
-          isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
+          isOpen ? "max-h-[2400px] opacity-100" : "max-h-0 opacity-0",
         )}
       >
-        <div className="px-6 pb-6">{children}</div>
+        <div className="px-5 pb-6 sm:px-6">{children}</div>
       </div>
     </section>
   )

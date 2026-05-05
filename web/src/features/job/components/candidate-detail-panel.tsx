@@ -13,10 +13,27 @@ import { ReportDialog } from "@/shared/components/reporting/report-dialog"
 import type { ApplicationWithProfile } from "../types"
 import { Button } from "@/shared/components/ui/button"
 
-const ORG_TYPE_COLORS: Record<string, string> = {
-  provider_personal: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
-  agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
+// W-08 candidate detail panel — Soleil v2.
+// Right-side aside (desktop) / full-screen (<lg) modal panel. Top bar
+// holds prev/next pager + report flag + close. Body uses Fraunces
+// section heads and corail/soft tokens. Send-message becomes a
+// corail-filled pill, view-profile a ghost-outline pill.
+
+const ORG_PILL_CLASSES: Record<string, string> = {
+  provider_personal: "bg-primary-soft text-primary-deep",
+  agency: "bg-success-soft text-success",
+  enterprise: "bg-amber-soft text-foreground",
+}
+
+function orgLabelKey(orgType: string): string {
+  switch (orgType) {
+    case "agency":
+      return "jobDetail_w08_orgAgency"
+    case "enterprise":
+      return "jobDetail_w08_orgEnterprise"
+    default:
+      return "jobDetail_w08_orgFreelance"
+  }
 }
 
 function initialsFromName(name: string): string {
@@ -24,6 +41,16 @@ function initialsFromName(name: string): string {
   if (parts.length === 0) return "?"
   if (parts.length === 1) return parts[0][0].toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function formatDateFr(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
 }
 
 interface CandidateDetailPanelProps {
@@ -42,6 +69,7 @@ export function CandidateDetailPanel({
   jobId: _jobId,
 }: CandidateDetailPanelProps) {
   const t = useTranslations("opportunity")
+  const tJob = useTranslations("job")
   const tReport = useTranslations("reporting")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
@@ -94,12 +122,16 @@ export function CandidateDetailPanel({
   const { application, profile } = candidate
   const displayName = profile.name
   const initials = initialsFromName(displayName)
+  const pillClass =
+    ORG_PILL_CLASSES[profile.org_type] ?? "bg-border text-muted-foreground"
 
   function handleSendMessage() {
     if (isDesktop) {
       openChatWithOrg(application.applicant_id, displayName)
     } else {
-      router.push(`/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`)
+      router.push(
+        `/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`,
+      )
     }
   }
 
@@ -108,8 +140,8 @@ export function CandidateDetailPanel({
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+          "fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm transition-opacity duration-300",
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={onClose}
         aria-hidden="true"
@@ -123,168 +155,180 @@ export function CandidateDetailPanel({
         className={cn(
           "fixed right-0 top-0 z-50 h-full",
           "w-full lg:w-[55%] lg:min-w-[480px] lg:max-w-[640px]",
-          "bg-white dark:bg-slate-900 shadow-xl rounded-l-2xl",
-          "flex flex-col",
+          "flex flex-col bg-card",
+          "border-l border-border rounded-l-2xl",
           "transition-transform duration-300 ease-out",
           isOpen ? "translate-x-0" : "translate-x-full",
         )}
+        style={{ boxShadow: "var(--shadow-card-strong)" }}
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5 sm:px-6">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={navigatePrev}
               disabled={!hasPrev}
               aria-label={t("previousCandidate")}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
                 hasPrev
-                  ? "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  : "text-slate-300 dark:text-slate-600 cursor-not-allowed",
+                  ? "text-muted-foreground hover:bg-primary-soft hover:text-primary-deep"
+                  : "cursor-not-allowed text-subtle-foreground",
               )}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.7} />
             </Button>
-            <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle-foreground">
               {currentIndex + 1} / {candidates.length}
             </span>
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={navigateNext}
               disabled={!hasNext}
               aria-label={t("nextCandidate")}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
                 hasNext
-                  ? "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  : "text-slate-300 dark:text-slate-600 cursor-not-allowed",
+                  ? "text-muted-foreground hover:bg-primary-soft hover:text-primary-deep"
+                  : "cursor-not-allowed text-subtle-foreground",
               )}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4" strokeWidth={1.7} />
             </Button>
           </div>
 
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setShowReportDialog(true)}
               aria-label={tReport("reportApplication")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary-deep"
             >
-              <Flag className="h-4 w-4" />
+              <Flag className="h-4 w-4" strokeWidth={1.7} />
             </Button>
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-border hover:text-foreground"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" strokeWidth={1.7} />
             </Button>
           </div>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {/* Header: Avatar + Name + Org type + Title */}
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-6 sm:px-6">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-primary-deep">
+            {tJob("jobDetail_w08_panelEyebrow")}
+          </p>
+
+          {/* Identity row */}
           <div className="flex items-start gap-4">
             {profile.photo_url ? (
-              // 56×56 detail panel avatar (MinIO/R2 declared in next.config.ts).
               <Image
                 src={profile.photo_url}
                 alt={displayName}
                 width={56}
                 height={56}
-                className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
+                className="h-14 w-14 shrink-0 rounded-full object-cover"
+                style={{ boxShadow: "var(--shadow-portrait)" }}
               />
             ) : (
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-100 text-base font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 ring-2 ring-white dark:ring-slate-800 shadow-sm">
+              <div
+                className={cn(
+                  "flex h-14 w-14 shrink-0 items-center justify-center rounded-full",
+                  "bg-primary-soft text-[16px] font-semibold text-primary-deep",
+                )}
+                style={{ boxShadow: "var(--shadow-portrait)" }}
+              >
                 {initials}
               </div>
             )}
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate font-serif text-[22px] font-medium leading-tight tracking-[-0.015em] text-foreground">
                   {displayName}
                 </h2>
                 <span
                   className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0",
-                    ORG_TYPE_COLORS[profile.org_type] ?? "bg-slate-100 text-slate-600",
+                    "inline-flex items-center rounded-full px-2.5 py-0.5",
+                    "text-[10.5px] font-bold uppercase tracking-[0.05em]",
+                    pillClass,
                   )}
                 >
-                  {profile.org_type}
+                  {tJob(orgLabelKey(profile.org_type))}
                 </span>
               </div>
               {profile.title && (
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="mt-1 text-[13.5px] text-muted-foreground">
                   {profile.title}
                 </p>
               )}
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.06em] text-subtle-foreground">
+                {tJob("jobDetail_w08_appliedRelative", {
+                  when: formatDateFr(application.created_at),
+                })}
+              </p>
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-3">
+          {/* Action row */}
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href={`/freelancers/${application.applicant_id}`}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
-                "border border-slate-200 text-slate-700 hover:bg-slate-50",
-                "dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700",
+                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5",
+                "border border-border-strong bg-card text-[13px] font-medium text-foreground",
+                "transition-colors duration-150 hover:bg-primary-soft hover:text-primary-deep",
               )}
             >
-              <User className="h-4 w-4" />
+              <User className="h-4 w-4" strokeWidth={1.7} />
               {t("viewProfile")}
             </Link>
             {canSendMessage && (
-            <Button variant="ghost" size="auto"
-              type="button"
-              onClick={handleSendMessage}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
-                "bg-rose-500 text-white hover:bg-rose-600 shadow-sm hover:shadow-md",
-                "active:scale-[0.98]",
-              )}
-            >
-              <Send className="h-4 w-4" />
-              {t("sendMessage")}
-            </Button>
+              <Button
+                variant="ghost"
+                size="auto"
+                type="button"
+                onClick={handleSendMessage}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5",
+                  "bg-primary text-[13px] font-semibold text-white",
+                  "transition-colors duration-150 hover:bg-primary-deep active:scale-[0.98]",
+                )}
+                style={{ boxShadow: "var(--shadow-message)" }}
+              >
+                <Send className="h-4 w-4" strokeWidth={1.7} />
+                {t("sendMessage")}
+              </Button>
             )}
           </div>
 
-          {/* Application date */}
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            {t("applied")}{" "}
-            {new Date(application.created_at).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-
           {/* Application message */}
           {application.message && (
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
-                {t("applicationMessage")}
-              </h3>
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words overflow-wrap-anywhere leading-relaxed">
+            <PanelSection heading={tJob("jobDetail_w08_messageHeading")}>
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <p className="overflow-wrap-anywhere whitespace-pre-wrap break-words text-[14px] leading-relaxed text-foreground">
                   {application.message}
                 </p>
               </div>
-            </div>
+            </PanelSection>
           )}
 
-          {/* Video */}
+          {/* Application video */}
           {application.video_url && (
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
-                {t("applicationVideo")}
-              </h3>
-              <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-sm">
+            <PanelSection heading={tJob("jobDetail_w08_videoHeading")}>
+              <div className="aspect-video overflow-hidden rounded-2xl bg-foreground">
                 <video
                   src={application.video_url}
                   controls
@@ -294,10 +338,9 @@ export function CandidateDetailPanel({
                   <track kind="captions" />
                 </video>
               </div>
-            </div>
+            </PanelSection>
           )}
         </div>
-
       </aside>
 
       {candidate && (
@@ -309,5 +352,22 @@ export function CandidateDetailPanel({
         />
       )}
     </>
+  )
+}
+
+function PanelSection({
+  heading,
+  children,
+}: {
+  heading: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 font-serif text-[16px] font-medium tracking-[-0.005em] text-foreground">
+        {heading}
+      </h3>
+      {children}
+    </section>
   )
 }

@@ -20,10 +20,11 @@ export default function EditJobPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-[680px] space-y-4 animate-shimmer">
-        <div className="h-8 w-1/3 rounded-lg bg-slate-100 dark:bg-slate-800" />
-        <div className="h-64 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-        <div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+      <div className="mx-auto max-w-[760px] space-y-6 animate-shimmer">
+        <div className="h-7 w-1/3 rounded-full bg-card" />
+        <div className="h-10 w-2/3 rounded-2xl bg-card" />
+        <div className="h-72 rounded-2xl bg-card" />
+        <div className="h-64 rounded-2xl bg-card" />
       </div>
     )
   }

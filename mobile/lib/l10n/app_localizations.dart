@@ -6103,6 +6103,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Publish job'**
   String get createJob_m09_publishCta;
+
+  /// No description provided for @jobDetail_m08_eyebrowOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · LIVE LISTING'**
+  String get jobDetail_m08_eyebrowOpen;
+
+  /// No description provided for @jobDetail_m08_eyebrowClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'ATELIER · CLOSED LISTING'**
+  String get jobDetail_m08_eyebrowClosed;
+
+  /// No description provided for @jobDetail_m08_tabDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get jobDetail_m08_tabDescription;
+
+  /// No description provided for @jobDetail_m08_tabCandidates.
+  ///
+  /// In en, this message translates to:
+  /// **'Applications'**
+  String get jobDetail_m08_tabCandidates;
+
+  /// No description provided for @jobDetail_m08_descriptionHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get jobDetail_m08_descriptionHeading;
+
+  /// No description provided for @jobDetail_m08_videoHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Video pitch'**
+  String get jobDetail_m08_videoHeading;
+
+  /// No description provided for @jobDetail_m08_skillsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Required skills'**
+  String get jobDetail_m08_skillsHeading;
+
+  /// No description provided for @jobDetail_m08_budgetHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get jobDetail_m08_budgetHeading;
+
+  /// No description provided for @jobDetail_m08_durationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get jobDetail_m08_durationLabel;
+
+  /// No description provided for @jobDetail_m08_durationIndefinite.
+  ///
+  /// In en, this message translates to:
+  /// **'Open-ended'**
+  String get jobDetail_m08_durationIndefinite;
+
+  /// No description provided for @jobDetail_m08_durationWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {# week} other {# weeks}}'**
+  String jobDetail_m08_durationWeeks(int count);
+
+  /// No description provided for @jobDetail_m08_summaryApplicants.
+  ///
+  /// In en, this message translates to:
+  /// **'Applicants'**
+  String get jobDetail_m08_summaryApplicants;
+
+  /// No description provided for @jobDetail_m08_summaryApplicantsValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0 {0} one {# applicant} other {# applicants}}'**
+  String jobDetail_m08_summaryApplicantsValue(int count);
+
+  /// No description provided for @jobDetail_m08_summaryProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Targeted profiles'**
+  String get jobDetail_m08_summaryProfiles;
+
+  /// No description provided for @jobDetail_m08_summaryPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Published'**
+  String get jobDetail_m08_summaryPublished;
+
+  /// No description provided for @jobDetail_m08_emptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No applications yet.'**
+  String get jobDetail_m08_emptyTitle;
+
+  /// No description provided for @jobDetail_m08_emptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold on, or share the listing to boost its visibility to freelancers and agencies.'**
+  String get jobDetail_m08_emptyBody;
+
+  /// No description provided for @jobDetail_m08_appliedRelative.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied {when}'**
+  String jobDetail_m08_appliedRelative(String when);
+
+  /// No description provided for @jobDetail_m08_orgFreelance.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelance'**
+  String get jobDetail_m08_orgFreelance;
+
+  /// No description provided for @jobDetail_m08_orgAgency.
+  ///
+  /// In en, this message translates to:
+  /// **'Agency'**
+  String get jobDetail_m08_orgAgency;
+
+  /// No description provided for @jobDetail_m08_orgEnterprise.
+  ///
+  /// In en, this message translates to:
+  /// **'Enterprise'**
+  String get jobDetail_m08_orgEnterprise;
+
+  /// No description provided for @jobDetail_m08_videoBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get jobDetail_m08_videoBadge;
+
+  /// No description provided for @jobDetail_m08_panelEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'APPLICATION'**
+  String get jobDetail_m08_panelEyebrow;
+
+  /// No description provided for @jobDetail_m08_messageHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover letter'**
+  String get jobDetail_m08_messageHeading;
+
+  /// No description provided for @jobDetail_m08_videoPitchHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Video pitch'**
+  String get jobDetail_m08_videoPitchHeading;
+
+  /// No description provided for @jobDetail_m08_viewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View profile'**
+  String get jobDetail_m08_viewProfile;
+
+  /// No description provided for @jobDetail_m08_sendMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get jobDetail_m08_sendMessage;
 }
 
 class _AppLocalizationsDelegate
