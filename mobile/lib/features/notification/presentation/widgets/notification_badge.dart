@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../providers/notification_provider.dart';
 
-/// Bell icon button with an unread notification count badge.
+/// Bell icon button with an unread notification count badge — Soleil v2 trim.
 ///
-/// Watches [unreadNotificationCountProvider] and displays a badge
-/// when the count is greater than zero.
+/// Watches [unreadNotificationCountProvider] and renders a corail badge
+/// when the count is greater than zero. Uses Geist Mono digits via
+/// `SoleilTextStyles.mono` so the count typography matches the rest of
+/// the Soleil numeric style (transactions, time pills, IDs).
 class NotificationBadge extends ConsumerWidget {
   final VoidCallback onTap;
 
@@ -14,6 +17,8 @@ class NotificationBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final countAsync = ref.watch(unreadNotificationCountProvider);
     final count = countAsync.valueOrNull ?? 0;
 
@@ -22,10 +27,18 @@ class NotificationBadge extends ConsumerWidget {
         isLabelVisible: count > 0,
         label: Text(
           count > 99 ? '99+' : '$count',
-          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+          style: SoleilTextStyles.mono.copyWith(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: colorScheme.onPrimary,
+          ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.notifications_outlined, size: 22),
+        backgroundColor: colorScheme.primary,
+        child: Icon(
+          Icons.notifications_none_rounded,
+          size: 22,
+          color: colorScheme.onSurfaceVariant,
+        ),
       ),
       onPressed: onTap,
     );

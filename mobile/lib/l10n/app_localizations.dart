@@ -2606,6 +2606,72 @@ abstract class AppLocalizations {
   /// **'Mark all read'**
   String get markAllRead;
 
+  /// No description provided for @notificationsTitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'recent'**
+  String get notificationsTitleAccent;
+
+  /// No description provided for @notificationsGroupToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get notificationsGroupToday;
+
+  /// No description provided for @notificationsGroupYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get notificationsGroupYesterday;
+
+  /// No description provided for @notificationsGroupThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get notificationsGroupThisWeek;
+
+  /// No description provided for @notificationsGroupEarlier.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get notificationsGroupEarlier;
+
+  /// No description provided for @notificationsSubtitleAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re all caught up. Everything is marked as read.'**
+  String get notificationsSubtitleAllRead;
+
+  /// No description provided for @notificationsSubtitleUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {# unread} other {# unread}} · mark all read'**
+  String notificationsSubtitleUnread(int count);
+
+  /// No description provided for @notificationsTimeJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get notificationsTimeJustNow;
+
+  /// No description provided for @notificationsTimeMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}m ago'**
+  String notificationsTimeMinutes(int n);
+
+  /// No description provided for @notificationsTimeHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}h ago'**
+  String notificationsTimeHours(int n);
+
+  /// No description provided for @notificationsTimeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}d ago'**
+  String notificationsTimeDays(int n);
+
   /// No description provided for @proposalViewDetails.
   ///
   /// In en, this message translates to:
