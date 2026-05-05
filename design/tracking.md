@@ -23,19 +23,16 @@
 
 ---
 
-## Phase 1 · Calibration (2-3 reference screens, manual review)
+## Phase 1 · Calibration (3 reference screens + 1 mobile)
 
-> Goal: ship 2-3 representative screens manually with the orchestrator (Hassad + main session) to lock the visual identity before going parallel.
+> Goal: ship 3 representative web screens (orchestrator + Hassad) + 1 mobile screen to lock the visual identity, the brief format, and validate that an agent can carry the load before going parallel.
 
-**Proposed candidates** (reorderable by Hassad):
-
-| ID | Screen | Why this one | Status |
-|----|--------|--------------|--------|
-| W-01 | Connexion | Simple layout, anchors auth flow, validates the editorial right-column pattern | ⚪ |
-| W-11 | Dashboard freelance | Content-heavy, exercises sidebar + topbar + stat cards + editorial accent | ⚪ |
-| W-16 | Profil prestataire (public) | Most editorial layout (cover, citation pleine page, portfolio gallery, sidebar-stats) — biggest unknown | ⚪ |
-
-If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. The profile (W-16) can be the first Phase 2 batch.
+| ID | Screen | Mode | Status | PR |
+|----|--------|------|--------|-----|
+| W-01 | Connexion | Orchestrator-implemented, manual | 🔵 in-review | #111 |
+| W-11 | Dashboard freelance | Orchestrator-implemented, manual + Sidebar/Header extraction | 🔵 in-review | #112 |
+| W-16 | Profil prestataire | **Agent-dispatched** (calibration: tests if the brief format holds against a fresh agent) | 🟡 in-progress | (pending) |
+| M-01 | Connexion mobile | TBD (after W-16 audit) | ⚪ | — |
 
 ---
 
@@ -47,7 +44,7 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-01 | Connexion | ⚪ | — | — |
+| W-01 | Connexion | 🔵 in-review | calibration-1 | #111 |
 | W-02 | Inscription · choix de rôle | ⚪ | — | — |
 | W-03 | Inscription · prestataire | ⚪ | — | — |
 | W-04 | Inscription · entreprise | ⚪ | — | — |
@@ -67,7 +64,7 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-11 | Tableau de bord prestataire | ⚪ | — | — |
+| W-11 | Tableau de bord prestataire | 🔵 in-review | calibration-2 | #112 |
 | W-12 | Opportunités (feed) | ⚪ | — | — |
 | W-13 | Détail opportunité + candidature | ⚪ | — | — |
 | W-14 | Mes candidatures | ⚪ | — | — |
@@ -77,8 +74,8 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-16 | Profil public | ⚪ | — | — |
-| W-17 | Profil privé (édition) | ⚪ | — | — |
+| W-16 | Profil public + privé | 🟡 in-progress (agent) | calibration-3 (agent dispatch) | (pending) |
+| W-17 | (covered by W-16) | — | — | — |
 
 ### 5 · Argent · portefeuille & facturation (3)
 
@@ -168,13 +165,13 @@ If Hassad prefers a smaller calibration set: W-01 + W-11 (2 screens) suffice. Th
 
 ## Aggregate
 
-| Surface | Total | Done | In progress | Skipped | Remaining |
-|---------|-------|------|-------------|---------|-----------|
-| Web | 24 | 0 | 0 | 0 | 24 |
+| Surface | Total | Done | In review | In progress | Remaining |
+|---------|-------|------|-----------|-------------|-----------|
+| Web | 24 | 0 | 2 (W-01, W-11) | 1 (W-16 agent) | 21 |
 | Mobile | 18 | 0 | 0 | 0 | 18 |
-| **Total** | **42** | **0** | **0** | **0** | **42** |
+| **Total** | **42** | **0** | **2** | **1** | **39** |
 
-Note pratique : W-10 et W-15 partagent la même page → 23 PRs web pour 24 IDs.
+Note pratique : W-10 et W-15 partagent la même page → 23 PRs web pour 24 IDs. W-16 et W-17 partagent la même feature (public/privé) → 22 PRs web en pratique.
 
 ---
 
