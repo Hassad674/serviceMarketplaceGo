@@ -1256,6 +1256,24 @@ abstract class AppLocalizations {
   /// **'Replying to {name}'**
   String messagingReplyingTo(String name);
 
+  /// No description provided for @messaging_m18_emptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations'**
+  String get messaging_m18_emptyTitle;
+
+  /// No description provided for @messaging_m18_emptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your exchanges with freelances, agencies and clients will appear here.'**
+  String get messaging_m18_emptyBody;
+
+  /// No description provided for @messaging_m17_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get messaging_m17_today;
+
   /// No description provided for @projects.
   ///
   /// In en, this message translates to:

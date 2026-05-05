@@ -233,6 +233,9 @@
       }
     }
   },
+  "messaging_m18_emptyTitle": "No conversations",
+  "messaging_m18_emptyBody": "Your exchanges with freelances, agencies and clients will appear here.",
+  "messaging_m17_today": "Today",
   "projects": "Projects",
   "createProject": "Create Project",
   "noProjects": "No projects yet",

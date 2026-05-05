@@ -226,6 +226,9 @@
       }
     }
   },
+  "messaging_m18_emptyTitle": "Aucune conversation",
+  "messaging_m18_emptyBody": "Tes échanges avec freelances, agences et clients apparaîtront ici.",
+  "messaging_m17_today": "Aujourd'hui",
   "projects": "Projets",
   "createProject": "Créer un projet",
   "noProjects": "Aucun projet",

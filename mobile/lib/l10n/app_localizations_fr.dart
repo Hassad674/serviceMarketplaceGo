@@ -623,6 +623,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get messaging_m18_emptyTitle => 'Aucune conversation';
+
+  @override
+  String get messaging_m18_emptyBody =>
+      'Tes échanges avec freelances, agences et clients apparaîtront ici.';
+
+  @override
+  String get messaging_m17_today => 'Aujourd\'hui';
+
+  @override
   String get projects => 'Projets';
 
   @override
