@@ -1,10 +1,24 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
-import { ChevronLeft, ChevronDown, Paperclip, FileText, Send, Loader2, Mic, Square, Plus, Trash2 } from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import {
+  ArrowLeft,
+  Phone,
+  MoreHorizontal,
+  Paperclip,
+  FileText,
+  Send,
+  Loader2,
+  Mic,
+  Square,
+  Trash2,
+  Smile,
+} from "lucide-react"
+import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { Portrait } from "@/shared/components/ui/portrait"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { MessageArea } from "@/features/messaging/components/message-area"
 import { FileUploadModal } from "@/features/messaging/components/file-upload-modal"
@@ -15,6 +29,7 @@ import type { PendingRecipient } from "./use-chat-widget"
 
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+
 const TYPING_INTERVAL_MS = 2_000
 
 /** Map an audio MIME type to a file extension the backend allowlist accepts. */
@@ -24,6 +39,16 @@ function voiceExtFromMime(mime: string): string {
   if (mime.includes("ogg")) return "ogg"
   if (mime.includes("wav")) return "wav"
   return "webm"
+}
+
+// Stable portrait id derived from a string seed (keeps the conversation
+// avatar consistent without keeping a global lookup).
+function portraitIdFor(seed: string): number {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return h % 6
 }
 
 interface ChatWidgetChatViewProps {
@@ -47,6 +72,11 @@ interface ChatWidgetChatViewProps {
   onClose: () => void
 }
 
+// ChatWidgetChatView — Soleil v2 widget conversation view.
+//
+// Reuses MessageArea (the canonical bubble renderer) so behaviour and
+// proposal/system bubbles stay identical to the full /messages page.
+// The header and composer are widget-specific compact variants.
 export function ChatWidgetChatView({
   conversation,
   conversationId,
@@ -73,29 +103,29 @@ export function ChatWidgetChatView({
   if (!conversation && !pendingRecipient) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          {t("noConversations")}
-        </p>
+        <p className="text-xs text-muted-foreground">{t("noConversations")}</p>
       </div>
     )
   }
 
-  const headerName = conversation?.other_org_name ?? pendingRecipient?.displayName ?? ""
+  const headerName =
+    conversation?.other_org_name ?? pendingRecipient?.displayName ?? ""
   const isOnline = conversation?.online ?? false
+  const photoUrl = conversation?.other_photo_url
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
       <ChatViewHeader
         name={headerName}
+        photoUrl={photoUrl}
+        seedId={conversation?.id ?? pendingRecipient?.orgId ?? ""}
         online={isOnline}
-        typingUserName={typingUser ? headerName : undefined}
+        typing={!!typingUser}
         onBack={onBack}
         onClose={onClose}
       />
 
-      {/* Message area */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col bg-background">
         <MessageArea
           messages={messages}
           currentUserId={currentUserId}
@@ -109,7 +139,6 @@ export function ChatWidgetChatView({
         />
       </div>
 
-      {/* Full-featured input with file + proposal + voice buttons */}
       {canSendMessage ? (
         <WidgetMessageInput
           conversationId={conversationId}
@@ -129,46 +158,71 @@ export function ChatWidgetChatView({
 
 interface ChatViewHeaderProps {
   name: string
+  photoUrl?: string
+  seedId: string
   online: boolean
-  typingUserName: string | undefined
+  typing: boolean
   onBack: () => void
   onClose: () => void
 }
 
 function ChatViewHeader({
   name,
+  photoUrl,
+  seedId,
   online,
-  typingUserName,
+  typing,
   onBack,
   onClose,
 }: ChatViewHeaderProps) {
   const t = useTranslations("messaging")
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-100 px-3 dark:border-gray-800">
-      <Button variant="ghost" size="auto"
+    <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+      <Button
+        variant="ghost"
+        size="auto"
         onClick={onBack}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-        aria-label={t("backToList")}
+        className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-border hover:text-foreground"
+        aria-label={t("messagingWidget_back")}
       >
-        <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.6} />
       </Button>
 
+      <div className="relative shrink-0">
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt={name}
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <Portrait id={portraitIdFor(seedId)} size={36} alt={name} />
+        )}
+        {online && (
+          <span
+            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500"
+            aria-label={t("online")}
+          />
+        )}
+      </div>
+
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+        <p className="truncate font-serif text-[15px] font-semibold leading-tight text-foreground">
           {name}
         </p>
-        {typingUserName ? (
-          <p className="truncate text-[10px] italic text-rose-500 dark:text-rose-400">
+        {typing ? (
+          <p className="truncate text-[11px] italic text-primary">
             {t("typingShort")}
           </p>
         ) : (
           <p
             className={cn(
-              "text-[10px]",
-              online
-                ? "text-emerald-500"
-                : "text-gray-400 dark:text-gray-500",
+              "text-[11px] font-medium",
+              online ? "text-success" : "text-muted-foreground",
             )}
           >
             {online ? t("online") : t("offline")}
@@ -176,12 +230,24 @@ function ChatViewHeader({
         )}
       </div>
 
-      <Button variant="ghost" size="auto"
-        onClick={onClose}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-        aria-label={t("close")}
+      <Button
+        variant="ghost"
+        size="auto"
+        className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary-deep"
+        aria-label={t("sendMessage")}
+        type="button"
       >
-        <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
+        <Phone className="h-4 w-4" strokeWidth={1.6} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="auto"
+        onClick={onClose}
+        className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-border hover:text-foreground"
+        aria-label={t("messagingWidget_close")}
+        type="button"
+      >
+        <MoreHorizontal className="h-4 w-4" strokeWidth={1.6} />
       </Button>
     </div>
   )
@@ -218,7 +284,7 @@ function WidgetMessageInput({
   const [modalOpen, setModalOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const onTypingRef = useRef(onTyping)
   const hasContent = value.trim().length > 0
 
@@ -230,7 +296,6 @@ function WidgetMessageInput({
     onTypingRef.current = onTyping
   }, [onTyping])
 
-  // Send typing events periodically while input has content
   useEffect(() => {
     if (!hasContent) return
     onTypingRef.current()
@@ -262,7 +327,7 @@ function WidgetMessageInput({
     if (conversationId) {
       router.push(`/projects/new?to=${otherUserId}&conversation=${conversationId}`)
     }
-    setMobileMenuOpen(false)
+    setMenuOpen(false)
   }
 
   const handleUploadFiles = useCallback(
@@ -317,46 +382,41 @@ function WidgetMessageInput({
   return (
     <>
       {uploadError && (
-        <div className="border-t border-gray-100 bg-red-50 px-3 py-1.5 dark:border-gray-800 dark:bg-red-900/20" role="alert">
-          <p className="text-[11px] text-red-600 dark:text-red-400">{uploadError}</p>
+        <div
+          className="border-t border-border bg-primary-soft px-4 py-1.5"
+          role="alert"
+        >
+          <p className="text-[11px] text-primary-deep">{uploadError}</p>
         </div>
       )}
 
-      {/* Voice recording bar */}
       {isRecording && (
-        <div className="flex items-center gap-2 border-t border-gray-100 bg-rose-50 px-3 py-2 dark:border-gray-800 dark:bg-rose-900/20">
-          {/* Cancel / trash */}
-          <Button variant="ghost" size="auto"
+        <div className="flex items-center gap-2 border-t border-border bg-primary-soft px-3 py-2">
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={voice.cancelRecording}
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full",
-              "bg-white/80 text-gray-500 transition-all",
-              "hover:bg-white hover:text-gray-700",
-              "dark:bg-gray-800/80 dark:text-gray-400 dark:hover:bg-gray-800",
-            )}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground hover:text-foreground"
             aria-label={t("cancelRecording")}
           >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
           </Button>
-
-          {/* Red pulsing dot + timer */}
-          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="font-mono text-[11px] font-medium text-red-600 dark:text-red-400">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary-deep" />
+          <span className="font-mono text-[11px] font-medium text-primary-deep">
             {formatRecordingDuration(voice.duration)}
           </span>
-
           <div className="flex-1" />
-
-          {/* Stop and send */}
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleStopAndSend}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white transition-all hover:bg-rose-600 active:scale-[0.95]"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:bg-primary-deep active:scale-[0.96]"
             aria-label={t("sendMessage")}
           >
             {isVoiceUploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.6} />
             ) : (
               <Square className="h-3 w-3" strokeWidth={2} fill="currentColor" />
             )}
@@ -364,79 +424,83 @@ function WidgetMessageInput({
         </div>
       )}
 
-      {/* Normal input bar */}
       {!isRecording && (
         <form
           onSubmit={handleSubmit}
-          className="flex shrink-0 items-center gap-1.5 border-t border-gray-100 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900"
+          className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2.5"
         >
-          {/* "+" menu for attach + proposal (widget is always compact) */}
+          {/* Plus menu (attach + proposal) */}
           <div className="relative">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setMenuOpen(!menuOpen)}
               disabled={isDisabled}
               className={cn(
-                "shrink-0 rounded-full p-1.5 text-gray-400 transition-all duration-200",
-                mobileMenuOpen && "rotate-45 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-                "hover:bg-gray-100 hover:text-gray-600",
-                "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+                "shrink-0 rounded-full p-1.5 text-muted-foreground transition-all duration-200",
+                menuOpen && "rotate-45 bg-primary-soft text-primary-deep",
+                "hover:bg-border hover:text-foreground",
                 isDisabled && "pointer-events-none opacity-50",
               )}
               aria-label={t("fileUpload")}
             >
-              <Plus className="h-4 w-4" strokeWidth={1.5} />
+              <Paperclip className="h-4 w-4" strokeWidth={1.6} />
             </Button>
 
-            {mobileMenuOpen && (
-              <div
-                className={cn(
-                  "absolute bottom-full left-0 mb-2 flex flex-col gap-1",
-                  "rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg",
-                  "dark:border-gray-700 dark:bg-gray-800",
-                )}
-              >
-                <Button variant="ghost" size="auto"
+            {menuOpen && (
+              <div className="absolute bottom-full left-0 mb-2 flex flex-col gap-1 rounded-xl border border-border bg-card p-1.5 shadow-[0_8px_24px_rgba(42,31,21,0.12)]">
+                <Button
+                  variant="ghost"
+                  size="auto"
                   type="button"
-                  onClick={() => { setModalOpen(true); setMobileMenuOpen(false) }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setModalOpen(true)
+                    setMenuOpen(false)
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground transition-colors hover:bg-primary-soft"
                 >
-                  <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <Paperclip className="h-3.5 w-3.5" strokeWidth={1.6} />
                   {t("fileUpload")}
                 </Button>
-                <Button variant="ghost" size="auto"
+                <Button
+                  variant="ghost"
+                  size="auto"
                   type="button"
                   onClick={handleProposal}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground transition-colors hover:bg-primary-soft"
                 >
-                  <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <FileText className="h-3.5 w-3.5" strokeWidth={1.6} />
                   {t("propose")}
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <Input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setMobileMenuOpen(false)}
-            placeholder={t("writeMessage")}
-            aria-label={t("writeMessage")}
-            disabled={isDisabled}
-            className={cn(
-              "h-9 flex-1 rounded-full bg-gray-100/80 px-3.5 text-xs text-gray-900",
-              "placeholder:text-gray-400 transition-all duration-200",
-              "focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-rose-500/20 focus:outline-none",
-              "dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder:text-gray-500",
-              "dark:focus:bg-gray-800 dark:focus:ring-rose-400/20",
-              isDisabled && "opacity-50",
-            )}
-          />
+          {/* Input — pill-shaped */}
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setMenuOpen(false)}
+              placeholder={t("writeMessage")}
+              aria-label={t("writeMessage")}
+              disabled={isDisabled}
+              className={cn(
+                "h-10 w-full rounded-full border border-border bg-background pl-4 pr-9 text-sm text-foreground",
+                "placeholder:text-muted-foreground transition-all duration-200",
+                "focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/20",
+                isDisabled && "opacity-50",
+              )}
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Smile className="h-4 w-4" strokeWidth={1.6} aria-hidden />
+            </span>
+          </div>
 
-          {/* Primary action: mic when empty, send when has text */}
+          {/* Primary action */}
           <WidgetPrimaryAction
             hasContent={hasContent}
             canVoice={!!onSendVoice}
@@ -477,23 +541,28 @@ function WidgetPrimaryAction({
   sendLabel: string
   micLabel: string
 }) {
+  const baseClasses =
+    "shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200"
+
   if (hasContent) {
     return (
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="submit"
         disabled={isDisabled}
         className={cn(
-          "shrink-0 rounded-full p-2 transition-all duration-200",
+          baseClasses,
           !isDisabled
-            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:scale-[0.96]"
-            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+            ? "bg-primary text-primary-foreground hover:bg-primary-deep active:scale-[0.96]"
+            : "bg-border text-muted-foreground",
         )}
         aria-label={sendLabel}
       >
         {isSending ? (
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.6} />
         ) : (
-          <Send className="h-4 w-4" strokeWidth={1.5} />
+          <Send className="h-4 w-4" strokeWidth={1.6} />
         )}
       </Button>
     )
@@ -501,31 +570,35 @@ function WidgetPrimaryAction({
 
   if (canVoice) {
     return (
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={onMic}
         disabled={isDisabled}
         className={cn(
-          "shrink-0 rounded-full p-2 transition-all duration-200",
+          baseClasses,
           !isDisabled
-            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:scale-[0.96]"
-            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+            ? "bg-primary text-primary-foreground hover:bg-primary-deep active:scale-[0.96]"
+            : "bg-border text-muted-foreground",
         )}
         aria-label={micLabel}
       >
-        <Mic className="h-4 w-4" strokeWidth={1.5} />
+        <Mic className="h-4 w-4" strokeWidth={1.6} />
       </Button>
     )
   }
 
   return (
-    <Button variant="ghost" size="auto"
+    <Button
+      variant="ghost"
+      size="auto"
       type="submit"
       disabled
-      className="shrink-0 rounded-full bg-gray-100 p-2 text-gray-300 dark:bg-gray-800 dark:text-gray-600"
+      className={cn(baseClasses, "bg-border text-muted-foreground")}
       aria-label={sendLabel}
     >
-      <Send className="h-4 w-4" strokeWidth={1.5} />
+      <Send className="h-4 w-4" strokeWidth={1.6} />
     </Button>
   )
 }
@@ -534,8 +607,9 @@ function WidgetPrimaryAction({
 function WidgetNoSendPermissionBar() {
   const t = useTranslations("permissions")
   return (
-    <div className="flex items-center justify-center border-t border-gray-100 bg-gray-50 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
-      <p className="text-xs text-gray-400 dark:text-gray-500">{t("noMessagingSend")}</p>
+    <div className="flex items-center justify-center border-t border-border bg-background px-3 py-3">
+      <p className="text-xs text-muted-foreground">{t("noMessagingSend")}</p>
     </div>
   )
 }
+

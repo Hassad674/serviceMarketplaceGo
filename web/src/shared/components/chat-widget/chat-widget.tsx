@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { MessageSquare, ChevronUp } from "lucide-react"
+import { MessageCircle, ChevronUp } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -10,6 +10,8 @@ import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useChatWidget } from "./use-chat-widget"
 
 import { Button } from "@/shared/components/ui/button"
+
+// Lazy-loaded panel — keeps initial bundle small when no chat is opened.
 const ChatWidgetPanel = dynamic(
   () =>
     import("./chat-widget-panel").then((m) => ({
@@ -18,6 +20,15 @@ const ChatWidgetPanel = dynamic(
   { ssr: false },
 )
 
+// ChatWidget — Soleil v2 floating shortcut to messaging.
+//
+// Three states (driven by useChatWidget — OFF-LIMITS hook, do not touch):
+//  - collapsed: a corail pill anchored bottom-right
+//  - list: 380×540 panel showing all conversations
+//  - chat: same panel size, single conversation thread
+//
+// Hidden on /messages route to avoid double UI. Hidden on mobile —
+// the navbar already exposes a Messages tab on small screens.
 export function ChatWidget() {
   const t = useTranslations("messaging")
   const pathname = usePathname()
@@ -37,59 +48,59 @@ export function ChatWidget() {
     resolvePendingConversation,
   } = useChatWidget()
 
-  // Hide on /messages pages (any locale prefix)
+  // Hide on /messages pages (any locale prefix) — the full page is
+  // already the active surface, the widget would just duplicate it.
   if (pathname.includes("/messages")) return null
 
-  // Hide bar on mobile — the navbar badge is enough
+  // Hide on mobile — bottom navbar carries the Messages entry.
   if (!isDesktop) return null
-
-  function handleToggle() {
-    if (isOpen) {
-      close()
-    } else {
-      open()
-    }
-  }
 
   return (
     <>
-      {/* Contra-style bottom bar (closed state) or panel header (open state) */}
+      {/* Collapsed: corail pill, bottom-right, 24px margin */}
       {!isOpen && (
-        <Button variant="ghost" size="auto"
-          onClick={handleToggle}
+        <Button
+          variant="ghost"
+          size="auto"
+          onClick={open}
           className={cn(
-            "fixed bottom-0 right-6 z-50 flex h-12 w-[320px] items-center gap-2.5 px-4",
-            "rounded-t-xl border border-b-0 border-gray-200 bg-white shadow-lg",
-            "transition-all duration-200 hover:shadow-xl",
-            "dark:border-gray-700 dark:bg-gray-900",
+            "fixed bottom-6 right-6 z-50 inline-flex items-center gap-2.5",
+            "h-12 rounded-full pl-2 pr-4",
+            "bg-card text-foreground",
+            "border border-border",
+            "shadow-[0_8px_24px_rgba(42,31,21,0.12)]",
+            "transition-all duration-200 ease-out",
+            "hover:shadow-[0_12px_28px_rgba(42,31,21,0.16)]",
+            "hover:-translate-y-0.5",
           )}
-          aria-label={t("openChat")}
+          aria-label={t("messagingWidget_open")}
         >
-          <MessageSquare
-            className="h-[18px] w-[18px] text-gray-700 dark:text-gray-300"
-            strokeWidth={1.5}
-          />
-          <span className="flex-1 text-left text-sm font-semibold text-gray-900 dark:text-white">
-            {t("title")}
+          {/* Icon disc with optional counter badge */}
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-deep">
+            <MessageCircle className="h-[18px] w-[18px]" strokeWidth={1.6} />
+            {unreadCount > 0 && (
+              <span
+                className={cn(
+                  "absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center",
+                  "rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground",
+                  "border-2 border-card",
+                )}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </span>
-          {unreadCount > 0 && (
-            <span
-              className={cn(
-                "flex h-5 min-w-5 items-center justify-center",
-                "rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white",
-              )}
-            >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
+          <span className="text-sm font-semibold">
+            {t("messagingWidget_title")}
+          </span>
           <ChevronUp
-            className="h-4 w-4 text-gray-400 dark:text-gray-500"
+            className="h-4 w-4 text-muted-foreground"
             strokeWidth={1.5}
           />
         </Button>
       )}
 
-      {/* Desktop panel */}
+      {/* Open panel (list or chat view) */}
       {isOpen && (
         <ChatWidgetPanel
           view={view}

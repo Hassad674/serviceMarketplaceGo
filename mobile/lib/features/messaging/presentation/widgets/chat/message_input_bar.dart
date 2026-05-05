@@ -6,7 +6,6 @@ import 'package:record/record.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Bottom input bar for composing and sending messages.
 ///
@@ -54,8 +53,6 @@ class MessageInputBar extends StatefulWidget {
 
 class _MessageInputBarState extends State<MessageInputBar>
     with SingleTickerProviderStateMixin {
-  static const _primaryColor = AppPalette.rose500;
-
   final AudioRecorder _recorder = AudioRecorder();
   bool _isRecording = false;
   int _recordingDuration = 0;
@@ -213,10 +210,11 @@ class _MessageInputBarState extends State<MessageInputBar>
     AppColors? appColors,
     AppLocalizations l10n,
   ) {
+    final primary = theme.colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: appColors?.muted ?? AppPalette.slate100,
+        color: appColors?.accentSoft ?? appColors?.muted ?? theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
             color: appColors?.border ?? theme.dividerColor,
@@ -225,7 +223,7 @@ class _MessageInputBarState extends State<MessageInputBar>
       ),
       child: Row(
         children: [
-          Container(width: 2, height: 32, color: _primaryColor),
+          Container(width: 2, height: 32, color: primary),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -233,10 +231,10 @@ class _MessageInputBarState extends State<MessageInputBar>
               children: [
                 Text(
                   l10n.messagingReplyingTo(widget.replyToName!),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _primaryColor,
+                    color: appColors?.primaryDeep ?? primary,
                   ),
                 ),
                 if (widget.replyToContent != null)
@@ -274,16 +272,13 @@ class _MessageInputBarState extends State<MessageInputBar>
     AppColors? appColors,
     AppLocalizations l10n,
   ) {
-    final isDark = theme.brightness == Brightness.dark;
-    final barBg = isDark
-        ? AppPalette.rose950.withValues(alpha: 0.4) // rose-950/40
-        : AppPalette.red100; // red-100
-    final cancelBg = isDark
-        ? Colors.white.withValues(alpha: 0.12)
-        : Colors.white.withValues(alpha: 0.8);
-    final timerColor = isDark
-        ? AppPalette.red400 // red-400
-        : AppPalette.red500; // red-500
+    final primary = theme.colorScheme.primary;
+    final onPrimary = theme.colorScheme.onPrimary;
+    final barBg = appColors?.accentSoft ?? theme.colorScheme.surface;
+    final cancelBg = theme.colorScheme.surface;
+    final timerColor = appColors?.primaryDeep ?? primary;
+    final mutedFg =
+        appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -306,12 +301,12 @@ class _MessageInputBarState extends State<MessageInputBar>
               child: Icon(
                 Icons.delete_outline,
                 size: 20,
-                color: appColors?.mutedForeground ?? AppPalette.slate500,
+                color: mutedFg,
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Pulsing red dot. RepaintBoundary isolates the
+          // Pulsing dot. RepaintBoundary isolates the
           // 60fps Opacity change from the rest of the recording
           // chrome (delete button, timer Text) so each frame only
           // repaints the 10×10 dot layer (PERF-M-08).
@@ -324,8 +319,8 @@ class _MessageInputBarState extends State<MessageInputBar>
                   child: Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppPalette.red500,
+                    decoration: BoxDecoration(
+                      color: timerColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -355,14 +350,14 @@ class _MessageInputBarState extends State<MessageInputBar>
             child: Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: _primaryColor,
+              decoration: BoxDecoration(
+                color: primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.stop,
                 size: 20,
-                color: Colors.white,
+                color: onPrimary,
               ),
             ),
           ),
@@ -377,6 +372,9 @@ class _MessageInputBarState extends State<MessageInputBar>
     AppLocalizations l10n,
   ) {
     final disabled = widget.sendDisabled;
+    final mutedFg = appColors?.mutedForeground ??
+        theme.colorScheme.onSurfaceVariant;
+    final fillColor = appColors?.muted ?? theme.colorScheme.surface;
 
     return Row(
       children: [
@@ -385,10 +383,7 @@ class _MessageInputBarState extends State<MessageInputBar>
           icon: Icon(
             Icons.attach_file,
             size: 20,
-            color: disabled
-                ? (appColors?.mutedForeground ?? AppPalette.slate400)
-                    .withValues(alpha: 0.4)
-                : appColors?.mutedForeground,
+            color: disabled ? mutedFg.withValues(alpha: 0.4) : mutedFg,
           ),
           onPressed: disabled ? null : widget.onAttach,
         ),
@@ -399,7 +394,7 @@ class _MessageInputBarState extends State<MessageInputBar>
             icon: Icon(
               Icons.description_outlined,
               size: 20,
-              color: appColors?.mutedForeground,
+              color: mutedFg,
             ),
             tooltip: l10n.proposalPropose,
             onPressed: widget.onProposal,
@@ -417,7 +412,7 @@ class _MessageInputBarState extends State<MessageInputBar>
                   ? (widget.disabledHint ?? l10n.permissionDeniedSend)
                   : l10n.messagingWriteMessage,
               filled: true,
-              fillColor: appColors?.muted ?? AppPalette.slate100,
+              fillColor: fillColor,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 10,
@@ -437,8 +432,7 @@ class _MessageInputBarState extends State<MessageInputBar>
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide: BorderSide(
-                  color: theme.colorScheme.primary
-                      .withValues(alpha: 0.3),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -449,32 +443,40 @@ class _MessageInputBarState extends State<MessageInputBar>
 
         // Primary action button: mic when empty, send when has text
         if (disabled)
-          _buildDisabledButton(appColors)
+          _buildDisabledButton(theme, appColors)
         else
-          _buildPrimaryButton(appColors, l10n),
+          _buildPrimaryButton(theme, appColors, l10n),
       ],
     );
   }
 
-  Widget _buildDisabledButton(AppColors? appColors) {
+  Widget _buildDisabledButton(ThemeData theme, AppColors? appColors) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: appColors?.muted ?? AppPalette.slate100,
+        color: appColors?.muted ?? theme.colorScheme.surface,
         shape: BoxShape.circle,
       ),
       child: Icon(
         Icons.send,
         size: 18,
-        color: appColors?.mutedForeground ?? AppPalette.slate400,
+        color: appColors?.mutedForeground ??
+            theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
 
   /// The single right-hand button that switches between mic and send.
-  Widget _buildPrimaryButton(AppColors? appColors, AppLocalizations l10n) {
+  Widget _buildPrimaryButton(
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    final primary = theme.colorScheme.primary;
+    final onPrimary = theme.colorScheme.onPrimary;
+
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -489,14 +491,14 @@ class _MessageInputBarState extends State<MessageInputBar>
               duration: const Duration(milliseconds: 200),
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: _primaryColor,
+              decoration: BoxDecoration(
+                color: primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.send,
                 size: 18,
-                color: Colors.white,
+                color: onPrimary,
               ),
             ),
           );
@@ -510,14 +512,14 @@ class _MessageInputBarState extends State<MessageInputBar>
               duration: const Duration(milliseconds: 200),
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: _primaryColor,
+              decoration: BoxDecoration(
+                color: primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.mic,
                 size: 20,
-                color: Colors.white,
+                color: onPrimary,
               ),
             ),
           );
@@ -530,13 +532,14 @@ class _MessageInputBarState extends State<MessageInputBar>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: appColors?.muted ?? AppPalette.slate100,
+              color: appColors?.muted ?? theme.colorScheme.surface,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.send,
               size: 18,
-              color: appColors?.mutedForeground ?? AppPalette.slate400,
+              color: appColors?.mutedForeground ??
+                  theme.colorScheme.onSurfaceVariant,
             ),
           ),
         );

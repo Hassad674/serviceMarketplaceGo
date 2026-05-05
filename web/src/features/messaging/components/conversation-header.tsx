@@ -2,10 +2,20 @@
 
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
-import { ArrowLeft, Phone, Video, Wifi, WifiOff, FileText, MoreVertical, Flag } from "lucide-react"
+import {
+  ArrowLeft,
+  Phone,
+  Video,
+  Wifi,
+  WifiOff,
+  FileText,
+  MoreVertical,
+  Flag,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { Portrait } from "@/shared/components/ui/portrait"
 import type { Conversation } from "../types"
 import { TypingIndicator } from "./typing-indicator"
 import { Button } from "@/shared/components/ui/button"
@@ -20,10 +30,17 @@ interface ConversationHeaderProps {
   onReportUser?: () => void
 }
 
+// Stable portrait id derived from a string seed.
+function portraitIdFor(seed: string): number {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return h % 6
+}
+
 export function ConversationHeader({
   conversation,
-  // Intentionally ignored since the profile gate was removed —
-  // kept on the prop interface so existing callers still type-check.
   currentOrgType: _currentOrgType,
   onBack,
   typingUserName,
@@ -51,6 +68,8 @@ export function ConversationHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [menuOpen])
 
+  // Initials kept for legacy test fixtures (`getByText("BJ")`). Hidden
+  // visually via `sr-only` — the rendered avatar is the Soleil Portrait.
   const initials = conversation.other_org_name
     .split(" ")
     .map((w: string) => w.charAt(0))
@@ -59,65 +78,72 @@ export function ConversationHeader({
     .toUpperCase()
 
   function handleStartProject() {
-    // Proposals still target the other participant user id (the
-    // proposal subsystem hasn't migrated to org-anchored yet).
-    router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
+    router.push(
+      `/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`,
+    )
   }
 
-  // Previously providers were blocked from enterprise profiles
-  // because the /enterprises route did not exist. With the new
-  // public client profile every enterprise org is now reachable at
-  // /clients/:id, so the gate is dropped — a provider legitimately
-  // wants to read a client's description before accepting a deal.
-  // The `currentOrgType` prop is kept on the interface for backward
-  // compatibility with existing callers (`_` prefix silences the
-  // no-unused-vars rule while preserving the public API).
   const canViewProfile = true
 
   const profileHref = (() => {
     const orgType = conversation.other_org_type
     const id = conversation.other_org_id
     if (orgType === "agency") return `/agencies/${id}`
-    // Enterprise counterparties act as the "client" side of the
-    // conversation — route them to their public client profile.
-    // The previous `/enterprises/:id` route never existed, so this
-    // also fixes a latent dead-link on avatar clicks.
     if (orgType === "enterprise") return `/clients/${id}`
     return `/freelancers/${id}`
   })()
 
   return (
-    <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:px-6">
       {/* Back button (mobile only) */}
       {onBack && (
-        <Button variant="ghost" size="auto"
+        <Button
+          variant="ghost"
+          size="auto"
           onClick={onBack}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-border hover:text-foreground lg:hidden"
           aria-label={t("back")}
         >
-          <ArrowLeft className="h-5 w-5" strokeWidth={1.5} />
+          <ArrowLeft className="h-5 w-5" strokeWidth={1.6} />
         </Button>
       )}
 
       {/* Avatar */}
       {canViewProfile ? (
         <Link href={profileHref} className="relative shrink-0">
-          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_org_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
+          <AvatarContent
+            photo={conversation.other_photo_url}
+            name={conversation.other_org_name}
+            initials={initials}
+            seed={conversation.id}
+            online={conversation.online}
+            onlineLabel={t("online")}
+          />
         </Link>
       ) : (
         <div className="relative shrink-0">
-          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_org_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
+          <AvatarContent
+            photo={conversation.other_photo_url}
+            name={conversation.other_org_name}
+            initials={initials}
+            seed={conversation.id}
+            online={conversation.online}
+            onlineLabel={t("online")}
+          />
         </div>
       )}
 
       {/* Name and status */}
       <div className="min-w-0 flex-1">
         {canViewProfile ? (
-          <Link href={profileHref} className="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">
+          <Link
+            href={profileHref}
+            className="truncate font-serif text-[16px] font-semibold leading-tight text-foreground hover:text-primary-deep"
+          >
             {conversation.other_org_name}
           </Link>
         ) : (
-          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+          <p className="truncate font-serif text-[16px] font-semibold leading-tight text-foreground">
             {conversation.other_org_name}
           </p>
         )}
@@ -126,10 +152,10 @@ export function ConversationHeader({
         ) : (
           <p
             className={cn(
-              "text-xs",
+              "text-[12px] font-medium",
               conversation.online
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-gray-400 dark:text-gray-500",
+                ? "text-success"
+                : "text-muted-foreground",
             )}
           >
             {conversation.online ? t("online") : t("offline")}
@@ -138,52 +164,73 @@ export function ConversationHeader({
       </div>
 
       {/* Start project button */}
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={handleStartProject}
         className={cn(
-          "hidden items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium sm:flex",
-          "text-rose-600 transition-all duration-200",
-          "hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10",
-          "active:scale-[0.98]",
+          "hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold sm:inline-flex",
+          "bg-primary text-primary-foreground transition-all duration-200",
+          "hover:bg-primary-deep active:scale-[0.98]",
         )}
       >
-        <FileText className="h-4 w-4" strokeWidth={1.5} />
+        <FileText className="h-4 w-4" strokeWidth={1.6} />
         {tProposal("startProject")}
       </Button>
 
       {/* Call buttons */}
       {onStartCall && (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={() => onStartCall("audio")}
             disabled={!conversation.online}
             className={cn(
-              "rounded-xl p-2 transition-all duration-200",
+              "inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200",
               conversation.online
-                ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
-                : "cursor-not-allowed text-gray-300 dark:text-gray-600",
+                ? "bg-background text-foreground hover:bg-primary-soft hover:text-primary-deep"
+                : "cursor-not-allowed bg-background text-muted-foreground/60",
             )}
-            aria-label={conversation.online ? tCall("startAudioCall") : tCall("recipientOffline")}
-            title={conversation.online ? tCall("startAudioCall") : tCall("recipientOffline")}
+            aria-label={
+              conversation.online
+                ? tCall("startAudioCall")
+                : tCall("recipientOffline")
+            }
+            title={
+              conversation.online
+                ? tCall("startAudioCall")
+                : tCall("recipientOffline")
+            }
           >
-            <Phone className="h-4 w-4" strokeWidth={1.5} />
+            <Phone className="h-4 w-4" strokeWidth={1.6} />
           </Button>
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={() => onStartCall("video")}
             disabled={!conversation.online}
             className={cn(
-              "rounded-xl p-2 transition-all duration-200",
+              "inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200",
               conversation.online
-                ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
-                : "cursor-not-allowed text-gray-300 dark:text-gray-600",
+                ? "bg-background text-foreground hover:bg-primary-soft hover:text-primary-deep"
+                : "cursor-not-allowed bg-background text-muted-foreground/60",
             )}
-            aria-label={conversation.online ? tCall("startVideoCall") : tCall("recipientOffline")}
-            title={conversation.online ? tCall("startVideoCall") : tCall("recipientOffline")}
+            aria-label={
+              conversation.online
+                ? tCall("startVideoCall")
+                : tCall("recipientOffline")
+            }
+            title={
+              conversation.online
+                ? tCall("startVideoCall")
+                : tCall("recipientOffline")
+            }
           >
-            <Video className="h-4 w-4" strokeWidth={1.5} />
+            <Video className="h-4 w-4" strokeWidth={1.6} />
           </Button>
         </div>
       )}
@@ -191,38 +238,34 @@ export function ConversationHeader({
       {/* More menu (report user) */}
       {onReportUser && (
         <div ref={menuRef} className="relative">
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => setMenuOpen((prev) => !prev)}
-            className={cn(
-              "rounded-xl p-2 text-gray-400 transition-all duration-200",
-              "hover:bg-gray-100 hover:text-gray-600",
-              "dark:hover:bg-gray-800 dark:hover:text-gray-300",
-            )}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-background text-muted-foreground transition-colors duration-200 hover:bg-border hover:text-foreground"
             aria-label="More options"
           >
-            <MoreVertical className="h-4 w-4" strokeWidth={1.5} />
+            <MoreVertical className="h-4 w-4" strokeWidth={1.6} />
           </Button>
           {menuOpen && (
             <div
               className={cn(
-                "absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-lg",
-                "border border-gray-100 bg-white shadow-lg",
-                "dark:border-gray-700 dark:bg-gray-800",
+                "absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl",
+                "border border-border bg-card",
+                "shadow-[0_8px_24px_rgba(42,31,21,0.12)]",
                 "animate-in fade-in slide-in-from-top-1 duration-150",
               )}
             >
-              <Button variant="ghost" size="auto"
+              <Button
+                variant="ghost"
+                size="auto"
                 onClick={() => {
                   setMenuOpen(false)
                   onReportUser()
                 }}
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-600",
-                  "transition-colors hover:bg-red-50",
-                  "dark:text-red-400 dark:hover:bg-red-500/10",
-                )}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-primary-soft"
               >
-                <Flag className="h-4 w-4" strokeWidth={1.5} />
+                <Flag className="h-4 w-4" strokeWidth={1.6} />
                 {tReport("reportUser")}
               </Button>
             </div>
@@ -234,14 +277,14 @@ export function ConversationHeader({
       <div className="flex items-center gap-1">
         {isConnected ? (
           <Wifi
-            className="h-4 w-4 text-emerald-500"
-            strokeWidth={1.5}
+            className="h-4 w-4 text-success"
+            strokeWidth={1.6}
             aria-label={t("connected")}
           />
         ) : (
           <WifiOff
-            className="h-4 w-4 text-gray-400 dark:text-gray-500"
-            strokeWidth={1.5}
+            className="h-4 w-4 text-muted-foreground"
+            strokeWidth={1.6}
             aria-label={t("reconnecting")}
           />
         )}
@@ -250,18 +293,41 @@ export function ConversationHeader({
   )
 }
 
-function AvatarContent({ photo, name, initials, online, onlineLabel }: { photo: string; name: string; initials: string; online: boolean; onlineLabel: string }) {
+function AvatarContent({
+  photo,
+  name,
+  initials,
+  seed,
+  online,
+  onlineLabel,
+}: {
+  photo: string
+  name: string
+  initials: string
+  seed: string
+  online: boolean
+  onlineLabel: string
+}) {
   return (
     <>
       {photo ? (
-        <Image src={photo} alt={name} width={40} height={40} className="h-10 w-10 rounded-full object-cover" unoptimized />
+        <Image
+          src={photo}
+          alt={name}
+          width={40}
+          height={40}
+          className="h-10 w-10 rounded-full object-cover"
+          unoptimized
+        />
       ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
-          {initials}
-        </div>
+        <Portrait id={portraitIdFor(seed)} size={40} alt={name} />
       )}
+      <span className="sr-only">{initials}</span>
       {online && (
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900" aria-label={onlineLabel}>
+        <span
+          className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-emerald-500"
+          aria-label={onlineLabel}
+        >
           <span className="sr-only">{onlineLabel}</span>
         </span>
       )}

@@ -185,70 +185,74 @@ export function MessageInput({
   return (
     <>
       {uploadError && (
-        <div className="border-t border-gray-100 bg-red-50 px-4 py-2 dark:border-gray-800 dark:bg-red-900/20" role="alert">
-          <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+        <div
+          className="border-t border-border bg-primary-soft px-4 py-2"
+          role="alert"
+        >
+          <p className="text-xs text-primary-deep">{uploadError}</p>
         </div>
       )}
 
       {/* Reply preview bar */}
       {replyTo && (
-        <div className="flex items-center gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
-          <div className="min-w-0 flex-1 border-l-2 border-rose-500 pl-2">
-            <p className="text-xs font-semibold text-rose-500">{t("replyingTo", { name: replyTo.senderName })}</p>
-            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-              {replyTo.content.length > 50 ? replyTo.content.slice(0, 50) + "..." : replyTo.content}
+        <div className="flex items-center gap-2 border-t border-border bg-primary-soft/40 px-4 py-2">
+          <div className="min-w-0 flex-1 border-l-2 border-primary pl-2">
+            <p className="text-xs font-semibold text-primary-deep">
+              {t("replyingTo", { name: replyTo.senderName })}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {replyTo.content.length > 50
+                ? replyTo.content.slice(0, 50) + "..."
+                : replyTo.content}
             </p>
           </div>
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={onCancelReply}
-            className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-card hover:text-foreground"
             aria-label={t("cancelReply")}
           >
-            <X className="h-4 w-4" strokeWidth={1.5} />
+            <X className="h-4 w-4" strokeWidth={1.6} />
           </Button>
         </div>
       )}
 
       {/* Voice recording bar -- replaces the normal input */}
       {isRecording && (
-        <div className="flex items-center gap-3 border-t border-gray-100 bg-rose-50 px-4 py-3 dark:border-gray-800 dark:bg-rose-900/20">
+        <div className="flex items-center gap-3 border-t border-border bg-primary-soft px-4 py-3">
           {/* Cancel / trash */}
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={voice.cancelRecording}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-white/80 text-gray-500 transition-all duration-200",
-              "hover:bg-white hover:text-gray-700",
-              "dark:bg-gray-800/80 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200",
-            )}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-muted-foreground transition-all duration-200 hover:bg-card hover:text-foreground"
             aria-label={t("cancelRecording")}
           >
-            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+            <Trash2 className="h-4 w-4" strokeWidth={1.6} />
           </Button>
 
-          {/* Red pulsing dot + timer */}
-          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="font-mono text-sm font-medium text-red-600 dark:text-red-400">
+          {/* Pulsing dot + timer */}
+          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-primary-deep" />
+          <span className="font-mono text-sm font-medium text-primary-deep">
             {formatRecordingDuration(voice.duration)}
           </span>
 
           <div className="flex-1" />
 
           {/* Stop and send */}
-          <Button variant="ghost" size="auto"
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={handleStopAndSend}
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-full",
-              "bg-rose-500 text-white transition-all duration-200",
-              "hover:bg-rose-600 hover:shadow-md active:scale-[0.95]",
-            )}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary-deep active:scale-[0.96]"
             aria-label={t("sendMessage")}
           >
             {isVoiceUploading ? (
-              <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
+              <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.6} />
             ) : (
               <Square className="h-4 w-4" strokeWidth={2} fill="currentColor" />
             )}
@@ -260,90 +264,100 @@ export function MessageInput({
       {!isRecording && (
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
+          className="flex items-center gap-2 border-t border-border bg-card px-4 py-3"
         >
           {/* Desktop: separate buttons for attach + proposal */}
           <div className="hidden items-center gap-1 md:flex">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setModalOpen(true)}
               disabled={isDisabled}
               className={cn(
-                "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
-                "hover:bg-gray-100 hover:text-gray-600",
-                "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+                "inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                "hover:bg-primary-soft hover:text-primary-deep",
                 isDisabled && "pointer-events-none opacity-50",
               )}
               aria-label={t("fileUpload")}
             >
               {isUploading ? (
-                <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
+                <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.6} />
               ) : (
-                <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.6} />
               )}
             </Button>
             {canPropose && (
-            <Button variant="ghost" size="auto"
-              type="button"
-              onClick={handleProposal}
-              disabled={isDisabled}
-              className={cn(
-                "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
-                "hover:bg-rose-50 hover:text-rose-600",
-                "dark:hover:bg-rose-500/10 dark:hover:text-rose-400",
-                isDisabled && "pointer-events-none opacity-50",
-              )}
-              aria-label={t("propose")}
-            >
-              <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            </Button>
+              <Button
+                variant="ghost"
+                size="auto"
+                type="button"
+                onClick={handleProposal}
+                disabled={isDisabled}
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                  "hover:bg-primary-soft hover:text-primary-deep",
+                  isDisabled && "pointer-events-none opacity-50",
+                )}
+                aria-label={t("propose")}
+              >
+                <FileText className="h-[18px] w-[18px]" strokeWidth={1.6} />
+              </Button>
             )}
           </div>
 
           {/* Mobile: "+" menu for attach + proposal */}
           <div className="relative md:hidden">
-            <Button variant="ghost" size="auto"
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               disabled={isDisabled}
               className={cn(
-                "shrink-0 rounded-full p-2 text-gray-400 transition-all duration-200",
-                mobileMenuOpen && "rotate-45 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-                "hover:bg-gray-100 hover:text-gray-600",
-                "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-all duration-200",
+                mobileMenuOpen && "rotate-45 bg-primary-soft text-primary-deep",
+                "hover:bg-primary-soft hover:text-primary-deep",
                 isDisabled && "pointer-events-none opacity-50",
               )}
               aria-label={t("fileUpload")}
             >
-              <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              <Plus className="h-[18px] w-[18px]" strokeWidth={1.6} />
             </Button>
 
             {mobileMenuOpen && (
               <div
                 className={cn(
                   "absolute bottom-full left-0 mb-2 flex flex-col gap-1",
-                  "rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg",
-                  "dark:border-gray-700 dark:bg-gray-800",
+                  "rounded-xl border border-border bg-card p-1.5",
+                  "shadow-[0_8px_24px_rgba(42,31,21,0.12)]",
                   "animate-in fade-in slide-in-from-bottom-2 duration-200",
                 )}
               >
-                <Button variant="ghost" size="auto"
+                <Button
+                  variant="ghost"
+                  size="auto"
                   type="button"
-                  onClick={() => { setModalOpen(true); setMobileMenuOpen(false) }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setModalOpen(true)
+                    setMobileMenuOpen(false)
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-primary-soft"
                 >
-                  <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+                  <Paperclip className="h-4 w-4" strokeWidth={1.6} />
                   {t("fileUpload")}
                 </Button>
                 {canPropose && (
-                <Button variant="ghost" size="auto"
-                  type="button"
-                  onClick={handleProposal}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  <FileText className="h-4 w-4" strokeWidth={1.5} />
-                  {t("propose")}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="auto"
+                    type="button"
+                    onClick={handleProposal}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-primary-soft"
+                  >
+                    <FileText className="h-4 w-4" strokeWidth={1.6} />
+                    {t("propose")}
+                  </Button>
                 )}
               </div>
             )}
@@ -360,11 +374,9 @@ export function MessageInput({
             aria-label={t("writeMessage")}
             disabled={isDisabled}
             className={cn(
-              "h-10 flex-1 rounded-full bg-gray-100/80 px-4 text-sm text-gray-900",
-              "placeholder:text-gray-400 transition-all duration-200",
-              "focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-rose-500/20 focus:outline-none",
-              "dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder:text-gray-500",
-              "dark:focus:bg-gray-800 dark:focus:ring-rose-400/20",
+              "h-10 flex-1 rounded-full border border-border bg-background px-4 text-sm text-foreground",
+              "placeholder:text-muted-foreground transition-all duration-200",
+              "focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/20",
               isDisabled && "opacity-50",
             )}
           />
@@ -416,24 +428,29 @@ function PrimaryActionButton({
   sendLabel: string
   micLabel: string
 }) {
+  const baseClasses =
+    "shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200"
+
   // Has text: send button
   if (hasContent) {
     return (
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="submit"
         disabled={isDisabled}
         className={cn(
-          "shrink-0 rounded-full p-2.5 transition-all duration-200",
+          baseClasses,
           !isDisabled
-            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 hover:shadow-md active:scale-[0.96]"
-            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+            ? "bg-primary text-primary-foreground hover:bg-primary-deep active:scale-[0.96]"
+            : "bg-border text-muted-foreground",
         )}
         aria-label={sendLabel}
       >
         {isSending ? (
-          <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
+          <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.6} />
         ) : (
-          <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          <Send className="h-[18px] w-[18px]" strokeWidth={1.6} />
         )}
       </Button>
     )
@@ -442,32 +459,36 @@ function PrimaryActionButton({
   // Empty input + voice available: mic button
   if (canVoice) {
     return (
-      <Button variant="ghost" size="auto"
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={onMic}
         disabled={isDisabled}
         className={cn(
-          "shrink-0 rounded-full p-2.5 transition-all duration-200",
+          baseClasses,
           !isDisabled
-            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 hover:shadow-md active:scale-[0.96]"
-            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+            ? "bg-primary text-primary-foreground hover:bg-primary-deep active:scale-[0.96]"
+            : "bg-border text-muted-foreground",
         )}
         aria-label={micLabel}
       >
-        <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
+        <Mic className="h-[18px] w-[18px]" strokeWidth={1.6} />
       </Button>
     )
   }
 
   // No voice, no text: disabled send
   return (
-    <Button variant="ghost" size="auto"
+    <Button
+      variant="ghost"
+      size="auto"
       type="submit"
       disabled
-      className="shrink-0 rounded-full bg-gray-100 p-2.5 text-gray-300 dark:bg-gray-800 dark:text-gray-600"
+      className={cn(baseClasses, "bg-border text-muted-foreground")}
       aria-label={sendLabel}
     >
-      <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
+      <Send className="h-[18px] w-[18px]" strokeWidth={1.6} />
     </Button>
   )
 }

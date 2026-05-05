@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../../core/theme/app_palette.dart';
 
-/// Horizontal filter row at the top of the conversations list — All
-/// / Agency / Freelancer / Enterprise pills.
+// M-18 filter row — Soleil v2 pills (corail accents).
 class MessagingOrgTypeFilterRow extends StatelessWidget {
   const MessagingOrgTypeFilterRow({
     super.key,
@@ -17,16 +16,15 @@ class MessagingOrgTypeFilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
-    final filters = [
-      ('all', l10n.messagingAllRoles, null),
-      ('agency', l10n.messagingAgency, AppPalette.blue600),
-      (
-        'provider_personal',
-        l10n.messagingFreelancer,
-        AppPalette.rose500,
-      ),
-      ('enterprise', l10n.messagingEnterprise, AppPalette.violet500),
+
+    final filters = <(String, String)>[
+      ('all', l10n.messagingAllRoles),
+      ('agency', l10n.messagingAgency),
+      ('provider_personal', l10n.messagingFreelancer),
+      ('enterprise', l10n.messagingEnterprise),
     ];
 
     return SingleChildScrollView(
@@ -34,38 +32,41 @@ class MessagingOrgTypeFilterRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: filters.map((filter) {
-          final (key, label, color) = filter;
+          final (key, label) = filter;
           final isSelected = selected == key;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+            child: GestureDetector(
+              onTap: () => onChanged(key),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? Colors.white
-                      : (color ?? Theme.of(context).colorScheme.onSurface),
+                      ? theme.colorScheme.onSurface
+                      : (appColors?.muted ?? theme.colorScheme.surface),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: isSelected
+                        ? theme.colorScheme.onSurface
+                        : (appColors?.border ?? theme.dividerColor),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? theme.colorScheme.surface
+                        : appColors?.mutedForeground,
+                  ),
                 ),
               ),
-              selected: isSelected,
-              onSelected: (_) => onChanged(key),
-              backgroundColor: color?.withValues(alpha: 0.08) ??
-                  Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.06),
-              selectedColor:
-                  color ?? Theme.of(context).colorScheme.onSurface,
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              showCheckmark: false,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             ),
           );
         }).toList(),
