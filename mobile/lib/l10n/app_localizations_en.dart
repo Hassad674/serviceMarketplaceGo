@@ -930,6 +930,75 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jobUpdateSuccess => 'Job updated successfully';
 
   @override
+  String get jobsEyebrow => 'ATELIER · MY JOBS';
+
+  @override
+  String get jobsTitlePrefix => 'Your';
+
+  @override
+  String get jobsTitleAccent => 'published jobs.';
+
+  @override
+  String get jobsSubtitle =>
+      'Track active recruitments and publish new missions.';
+
+  @override
+  String get jobsApplicants => 'applicants';
+
+  @override
+  String get jobsApplicantsOne => 'applicant';
+
+  @override
+  String jobsApplicantsNew(int count) {
+    return '$count new';
+  }
+
+  @override
+  String get jobsViewArrow => 'View →';
+
+  @override
+  String get jobsLongTerm => 'Long-term';
+
+  @override
+  String get jobsOneShot => 'One-time project';
+
+  @override
+  String jobsPublishedRelative(String when) {
+    return 'Posted $when';
+  }
+
+  @override
+  String jobsClosedRelative(String when) {
+    return 'Closed $when';
+  }
+
+  @override
+  String get jobsJustNow => 'just now';
+
+  @override
+  String jobsMinutesAgo(int count) {
+    return '${count}m ago';
+  }
+
+  @override
+  String jobsHoursAgo(int count) {
+    return '${count}h ago';
+  }
+
+  @override
+  String jobsDaysAgo(int count) {
+    return '${count}d ago';
+  }
+
+  @override
+  String jobsWeeksAgo(int count) {
+    return '${count}w ago';
+  }
+
+  @override
+  String get jobsEmptyCta => 'Publish your first job';
+
+  @override
   String get proposalPropose => 'Send a proposal';
 
   @override
