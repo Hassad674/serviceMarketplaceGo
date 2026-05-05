@@ -230,6 +230,31 @@
   "auth": {
     "loginTitle": "Connexion",
     "loginSubtitle": "Connectez-vous à votre compte",
+    "loginEyebrow": "Bon retour",
+    "loginTitlePrefix": "Reprends là",
+    "loginTitleAccent": "où tu en étais.",
+    "loginSubtitleSoleil": "Connecte-toi pour suivre tes missions, tes candidatures, et reprendre tes conversations en cours.",
+    "heroEyebrow": "Atelier · le mot juste",
+    "heroTitlePart1": "Une marketplace qui respecte",
+    "heroTitleAccent1": "ton temps",
+    "heroTitleConnector": "et tes",
+    "heroTitleAccent2": "tarifs.",
+    "pillar": {
+      "secure": {
+        "label": "Paiement sécurisé",
+        "description": "Séquestre Stripe sur chaque jalon"
+      },
+      "verified": {
+        "label": "Profils vérifiés",
+        "description": "KYC, références, entretien humain"
+      },
+      "noFee": {
+        "label": "Sans commission cachée",
+        "description": "5 % côté entreprise, c'est tout"
+      }
+    },
+    "terms": "Conditions",
+    "privacy": "Confidentialité",
     "registerTitle": "Créer un compte",
     "registerSubtitle": "Choisissez votre profil professionnel pour commencer",
     "email": "Email",
