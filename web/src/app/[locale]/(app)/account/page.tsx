@@ -1,13 +1,18 @@
 import { Suspense } from "react"
 import { AccountSettingsPage } from "@/features/account/components/account-settings-page"
 
+/**
+ * Soleil v2 skeleton — mirrors the live layout so the loading state
+ * doesn't shift content (LCP/CLS budget). Editorial title + 240px
+ * tabs column + flexible content column.
+ */
 function AccountPageSkeleton() {
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 h-8 w-48 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="h-40 w-full animate-pulse rounded-xl bg-slate-200 lg:w-56 dark:bg-slate-700" />
-        <div className="h-96 flex-1 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />
+    <div className="mx-auto max-w-[1100px]">
+      <div className="mb-7 h-9 w-60 animate-pulse rounded-lg bg-border" />
+      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[240px_1fr] lg:items-start">
+        <div className="h-44 w-full animate-pulse rounded-2xl border border-border bg-card" />
+        <div className="h-96 w-full animate-pulse rounded-2xl border border-border bg-card" />
       </div>
     </div>
   )

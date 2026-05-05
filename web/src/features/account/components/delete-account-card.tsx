@@ -17,13 +17,15 @@ import {
 
 /**
  * DeleteAccountCard is the user-facing entry point for the GDPR
- * right-to-erasure flow. It renders three sections:
+ * right-to-erasure flow. It renders three sections, all under the
+ * Soleil v2 surface:
  *
  *   1. Export — single click triggers a ZIP download. No confirmation
  *      because the action is non-destructive.
  *   2. Delete — opens a password modal. On submit we POST
  *      /me/account/request-deletion and surface 401 / 409 errors
- *      inline (wrong password / org-owner-blocked).
+ *      inline (wrong password / org-owner-blocked). The destructive
+ *      card carries a corail-deep border-l 4px, distinctive.
  *   3. Cancel — visible only when `pendingDeletionAt` is set.
  *      One click rolls back the soft-delete server-side and reloads
  *      the page so the banner disappears.
@@ -91,10 +93,10 @@ export function DeleteAccountCard({
   return (
     <section className="space-y-6">
       <header>
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+        <h2 className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground">
           {t("title")}
         </h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           {t("subtitle")}
         </p>
       </header>
@@ -109,18 +111,23 @@ export function DeleteAccountCard({
         />
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex items-start gap-3">
-          <Download className="mt-0.5 h-5 w-5 text-slate-500" aria-hidden="true" />
-          <div className="flex-1">
-            <h3 className="font-medium text-slate-900 dark:text-white">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-soft text-primary">
+            <Download className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-serif text-base font-medium text-foreground">
               {t("export.title")}
             </h3>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               {t("export.description")}
             </p>
             {exportError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
+              <p
+                className="mt-2 text-sm text-[var(--destructive)]"
+                role="alert"
+              >
                 {exportError}
               </p>
             )}
@@ -130,6 +137,7 @@ export function DeleteAccountCard({
             variant="outline"
             onClick={handleExport}
             disabled={exporting}
+            className="rounded-full sm:shrink-0"
           >
             {exporting ? t("export.preparing") : t("export.button")}
           </Button>
@@ -137,14 +145,16 @@ export function DeleteAccountCard({
       </div>
 
       {!pendingDeletionAt && (
-        <div className="rounded-xl border border-red-200 bg-red-50/50 p-5 dark:border-red-900/40 dark:bg-red-950/20">
-          <div className="flex items-start gap-3">
-            <Trash2 className="mt-0.5 h-5 w-5 text-red-600" aria-hidden="true" />
-            <div className="flex-1">
-              <h3 className="font-medium text-red-900 dark:text-red-300">
+        <div className="rounded-2xl border border-[var(--primary-deep)]/25 border-l-4 border-l-[var(--primary-deep)] bg-[var(--primary-soft)]/40 p-6 shadow-[var(--shadow-card)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--primary-deep)]/15 text-[var(--primary-deep)]">
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-serif text-base font-medium text-[var(--primary-deep)]">
                 {t("delete.title")}
               </h3>
-              <p className="mt-1 text-sm text-red-800/80 dark:text-red-300/80">
+              <p className="mt-1 text-sm text-[var(--primary-deep)]/85">
                 {t("delete.description")}
               </p>
             </div>
@@ -152,6 +162,7 @@ export function DeleteAccountCard({
               type="button"
               variant="destructive"
               onClick={() => setModalOpen(true)}
+              className="rounded-full sm:shrink-0"
             >
               {t("delete.button")}
             </Button>
@@ -174,7 +185,7 @@ export function DeleteAccountCard({
 }
 
 function PendingDeletionBanner({
-  deletedAt,
+  deletedAt: _deletedAt,
   hardDeleteAt,
   onCancel,
   cancelling,
@@ -192,28 +203,34 @@ function PendingDeletionBanner({
   return (
     <div
       role="alert"
-      className="rounded-xl border-l-4 border-amber-500 bg-amber-50 p-4 dark:bg-amber-950/30"
+      className="rounded-2xl border border-[var(--warning)]/40 border-l-4 border-l-[var(--warning)] bg-[var(--warning)]/10 p-5"
     >
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" aria-hidden="true" />
-        <div className="flex-1">
-          <h3 className="font-medium text-amber-900 dark:text-amber-200">
+        <AlertTriangle
+          className="mt-0.5 h-5 w-5 text-[var(--warning)]"
+          aria-hidden="true"
+        />
+        <div className="flex-1 min-w-0">
+          <h3 className="font-serif text-base font-medium text-foreground">
             {t("title")}
           </h3>
-          <p className="mt-1 text-sm text-amber-800 dark:text-amber-200/80">
+          <p className="mt-1 text-sm text-muted-foreground">
             {hardDate
               ? t("body", { date: hardDate.toLocaleDateString() })
               : t("bodyNoDate")}
           </p>
           {cancelError && (
-            <p className="mt-2 text-sm text-red-700" role="alert">
+            <p
+              className="mt-2 text-sm text-[var(--destructive)]"
+              role="alert"
+            >
               {cancelError}
             </p>
           )}
           <Button
             type="button"
             variant="primary"
-            className="mt-3"
+            className="mt-3 rounded-full"
             onClick={onCancel}
             disabled={cancelling}
           >
@@ -300,11 +317,11 @@ function DeleteAccountModal({
         <BlockedPanel orgs={blocked} onClose={handleClose} />
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-sm text-slate-700 dark:text-slate-300">
+          <p className="text-sm text-foreground">
             {t("intro")}
           </p>
 
-          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
             <li>{t("bullet1")}</li>
             <li>{t("bullet2")}</li>
             <li>{t("bullet3")}</li>
@@ -313,7 +330,7 @@ function DeleteAccountModal({
           <div>
             <label
               htmlFor="gdpr-password"
-              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              className="mb-1.5 block text-sm font-medium text-foreground"
             >
               {t("passwordLabel")}
             </label>
@@ -327,31 +344,37 @@ function DeleteAccountModal({
             />
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <label className="flex items-start gap-2 text-sm text-foreground">
             {/* eslint-disable-next-line react/forbid-elements -- native checkbox; no Checkbox primitive in shared/ui yet, follow-up F.6 */}
             <input
               type="checkbox"
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              className="mt-0.5 h-4 w-4 rounded border-border-strong text-primary focus:ring-2 focus:ring-primary/30"
             />
             <span>{t("confirmCheckbox")}</span>
           </label>
 
           {error && (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-[var(--destructive)]" role="alert">
               {error}
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={handleClose}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleClose}
+              className="rounded-full"
+            >
               {t("cancel")}
             </Button>
             <Button
               type="submit"
               variant="destructive"
               disabled={!confirmed || !password || submitting}
+              className="rounded-full"
             >
               {submitting ? t("submitting") : t("submit")}
             </Button>
@@ -366,13 +389,13 @@ function SuccessPanel({ email, onDone }: { email: string; onDone: () => void }) 
   const t = useTranslations("account.gdpr.delete.modal.success")
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-700 dark:text-slate-300">{t("intro")}</p>
-      <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+      <p className="text-sm text-foreground">{t("intro")}</p>
+      <p className="rounded-xl bg-primary-soft px-3 py-2 font-mono text-sm font-medium text-[var(--primary-deep)]">
         {email}
       </p>
-      <p className="text-sm text-slate-600 dark:text-slate-400">{t("ttl")}</p>
+      <p className="text-sm text-muted-foreground">{t("ttl")}</p>
       <div className="flex justify-end pt-2">
-        <Button variant="primary" onClick={onDone}>
+        <Button variant="primary" onClick={onDone} className="rounded-full">
           {t("close")}
         </Button>
       </div>
@@ -384,23 +407,21 @@ function BlockedPanel({ orgs, onClose }: { orgs: BlockedOrg[]; onClose: () => vo
   const t = useTranslations("account.gdpr.delete.modal.blocked")
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-700 dark:text-slate-300">{t("intro")}</p>
+      <p className="text-sm text-foreground">{t("intro")}</p>
       <div className="space-y-3">
         {orgs.map((org) => (
           <div
             key={org.org_id}
-            className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/30"
+            className="rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-3"
           >
-            <p className="font-medium text-amber-900 dark:text-amber-200">
-              {org.org_name}
-            </p>
-            <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
+            <p className="font-medium text-foreground">{org.org_name}</p>
+            <p className="text-xs text-muted-foreground">
               {t("memberCount", { count: org.member_count })}
             </p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {org.actions.map((a) => (
                 <li key={a}>
-                  <span className="inline-flex items-center rounded-full bg-white px-2 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 dark:bg-slate-800 dark:text-amber-200 dark:ring-amber-900/40">
+                  <span className="inline-flex items-center rounded-full bg-card px-2 py-1 text-xs font-medium text-foreground ring-1 ring-[var(--warning)]/40">
                     {t(`actions.${a}`)}
                   </span>
                 </li>
@@ -410,7 +431,7 @@ function BlockedPanel({ orgs, onClose }: { orgs: BlockedOrg[]; onClose: () => vo
         ))}
       </div>
       <div className="flex justify-end pt-2">
-        <Button variant="primary" onClick={onClose}>
+        <Button variant="primary" onClick={onClose} className="rounded-full">
           {t("close")}
         </Button>
       </div>
