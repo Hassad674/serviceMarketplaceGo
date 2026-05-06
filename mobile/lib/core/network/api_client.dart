@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/secure_storage.dart';
+import 'cert_pinning_interceptor.dart';
 import 'idempotency_interceptor.dart';
 
 /// Provides the singleton [ApiClient] with JWT auth interceptors.
@@ -74,6 +76,30 @@ class ApiClient {
         },
       ),
     );
+
+    // H2/M3: certificate pinning. Activated only in release builds
+    // pointed at a non-LAN HTTPS backend with at least one configured
+    // pin. The gate ([shouldEnforceCertPinning]) returns false in dev
+    // and during local LAN runs, so this is a no-op in those flows.
+    // See cert_pinning_interceptor.dart for the activation matrix
+    // and rotation runbook.
+    if (shouldEnforceCertPinning(baseUrl, isRelease: kReleaseMode)) {
+      final pins = defaultProductionPins();
+      // Replace Dio's default IOHttpClientAdapter with a pinned one.
+      // The override uses a custom HttpClient whose
+      // badCertificateCallback consults [pins] — chains that the OS
+      // rejects fall through this hook and pass iff their SHA-256
+      // matches a pin. OS-trusted chains are also covered because
+      // the SecurityContext is constrained to platform trust roots,
+      // so any forged but OS-trusted cert still has the wrong
+      // fingerprint and is rejected by the in-process check.
+      final pinnedAdapter = installPinningOnAdapter(
+        IOHttpClientAdapter(),
+        acceptedPins: pins,
+      );
+      _dio.httpClientAdapter = pinnedAdapter;
+      _dio.interceptors.add(CertPinningInterceptor(acceptedPins: pins));
+    }
 
     // Idempotency stamping must run before auth header injection so the
     // header lands on the request before Dio fans it out. The two

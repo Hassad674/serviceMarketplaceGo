@@ -39,6 +39,11 @@ dependencies:
   path_provider: ^2.1.2
   firebase_core: ^3.12.1
   firebase_messaging: ^15.2.4
+  # H2/M4: production crash reporting. Captures uncaught Dart errors,
+  # uncaught Flutter framework errors, and isolate errors and forwards
+  # them to Firebase Crashlytics in release builds. In debug builds,
+  # the same hooks log to the console only — no upload to Crashlytics.
+  firebase_crashlytics: ^4.3.10
   flutter_local_notifications: ^18.0.1
   flutter_inappwebview: ^6.1.5
   uuid: ^4.3.3
