@@ -1,8 +1,26 @@
-# Audit Qualité, DRY & Architecture — F.5 + F.6 + F.7 + #105 close-out
+# Audit Qualité, DRY & Architecture — V8 backend completion (H1) close-out
 
-**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Date** : 2026-05-05 (post V8 H1)
 **Branch** : `main`
-**Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + web Next.js + admin Vite + mobile Flutter
+**Périmètre** : backend Go (~690 fichiers prod, 135 migrations) + web Next.js + admin Vite + mobile Flutter
+
+## V8 H1 close-out
+
+- ✅ FERMÉ V8 NEW-2 — `app/webhookidempotency/claimer.go` no longer imports the redis adapter. The cache-error contract migrated to `internal/port/cache.Error`. The redis adapter's `CacheError.Unwrap()` now exposes the port-level type so `errors.As` chains succeed transparently. Closes a long-standing app→adapter layer-rule violation that the F.5 audit catalogued among the 14 cross-feature import violations.
+- ✅ FERMÉ V8 NEW-4 — `adapter/redis/coalesce.go` introduces `coalesceWithDoubleCheck[T any]`. Removes ~30 LOC of duplication from 4 cache decorators (freelance_profile / expertise / skill_catalog / profile). The V7 V6-1 stampede-protection fix now lives in exactly one reviewable place. Quality knob: rule-of-three triggered, abstraction earned.
+- ✅ FERMÉ V8 NEW-3 — Referral resolver dropped-ids signal upgraded from `slog.Debug` (default-suppressed in prod) to `slog.Warn` with a structured `dropped_ids` integer attribute. Observability win — bug or exfiltration probe now visible.
+- ✅ FERMÉ V8 NEW-5 — `handler/middleware/idempotency.go` cache key now binds normalised `Accept-Encoding`. Three new tests cover distinct-encoding split, matched-encoding replay, and the `normaliseAcceptEncoding` helper edge cases.
+- ✅ FERMÉ V8 NEW-6 — Audit doc family refreshed (this file + 4 sisters) so claims reflect actual repo state. Honesty hygiene: a "TOP 5%" claim with frozen audit docs is dishonest.
+- ✅ FERMÉ ci.yml port — Web-build env var corrected (`8080` → `8083`).
+
+Backend pipeline post-merge: build / vet / test / race / gosec all
+green on 690 files / 115 673 lines.
+
+## V7 close-out — quality-relevant items (2026-05-04)
+
+- ✅ FERMÉ V7 NF-12 — Apporteur cross-tenant proposal leak closed at the resolver boundary; fail-closed default when attribution lister is unwired.
+- ✅ FERMÉ V7 N7 — `pkg/httputil/realip.go` extracted from middleware so XFF parsing has one shared, allowlist-gated implementation across rate-limit and admin-impersonation surfaces.
+- ✅ FERMÉ V7 V6-1 / V6-3 — see Performance + Security close-outs.
 
 ## F.6 + F.7 + #105 close-out
 

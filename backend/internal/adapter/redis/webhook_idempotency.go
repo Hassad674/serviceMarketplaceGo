@@ -5,6 +5,8 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
+
+	portcache "marketplace-backend/internal/port/cache"
 )
 
 // Default cache TTL for the Redis fast-path of the webhook
@@ -21,10 +23,33 @@ const DefaultWebhookIdempotencyTTL = 5 * time.Minute
 // through to the durable Postgres path without incorrectly assuming
 // the event is a duplicate. The wrapped error is preserved so logs
 // can still report the root cause.
+//
+// V8 NEW-2: this concrete adapter-level type stays for backward
+// compatibility (its message format and direct type-assertion are
+// asserted by webhook_idempotency_test.go), but Unwrap now exposes a
+// *port/cache.Error so app code can branch on the port-level type
+// without importing this adapter package. The claimer in
+// app/webhookidempotency uses `errors.As(err, &cache.Error{})`
+// instead of the old `errors.As(err, &redis.CacheError{})`, closing
+// the layer-rule violation.
 type CacheError struct{ Err error }
 
 func (e *CacheError) Error() string { return "webhook idempotency cache: " + e.Err.Error() }
-func (e *CacheError) Unwrap() error { return e.Err }
+
+// Unwrap returns a port-level cache error wrapping the same root
+// cause. Callers MUST use errors.As against *cache.Error (or chain
+// further with errors.Unwrap) to recover the original Redis error.
+// The chain looks like:
+//
+//	*redis.CacheError → *port/cache.Error → original error
+//
+// errors.Is and errors.As walk the chain transparently.
+func (e *CacheError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return &portcache.Error{Err: e.Err}
+}
 
 // WebhookIdempotencyStore is the Redis fast-path for webhook
 // dedup. It is no longer the source of truth — that role moved to

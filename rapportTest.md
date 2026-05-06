@@ -1,9 +1,34 @@
-# Rapport Tests + Migrations + DB — F.5 + F.6 + F.7 + #105 close-out
+# Rapport Tests + Migrations + DB — V8 backend completion (H1) close-out
 
-**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Date** : 2026-05-05 (post V8 H1)
 **Branch** : `main`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
-**Méthodologie** : audit statique + run réel `go test ./... -count=1 -short -race` (PASS) + `gosec` (PASS) + `flutter analyze lib/` (PASS) + admin vitest (PASS).
+**Méthodologie** : audit statique + run réel `go test ./... -count=1 -timeout=180s` (PASS) + `go test -race ./... -count=1 -timeout=300s` (PASS) + `gosec` (PASS, 0 issues) + `flutter analyze lib/` (PASS) + admin vitest (PASS).
+
+## V8 H1 close-out — test deltas
+
+- ✅ FERMÉ V8 NEW-5 — 3 new tests in `internal/handler/middleware/idempotency_test.go`:
+  - `TestIdempotency_DifferentAcceptEncoding_DoesNotCollide` — distinct encoding buckets produce distinct cache entries (handler invoked twice).
+  - `TestIdempotency_SameAcceptEncoding_ReplaysFromCache` — matched encoding still replays (handler invoked once).
+  - `TestNormaliseAcceptEncoding` — table-driven coverage of the canonicalisation rules including legacy `compress` → `identity` bucket.
+- ✅ FERMÉ V8 NEW-1 — existing brute-force tests (`bruteforce_test.go`, `bruteforce_lockout_test.go`) still pass; the 200ms timeout wrap is transparent on the happy path tested by miniredis.
+- ✅ FERMÉ V8 NEW-2 — `webhookidempotency/claimer_test.go` keeps using `&redisadapter.CacheError{}` and `errors.As(err, &portcache.Error{})` succeeds via the new `Unwrap` chain — no test changes required, just verified green.
+- ✅ FERMÉ V8 NEW-4 — the 4 cache decorators' existing test suites (single-flight, double-check, hit/miss, negative-cache) all pass against the refactored helper. No behaviour change → no test change.
+- ✅ FERMÉ V8 NEW-3 — referral resolver tests still pass; the slog level upgrade is observable only in production log shipping, not in unit assertions.
+- ✅ FERMÉ V8 NEW-6 — the 5 audit docs were brought back in sync with the repo via this rapportTest.md plus the four sister docs.
+
+Backend pipeline post-merge:
+- `go build ./...` — clean.
+- `go vet ./...` — clean.
+- `go test ./... -count=1 -timeout=180s` — all packages green.
+- `go test -race ./... -count=1 -timeout=300s` — all packages green.
+- `gosec -exclude-dir=mock ./...` — 0 issues / 50 nosec on 690 files / 115 673 lines.
+
+## V7 close-out — test deltas (2026-05-04)
+
+- ✅ FERMÉ V7 V6-1 — the 4 cache decorators' singleflight regression tests now pin the double-check semantics (later extracted into the helper as part of V8 NEW-4).
+- ✅ FERMÉ V7 V5-4 — `bruteforce_test.go::TestBruteForce_RedisDown_FailsClosed` exercises the read-side timeout via miniredis Close().
+- ✅ FERMÉ V7 V6-3 — `idempotency_test.go::TestIdempotency_Replay_RestoresContentEncoding` proves Content-Encoding survives the replay safe-headers filter.
 
 ## F.6 + F.7 + #105 close-out — test deltas
 
@@ -31,12 +56,13 @@ green on the F.5 branch.
 
 ---
 
-## Verification: backend test suite green (2026-05-03)
+## Verification: backend test suite green (2026-05-05, post V8 H1)
 
 ```
 cd backend && go build ./... && go vet ./... && go test ./... -count=1 -timeout 180s
 PASS — all 60+ packages green, 0 failures.
-gosec -quiet -fmt=text -exclude-dir=mock ./... → 674 files, 111 355 lines, 0 issues, 41 nosec.
+go test -race ./... -count=1 -timeout 300s → PASS, no data races detected.
+gosec -quiet -fmt=text -exclude-dir=mock ./... → 690 files, 115 673 lines, 0 issues, 50 nosec.
 go mod verify → all modules verified.
 go mod tidy -diff → 73 lines drift (XSAM/otelsql + redisotel referenced but in indirect requires).
 ```

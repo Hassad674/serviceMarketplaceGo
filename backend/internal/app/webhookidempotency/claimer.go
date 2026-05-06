@@ -32,17 +32,23 @@ import (
 	"fmt"
 	"log/slog"
 
-	"marketplace-backend/internal/adapter/redis"
+	portcache "marketplace-backend/internal/port/cache"
 )
 
 // CacheStore is the narrow port the composite claimer expects from
 // the Redis adapter. Defined locally so this package does not pull
 // in the goredis client.
+//
+// V8 NEW-2: errors that signal a cache-transport failure (vs an
+// already-seen verdict) MUST wrap a *port/cache.Error so this
+// package can detect them via errors.As without importing the redis
+// adapter. The redis adapter satisfies that contract — see
+// adapter/redis/webhook_idempotency.go.
 type CacheStore interface {
 	// TryCacheClaim returns:
-	//   (true, nil)         → cache miss, caller must verify in DB
-	//   (false, nil)        → cache hit, event was seen recently
-	//   (false, *CacheError) → Redis is unavailable
+	//   (true, nil)              → cache miss, caller must verify in DB
+	//   (false, nil)             → cache hit, event was seen recently
+	//   (false, *cache.Error)    → cache transport unavailable
 	TryCacheClaim(ctx context.Context, eventID string) (bool, error)
 
 	// MarkSeen seeds the cache after Postgres has decided.
@@ -50,8 +56,8 @@ type CacheStore interface {
 
 	// Forget deletes the cache entry for an event id. Used by Release
 	// to ensure a subsequent Stripe retry is not short-circuited on
-	// the fast path. Errors are returned as *CacheError so the caller
-	// can downgrade to log-and-continue.
+	// the fast path. Errors that wrap *cache.Error are downgraded
+	// to log-and-continue — TTL covers Stripe's retry window.
 	Forget(ctx context.Context, eventID string) error
 }
 
@@ -112,7 +118,7 @@ func (c *Claimer) TryClaim(ctx context.Context, eventID, eventType string) (bool
 
 	if c.cache != nil {
 		claimed, cacheErr := c.cache.TryCacheClaim(ctx, eventID)
-		var ce *redis.CacheError
+		var ce *portcache.Error
 		switch {
 		case cacheErr == nil && !claimed:
 			// Fast-path hit: this event was processed in the last

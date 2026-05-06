@@ -1,8 +1,21 @@
-# Audit de Performance — F.5 + F.6 + F.7 + #105 close-out
+# Audit de Performance — V8 backend completion (H1) close-out
 
-**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Date** : 2026-05-05 (post V8 H1)
 **Branch** : `main`
-**Périmètre** : backend Go (~674 fichiers prod, 135 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+**Périmètre** : backend Go (~690 fichiers prod, 135 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+
+## V8 H1 close-out — perf-relevant items
+
+PR `fix/h1-backend-completion` is primarily quality / layer-rule work,
+not performance. Two perf-adjacent changes worth noting:
+
+- ✅ FERMÉ V8 NEW-1 — `RecordFailure`, `RecordSuccess`, and `RecordIPFailure` in `adapter/redis/bruteforce.go` now wrap the Redis round-trip in `context.WithTimeout(ctx, 200ms)`. Net effect: a Redis brown-out on the auth write path can no longer pin handler goroutines for the full client timeout (default 5s), preserving the request-worker pool budget under degraded cache.
+- ✅ FERMÉ V8 NEW-4 — Generic `coalesceWithDoubleCheck[T any]` helper in `adapter/redis/coalesce.go` collapses the inlined V7 V6-1 stampede-protection recipe across 4 cache decorators. Performance unchanged (identical singleflight + double-check semantics) — quality / single-source-of-truth win.
+
+## V7 close-out — perf-relevant items (2026-05-04)
+
+- ✅ FERMÉ V7 V6-1 — Cache decorators (freelance_profile / expertise / skill_catalog / profile) added a double-check inside `singleflight.Group.Do`, eliminating the duplicate inner call when goroutines miss the cache after the first executor's group slot was forgotten.
+- ✅ FERMÉ V7 V5-4 — Read-side brute-force calls (`IsLocked`, `IsIPLocked`) wrapped in 200ms timeout, capping the auth-path Redis budget.
 
 ## F.6 + F.7 + #105 close-out — perf-relevant items
 

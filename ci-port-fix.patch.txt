@@ -1,0 +1,22 @@
+From: V8 H1 backend completion — manual GitHub-UI apply required
+Reason: OAuth App token lacks `workflow` scope so push of `.github/workflows/*`
+        is rejected by GitHub repository rules. Apply this 1-line patch
+        manually via the GitHub UI (Settings → Files → Edit ci.yml) or via
+        a maintainer push from a workflow-scoped token.
+
+Background: project convention is backend-on-port-8083 locally
+(see CLAUDE.md / project_dev_ports memory). The CI web-build env
+hardcoded the wrong port (`8080`), so any future workflow that
+exercises a real backend ↔ web round-trip during build would
+silently fail to connect.
+
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -223,7 +223,7 @@ jobs:
+       - name: next build
+         env:
+           # Public env is safe to hardcode here; build must not require secrets.
+-          NEXT_PUBLIC_API_URL: http://localhost:8080
++          NEXT_PUBLIC_API_URL: http://localhost:8083
+           NEXT_PUBLIC_TYPESENSE_HOST: http://localhost:8108
+         run: npx next build

@@ -766,9 +766,12 @@ func TestIdempotency_LegacyCacheEntry_ReplaysWithoutBodyCheck(t *testing.T) {
 	key := "legacy-key"
 
 	// Pre-seed the cache with a legacy snapshot (no body hash).
+	// Default Accept-Encoding is "identity" — the test request below
+	// sends no Accept-Encoding header, which normalises to the same
+	// bucket so the replay path locates the seeded entry.
 	legacyKey := buildCacheKey(
 		context.WithValue(context.Background(), ContextKeyUserID, uid),
-		"POST", "/api/v1/proposals", key,
+		"POST", "/api/v1/proposals", "identity", key,
 	)
 	cache.store[legacyKey] = IdempotentResponse{
 		Status:      http.StatusCreated,
@@ -835,6 +838,105 @@ func TestCaptureSafeHeaders_PreservesContentEncoding(t *testing.T) {
 	}
 	if got["Content-Encoding"] != "gzip" {
 		t.Fatalf("V6-3: Content-Encoding must survive the safe-header filter, got %#v", got)
+	}
+}
+
+// V8 NEW-5: two requests with the same Idempotency-Key but different
+// Accept-Encoding headers MUST produce separate cache entries.
+//
+// Failure mode this guards: when the FIRST execution caches a gzipped
+// body (V7 V6-3 keeps Content-Encoding in the safe-replay allow-list),
+// a SECOND request that did NOT advertise gzip support would otherwise
+// receive the gzipped bytes back — its decoder cannot handle them and
+// the user sees garbage. Splitting the cache by normalised
+// Accept-Encoding makes the replay correctness invariant: the cached
+// snapshot is only ever served to a client that asked for the same
+// content-coding bucket.
+func TestIdempotency_DifferentAcceptEncoding_DoesNotCollide(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "shared-key-different-encodings"
+	body := `{"amount":100}`
+
+	for _, accept := range []string{"gzip", "identity"} {
+		req := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(body))
+		req.Header.Set(IdempotencyHeader, key)
+		req.Header.Set("Accept-Encoding", accept)
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("accept=%s: status %d, want 201", accept, rec.Code)
+		}
+	}
+
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("V8 NEW-5: distinct Accept-Encoding MUST produce separate cache entries: got %d invocations, want 2", got)
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if got := len(cache.store); got != 2 {
+		t.Fatalf("V8 NEW-5: cache must hold one entry per encoding bucket, got %d", got)
+	}
+}
+
+// V8 NEW-5: same Accept-Encoding on the second call MUST replay (this
+// is the happy path — the bucket split doesn't break the existing
+// replay contract for matched encodings).
+func TestIdempotency_SameAcceptEncoding_ReplaysFromCache(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	mw := Idempotency(cache)
+	h := mw(successHandler(&calls))
+
+	uid := uuid.New()
+	key := "shared-key-same-encoding"
+	body := `{"amount":100}`
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("POST", "/api/v1/proposals", strings.NewReader(body))
+		req.Header.Set(IdempotencyHeader, key)
+		req.Header.Set("Accept-Encoding", "gzip, deflate")
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("call %d status %d, want 201", i, rec.Code)
+		}
+	}
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("V8 NEW-5: matched Accept-Encoding MUST replay (handler=1), got %d", got)
+	}
+}
+
+// V8 NEW-5: the Accept-Encoding normaliser collapses syntactically
+// different headers that resolve to the same server-emitted encoding
+// into the same cache bucket.
+func TestNormaliseAcceptEncoding(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"", "identity"},
+		{"identity", "identity"},
+		{"gzip", "gzip"},
+		{"gzip, deflate", "gzip"},
+		{"gzip, deflate;q=0.5", "gzip"},
+		{"GZIP", "gzip"},
+		{"br", "br"},
+		{"deflate", "deflate"},
+		{"compress", "identity"},  // legacy 1990 — server emits identity today
+		{"unknown", "identity"},
+	}
+	for _, c := range cases {
+		if got := normaliseAcceptEncoding(c.raw); got != c.want {
+			t.Errorf("normaliseAcceptEncoding(%q) = %q, want %q", c.raw, got, c.want)
+		}
 	}
 }
 

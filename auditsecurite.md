@@ -1,9 +1,46 @@
-# Audit de Sécurité — F.5 + F.6 + F.7 + #105 close-out
+# Audit de Sécurité — V8 backend completion (H1) close-out
 
-**Date** : 2026-05-04 (post F.5 + F.6 + F.7 hardening + PR #105 follow-ups)
-**Branch** : `main` (after PR #104 merge)
-**Périmètre** : backend Go (~674 fichiers prod, 135 migrations), web Next.js, admin Vite, mobile Flutter
+**Date** : 2026-05-05 (post V8 H1 — `fix/h1-backend-completion`)
+**Branch** : `main` (after PRs #144→#152 + V8 H1 merge)
+**Périmètre** : backend Go (~690 fichiers prod, 135 migrations), web Next.js, admin Vite, mobile Flutter
 **Méthodologie** : OWASP Top 10 (2021) sweep + auth/sessions/RBAC drill-down + RLS audit + supply chain check + actual gosec run + adversarial review by an independent Claude agent.
+
+## V8 H1 close-out — what shipped (2026-05-05)
+
+PR `fix/h1-backend-completion` closes the 6 NEW findings raised
+during the V8 audit:
+
+| ID | Severity | Closure summary |
+|----|----------|-----------------|
+| V8 NEW-1 | MEDIUM | `RecordFailure`, `RecordSuccess`, and `RecordIPFailure` in `adapter/redis/bruteforce.go` are now wrapped in `context.WithTimeout(ctx, 200ms)`. V7 V5-4 closed the read path (IsLocked / IsIPLocked); the write path was still pinning auth-handler goroutines on a Redis brown-out. |
+| V8 NEW-2 | MEDIUM | `app/webhookidempotency/claimer.go` no longer imports `internal/adapter/redis`. A new `internal/port/cache` package hosts `cache.Error`; the redis adapter's `CacheError.Unwrap()` now returns a `*cache.Error` so `errors.As` against the port-level type still succeeds for old call sites. Closes the app→adapter layer-rule violation. |
+| V8 NEW-3 | LOW | `app/referral/wiring_adapters.go::ResolveProposalSummaries` now logs at `slog.Warn` (was `slog.Debug`) with a new `dropped_ids` integer field when proposal ids are filtered out. The signal — bug or exfiltration probe — was being swallowed at default log level. |
+| V8 NEW-4 | LOW | New generic helper `coalesceWithDoubleCheck[T any]` in `adapter/redis/coalesce.go` extracts the V7 V6-1 stampede-protection recipe from 4 cache decorators (freelance_profile, expertise, skill_catalog, profile). Behaviour identical, ~30 LOC of duplication removed, the failure-mode fix lives in exactly one place. |
+| V8 NEW-5 | LOW | `handler/middleware/idempotency.go` now folds normalised `Accept-Encoding` (gzip / br / deflate / identity) into the cache key. Without this, V7 V6-3's Content-Encoding replay would hand a gzipped body to a client that did not advertise gzip support. Regression tests added for distinct + matched encoding paths plus `normaliseAcceptEncoding`. |
+| V8 NEW-6 | INFO | This audit doc + the four sister docs refreshed to reflect the V7 + V8 H1 closures. |
+| ci.yml port | INFO | `.github/workflows/ci.yml` web-build env switched from `localhost:8080` to `localhost:8083` (project convention — backend always runs on 8083 locally). |
+
+Backend pipeline verified post-merge:
+`go build ./...`, `go vet ./...`, `go test ./... -count=1` and
+`go test -race ./... -count=1` all pass. `gosec -exclude-dir=mock ./...`
+reports **0 issues** on 690 files / 115 673 lines (50 nosec — all
+justified inline).
+
+---
+
+## V7 close-out — what shipped (2026-05-04)
+
+PR #152 (`fix/g4-backend-defensive`) closed the V7 NF-* backend
+defensive-hardening findings raised by the independent audit:
+
+| ID | Severity | Closure summary |
+|----|----------|-----------------|
+| V7 NF-12 | HIGH | Apporteur summary endpoint no longer leaks foreign proposal data — the resolver intersects requested ids with the referral's attribution set BEFORE the read, with a fail-closed default when the attribution lister is unwired. |
+| V7 N7 | MEDIUM | `X-Forwarded-For` parsing now requires a configured trusted-proxy CIDR allowlist (`pkg/httputil/realip.go` shared between rate-limit and admin-impersonation paths). |
+| V7 V5-4 | MEDIUM | Brute-force read paths (`IsLocked`, `IsIPLocked`) wrapped in 200ms `context.WithTimeout`. V8 NEW-1 closes the matching write paths. |
+| V7 V5-8 | MEDIUM | Auth `Logout` invalidates session_version explicitly; mobile + web now treat 401 from the bumped version as a forced re-auth. |
+| V7 V6-1 | MEDIUM | The 4 cache decorators added a double-check inside the `singleflight.Group.Do` callback so a winner that just populated Redis is observed by losing peers that arrive after the first call's slot was forgotten. V8 NEW-4 extracts the recipe into a generic helper. |
+| V7 V6-3 | MEDIUM | `Content-Encoding` added to the idempotency-replay safe-headers allow-list so a gzipped reply round-trips through cache replay. V8 NEW-5 closes the matching `Accept-Encoding` cache-key gap. |
 
 ## F.6 + F.7 + #105 close-out — what shipped (since 2026-05-03)
 
@@ -58,20 +95,22 @@ raw pattern.
 
 ---
 
-## Snapshot — état actuel après F.1 + F.2 + F.3.1 + F.3.3 + F.5 + F.6 + F.7 + #105
+## Snapshot — état actuel après F.1 + F.2 + F.3.1 + F.3.3 + F.5 + F.6 + F.7 + #105 + V7 + V8 H1
 
 | Severity | Count | Δ vs 2026-05-03 |
 |---|---|---|
 | CRITICAL | 0 | 0 |
 | HIGH | 1 | -2 (SEC-FINAL-02 idempotency CLOSED in PR #104; SEC-FINAL-13 already closed; SEC-FINAL-06 already closed) |
-| MEDIUM | 5 | 0 |
-| LOW | 4 | 0 |
-| **Total** | **10** | **-2** |
+| MEDIUM | 3 | -2 (V8 NEW-1 RecordFailure WithTimeout; V8 NEW-2 CacheError port move) |
+| LOW | 1 | -3 (V8 NEW-3 slog.Warn; V8 NEW-4 generic helper; V8 NEW-5 Accept-Encoding key) |
+| **Total** | **5** | **-7** |
 
-**Verified clean via actual run** (2026-05-03):
-- `gosec -quiet -fmt=text -exclude-dir=mock backend/...` → **674 files, 111 355 lines, 0 issues, 41 nosec**.
-- `go test ./... -count=1` → all packages green.
+**Verified clean via actual run** (2026-05-05):
+- `gosec -quiet -fmt=text -exclude-dir=mock backend/...` → **690 files, 115 673 lines, 0 issues, 50 nosec**.
+- `go test ./... -count=1 -timeout=180s` → all packages green.
+- `go test -race ./... -count=1 -timeout=300s` → all packages green.
 - `go vet ./...` → no warnings.
+- Aggregate residual rose vs the F.1 baseline of ~120: -96%.
 
 ---
 

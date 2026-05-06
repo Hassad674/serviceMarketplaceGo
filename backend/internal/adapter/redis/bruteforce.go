@@ -209,6 +209,14 @@ func (s *BruteForceService) IsLocked(ctx context.Context, email string) (bool, e
 // return value of the script (1 = lockout just triggered) is not
 // surfaced — callers do not need it because IsLocked covers the same
 // information on the next attempt.
+//
+// V8 NEW-1: the EVAL round-trip is wrapped in the same 200ms guard
+// as IsLocked / IsIPLocked. Without it, a Redis brown-out on the
+// write path pins the auth-handler goroutine for the full Redis
+// timeout (default 5s in our config), exhausting the worker pool
+// from the failure-recording side just as easily as from the read
+// side that V7 V5-4 closed. See the IsLocked comment for the budget
+// rationale.
 func (s *BruteForceService) RecordFailure(ctx context.Context, email string) error {
 	email = normaliseEmail(email)
 	if email == "" {
@@ -220,6 +228,8 @@ func (s *BruteForceService) RecordFailure(ctx context.Context, email string) err
 		int(s.lockoutDuration.Seconds()),
 		s.maxAttempts,
 	}
+	ctx, cancel := context.WithTimeout(ctx, redisCallTimeout)
+	defer cancel()
 	if _, err := recordFailureScript.Run(ctx, s.client, keys, args...).Int(); err != nil {
 		return fmt.Errorf("brute force record_failure: %w", err)
 	}
@@ -230,11 +240,21 @@ func (s *BruteForceService) RecordFailure(ctx context.Context, email string) err
 // the round-trip count down (1 instead of 2) without needing another
 // Lua script — DEL is idempotent on missing keys so the pipeline
 // cannot fail asymmetrically.
+//
+// V8 NEW-1: same 200ms guard as RecordFailure. The success path runs
+// on every successful login, so a Redis brown-out here would block
+// every login until the underlying client timeout fires — the worst
+// failure mode is "logins still work but every response takes 5s",
+// which is observably broken. The 200ms cap fails fast and lets the
+// caller surface a clean 200 (the brute-force bookkeeping is
+// best-effort by design — the locked flag will TTL out anyway).
 func (s *BruteForceService) RecordSuccess(ctx context.Context, email string) error {
 	email = normaliseEmail(email)
 	if email == "" {
 		return nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, redisCallTimeout)
+	defer cancel()
 	pipe := s.client.Pipeline()
 	pipe.Del(ctx, s.attemptsKey(email))
 	pipe.Del(ctx, s.lockedKey(email))
@@ -292,6 +312,9 @@ func (s *BruteForceService) IsIPLocked(ctx context.Context, ip string) (bool, er
 // IP namespace and parameterised with the IP-side policy. Empty IP is
 // a no-op so callers do not have to check r.RemoteAddr at the call
 // site.
+//
+// V8 NEW-1: same 200ms guard as RecordFailure — the IP-side write
+// path shares the identical brown-out failure mode and budget.
 func (s *BruteForceService) RecordIPFailure(ctx context.Context, ip string) error {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
@@ -303,6 +326,8 @@ func (s *BruteForceService) RecordIPFailure(ctx context.Context, ip string) erro
 		int(s.ipLockoutDuration.Seconds()),
 		s.maxIPAttempts,
 	}
+	ctx, cancel := context.WithTimeout(ctx, redisCallTimeout)
+	defer cancel()
 	if _, err := recordFailureScript.Run(ctx, s.client, keys, args...).Int(); err != nil {
 		return fmt.Errorf("brute force record_ip_failure: %w", err)
 	}

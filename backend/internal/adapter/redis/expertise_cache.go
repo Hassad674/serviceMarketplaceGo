@@ -73,37 +73,30 @@ func NewCachedExpertiseReader(client *goredis.Client, inner portservice.Expertis
 // (vs a comma-joined string that would mishandle commas in keys
 // the day someone introduces them).
 //
-// V7 V6-1: same double-check inside singleflight as the freelance
-// profile cache — see freelance_profile_cache.go for the failure
-// mode and rationale. Without this, two goroutines that both miss
-// the cache can each invoke inner once if the second arrives
-// after the first's group.Do has already returned and forgotten
-// the key.
+// V7 V6-1 / V8 NEW-4: stampede protection delegates to the shared
+// coalesceWithDoubleCheck helper. See coalesce.go.
 func (c *CachedExpertiseReader) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]string, error) {
 	key := expertiseKeyPrefix + orgID.String()
-
-	// 1. Cache hit?
-	if hit, ok := c.tryGet(ctx, key); ok {
-		return hit, nil
-	}
-
-	// 2. Cache miss — coalesce concurrent callers via singleflight
-	//    so we hit the DB once even under a thundering herd.
-	v, err, _ := c.group.Do(key, func() (any, error) {
-		// Double-check the cache under the singleflight slot.
-		if hit, ok := c.tryGet(ctx, key); ok {
-			return hit, nil
-		}
-		return c.fillFromInner(ctx, key, orgID)
-	})
+	keys, err := coalesceWithDoubleCheck(
+		&c.group, key,
+		func() ([]string, bool, error) {
+			hit, ok := c.tryGet(ctx, key)
+			if !ok {
+				return nil, false, nil
+			}
+			return hit, true, nil
+		},
+		func() ([]string, error) {
+			return c.fillFromInner(ctx, key, orgID)
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
-	keys, ok := v.([]string)
-	if !ok || keys == nil {
-		// Defensive: singleflight should have returned exactly what
-		// fillFromInner emitted, but a future refactor could bypass
-		// the assertion. Always hand back a non-nil slice.
+	if keys == nil {
+		// Defensive: never hand back a nil slice — callers iterate
+		// blindly. Maintain the legacy contract from the inlined
+		// implementation.
 		return []string{}, nil
 	}
 	return keys, nil

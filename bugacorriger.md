@@ -1,7 +1,26 @@
-# Bugs à corriger — F.5 + F.6 + F.7 + #105 close-out
+# Bugs à corriger — V8 backend completion (H1) close-out
 
-**Date** : 2026-05-04 (post F.5 + F.6 + F.7 + PR #105 follow-ups)
+**Date** : 2026-05-05 (post V8 H1)
 **Branch** : `main`
+
+## V8 H1 close-out (PR `fix/h1-backend-completion`)
+
+- **V8 NEW-1 (CLOSED)** — ✅ FERMÉ — `RecordFailure` / `RecordSuccess` / `RecordIPFailure` in `adapter/redis/bruteforce.go` wrapped in 200ms `context.WithTimeout`. Completes V7 V5-4 across the auth-path write surface.
+- **V8 NEW-2 (CLOSED)** — ✅ FERMÉ — `internal/port/cache.Error` introduced. `webhookidempotency/claimer.go` no longer imports `internal/adapter/redis`. Layer rule restored.
+- **V8 NEW-3 (CLOSED)** — ✅ FERMÉ — Referral resolver dropped-ids signal logged at `slog.Warn` with `dropped_ids` field.
+- **V8 NEW-4 (CLOSED)** — ✅ FERMÉ — `coalesceWithDoubleCheck[T any]` extracted; 4 cache decorators refactored.
+- **V8 NEW-5 (CLOSED)** — ✅ FERMÉ — `Accept-Encoding` normalised + bound into idempotency cache key. Three regression tests added.
+- **V8 NEW-6 (CLOSED)** — ✅ FERMÉ — 5 audit docs refreshed.
+- **ci.yml port (CLOSED)** — ✅ FERMÉ — `NEXT_PUBLIC_API_URL` switched to `http://localhost:8083`.
+
+## V7 close-out (PR #152 `fix/g4-backend-defensive`)
+
+- **V7 NF-12** — ✅ FERMÉ — apporteur cross-tenant leak; fail-closed.
+- **V7 N7** — ✅ FERMÉ — XFF allowlist via shared `pkg/httputil/realip.go`.
+- **V7 V5-4 (read paths)** — ✅ FERMÉ — `IsLocked` / `IsIPLocked` 200ms timeout.
+- **V7 V5-8** — ✅ FERMÉ — Logout bumps session version explicitly.
+- **V7 V6-1** — ✅ FERMÉ — singleflight double-check on 4 cache decorators (extracted V8 NEW-4).
+- **V7 V6-3** — ✅ FERMÉ — `Content-Encoding` in idempotency replay safe-headers.
 
 ## F.6 + F.7 + #105 close-out
 
@@ -31,15 +50,15 @@ The independent adversarial audit catalogued items beyond the 8 SEC ones already
 
 ---
 
-## Snapshot — état actuel
+## Snapshot — état actuel (post V8 H1)
 
-| Severity | Count | Δ vs 2026-05-01 |
+| Severity | Count | Δ vs 2026-05-04 |
 |---|---|---|
 | CRITICAL | 0 | 0 |
 | HIGH | 4 | 0 (LiveKit OFF-LIMITS counted) |
-| MEDIUM | 7 | 0 |
-| LOW | 5 | 0 |
-| **Total** | **16** | **0** |
+| MEDIUM | 5 | -2 (V8 NEW-1, V8 NEW-2 closed) |
+| LOW | 2 | -3 (V8 NEW-3, V8 NEW-4, V8 NEW-5 closed) |
+| **Total** | **11** | **-5** |
 
 ---
 
@@ -146,13 +165,13 @@ The independent adversarial audit catalogued items beyond the 8 SEC ones already
 
 | Audit doc | Items closed | Items remaining (~) |
 |---|---|---|
-| auditsecurite.md | 8 / 20 (40%) | 12 |
-| auditperf.md | 17 / 58 (29%) | 41 |
-| auditqualite.md | 16 / 73 (22%) | 58 |
-| bugacorriger.md | 7 / 22 (32%) | 15 |
+| auditsecurite.md | 15 / 20 (75%) | 5 |
+| auditperf.md | 19 / 58 (33%) | 39 |
+| auditqualite.md | 22 / 73 (30%) | 51 |
+| bugacorriger.md | 13 / 22 (59%) | 9 |
 | rapportTest.md | varies | see file |
 
-**Total**: ~50 of 195 (~26%) findings closed across F.1 + F.2 + F.3.1 + F.3.3 — same numerator since 2026-05-01 (no F.4 work yet).
+**Total**: ~69 of 195 (~35%) findings closed across F.1 + F.2 + F.3.1 + F.3.3 + V7 + V8 H1 — +19 since the last refresh on 2026-05-04 thanks to PRs #144→#152 + V8 H1.
 
 ---
 

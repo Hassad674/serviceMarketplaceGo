@@ -214,15 +214,19 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 		}
 	}
 	if len(filtered) != len(ids) {
-		// Observable but non-fatal — the audit team wants a trail when
-		// a request asks for ids outside the referral's attribution
-		// set. In normal operation this is empty (the upstream caller
-		// derives ids from the same attribution table), so any line
-		// here is a signal worth investigating.
-		slog.Debug("referral.ResolveProposalSummaries: dropped ids outside referral attribution set",
+		// V8 NEW-3: bumped from Debug → Warn so the signal surfaces in
+		// prod logs at default level. A request asking for proposal ids
+		// outside the referral's attribution set is either an upstream
+		// bug (the resolver should have pre-filtered) or an exfiltration
+		// probe (someone scanning ids hoping the gate misses one).
+		// Either way it deserves operator attention; Debug-level logs
+		// are typically suppressed in prod and the signal was being
+		// dropped on the floor.
+		slog.Warn("referral.ResolveProposalSummaries: dropped ids outside referral attribution set",
 			"referral_id", referralID,
 			"requested", len(ids),
-			"allowed", len(filtered))
+			"allowed", len(filtered),
+			slog.Int("dropped_ids", len(ids)-len(filtered)))
 	}
 	if len(filtered) == 0 {
 		return out, nil

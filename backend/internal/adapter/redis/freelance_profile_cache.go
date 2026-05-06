@@ -87,43 +87,27 @@ func NewCachedPublicFreelanceProfileReader(client *goredis.Client, inner PublicF
 // Cache payload format mirrors the agency cache: '{' prefix means
 // JSON-encoded view, '_' marker means negative.
 //
-// V7 V6-1: stampede protection uses singleflight + double-check.
-// Without the double-check, two goroutines can both observe a cache
-// miss in tryGet, and the second one enters singleflight.Do AFTER
-// the first completed (the first goroutine's group.Do call has already
-// returned and its key has been forgotten). The result: inner is
-// invoked twice, defeating the coalescing contract under concurrent
-// load. The double-check inside the callback re-reads Redis the
-// moment we hold the singleflight slot, so a winner that just wrote
-// the cache is observed by every losing peer that follows.
+// V7 V6-1 / V8 NEW-4: stampede protection delegates to the shared
+// coalesceWithDoubleCheck helper (singleflight + double-check inside
+// the callback). See coalesce.go for the failure mode this guards.
 func (c *CachedPublicFreelanceProfileReader) GetPublicByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
 	key := freelanceProfileKeyPrefix + orgID.String()
-
-	if hit, found, isNotFound := c.tryGet(ctx, key); found {
-		if isNotFound {
-			return nil, freelanceprofile.ErrProfileNotFound
-		}
-		return hit, nil
-	}
-
-	v, err, _ := c.group.Do(key, func() (any, error) {
-		// Double-check the cache under the singleflight slot. A
-		// previous winner may have populated Redis between the outer
-		// tryGet (a few µs ago) and this point — re-reading collapses
-		// what would otherwise be a duplicate inner call.
-		if hit, found, isNotFound := c.tryGet(ctx, key); found {
-			if isNotFound {
-				return nil, freelanceprofile.ErrProfileNotFound
+	return coalesceWithDoubleCheck(
+		&c.group, key,
+		func() (*repository.FreelanceProfileView, bool, error) {
+			hit, found, isNotFound := c.tryGet(ctx, key)
+			if !found {
+				return nil, false, nil
 			}
-			return hit, nil
-		}
-		return c.fillFromInner(ctx, key, orgID)
-	})
-	if err != nil {
-		return nil, err
-	}
-	view, _ := v.(*repository.FreelanceProfileView)
-	return view, nil
+			if isNotFound {
+				return nil, true, freelanceprofile.ErrProfileNotFound
+			}
+			return hit, true, nil
+		},
+		func() (*repository.FreelanceProfileView, error) {
+			return c.fillFromInner(ctx, key, orgID)
+		},
+	)
 }
 
 // tryGet returns (view, found, isNotFound). See profile_cache.go

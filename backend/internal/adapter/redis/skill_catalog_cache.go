@@ -89,32 +89,23 @@ func NewCachedSkillCatalogReader(client *goredis.Client, inner SkillCatalogReade
 // key includes the limit so two callers asking for different limit
 // values receive distinct entries.
 //
-// V7 V6-1 (same bug class as the freelance profile cache):
-// double-check inside the singleflight callback collapses the
-// race where two goroutines both observe a miss and the second
-// enters singleflight.Do AFTER the first completed (group has
-// already forgotten the key). Without this, inner is invoked
-// twice on a thundering-herd cold start.
+// V7 V6-1 / V8 NEW-4: stampede protection delegates to the shared
+// coalesceWithDoubleCheck helper. See coalesce.go.
 func (c *CachedSkillCatalogReader) GetCuratedForExpertise(ctx context.Context, expertiseKey string, limit int) ([]*domainskill.CatalogEntry, error) {
 	key := skillCatalogListKeyPrefix + expertiseKey + ":" + strconv.Itoa(limit)
-
-	if entries, ok := c.tryGetList(ctx, key); ok {
-		return entries, nil
-	}
-
-	v, err, _ := c.group.Do(key, func() (any, error) {
-		// Double-check the cache under the singleflight slot — see
-		// the freelance profile cache for the failure mode this guards.
-		if entries, ok := c.tryGetList(ctx, key); ok {
-			return entries, nil
-		}
-		return c.fillListFromInner(ctx, key, expertiseKey, limit)
-	})
-	if err != nil {
-		return nil, err
-	}
-	entries, _ := v.([]*domainskill.CatalogEntry)
-	return entries, nil
+	return coalesceWithDoubleCheck(
+		&c.group, key,
+		func() ([]*domainskill.CatalogEntry, bool, error) {
+			hit, ok := c.tryGetList(ctx, key)
+			if !ok {
+				return nil, false, nil
+			}
+			return hit, true, nil
+		},
+		func() ([]*domainskill.CatalogEntry, error) {
+			return c.fillListFromInner(ctx, key, expertiseKey, limit)
+		},
+	)
 }
 
 func (c *CachedSkillCatalogReader) tryGetList(ctx context.Context, key string) ([]*domainskill.CatalogEntry, bool) {
@@ -158,26 +149,23 @@ func (c *CachedSkillCatalogReader) fillListFromInner(ctx context.Context, key, e
 // are stored as plain decimal strings — no JSON envelope, no
 // micro-marshaling cost on the hot path.
 //
-// V7 V6-1: same double-check inside singleflight as the list path —
-// see GetCuratedForExpertise for the failure mode.
+// V7 V6-1 / V8 NEW-4: stampede protection delegates to the shared
+// coalesceWithDoubleCheck helper. See coalesce.go.
 func (c *CachedSkillCatalogReader) CountCuratedForExpertise(ctx context.Context, expertiseKey string) (int, error) {
 	key := skillCatalogCountKeyPrefix + expertiseKey
-
-	if count, ok := c.tryGetCount(ctx, key); ok {
-		return count, nil
-	}
-
-	v, err, _ := c.group.Do(key, func() (any, error) {
-		if count, ok := c.tryGetCount(ctx, key); ok {
-			return count, nil
-		}
-		return c.fillCountFromInner(ctx, key, expertiseKey)
-	})
-	if err != nil {
-		return 0, err
-	}
-	count, _ := v.(int)
-	return count, nil
+	return coalesceWithDoubleCheck(
+		&c.group, key,
+		func() (int, bool, error) {
+			hit, ok := c.tryGetCount(ctx, key)
+			if !ok {
+				return 0, false, nil
+			}
+			return hit, true, nil
+		},
+		func() (int, error) {
+			return c.fillCountFromInner(ctx, key, expertiseKey)
+		},
+	)
 }
 
 func (c *CachedSkillCatalogReader) tryGetCount(ctx context.Context, key string) (int, bool) {

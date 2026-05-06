@@ -181,12 +181,25 @@ func IdempotencyWithTTL(cache IdempotencyCache, ttl time.Duration) func(http.Han
 			}
 			bodyHash := hashBody(bodyBytes)
 
-			// Cache key now binds (scope, method, path, rawKey). Two
-			// requests under the same Idempotency-Key but different
-			// methods or paths get distinct cache entries — the body
-			// hash is checked on replay (below) to honour the Stripe
-			// spec contract: same key + different body = 409 Conflict.
-			fullKey := buildCacheKey(r.Context(), r.Method, r.URL.Path, rawKey)
+			// Cache key now binds (scope, method, path, accept-encoding,
+			// rawKey). Two requests under the same Idempotency-Key but
+			// different methods, paths, or compression preferences get
+			// distinct cache entries — the body hash is checked on
+			// replay (below) to honour the Stripe spec contract: same
+			// key + different body = 409 Conflict.
+			//
+			// V8 NEW-5: Accept-Encoding is part of the key because the
+			// cached Body bytes are stored in whatever encoding the
+			// FIRST execution emitted (V7 V6-3 added Content-Encoding
+			// to the replayed-headers allow-list). A subsequent client
+			// hitting the same key WITHOUT `Accept-Encoding: gzip`
+			// would otherwise receive the gzipped body but no
+			// Content-Encoding hint negotiated for it — decode fails
+			// and the user sees garbage. Splitting the cache by
+			// normalised encoding keeps the replay byte-correct for
+			// every client.
+			acceptEnc := normaliseAcceptEncoding(r.Header.Get("Accept-Encoding"))
+			fullKey := buildCacheKey(r.Context(), r.Method, r.URL.Path, acceptEnc, rawKey)
 
 			// Cache lookup. A transport failure must NEVER block the
 			// request — log and fall through to a normal execution.
@@ -309,16 +322,59 @@ func writeIdempotencyConflict(w http.ResponseWriter) {
 // to a different verb / path was silently colliding with a previous
 // 2xx response and replaying the wrong answer.
 //
+// V8 NEW-5: acceptEnc (the normalised Accept-Encoding) is now part of
+// the key so a client that prefers gzip and one that prefers
+// identity get separate cache entries. The cached Body bytes are
+// stored in the encoding the first executor emitted; serving them
+// to a peer that did not negotiate that encoding would surface as
+// garbled output downstream.
+//
 // The key is hashed to keep it bounded regardless of the user-supplied
 // length and to avoid leaking raw key material into Redis logs.
-func buildCacheKey(ctx context.Context, method, path, rawKey string) string {
+func buildCacheKey(ctx context.Context, method, path, acceptEnc, rawKey string) string {
 	scope := "anon"
 	if uid, ok := GetUserID(ctx); ok {
 		scope = uid.String()
 	}
-	combined := scope + ":" + method + ":" + path + ":" + rawKey
+	combined := scope + ":" + method + ":" + path + ":" + acceptEnc + ":" + rawKey
 	sum := sha256.Sum256([]byte(combined))
 	return "idempotency:" + hex.EncodeToString(sum[:])
+}
+
+// normaliseAcceptEncoding canonicalises the Accept-Encoding header to
+// one of "gzip", "br", "deflate", or "identity" so a request with
+// `gzip, deflate;q=0.5` and one with `gzip` share a cache entry — what
+// matters for the cache split is the ENCODING the server will actually
+// pick, not the syntactic shape of the preference list.
+//
+// Selection rule: take the highest-quality coding the server might
+// produce. Our handlers emit gzip (via the compress middleware) when
+// gzip is acceptable; otherwise identity. We expose br/deflate as
+// distinct buckets so a future content-encoding migration is forward
+// compatible without invalidating the cache key contract.
+//
+// Empty / missing header → "identity" (HTTP/1.1 default per RFC 7231
+// §5.3.4). Anything we don't recognise also collapses to "identity"
+// — a client asking for `compress` (1990) gets identity-encoded
+// responses today, so the key MUST match.
+func normaliseAcceptEncoding(raw string) string {
+	if raw == "" {
+		return "identity"
+	}
+	// Cheap presence checks — we don't parse q-values because the
+	// server's downstream encoder doesn't either; it just picks the
+	// best supported coding listed.
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.Contains(lower, "gzip"):
+		return "gzip"
+	case strings.Contains(lower, "br"):
+		return "br"
+	case strings.Contains(lower, "deflate"):
+		return "deflate"
+	default:
+		return "identity"
+	}
 }
 
 // replayCachedResponse writes the cached snapshot to w. The
