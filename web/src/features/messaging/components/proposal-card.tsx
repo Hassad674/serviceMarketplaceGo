@@ -36,7 +36,7 @@ type ProposalCardProps = {
 }
 
 const STATUS_BORDER_COLOR: Record<ProposalStatus, string> = {
-  pending: "border-l-rose-500",
+  pending: "border-l-primary",
   accepted: "border-l-green-500",
   declined: "border-l-red-500",
   withdrawn: "border-l-slate-400",
@@ -96,7 +96,7 @@ export function ProposalCard({
     router.push(`/projects/pay?proposal=${metadata.proposal_id}`)
   }
 
-  const borderColor = STATUS_BORDER_COLOR[metadata.proposal_status] ?? "border-l-rose-500"
+  const borderColor = STATUS_BORDER_COLOR[metadata.proposal_status] ?? "border-l-primary"
 
   return (
     <div
@@ -108,7 +108,7 @@ export function ProposalCard({
         "w-full max-w-[420px] rounded-xl border-l-[3px] border overflow-hidden cursor-pointer",
         "transition-all duration-200 animate-fade-in",
         "bg-white dark:bg-slate-800/50",
-        "border-slate-200 dark:border-slate-700",
+        "border-border dark:border-slate-700",
         "hover:shadow-md",
         borderColor,
       )}
@@ -157,8 +157,8 @@ function ProposalCardHeader({
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-500/15">
-          <Handshake className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={1.5} />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft">
+          <Handshake className="h-4 w-4 text-primary-deep" strokeWidth={1.5} />
         </div>
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -222,7 +222,7 @@ function StatCell({
   value: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg bg-slate-50 p-2 dark:bg-slate-700/50">
+    <div className="flex flex-col items-center gap-1 rounded-lg bg-muted p-2 dark:bg-slate-700/50">
       <span className="text-slate-400 dark:text-slate-500">{icon}</span>
       <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
         {label}
@@ -286,9 +286,9 @@ function ProposalCardActions({
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
               "text-sm font-medium transition-all duration-200",
-              "border border-slate-200 dark:border-slate-600",
+              "border border-border dark:border-slate-600",
               "text-slate-700 dark:text-slate-300",
-              "hover:border-rose-300 dark:hover:border-rose-500/30",
+              "hover:border-primary/40",
               "active:scale-[0.98]",
             )}
           >
@@ -304,8 +304,8 @@ function ProposalCardActions({
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
               "text-sm font-semibold text-white transition-all duration-200",
-              "bg-gradient-to-r from-rose-500 to-rose-600",
-              "hover:shadow-glow active:scale-[0.98]",
+              "bg-gradient-to-r from-primary to-primary-deep",
+              "hover:shadow-card active:scale-[0.98]",
             )}
           >
             <CreditCard className="h-4 w-4" strokeWidth={1.5} />
@@ -360,8 +360,8 @@ function PendingActionButtons({
         className={cn(
           "flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2",
           "text-sm font-semibold text-white transition-all duration-200",
-          "bg-gradient-to-r from-rose-500 to-rose-600",
-          "hover:shadow-glow active:scale-[0.98]",
+          "bg-gradient-to-r from-primary to-primary-deep",
+          "hover:shadow-card active:scale-[0.98]",
           "disabled:opacity-50 disabled:cursor-not-allowed",
         )}
       >
@@ -402,7 +402,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     withdrawn: {
       label: t("withdrawn"),
       icon: XCircle,
-      className: "bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400",
+      className: "bg-muted text-slate-600 dark:text-slate-400",
     },
     paid: {
       label: t("paid"),
@@ -422,7 +422,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     completed: {
       label: t("completed"),
       icon: CheckCircle2,
-      className: "bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400",
+      className: "bg-muted text-slate-600 dark:text-slate-400",
     },
   }
 

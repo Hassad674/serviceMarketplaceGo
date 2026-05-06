@@ -189,7 +189,7 @@ export function PortfolioDetailModal({
                       onClick={() => setCurrentIndex(i)}
                       className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all ${
                         i === currentIndex
-                          ? "border-rose-500 shadow-md"
+                          ? "border-primary shadow-md"
                           : "border-transparent opacity-60 hover:opacity-100"
                       }`}
                     >
@@ -243,7 +243,7 @@ export function PortfolioDetailModal({
                 href={item.link_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-deep text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98]"
               >
                 <ExternalLink className="h-4 w-4" />
                 {t("viewProject")}

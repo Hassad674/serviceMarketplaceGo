@@ -155,7 +155,7 @@ function SkillsBlock({
         }}
         placeholder={t("skillsSearchPlaceholder")}
         aria-label={t("skillsSearchPlaceholder")}
-        className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+        className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
       />
       <PopularSkillChips selected={selected} onPick={(skill) => addSkill(skill)} />
     </SectionShell>
@@ -178,7 +178,7 @@ function SelectedSkillsChips({
             type="button"
             onClick={() => onRemove(skill)}
             aria-label={`Remove ${skill}`}
-            className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/25"
+            className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary-deep transition-colors hover:bg-primary/30"
           >
             <span>{skill}</span>
             <X className="h-3 w-3" aria-hidden strokeWidth={2.5} />
@@ -208,7 +208,7 @@ function PopularSkillChips({
           key={skill}
           type="button"
           onClick={() => onPick(skill)}
-          className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20 dark:hover:text-rose-300"
+          className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
         >
           + {skill}
         </Button>

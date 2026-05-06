@@ -30,7 +30,7 @@ export function FreelanceProfileCard({
   const locale = (useLocale() === "fr" ? "fr" : "en") satisfies PricingLocale
 
   return (
-    <article className="bg-card border border-border rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-rose-200 hover:-translate-y-0.5">
+    <article className="bg-card border border-border rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5">
       <Link
         href={`/freelancers/${profile.organization_id}`}
         className="flex flex-col gap-4 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-2xl"

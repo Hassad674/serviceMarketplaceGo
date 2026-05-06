@@ -32,8 +32,8 @@ function labelFor(status: ReferralStatus): string {
 const TONE_CLASSES: Record<ReturnType<typeof statusTone>, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
   active: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  "terminal-success": "bg-slate-50 text-slate-700 ring-slate-200",
-  "terminal-failure": "bg-rose-50 text-rose-700 ring-rose-200",
+  "terminal-success": "bg-muted text-slate-700 ring-border",
+  "terminal-failure": "bg-primary-soft text-primary-deep ring-primary/30",
 }
 
 export function ReferralStatusBadge({ status, className }: ReferralStatusBadgeProps) {

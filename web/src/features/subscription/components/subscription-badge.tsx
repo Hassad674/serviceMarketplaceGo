@@ -32,7 +32,7 @@ export function SubscriptionBadge({ onClick }: SubscriptionBadgeProps) {
       className={cn(
         "inline-flex h-6 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold",
         "transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
-        "focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+        "focus:outline-none focus:ring-2 focus:ring-primary/40",
         variant.className,
       )}
     >
@@ -57,7 +57,7 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
       label: "Passer Premium",
       ariaLabel: "Passer Premium",
       className:
-        "bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-sm hover:shadow-glow",
+        "bg-gradient-to-r from-primary to-primary-deep text-white shadow-sm hover:shadow-card",
       icon: true,
     }
   }
@@ -80,14 +80,14 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
       label: "Gérer l'abonnement",
       ariaLabel: `Abonnement Premium actif, expire le ${formatShortDate(sub.current_period_end)}, gérer`,
       className:
-        "border border-rose-500 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-400/60",
+        "border border-primary bg-primary-soft text-primary-deep",
       icon: false,
     }
   }
   return {
     label: "Gérer l'abonnement",
     ariaLabel: "Abonnement Premium actif, gérer",
-    className: "bg-rose-500 text-white shadow-sm hover:shadow-glow",
+    className: "bg-primary text-white shadow-sm hover:shadow-card",
     icon: false,
   }
 }

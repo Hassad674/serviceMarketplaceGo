@@ -112,7 +112,7 @@ function CycleToggle({
     <div
       role="tablist"
       aria-label="Periode de facturation"
-      className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50"
+      className="flex items-center gap-1 rounded-full border border-border bg-muted p-1 dark:border-slate-700 dark:bg-slate-800/50"
     >
       <CycleTab active={cycle === "monthly"} onClick={() => onChange("monthly")}>
         Mensuel
@@ -120,7 +120,7 @@ function CycleToggle({
       <CycleTab active={cycle === "annual"} onClick={() => onChange("annual")}>
         <span className="flex items-center gap-1.5">
           Annuel
-          <span className="inline-flex items-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+          <span className="inline-flex items-center rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
             -21%
           </span>
         </span>
@@ -171,7 +171,7 @@ function PlanCard({
 }) {
   const title = role === "agency" ? "Premium Agence" : "Premium Freelance"
   return (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-rose-50 to-white p-5 dark:border-slate-700 dark:from-rose-500/10 dark:to-slate-900/40">
+    <div className="rounded-xl border border-border bg-gradient-to-br from-primary-soft to-white p-5">
       <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
       {cycle === "monthly" ? (
         <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
@@ -205,12 +205,12 @@ function AutoRenewCheckbox({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted px-3 py-3 transition-colors hover:bg-muted/80">
       <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-slate-300 text-rose-600 focus:ring-2 focus:ring-rose-500/30"
+        className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-border-strong text-primary-deep focus:ring-2 focus:ring-primary/30"
       />
       <span className="space-y-1 text-sm">
         <span className="block font-medium text-slate-900 dark:text-slate-100">
@@ -239,10 +239,10 @@ function SubmitButton({
       onClick={onSubmit}
       disabled={pending}
       className={cn(
-        "w-full rounded-full bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 text-sm font-semibold text-white",
-        "transition-all duration-200 hover:shadow-glow active:scale-[0.98]",
+        "w-full rounded-full bg-gradient-to-r from-primary to-primary-deep px-4 py-3 text-sm font-semibold text-white",
+        "transition-all duration-200 hover:shadow-card active:scale-[0.98]",
         "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none",
-        "focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+        "focus:outline-none focus:ring-2 focus:ring-primary/40",
       )}
     >
       {pending ? "Redirection…" : `Continuer · ${amountEuros} €`}

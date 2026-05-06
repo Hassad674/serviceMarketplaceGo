@@ -93,9 +93,9 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
           className={cn(
             "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
             "shadow-xs transition-colors duration-150",
-            "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
+            "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10",
             form.formState.errors.company_name &&
-              "border-red-500 focus:border-red-500 focus:ring-red-500/10",
+              "border-destructive focus:border-destructive focus:ring-destructive/10",
           )}
           {...form.register("company_name")}
         />
@@ -116,9 +116,9 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
           className={cn(
             "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
             "shadow-xs transition-colors duration-150",
-            "focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10",
+            "focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10",
             form.formState.errors.client_description &&
-              "border-red-500 focus:border-red-500 focus:ring-red-500/10",
+              "border-destructive focus:border-destructive focus:ring-destructive/10",
           )}
           {...form.register("client_description")}
         />
@@ -148,8 +148,8 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
           disabled={saving || !form.formState.isDirty}
           className={cn(
             "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white",
-            "gradient-primary bg-rose-500 hover:bg-rose-600 transition-all duration-200",
-            "focus:outline-none focus:ring-4 focus:ring-rose-500/20",
+            "bg-primary hover:bg-primary-deep transition-all duration-200",
+            "focus:outline-none focus:ring-4 focus:ring-primary/20",
             "disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >

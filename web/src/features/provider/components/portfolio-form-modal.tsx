@@ -285,7 +285,7 @@ export function PortfolioFormModal({
           <div>
             <label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
               <span>
-                {t("title")} <span className="text-rose-500">*</span>
+                {t("title")} <span className="text-primary">*</span>
               </span>
               <span className={`text-xs font-normal ${titleColor}`}>
                 {title.length}/{TITLE_MAX}
@@ -298,7 +298,7 @@ export function PortfolioFormModal({
               placeholder={t("titlePlaceholder")}
               maxLength={TITLE_MAX}
               autoFocus
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm shadow-xs outline-none transition-all focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm shadow-xs outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
           </div>
 
@@ -322,12 +322,12 @@ export function PortfolioFormModal({
                 onDrop={handleZoneDrop}
                 className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed py-12 px-6 text-center transition-all ${
                   dragOverZone
-                    ? "border-rose-500 bg-rose-50/80 scale-[1.01]"
-                    : "border-border bg-muted/30 hover:border-rose-300 hover:bg-rose-50/40"
+                    ? "border-primary bg-primary-soft/80 scale-[1.01]"
+                    : "border-border bg-muted/30 hover:border-primary/40 hover:bg-primary-soft/40"
                 }`}
               >
-                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-rose-50">
-                  <ImagePlus className="h-6 w-6 text-rose-600" />
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-soft to-primary-soft/60">
+                  <ImagePlus className="h-6 w-6 text-primary-deep" />
                 </div>
                 <p className="text-sm font-medium text-foreground">
                   {t("dropZoneTitle")}
@@ -356,9 +356,9 @@ export function PortfolioFormModal({
                     onDrop={() => handleMediaDrop(i)}
                     className={`group/thumb relative aspect-square overflow-hidden rounded-xl border-2 bg-muted shadow-sm transition-all ${
                       draggedMediaIdx === i
-                        ? "border-rose-500 opacity-50"
-                        : "border-transparent hover:border-rose-300"
-                    } ${i === 0 ? "ring-2 ring-rose-500/30" : ""}`}
+                        ? "border-primary opacity-50"
+                        : "border-transparent hover:border-primary/40"
+                    } ${i === 0 ? "ring-2 ring-primary/30" : ""}`}
                   >
                     {m.media_type === "video" ? (
                       <div className="relative h-full w-full bg-slate-900">
@@ -398,7 +398,7 @@ export function PortfolioFormModal({
                           }}
                           className={`absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-white backdrop-blur-md transition-colors ${
                             m.thumbnail_url
-                              ? "bg-rose-600/90 hover:bg-rose-600"
+                              ? "bg-primary-deep/90 hover:bg-primary-deep"
                               : "bg-black/70 hover:bg-black/85"
                           }`}
                           title={m.thumbnail_url ? t("revertToAuto") : t("setCustomThumbnail")}
@@ -430,7 +430,7 @@ export function PortfolioFormModal({
 
                     {/* Cover badge on first */}
                     {i === 0 && (
-                      <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-500 to-rose-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                      <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-primary-deep px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
                         <Star className="h-2.5 w-2.5 fill-white" />
                         Cover
                       </div>
@@ -453,7 +453,7 @@ export function PortfolioFormModal({
 
                 {/* Add more button */}
                 {media.length < MEDIA_MAX && (
-                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-all hover:border-rose-300 hover:bg-rose-50/50 hover:text-rose-600">
+                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary-soft/50 hover:text-primary-deep">
                     {uploading ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
@@ -497,7 +497,7 @@ export function PortfolioFormModal({
               placeholder={t("descriptionPlaceholder")}
               maxLength={DESC_MAX}
               rows={4}
-              className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm shadow-xs outline-none transition-all focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10"
+              className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm shadow-xs outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
           </div>
 
@@ -513,7 +513,7 @@ export function PortfolioFormModal({
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="example.com"
-                className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm shadow-xs outline-none transition-all focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10"
+                className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm shadow-xs outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
               />
             </div>
             <p className="mt-1.5 text-xs text-muted-foreground">{t("linkHint")}</p>
@@ -531,7 +531,7 @@ export function PortfolioFormModal({
           <Button variant="ghost" size="auto"
             onClick={handleSubmit}
             disabled={!title.trim() || saving}
-            className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-deep px-6 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {saving ? t("saving") : isEdit ? t("save") : t("create")}

@@ -51,19 +51,19 @@ function messageTone(type: string, status?: ReferralStatus): {
     if (status === "expired") {
       return {
         icon: Hourglass,
-        accent: "border-slate-200 bg-slate-50 text-slate-700",
+        accent: "border-border bg-muted text-foreground",
         headline: "Mise en relation expirée",
       }
     }
     return {
       icon: XCircle,
-      accent: "border-slate-200 bg-slate-50 text-slate-700",
+      accent: "border-border bg-muted text-foreground",
       headline: "Mise en relation clôturée",
     }
   }
   return {
     icon: Handshake,
-    accent: "border-rose-200 bg-rose-50 text-rose-800",
+    accent: "border-primary/30 bg-primary-soft text-primary-deep",
     headline: "Nouvelle proposition d'apport d'affaires",
   }
 }
@@ -106,7 +106,7 @@ export function ReferralSystemMessage({
   if (!referralId) {
     return (
       <div className="my-4 flex items-center justify-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-1.5 text-xs font-medium text-rose-700">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary-soft px-4 py-1.5 text-xs font-medium text-primary-deep">
           <Handshake className="h-3.5 w-3.5" aria-hidden="true" />
           {content || "Mise en relation activée"}
         </div>

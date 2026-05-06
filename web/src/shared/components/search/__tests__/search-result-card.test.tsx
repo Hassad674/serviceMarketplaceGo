@@ -123,7 +123,7 @@ describe("SearchResultCard", () => {
     // The total-earned line is the only primary-color paragraph. None
     // should be present when the amount is zero.
     expect(
-      container.querySelectorAll("p.text-rose-600"),
+      container.querySelectorAll("p.text-primary-deep"),
     ).toHaveLength(0)
   })
 

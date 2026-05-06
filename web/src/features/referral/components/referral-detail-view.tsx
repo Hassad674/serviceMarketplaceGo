@@ -32,7 +32,7 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
   if (isLoading) return <DetailSkeleton />
   if (error || !referral) {
     return (
-      <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+      <div role="alert" className="rounded-2xl border border-primary/30 bg-primary-soft p-6 text-sm text-primary-deep">
         Impossible de charger cette mise en relation.
       </div>
     )
@@ -66,9 +66,9 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
       </div>
 
       {referral.intro_message_for_me && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <header className="mb-2 flex items-center gap-2">
-            <MessageSquareQuote className="h-4 w-4 text-rose-500" aria-hidden="true" />
+            <MessageSquareQuote className="h-4 w-4 text-primary" aria-hidden="true" />
             <h2 className="text-sm font-semibold text-slate-900">
               Mot de l&rsquo;apporteur
             </h2>
@@ -79,7 +79,7 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <header className="mb-3">
           <h2 className="text-sm font-semibold text-slate-900">Vos actions</h2>
         </header>
@@ -99,7 +99,7 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
       {/* Negotiation timeline is hidden from the client until activation
           to avoid leaking historical rate values (Modèle A). */}
       {(viewerRole !== "client" || referral.status === "active") && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <header className="mb-3">
             <h2 className="text-sm font-semibold text-slate-900">
               Historique de négociation
@@ -132,7 +132,7 @@ interface HeaderProps {
 
 function Header({ referral }: HeaderProps) {
   return (
-    <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <header className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-slate-900">
           Mise en relation
@@ -169,8 +169,8 @@ interface MetricProps {
 
 function Metric({ icon, label, children }: MetricProps) {
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2">
-      <span className="text-rose-500">{icon}</span>
+    <div className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2">
+      <span className="text-primary">{icon}</span>
       <div>
         <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
         <dd className="text-sm font-medium text-slate-900">{children}</dd>
@@ -182,10 +182,10 @@ function Metric({ icon, label, children }: MetricProps) {
 function DetailSkeleton() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" />
+      <div className="h-32 animate-pulse rounded-2xl border border-border bg-muted" />
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="h-64 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" />
-        <div className="h-64 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" />
+        <div className="h-64 animate-pulse rounded-2xl border border-border bg-muted" />
+        <div className="h-64 animate-pulse rounded-2xl border border-border bg-muted" />
       </div>
     </div>
   )

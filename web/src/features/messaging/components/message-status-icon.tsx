@@ -16,7 +16,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
     case "sending":
       return (
         <Clock
-          className="h-3 w-3 text-rose-200"
+          className="h-3 w-3 text-primary-soft"
           strokeWidth={1.5}
           aria-label={t("statusSending")}
         />
@@ -24,7 +24,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
     case "sent":
       return (
         <Check
-          className="h-3 w-3 text-rose-200"
+          className="h-3 w-3 text-primary-soft"
           strokeWidth={1.5}
           aria-label={t("statusSent")}
         />
@@ -32,7 +32,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
     case "delivered":
       return (
         <CheckCheck
-          className="h-3 w-3 text-rose-200"
+          className="h-3 w-3 text-primary-soft"
           strokeWidth={1.5}
           aria-label={t("statusDelivered")}
         />

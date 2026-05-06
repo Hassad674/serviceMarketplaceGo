@@ -53,7 +53,7 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
           onClick={() => downloadFile(metadata.url, metadata.filename)}
           className={cn(
             "mt-1 flex items-center gap-1 text-[10px] hover:underline",
-            isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+            isOwn ? "text-primary-soft" : "text-gray-400 dark:text-gray-500",
           )}
         >
           <Download className="h-3 w-3 shrink-0" strokeWidth={1.5} />
@@ -70,14 +70,14 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
       className={cn(
         "flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors",
         isOwn
-          ? "bg-rose-600/30 hover:bg-rose-600/40"
+          ? "bg-primary-deep/30 hover:bg-primary-deep/40"
           : "bg-gray-200/50 hover:bg-gray-200/70 dark:bg-gray-700/50 dark:hover:bg-gray-700/70",
       )}
     >
       <div
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-          isOwn ? "bg-rose-400/30" : "bg-gray-300/50 dark:bg-gray-600/50",
+          isOwn ? "bg-primary/30" : "bg-gray-300/50 dark:bg-gray-600/50",
         )}
       >
         <FileText
@@ -100,7 +100,7 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
         <p
           className={cn(
             "text-[10px]",
-            isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+            isOwn ? "text-primary-soft" : "text-gray-400 dark:text-gray-500",
           )}
         >
           {formatFileSize(metadata.size)}
@@ -109,7 +109,7 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
       <Download
         className={cn(
           "h-4 w-4 shrink-0",
-          isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+          isOwn ? "text-primary-soft" : "text-gray-400 dark:text-gray-500",
         )}
         strokeWidth={1.5}
       />

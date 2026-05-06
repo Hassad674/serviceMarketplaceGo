@@ -25,7 +25,7 @@ const AVAILABILITY_STYLES: Record<AvailabilityStatus, string> = {
   available_soon:
     "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30",
   not_available:
-    "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
+    "bg-primary-soft text-primary-deep border-primary/30",
 }
 
 const MAX_LANGUAGE_FLAGS = 5
@@ -138,7 +138,7 @@ function AvailabilityBadge({ label, status }: AvailabilityBadgeProps) {
               ? "bg-emerald-500"
               : status === "available_soon"
                 ? "bg-amber-500"
-                : "bg-rose-500",
+                : "bg-destructive",
           )}
         />
         {t(

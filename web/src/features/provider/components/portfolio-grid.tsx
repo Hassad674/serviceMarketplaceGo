@@ -48,8 +48,8 @@ export function PortfolioSection() {
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50 sm:h-10 sm:w-10">
-            <Briefcase className="h-5 w-5 text-rose-600" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-soft to-primary-soft/60 sm:h-10 sm:w-10">
+            <Briefcase className="h-5 w-5 text-primary-deep" />
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
@@ -67,7 +67,7 @@ export function PortfolioSection() {
           <Button variant="ghost" size="auto"
             onClick={openCreate}
             aria-label={t("addProject")}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:px-4"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-deep px-3 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98] sm:px-4"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">{t("addProject")}</span>
@@ -121,13 +121,13 @@ export function PortfolioSection() {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   const t = useTranslations("portfolio")
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-rose-200 bg-gradient-to-br from-rose-50/60 via-white to-purple-50/40 px-4 py-8 text-center sm:px-6 sm:py-12">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-primary/30 bg-gradient-to-br from-primary-soft/60 via-white to-purple-50/40 px-4 py-8 text-center sm:px-6 sm:py-12">
       {/* Decorative blurs */}
-      <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-rose-200/30 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-primary/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 -bottom-16 h-48 w-48 rounded-full bg-purple-200/30 blur-3xl" />
 
       <div className="relative">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 sm:mb-4 sm:h-16 sm:w-16">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-deep shadow-lg shadow-primary/30 sm:mb-4 sm:h-16 sm:w-16">
           <ImagePlus className="h-6 w-6 text-white sm:h-7 sm:w-7" />
         </div>
         <h3 className="text-base font-semibold text-foreground">
@@ -138,7 +138,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         </p>
         <Button variant="ghost" size="auto"
           onClick={onCreate}
-          className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:mt-5 sm:px-5"
+          className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-deep px-4 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98] sm:mt-5 sm:px-5"
         >
           <Sparkles className="h-4 w-4" />
           {t("addFirstProject")}
@@ -181,8 +181,8 @@ export function PublicPortfolioSection({ orgId }: PublicPortfolioSectionProps) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
       <div className="mb-4 flex items-center gap-3 sm:mb-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50 sm:h-10 sm:w-10">
-          <Briefcase className="h-5 w-5 text-rose-600" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-soft to-primary-soft/60 sm:h-10 sm:w-10">
+          <Briefcase className="h-5 w-5 text-primary-deep" />
         </div>
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">

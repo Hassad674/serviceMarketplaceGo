@@ -66,8 +66,8 @@ export function SearchResultCard({ document, onSelect }: SearchResultCardProps) 
         className={cn(
           "group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
           "shadow-sm transition-all duration-200 ease-out",
-          "hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md",
-          "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20",
+          "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md",
+          "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
         )}
       >
         <PhotoCover document={document} />
@@ -126,7 +126,7 @@ function PhotoCover({ document }: { document: SearchDocument }) {
 function InitialsBackdrop({ name }: { name: string }) {
   const initials = getInitials(name)
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-100 to-rose-50 text-4xl font-semibold text-rose-500 dark:from-rose-500/20 dark:to-slate-900">
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-soft to-primary-soft/60 text-4xl font-semibold text-primary">
       {initials}
     </div>
   )
@@ -144,7 +144,7 @@ function HeaderBlock({
     <div className="flex flex-col gap-0.5">
       <h3
         id={headingId}
-        className="truncate text-base font-semibold text-foreground transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-400"
+        className="truncate text-base font-semibold text-foreground transition-colors group-hover:text-primary-deep"
       >
         {document.display_name || t("noTitle")}
       </h3>
@@ -205,7 +205,7 @@ function TotalEarnedLine({
   const formatted = formatTotalEarned(amount, currency, locale)
   if (!formatted) return null
   return (
-    <p className="text-[13px] font-semibold text-rose-600 dark:text-rose-400">
+    <p className="text-[13px] font-semibold text-primary-deep">
       {t("totalEarned", { amount: formatted })}
     </p>
   )
@@ -234,7 +234,7 @@ function PricingLine({
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm font-semibold text-foreground">{formatted}</span>
       {pricing.negotiable ? (
-        <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+        <span className="inline-flex items-center rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-deep">
           {t("negotiable")}
         </span>
       ) : null}

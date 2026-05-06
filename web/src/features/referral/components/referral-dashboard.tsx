@@ -44,7 +44,7 @@ export function ReferralDashboard() {
         </div>
         <Link
           href="/referrals/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-rose-600"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-deep"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nouvelle intro
@@ -124,10 +124,10 @@ function StatCards({ stats }: StatCardsProps) {
         accent="bg-emerald-50"
       />
       <StatCard
-        icon={<Sparkles className="h-5 w-5 text-rose-500" aria-hidden="true" />}
+        icon={<Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />}
         label="Total"
         value={stats.totalCount}
-        accent="bg-rose-50"
+        accent="bg-primary-soft"
       />
     </div>
   )
@@ -142,7 +142,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, accent }: StatCardProps) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
         <div className={`grid h-10 w-10 place-items-center rounded-full ${accent}`}>
           {icon}
@@ -180,7 +180,7 @@ function Section({ title, description, emptyState, loading, children }: SectionP
         )}
       </header>
       {loading ? <SectionSkeleton /> : children || (
-        <p className="rounded-2xl border border-dashed border-slate-200 px-6 py-8 text-center text-sm text-slate-500">
+        <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-sm text-slate-500">
           {emptyState}
         </p>
       )}
@@ -194,7 +194,7 @@ function SectionSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-slate-50"
+          className="h-16 animate-pulse rounded-2xl border border-border bg-muted"
         />
       ))}
     </div>
@@ -215,7 +215,7 @@ function ReferralList({ items }: ReferralListProps) {
         <li key={r.id}>
           <Link
             href={`/referrals/${r.id}`}
-            className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-rose-200 hover:shadow-md"
+            className="group flex items-center justify-between gap-4 rounded-2xl border border-border bg-white p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
           >
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ function ReferralList({ items }: ReferralListProps) {
               )}
             </div>
             <ArrowRight
-              className="h-5 w-5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-rose-500"
+              className="h-5 w-5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-primary"
               aria-hidden="true"
             />
           </Link>
