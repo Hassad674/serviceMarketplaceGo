@@ -355,7 +355,7 @@ Dart convention: **snake_case** for all files and directories.
 
 ```bash
 flutter run                                                # Run on connected device
-flutter run --dart-define=API_URL=http://192.168.1.X:8080  # Custom API URL
+flutter run --dart-define=API_URL=http://192.168.1.X:8080  # Custom API URL (debug)
 dart run build_runner build --delete-conflicting-outputs    # Generate code (freezed, json)
 dart run build_runner watch --delete-conflicting-outputs    # Watch mode for code gen
 flutter test                                               # Run all tests
@@ -363,6 +363,100 @@ flutter analyze                                            # Static analysis
 flutter build apk --release                                # Build Android APK
 flutter build ios --release                                # Build iOS (requires macOS)
 ```
+
+### Production build (release) — required `--dart-define`s
+
+For any release / TestFlight / App Store build, the following compile-time
+defines MUST be passed; CI should fail the build if any is empty.
+
+```bash
+flutter build apk --release \
+  --dart-define=API_URL=https://api.atelier.example.com \
+  --dart-define=BACKEND_CERT_SHA256_PRIMARY=<sha256-hex-of-leaf-cert> \
+  --dart-define=BACKEND_CERT_SHA256_BACKUP=<sha256-hex-of-next-rotation-cert>
+```
+
+* `API_URL` — release builds reject `http://` URLs (SEC-08 assert in
+  `core/network/api_client.dart`); the `192.168.x.x` debug fallback
+  must NOT reach prod.
+* `BACKEND_CERT_SHA256_PRIMARY` — SHA-256 fingerprint of the production
+  backend's TLS leaf cert. Compute with:
+  `openssl s_client -servername $HOST -connect $HOST:443 < /dev/null 2>/dev/null \
+  | openssl x509 -outform DER | openssl dgst -sha256 -hex`
+* `BACKEND_CERT_SHA256_BACKUP` — SHA-256 fingerprint of the
+  next-rotation cert. See [Cert rotation runbook](#cert-rotation-runbook)
+  below.
+
+If both pins are empty in a release build the cert-pinning interceptor
+falls back to OS trust only (graceful degradation — bricking via
+missing pin is worse than shipping without pinning). Always set both.
+
+### Cert rotation runbook
+
+The cert pinning layer (`mobile/lib/core/network/cert_pinning_interceptor.dart`)
+verifies the SHA-256 fingerprint of the backend's TLS leaf cert against
+two compile-time slots: PRIMARY (current cert) and BACKUP (next-rotation
+cert). Two slots make rotation zero-downtime:
+
+1. **3 weeks before cert expiry**: issue the new cert, compute its SHA-256.
+2. **Ship a release** with `PRIMARY=<old>` + `BACKUP=<new>`. Wait for
+   ≥95% adoption (typically 1-2 weeks).
+3. **Deploy** the new cert on the backend. The app accepts both because
+   `<new>` is in the pin set as BACKUP. Old clients still hit the old
+   cert (the backend keeps both during the cutover) and verify against
+   PRIMARY.
+4. **Once the old cert is decommissioned**, ship a release with
+   `PRIMARY=<new>` + `BACKUP=<next-rotation>`.
+
+If you ever ship a release without pin updates and the cert rotates, the
+app will hard-fail with `CertificatePinningException` — users see "network
+not safe, switch network" instead of silently allowing a MITM. That is the
+intended behaviour: a noisy failure beats a silent compromise.
+
+### Crash reporting (Firebase Crashlytics)
+
+`lib/main.dart` wires three error surfaces to Firebase Crashlytics in
+release builds and to `debugPrint` in debug:
+
+| Surface | Source | Sink |
+|---------|--------|------|
+| `FlutterError.onError` | Framework errors (build / layout / gestures) | `FirebaseCrashlytics.recordFlutterFatalError` |
+| `PlatformDispatcher.onError` | Async errors that escape Future error handlers | `FirebaseCrashlytics.recordError(fatal: true)` |
+| `runZonedGuarded` | Sync + async errors that escape `runApp`'s zone | `FirebaseCrashlytics.recordError(fatal: true)` |
+
+All three are gated on `kReleaseMode`: in debug builds the same hooks
+log to the console only — no upload to Crashlytics. Crashlytics
+collection is also explicitly disabled in debug via
+`setCrashlyticsCollectionEnabled(kReleaseMode)`.
+
+To force-test Crashlytics in a debug build, temporarily replace the
+`kReleaseMode` gate in `_initFirebase` with `true`.
+
+The `google-services.json` (Android) / `GoogleService-Info.plist` (iOS)
+must be present at the platform-specific paths for Firebase to
+initialise; without them `Firebase.initializeApp` throws and crash
+reporting silently degrades (errors are still printed to stderr).
+
+### App lifecycle observation
+
+`lib/core/lifecycle/app_lifecycle_observer.dart` provides a global
+`AppLifecycleObserver` registered with `WidgetsBinding` in `main.dart`.
+Features that need to react to foreground/background transitions can
+subscribe via:
+
+```dart
+final observer = ref.watch(appLifecycleProvider);
+observer.stream.listen((state) {
+  // ...
+});
+// or
+final asyncState = ref.watch(appLifecycleStreamProvider);
+```
+
+Note: `messaging_ws_service` keeps its own local `AppLifecycleListener`
+for backward compatibility — H2 brief said don't break existing
+behaviour. Future cleanup: migrate it to consume `appLifecycleProvider`
+and delete the local listener.
 
 ---
 
