@@ -8,6 +8,8 @@ import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { login, AuthApiError } from "@/features/auth/api/auth-api"
+import { Input } from "@/shared/components/ui/input"
+import { Button } from "@/shared/components/ui/button"
 
 // Schema kept inline (intentionally not extracted to features/auth/schemas/
 // for this batch — that is OFF-LIMITS work that will happen later as a
@@ -95,7 +97,7 @@ export function LoginForm() {
           >
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -130,13 +132,13 @@ export function LoginForm() {
             </label>
             <Link
               href="/forgot-password"
-              className="font-serif text-xs italic text-primary transition-colors hover:text-primary-deep"
+              className="font-serif text-xs italic text-[var(--text-link)] transition-colors hover:text-primary"
             >
               {t("forgotPassword")}
             </Link>
           </div>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
@@ -153,7 +155,9 @@ export function LoginForm() {
               ].join(" ")}
               {...registerField("password")}
             />
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -166,7 +170,7 @@ export function LoginForm() {
               ) : (
                 <Eye className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           </div>
           {errors.password?.message && (
             <p id="password-error" className="text-xs text-destructive">
@@ -176,19 +180,21 @@ export function LoginForm() {
         </div>
 
         {/* Submit */}
-        <button
+        <Button
+          variant="primary"
+          size="auto"
           type="submit"
           disabled={isSubmitting}
           className={[
-            "mt-2 w-full rounded-full bg-primary px-4 py-3.5 text-[14.5px] font-semibold text-primary-foreground",
-            "transition-all duration-150 hover:bg-primary-deep active:scale-[0.99]",
+            "mt-2 w-full rounded-full px-4 py-3.5 text-[14.5px] font-semibold",
+            "active:scale-[0.99]",
             "focus:outline-none focus:ring-4 focus:ring-primary/30",
             "disabled:cursor-not-allowed disabled:opacity-60",
           ].join(" ")}
           style={{ boxShadow: "0 4px 14px rgba(232, 93, 74, 0.3)" }}
         >
           {isSubmitting ? t("signingIn") : t("loginTitle")}
-        </button>
+        </Button>
       </form>
 
       {/* No account? */}
@@ -196,7 +202,7 @@ export function LoginForm() {
         {t("noAccount")}{" "}
         <Link
           href="/register"
-          className="font-semibold text-primary transition-colors hover:text-primary-deep"
+          className="font-semibold text-[var(--text-link)] transition-colors hover:text-primary"
         >
           {tCommon("createAccount")}
           <span aria-hidden="true"> →</span>

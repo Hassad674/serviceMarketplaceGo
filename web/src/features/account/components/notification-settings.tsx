@@ -71,6 +71,7 @@ function Toggle({
   ariaLabel?: string
 }) {
   return (
+    // eslint-disable-next-line react/forbid-elements -- custom toggle, primitive (Soleil v2 36×20 switch)
     <button
       type="button"
       role="switch"

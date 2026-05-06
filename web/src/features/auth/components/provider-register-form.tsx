@@ -8,6 +8,8 @@ import { useRouter } from "@i18n/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
+import { Input } from "@/shared/components/ui/input"
+import { Button } from "@/shared/components/ui/button"
 
 // Step-2 freelance form — visual port to Soleil v2.
 //
@@ -111,7 +113,7 @@ export function ProviderRegisterForm() {
             >
               {t("firstName")}
             </label>
-            <input
+            <Input
               id="first_name"
               type="text"
               autoComplete="given-name"
@@ -137,7 +139,7 @@ export function ProviderRegisterForm() {
             >
               {t("lastName")}
             </label>
-            <input
+            <Input
               id="last_name"
               type="text"
               autoComplete="family-name"
@@ -164,7 +166,7 @@ export function ProviderRegisterForm() {
           >
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -189,7 +191,7 @@ export function ProviderRegisterForm() {
             {t("password")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -203,7 +205,9 @@ export function ProviderRegisterForm() {
               className={inputStateClasses(Boolean(errors.password), true)}
               {...registerField("password")}
             />
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -218,7 +222,7 @@ export function ProviderRegisterForm() {
               ) : (
                 <Eye className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           </div>
           {errors.password?.message ? (
             <p id="password-error" className="text-xs text-destructive">
@@ -239,7 +243,7 @@ export function ProviderRegisterForm() {
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
@@ -254,7 +258,9 @@ export function ProviderRegisterForm() {
               )}
               {...registerField("confirm_password")}
             />
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -269,7 +275,7 @@ export function ProviderRegisterForm() {
               ) : (
                 <Eye className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           </div>
           {errors.confirm_password?.message && (
             <p id="confirm_password-error" className="text-xs text-destructive">
@@ -278,19 +284,21 @@ export function ProviderRegisterForm() {
           )}
         </div>
 
-        <button
+        <Button
+          variant="primary"
+          size="auto"
           type="submit"
           disabled={isSubmitting}
           className={[
-            "mt-2 w-full rounded-full bg-primary px-4 py-3.5 text-[14.5px] font-semibold text-primary-foreground",
-            "transition-all duration-150 hover:bg-primary-deep active:scale-[0.99]",
+            "mt-2 w-full rounded-full px-4 py-3.5 text-[14.5px] font-semibold",
+            "active:scale-[0.99]",
             "focus:outline-none focus:ring-4 focus:ring-primary/30",
             "disabled:cursor-not-allowed disabled:opacity-60",
           ].join(" ")}
           style={{ boxShadow: "0 4px 14px rgba(232, 93, 74, 0.3)" }}
         >
           {isSubmitting ? t("signingUp") : t("createFreelanceAccount")}
-        </button>
+        </Button>
       </form>
     </div>
   )
