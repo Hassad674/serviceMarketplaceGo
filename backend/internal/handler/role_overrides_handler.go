@@ -34,10 +34,38 @@ import (
 //     in depth.
 type RoleOverridesHandler struct {
 	service *orgapp.RoleOverridesService
+	// ipExtractor is the trust-aware IP resolver wired by main.go to
+	// the rate-limiter's ClientIP method. When set, audit-log entries
+	// honour the trusted-proxy CIDR allow-list and ignore X-Forwarded-For
+	// from untrusted hops; nil falls back to the conservative
+	// header-aware extractor for tests / dev. Closes V7 N7.
+	ipExtractor func(*http.Request) string
 }
 
 func NewRoleOverridesHandler(svc *orgapp.RoleOverridesService) *RoleOverridesHandler {
 	return &RoleOverridesHandler{service: svc}
+}
+
+// WithIPExtractor wires a trust-aware IP resolver — typically the
+// rate-limiter's ClientIP method which respects the trusted-proxy
+// CIDR list and applies IPv6 /64 normalisation. Passing nil leaves
+// the handler on the legacy clientIP() fallback, which trusts XFF
+// naked and is acceptable only in tests. Production callers MUST
+// wire this. Closes V7 N7.
+func (h *RoleOverridesHandler) WithIPExtractor(extractor func(*http.Request) string) *RoleOverridesHandler {
+	h.ipExtractor = extractor
+	return h
+}
+
+// resolveIP returns the IP to record on the audit-log entry. Uses the
+// trust-aware extractor when wired, otherwise falls back to the legacy
+// header-only path. The fallback survives only because it is unreachable
+// in production — bootstrap.go always wires the extractor.
+func (h *RoleOverridesHandler) resolveIP(r *http.Request) string {
+	if h.ipExtractor != nil {
+		return h.ipExtractor(r)
+	}
+	return clientIP(r)
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +160,7 @@ func (h *RoleOverridesHandler) UpdateMatrix(w http.ResponseWriter, r *http.Reque
 		OrganizationID: orgID,
 		Role:           role,
 		Overrides:      overrides,
-		IPAddress:      clientIP(r),
+		IPAddress:      h.resolveIP(r),
 	})
 	if err != nil {
 		h.handleRoleOverridesError(w, err)

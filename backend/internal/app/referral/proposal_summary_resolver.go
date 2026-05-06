@@ -41,6 +41,19 @@ type ProposalSummary struct {
 // Defined as a port so the referral feature stays decoupled — the
 // concrete resolver in wiring_adapters.go reads from the
 // ProposalRepository without the referral package ever importing it.
+//
+// V7 NF-12: ResolveProposalSummaries takes a referralID alongside the
+// id batch so the implementation can constrain proposals to the set
+// legitimately attributed to that referral. This is defence-in-depth
+// against a future caller that, by accident or forgery, slips
+// attacker-controlled proposal IDs into the call. Even though the
+// referral service already validates the viewer is one of the three
+// referral parties, the resolver itself MUST refuse to surface
+// proposals that are not part of the referral's attribution set —
+// otherwise the system-actor context inside the resolver would let
+// any proposal id leak across tenants. The implementation in
+// wiring_adapters.go enforces this by intersecting the requested ids
+// with the referral_attributions table.
 type ProposalSummaryResolver interface {
-	ResolveProposalSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error)
+	ResolveProposalSummaries(ctx context.Context, referralID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error)
 }

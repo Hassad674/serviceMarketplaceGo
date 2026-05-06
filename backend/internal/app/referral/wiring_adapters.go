@@ -2,6 +2,7 @@ package referral
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -86,6 +87,16 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 
 // ─── ProposalSummaryResolver adapters ─────────────────────────────────────
 
+// ReferralAttributionLister is the narrow read interface the resolver
+// needs to verify that a batch of proposal ids is legitimately
+// attributed to a referral. Defined here (locally) so the resolver
+// only depends on what it actually uses — segregated reader pattern
+// applied to a single method. Any concrete repo that satisfies
+// ReferralAttributionStore is a drop-in.
+type ReferralAttributionLister interface {
+	ListAttributionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Attribution, error)
+}
+
 // ProposalRepoSummaryResolver reads proposal summaries directly from
 // the ProposalRepository + MilestoneRepository. The referral feature
 // never imports the proposal or milestone features — only the
@@ -99,19 +110,40 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 // batch query.
 //
 // Narrowed to ProposalReader — the resolver only calls GetByID.
+//
+// V7 NF-12: also takes a ReferralAttributionLister so the resolver
+// can independently verify that every requested proposal id is
+// legitimately tied to the referral being viewed. This is the
+// defence-in-depth gate against a future caller that, by mistake or
+// forgery, slips attacker-controlled proposal ids into the call.
+// Without this filter, the WithSystemActor context inside the
+// resolver would happily surface any proposal across any tenant.
 type ProposalRepoSummaryResolver struct {
-	proposals  repository.ProposalReader
-	milestones repository.MilestoneRepository
+	proposals    repository.ProposalReader
+	milestones   repository.MilestoneRepository
+	attributions ReferralAttributionLister
 }
 
 // NewProposalRepoSummaryResolver wires the resolver. Safe with nil
 // proposals / milestones (returns empty map or partial data with no
 // error — the UI degrades to missing fields rather than crashing).
+//
+// attributions MUST be wired in production so the NF-12 filter is
+// active. A nil attribution lister forces the resolver into safe-fail
+// mode: every call returns an empty map, because without the filter
+// we cannot prove the requested ids belong to the referral. This
+// fail-closed default is intentional — it makes a forgotten wiring
+// loudly broken rather than silently leaking data across tenants.
 func NewProposalRepoSummaryResolver(
 	proposals repository.ProposalReader,
 	milestones repository.MilestoneRepository,
+	attributions ReferralAttributionLister,
 ) *ProposalRepoSummaryResolver {
-	return &ProposalRepoSummaryResolver{proposals: proposals, milestones: milestones}
+	return &ProposalRepoSummaryResolver{
+		proposals:    proposals,
+		milestones:   milestones,
+		attributions: attributions,
+	}
 }
 
 // ResolveProposalSummaries loads title+status and milestone aggregates
@@ -127,22 +159,76 @@ func NewProposalRepoSummaryResolver(
 // Pending-funding and cancelled milestones are NOT counted — no
 // escrow to speak of.
 //
+// V7 NF-12 (HIGH security): the resolver INDEPENDENTLY re-validates
+// that every requested id is attributed to the referralID. The
+// upstream service already gates the whole call on viewer membership,
+// but the resolver MUST NOT trust raw ids — defence-in-depth against
+// the failure mode where a future caller passes attacker-supplied
+// ids by mistake. We compute the legitimate attribution set from
+// `referral_attributions` and intersect with the request. Anything
+// outside the set is dropped silently — no log spam in the happy
+// path, but a DEBUG line keeps the unexpected branch observable.
+//
 // SYSTEM-ACTOR: a referral aggregate cuts across multiple
 // proposals owned by different organizations — the apporteur is
 // authorized at the referral level, not the proposal level, so
 // the per-proposal RLS gate would mistakenly deny the read for
-// every proposal that is not the apporteur's own. We tag the
-// context with system.WithSystemActor so the underlying
-// repository takes the non-tenant-aware GetByID path. The
-// referral service has already validated the caller's right to
-// see this attribution list (see service_list.GetByID).
-func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error) {
+// every proposal that is not the apporteur's own. The system-actor
+// branch is taken ONLY for ids that survive the attribution
+// intersection above, so the broad RLS bypass is bounded by the
+// referral's own attribution list — a row that is not attributed
+// to this referral cannot leak through this code path.
+func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Context, referralID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error) {
 	out := make(map[uuid.UUID]*ProposalSummary, len(ids))
 	if r.proposals == nil || len(ids) == 0 {
 		return out, nil
 	}
-	systemCtx := system.WithSystemActor(ctx)
+	if r.attributions == nil {
+		// Fail closed — see the constructor doc. A misconfigured wiring
+		// must not silently re-introduce the cross-tenant leak.
+		slog.Warn("referral.ResolveProposalSummaries: attribution lister not wired, refusing read",
+			"referral_id", referralID)
+		return out, nil
+	}
+	atts, err := r.attributions.ListAttributionsByReferral(ctx, referralID)
+	if err != nil {
+		// Treat a lookup failure like an empty allow-list — the UI
+		// shows "—" and the operator sees the warning. Surfacing the
+		// raw error would break the existing "graceful degradation"
+		// contract documented above.
+		slog.Warn("referral.ResolveProposalSummaries: attribution lookup failed, refusing read",
+			"referral_id", referralID, "error", err)
+		return out, nil
+	}
+	allowed := make(map[uuid.UUID]struct{}, len(atts))
+	for _, a := range atts {
+		if a == nil {
+			continue
+		}
+		allowed[a.ProposalID] = struct{}{}
+	}
+	filtered := make([]uuid.UUID, 0, len(ids))
 	for _, id := range ids {
+		if _, ok := allowed[id]; ok {
+			filtered = append(filtered, id)
+		}
+	}
+	if len(filtered) != len(ids) {
+		// Observable but non-fatal — the audit team wants a trail when
+		// a request asks for ids outside the referral's attribution
+		// set. In normal operation this is empty (the upstream caller
+		// derives ids from the same attribution table), so any line
+		// here is a signal worth investigating.
+		slog.Debug("referral.ResolveProposalSummaries: dropped ids outside referral attribution set",
+			"referral_id", referralID,
+			"requested", len(ids),
+			"allowed", len(filtered))
+	}
+	if len(filtered) == 0 {
+		return out, nil
+	}
+	systemCtx := system.WithSystemActor(ctx)
+	for _, id := range filtered {
 		p, err := r.proposals.GetByID(systemCtx, id)
 		if err != nil || p == nil {
 			continue
@@ -156,7 +242,7 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 	if r.milestones == nil || len(out) == 0 {
 		return out, nil
 	}
-	milestonesByProposal, err := r.milestones.ListByProposals(ctx, ids)
+	milestonesByProposal, err := r.milestones.ListByProposals(ctx, filtered)
 	if err != nil {
 		// Soft failure — return what we have. Milestone counts will be
 		// zero and the UI shows "—" rather than crashing the page.
