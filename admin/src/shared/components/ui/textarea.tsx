@@ -22,8 +22,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           className={cn(
             "w-full rounded-lg border bg-background px-3 py-2 text-sm transition-all duration-200 ease-out",
             "placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-2 focus:ring-rose-500/20",
-            error ? "border-destructive focus:ring-destructive/20" : "border-border focus:border-rose-500",
+            "focus:outline-none focus:ring-2 focus:ring-primary/15",
+            error ? "border-destructive focus:ring-destructive/20" : "border-border focus:border-primary",
             className,
           )}
           {...props}

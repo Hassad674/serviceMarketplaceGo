@@ -171,7 +171,7 @@ function VoicePlayer({ voice }: { voice: VoiceMetadata }) {
       <button
         type="button"
         onClick={togglePlay}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-all duration-200 hover:bg-rose-600 active:scale-[0.95]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-all duration-200 hover:bg-primary-deep active:scale-[0.95]"
         aria-label={isPlaying ? "Pause" : "Play"}
       >
         {isPlaying ? (
@@ -190,7 +190,7 @@ function VoicePlayer({ voice }: { voice: VoiceMetadata }) {
           aria-valuemax={100}
         >
           <div
-            className="h-full rounded-full bg-rose-500 transition-[width] duration-100"
+            className="h-full rounded-full bg-primary transition-[width] duration-100"
             style={{ width: `${progress}%` }}
           />
         </div>

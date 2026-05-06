@@ -53,10 +53,10 @@ type SystemConfig = {
 const SYSTEM_STYLES: Record<string, SystemConfig> = {
   proposal_sent: {
     icon: Send,
-    iconColor: "text-rose-600",
-    iconBg: "bg-rose-100",
-    cardBg: "bg-rose-50",
-    cardBorder: "border-rose-200",
+    iconColor: "text-primary-deep",
+    iconBg: "bg-primary/15",
+    cardBg: "bg-primary-soft",
+    cardBorder: "border-primary/30",
   },
   proposal_accepted: {
     icon: CheckCircle2,
@@ -105,7 +105,7 @@ const SYSTEM_STYLES: Record<string, SystemConfig> = {
     iconColor: "text-slate-600",
     iconBg: "bg-slate-100",
     cardBg: "bg-slate-50",
-    cardBorder: "border-slate-200",
+    cardBorder: "border-border-strong",
   },
   proposal_modified: {
     icon: Pencil,
@@ -182,7 +182,7 @@ const SYSTEM_STYLES: Record<string, SystemConfig> = {
     iconColor: "text-slate-600",
     iconBg: "bg-slate-100",
     cardBg: "bg-slate-50",
-    cardBorder: "border-slate-200",
+    cardBorder: "border-border-strong",
   },
   dispute_auto_resolved: {
     icon: Clock,

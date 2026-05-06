@@ -228,7 +228,7 @@ function ResolutionForm({ disputeId, proposalAmount }: { disputeId: string; prop
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-rose-500" />
+          <Scale className="h-5 w-5 text-primary" />
           Rendre la decision
         </CardTitle>
       </CardHeader>
@@ -243,7 +243,7 @@ function ResolutionForm({ disputeId, proposalAmount }: { disputeId: string; prop
               step={100}
               value={clientAmount}
               onChange={(e) => setClientAmount(Number(e.target.value))}
-              className="w-full accent-rose-500"
+              className="w-full accent-primary"
             />
             <div className="mt-1 flex justify-between text-xs text-muted-foreground">
               <span>Client: {formatCurrency(clientAmount / 100)}</span>

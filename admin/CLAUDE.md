@@ -126,14 +126,15 @@ The admin panel is restricted to users with `is_admin === true`. Non-admin users
 3. The `X-Auth-Mode: token` header tells the backend to return a token response instead of setting cookies.
 4. Backend responds with `{ access_token, user: { id, email, is_admin } }`.
 5. Frontend checks `data.user.is_admin === true`. If `false`, throws `"Acces reserve aux administrateurs"`.
-6. On success, stores `access_token` in `localStorage` under key `"admin_token"`.
+6. On success, the `access_token` is stored in the **in-memory Zustand store** (`shared/stores/auth-store.ts`) — **never persisted to `localStorage`, `sessionStorage`, cookies, or IndexedDB** (per audit item SEC-FINAL-07: a bearer token granting full admin write access must not live in any XSS-readable surface). A hard reload drops the bearer; the boot-time cookie-session probe (`/api/v1/auth/me` with `credentials: "include"`) restores the user from the httpOnly session cookie when present.
 
 ### Auth state
 
-- `AuthProvider` (React Context) wraps the entire app in `app/providers.tsx`.
-- `useAuth()` hook returns `{ token, isAuthenticated, login, logout }`.
-- `isAuthenticated` is derived from `!!token`.
-- `logout()` removes the token from `localStorage` and redirects to `/login`.
+- The token's single source of truth is the Zustand store at `src/shared/stores/auth-store.ts` (in-memory only — `persist` middleware is intentionally absent, see the file's security note).
+- `AuthProvider` (React Context, `shared/hooks/use-auth.tsx`) is a thin wrapper that exposes login/logout actions and drives the boot-time cookie-session restore. It reads the token from the Zustand store via `useAuthStore`.
+- `useAuth()` returns `{ token, isAuthenticated, isHydrating, login, logout }`.
+- `isAuthenticated` is derived from `!!token || hasCookieSession`. When the user has a valid httpOnly session cookie but no bearer (e.g., right after a reload), `hasCookieSession` keeps them authenticated for cookie-based browsing.
+- `logout()` clears the Zustand store and redirects to `/login`.
 
 ### Route protection
 
@@ -145,7 +146,7 @@ The admin panel is restricted to users with `is_admin === true`. Non-admin users
 ### Auto-redirect on 401
 
 - The `adminApi` function checks every response for `status === 401`.
-- On 401: removes `"admin_token"` from `localStorage`, redirects to `/login`, throws `ApiError`.
+- On 401: clears the in-memory token via `clearAuthToken()`, redirects to `/login`, throws `ApiError`.
 - This handles expired tokens transparently.
 
 ---
@@ -169,10 +170,10 @@ type RequestOptions = {
 ```
 
 **Behavior:**
-- Reads token from `localStorage.getItem("admin_token")`.
-- Always sets `Content-Type: application/json`.
-- Attaches `Authorization: Bearer <token>` when token exists.
-- On 401: clears token, redirects to `/login`, throws `ApiError`.
+- Reads the bearer token from the in-memory Zustand store via `getAuthToken()` (NOT from `localStorage` — see SEC-FINAL-07).
+- Always sets `Content-Type: application/json` and `credentials: "include"` so the httpOnly session cookie is forwarded for cookie-based session restore on `/auth/me`.
+- Attaches `Authorization: Bearer <token>` when a bearer is present in the store.
+- On 401: clears the in-memory token via `clearAuthToken()`, redirects to `/login`, throws `ApiError`.
 - On any non-ok response: parses JSON error body, throws `ApiError(status, code, message)`.
 - On 204 No Content: returns `undefined`.
 
@@ -343,7 +344,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 **RoleBadge** -- maps backend roles to French labels with semantic colors:
 - `agency`: `bg-blue-50 text-blue-700` -- "Prestataire"
 - `enterprise`: `bg-violet-50 text-violet-700` -- "Entreprise"
-- `provider`: `bg-rose-50 text-rose-700` -- "Freelance"
+- `provider`: `bg-pink-soft text-primary-deep` -- "Freelance" (Soleil pink token)
 - `admin`: `bg-slate-100 text-slate-700`
 
 **StatusBadge** -- maps user statuses to badge variants:
@@ -371,7 +372,7 @@ CardFooter:  flex items-center border-t border-border px-6 py-4
 
 - Uses `forwardRef`.
 - Auto-generates `id` from `label` text when `id` prop not provided.
-- Focus state: `focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20`.
+- Focus state: `focus:border-primary focus:ring-2 focus:ring-primary/15` (Soleil corail token).
 - Error state: `border-destructive focus:ring-destructive/20` + red error message below.
 
 ### Select
@@ -580,9 +581,9 @@ export const usersColumns: ColumnDef<AdminUser, unknown>[] = [
 
 - Width: `w-[280px]`.
 - Glass effect: `bg-white/80 backdrop-blur-xl`.
-- Logo area: `h-16`, gradient text "Marketplace Admin" (`from-rose-500 to-rose-600`).
+- Logo area: `h-16`, gradient text "Marketplace Admin" (`from-primary to-primary-deep`, Soleil corail).
 - Navigation: `NavLink` components with active state indicator.
-- Active link: `bg-rose-50 text-rose-600` with a 3px rose vertical bar on the left (`absolute left-0 h-5 w-[3px] bg-rose-500 rounded-r-full`).
+- Active link: `bg-primary-soft text-primary-deep` with a 3px corail vertical bar on the left (`absolute left-0 h-5 w-[3px] bg-primary rounded-r-full`).
 - Inactive link: `text-muted-foreground hover:bg-gray-50 hover:text-foreground`.
 - Footer: logout button at the bottom with border-top separator.
 
@@ -690,12 +691,15 @@ formatRelativeDate(date: string | Date)  // "Il y a 3h", "Il y a 2j"
 | What | Where | Tool |
 |------|-------|------|
 | Server data (API responses) | `features/*/hooks/` | TanStack Query v5 |
-| Auth state | `shared/hooks/use-auth.tsx` | React Context (AuthProvider) |
+| Bearer token (auth) | `shared/stores/auth-store.ts` | **Zustand** (in-memory only — no `persist`) |
+| Auth context (login/logout actions, hydration flag) | `shared/hooks/use-auth.tsx` | React Context (AuthProvider) wrapping the Zustand store |
 | Form state | Component-local | `useState` |
 | Ephemeral UI state (dialogs, filters) | Component-local | `useState` |
 | Pagination cursors | Component-local | `useState` (array stack) |
 
-- **No Redux, no Zustand** -- the admin is simpler than the web app. React Context for auth, TanStack Query for everything else.
+- **No Redux** -- the admin's only global store is a tiny single-slice Zustand store that holds the in-memory bearer token. Everything else lives in React Context (auth actions), TanStack Query (server state), or component-local `useState` (UI ephemeral).
+- **The Zustand store has NO `persist` middleware** -- the bearer is intentionally dropped on hard reload because `localStorage`/`sessionStorage`/IndexedDB are XSS-readable and an admin token leak would be catastrophic (SEC-FINAL-07). Cookie-based session restore on boot covers the reload case for users who already have a valid httpOnly session cookie.
+- **Do not introduce additional Zustand stores** without an explicit security review. The default pattern remains Context + TanStack Query.
 - **No prop drilling past 2 levels** -- use composition (`children`) or extract to hooks.
 
 ---
