@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/project_history_provider.dart';
 import 'project_history_entry_card.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Displays the project history (completed missions + reviews) of an
 /// organization. Used on both the own profile and public profile screens.
 class ProjectHistoryWidget extends ConsumerWidget {
@@ -36,14 +36,17 @@ class ProjectHistoryWidget extends ConsumerWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
-                      gradient: const LinearGradient(
-                        colors: [AppPalette.rose100, AppPalette.red50],
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primaryContainer,
+                          Theme.of(context).colorScheme.errorContainer,
+                        ],
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.history,
                       size: 18,
-                      color: AppPalette.rose600,
+                      color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
                     ),
                   ),
                   const SizedBox(width: 12),

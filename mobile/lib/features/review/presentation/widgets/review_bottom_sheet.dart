@@ -10,8 +10,8 @@ import '../../../../core/models/review.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../providers/review_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Bottom sheet for leaving a review after a completed mission.
 ///
 /// Supports both review directions (client -> provider and
@@ -339,7 +339,7 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
             onTap: () => onChanged(i),
             child: Icon(
               i <= value ? Icons.star : Icons.star_border,
-              color: AppPalette.amber400,
+              color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
               size: 28,
             ),
           ),

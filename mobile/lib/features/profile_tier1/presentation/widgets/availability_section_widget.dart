@@ -5,7 +5,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/availability_status.dart';
 import '../providers/profile_tier1_providers.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Which availability slot this card owns. The direct variant is
 /// rendered on the freelance profile screen; the referrer variant
@@ -162,7 +161,7 @@ class AvailabilityBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final color = availabilityColor(status);
+    final color = availabilityColor(context, status);
     final label = availabilityLabel(status, l10n);
 
     return Container(
@@ -202,14 +201,18 @@ class AvailabilityBadge extends StatelessWidget {
   }
 }
 
-Color availabilityColor(AvailabilityStatus status) {
+Color availabilityColor(BuildContext context, AvailabilityStatus status) {
+  final cs = Theme.of(context).colorScheme;
+  final ext = Theme.of(context).extension<AppColors>();
+  final success = ext?.success ?? cs.primary;
+  final warning = ext?.warning ?? cs.tertiary;
   switch (status) {
     case AvailabilityStatus.availableNow:
-      return AppPalette.green500; // green-500
+      return success;
     case AvailabilityStatus.availableSoon:
-      return AppPalette.amber500; // amber-500
+      return warning;
     case AvailabilityStatus.notAvailable:
-      return AppPalette.red500; // red-500
+      return cs.error;
   }
 }
 
@@ -396,7 +399,7 @@ class _AvailabilityRadioGroup extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: availabilityColor(status),
+                color: availabilityColor(context, status),
                 shape: BoxShape.circle,
               ),
             ),

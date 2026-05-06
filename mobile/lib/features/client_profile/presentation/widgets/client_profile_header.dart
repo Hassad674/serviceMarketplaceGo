@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Compact header for the client profile — avatar + company name +
 /// 4 key stats (total spent, review count, average rating, projects
@@ -188,7 +187,7 @@ class _OrgTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = _style(orgType);
+    final (label, color) = _style(context, orgType);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
@@ -206,16 +205,17 @@ class _OrgTypeBadge extends StatelessWidget {
     );
   }
 
-  (String, Color) _style(String type) {
+  (String, Color) _style(BuildContext context, String type) {
+    final cs = Theme.of(context).colorScheme;
     switch (type) {
       case 'agency':
-        return ('Agency', AppPalette.blue600);
+        return ('Agency', cs.primary);
       case 'enterprise':
-        return ('Enterprise', AppPalette.violet500);
+        return ('Enterprise', cs.primary);
       case 'provider_personal':
-        return ('Freelance', AppPalette.rose500);
+        return ('Freelance', cs.primary);
       default:
-        return (type, AppPalette.slate500);
+        return (type, cs.onSurfaceVariant);
     }
   }
 }
@@ -275,7 +275,7 @@ class _StatsGrid extends StatelessWidget {
                 : '—',
             labelColor: labelColor,
             icon: averageRating > 0 ? Icons.star : null,
-            iconColor: AppPalette.amber400,
+            iconColor: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
           ),
         ),
         Expanded(

@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dispute_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Renders the historical decision of a dispute (resolved or cancelled)
 /// on the project detail screen, AFTER the dispute banner has gone away
@@ -42,9 +41,10 @@ class _ResolvedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const emeraldBorder = AppPalette.emerald300; // emerald-300
-    const emeraldBg = AppPalette.emerald50; // emerald-50
-    const emeraldFg = AppPalette.emerald800; // emerald-800
+    final ext = theme.extension<AppColors>()!;
+    final emeraldBorder = ext.success;
+    final emeraldBg = ext.successSoft;
+    final emeraldFg = ext.success;
 
     final clientAmount = dispute.resolutionAmountClient ?? 0;
     final providerAmount = dispute.resolutionAmountProvider ?? 0;
@@ -69,7 +69,7 @@ class _ResolvedCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.balance, size: 22, color: emeraldFg),
+              Icon(Icons.balance, size: 22, color: emeraldFg),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -144,7 +144,7 @@ class _ResolvedCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.calendar_today, size: 12, color: emeraldFg),
+                Icon(Icons.calendar_today, size: 12, color: emeraldFg),
                 const SizedBox(width: 4),
                 Text(
                   l10n.disputeDecisionRenderedOn(_formatDate(dispute.resolvedAt!)),
@@ -171,9 +171,10 @@ class _CancelledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const slateBorder = AppPalette.slate300; // slate-300
-    const slateBg = AppPalette.slate50; // slate-50
-    const slateFg = AppPalette.slate700; // slate-700
+    final cs = theme.colorScheme;
+    final slateBorder = cs.outline;
+    final slateBg = cs.surface;
+    final slateFg = cs.onSurfaceVariant;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -185,7 +186,7 @@ class _CancelledCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.cancel_outlined, size: 22, color: slateFg),
+          Icon(Icons.cancel_outlined, size: 22, color: slateFg),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -238,8 +239,9 @@ class _SplitCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const emeraldBorder = AppPalette.emerald300;
-    const emeraldFg = AppPalette.emerald800;
+    final ext = theme.extension<AppColors>()!;
+    final emeraldBorder = ext.success;
+    final emeraldFg = ext.success;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -256,7 +258,7 @@ class _SplitCell extends StatelessWidget {
           Row(
             children: [
               if (highlighted)
-                const Icon(Icons.check_circle, size: 12, color: emeraldFg),
+                Icon(Icons.check_circle, size: 12, color: emeraldFg),
               if (highlighted) const SizedBox(width: 4),
               Text(
                 label,
@@ -276,7 +278,7 @@ class _SplitCell extends StatelessWidget {
             '$percent%',
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 11,
-              color: AppPalette.slate500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],

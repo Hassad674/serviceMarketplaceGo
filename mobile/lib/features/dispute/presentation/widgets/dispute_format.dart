@@ -2,25 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../l10n/app_localizations.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Pure formatting helpers for the dispute banner. Extracted so a
 /// new dispute reason or status string requires only a single edit
 /// without touching the banner widget itself.
 
-Color disputeStatusColor(String status) {
+Color disputeStatusColor(BuildContext context, String status) {
+  final cs = Theme.of(context).colorScheme;
+  final ext = Theme.of(context).extension<AppColors>();
+  final warning = ext?.warning ?? cs.tertiary;
+  final success = ext?.success ?? cs.primary;
   switch (status) {
     case 'open':
     case 'negotiation':
-      return AppPalette.orange600; // orange-600
+      return warning; // ambre — Soleil v2
     case 'escalated':
-      return AppPalette.red600; // red-600
+      return cs.error; // corail-deep
     case 'resolved':
-      return AppPalette.green600; // green-600
+      return success; // sapin
     case 'cancelled':
-      return AppPalette.slate500; // slate-500
+      return cs.onSurfaceVariant; // tabac
     default:
-      return AppPalette.orange600;
+      return warning;
   }
 }
 

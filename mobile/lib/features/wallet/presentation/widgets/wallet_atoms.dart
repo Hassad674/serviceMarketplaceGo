@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/wallet_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Section header used by the missions and commissions blocks: small
 /// rose icon + title.
@@ -20,7 +19,7 @@ class WalletSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppPalette.rose500),
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
         Text(
           title,

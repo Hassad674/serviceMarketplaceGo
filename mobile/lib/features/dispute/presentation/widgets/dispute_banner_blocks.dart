@@ -4,7 +4,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dispute_entity.dart';
 import 'dispute_format.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Card showing the most recent pending counter-proposal split.
 class DisputeProposalSummary extends StatelessWidget {
@@ -135,9 +134,10 @@ class DisputeEscalatedNegotiationOpenBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const orangeBorder = AppPalette.orange200; // orange-200
-    const orangeBg = AppPalette.orange50; // orange-50
-    const orangeFg = AppPalette.orange800; // orange-800
+    final ext = theme.extension<AppColors>()!;
+    final orangeBorder = ext.amberSoft;
+    final orangeBg = ext.amberSoft;
+    final orangeFg = ext.warning;
 
     return Container(
       width: double.infinity,
@@ -169,9 +169,10 @@ class DisputeRefusedProposalBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const redBorder = AppPalette.red300; // red-300
-    const redBg = AppPalette.red50; // red-50
-    const redFg = AppPalette.red700; // red-700
+    final cs = theme.colorScheme;
+    final redBorder = cs.error;
+    final redBg = cs.errorContainer;
+    final redFg = cs.error;
 
     final clientStr = formatEur(proposal.amountClient);
     final providerStr = formatEur(proposal.amountProvider);
@@ -189,7 +190,7 @@ class DisputeRefusedProposalBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.cancel_outlined, size: 16, color: redFg),
+              Icon(Icons.cancel_outlined, size: 16, color: redFg),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -230,9 +231,10 @@ class DisputeCancellationRequestBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const amberBorder = AppPalette.amber300; // amber-300
-    const amberBg = AppPalette.amber50; // amber-50
-    const amberFg = AppPalette.amber800; // amber-800
+    final ext = theme.extension<AppColors>()!;
+    final amberBorder = ext.warning;
+    final amberBg = ext.amberSoft;
+    final amberFg = ext.warning;
 
     return Container(
       width: double.infinity,
@@ -247,7 +249,7 @@ class DisputeCancellationRequestBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.block_outlined, size: 16, color: amberFg),
+              Icon(Icons.block_outlined, size: 16, color: amberFg),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

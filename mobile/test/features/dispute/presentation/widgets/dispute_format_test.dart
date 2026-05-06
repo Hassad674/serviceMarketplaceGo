@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/features/dispute/presentation/widgets/dispute_format.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
@@ -7,27 +8,71 @@ Future<AppLocalizations> _loadEn() async {
   return AppLocalizations.delegate.load(const Locale('en'));
 }
 
+/// Wrap a color resolver in a real MaterialApp so it can read theme tokens.
+Future<Color> _resolveColor(
+  WidgetTester tester,
+  Color Function(BuildContext) builder,
+) async {
+  late Color resolved;
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      home: Builder(
+        builder: (context) {
+          resolved = builder(context);
+          return const SizedBox.shrink();
+        },
+      ),
+    ),
+  );
+  return resolved;
+}
+
 void main() {
   group('disputeStatusColor', () {
-    test('returns orange for open and negotiation', () {
-      expect(disputeStatusColor('open'), const Color(0xFFEA580C));
-      expect(disputeStatusColor('negotiation'), const Color(0xFFEA580C));
+    testWidgets('returns warning for open and negotiation', (tester) async {
+      final open = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'open'),
+      );
+      final negotiation = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'negotiation'),
+      );
+      expect(open, AppTheme.light.extension<AppColors>()!.warning);
+      expect(negotiation, AppTheme.light.extension<AppColors>()!.warning);
     });
 
-    test('returns red for escalated', () {
-      expect(disputeStatusColor('escalated'), const Color(0xFFDC2626));
+    testWidgets('returns error for escalated', (tester) async {
+      final c = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'escalated'),
+      );
+      expect(c, AppTheme.light.colorScheme.error);
     });
 
-    test('returns green for resolved', () {
-      expect(disputeStatusColor('resolved'), const Color(0xFF16A34A));
+    testWidgets('returns success for resolved', (tester) async {
+      final c = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'resolved'),
+      );
+      expect(c, AppTheme.light.extension<AppColors>()!.success);
     });
 
-    test('returns slate for cancelled', () {
-      expect(disputeStatusColor('cancelled'), const Color(0xFF64748B));
+    testWidgets('returns onSurfaceVariant for cancelled', (tester) async {
+      final c = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'cancelled'),
+      );
+      expect(c, AppTheme.light.colorScheme.onSurfaceVariant);
     });
 
-    test('falls back to orange for unknown', () {
-      expect(disputeStatusColor('mystery'), const Color(0xFFEA580C));
+    testWidgets('falls back to warning for unknown', (tester) async {
+      final c = await _resolveColor(
+        tester,
+        (ctx) => disputeStatusColor(ctx, 'mystery'),
+      );
+      expect(c, AppTheme.light.extension<AppColors>()!.warning);
     });
   });
 

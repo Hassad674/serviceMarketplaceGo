@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/wallet_entity.dart';
 import 'wallet_atoms.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Missions block: 3 balance cards (Escrow / Available / Transferred)
 /// + history list. The history rows are rendered by [WalletMissionTile].
 class WalletMissionsSection extends StatelessWidget {
@@ -35,7 +35,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.lock_outline,
                 label: 'Escrow',
                 amount: wallet.escrowAmount,
-                color: AppPalette.amber500,
+                color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
               ),
             ),
             const SizedBox(width: 8),
@@ -44,7 +44,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Available',
                 amount: wallet.availableAmount,
-                color: AppPalette.green500,
+                color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
               ),
             ),
             const SizedBox(width: 8),
@@ -53,7 +53,7 @@ class WalletMissionsSection extends StatelessWidget {
                 icon: Icons.send_outlined,
                 label: 'Transferred',
                 amount: wallet.transferredAmount,
-                color: AppPalette.blue600,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -101,9 +101,9 @@ class WalletMissionTile extends StatelessWidget {
     final isInEscrow = !isFailed && !isCompleted;
 
     final Color accentColor = isFailed
-        ? AppPalette.red500
+        ? Theme.of(context).colorScheme.error
         : isInEscrow
-            ? AppPalette.amber500
+            ? (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary)
             : Colors.transparent;
 
     final title = record.proposalTitle.isNotEmpty
@@ -138,7 +138,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'In escrow — mission in progress',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppPalette.amber700,
+                      color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
                       fontWeight: FontWeight.w500,
                     ),
                   )
@@ -146,7 +146,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'Transfer failed',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppPalette.red600,
+                      color: Theme.of(context).colorScheme.error,
                       fontWeight: FontWeight.w600,
                     ),
                   )
@@ -154,7 +154,7 @@ class WalletMissionTile extends StatelessWidget {
                   Text(
                     'Transferred',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppPalette.green700,
+                      color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
                     ),
                   ),
               ],
@@ -179,10 +179,10 @@ class WalletMissionTile extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.refresh,
                       size: 20,
-                      color: AppPalette.red600,
+                      color: Theme.of(context).colorScheme.error,
                     ),
               visualDensity: VisualDensity.compact,
             ),

@@ -6,7 +6,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/project_history_card.dart';
 import '../../domain/entities/client_profile.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Unified "Project history" section for the client profile.
 ///
@@ -109,14 +108,17 @@ class _Header extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            gradient: const LinearGradient(
-              colors: [AppPalette.rose100, AppPalette.red50],
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.primaryContainer,
+                Theme.of(context).colorScheme.errorContainer,
+              ],
             ),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.history,
             size: 18,
-            color: AppPalette.rose600,
+            color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
           ),
         ),
         const SizedBox(width: 12),

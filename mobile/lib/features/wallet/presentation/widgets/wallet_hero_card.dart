@@ -5,7 +5,6 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/wallet_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Hero card: title row, total earnings, Stripe status line, payout
 /// CTA, and quick links to billing profile + payment info screens.
@@ -84,12 +83,12 @@ class WalletHeroCard extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppPalette.rose500.withValues(alpha: 0.1),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.account_balance_wallet_outlined,
-            color: AppPalette.rose500,
+            color: Theme.of(context).colorScheme.primary,
             size: 20,
           ),
         ),
@@ -179,10 +178,10 @@ class WalletHeroCard extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppPalette.rose500,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           disabledBackgroundColor:
-              AppPalette.rose500.withValues(alpha: 0.4),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
           disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
@@ -295,15 +294,15 @@ class WalletStripeStatusLine extends StatelessWidget {
     final String label;
     if (hasAccount && payoutsEnabled) {
       icon = Icons.check_circle;
-      color = AppPalette.green500;
+      color = (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary);
       label = 'Stripe account ready — payouts enabled';
     } else if (hasAccount) {
       icon = Icons.warning_amber_rounded;
-      color = AppPalette.amber500;
+      color = (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary);
       label = 'Stripe account verifying';
     } else {
       icon = Icons.cancel;
-      color = AppPalette.red500;
+      color = Theme.of(context).colorScheme.error;
       label = 'Stripe account not configured';
     }
 

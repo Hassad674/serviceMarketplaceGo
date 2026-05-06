@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../proposal/types/proposal.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Renders a proposal message as a rich Material card inside the chat.
 ///
@@ -384,38 +383,38 @@ class _StatusBadge extends StatelessWidget {
     final (label, bgColor, fgColor) = switch (status) {
       ProposalStatus.pending => (
           l10n.proposalPending,
-          AppPalette.amber100,
-          AppPalette.amber800,
+          (Theme.of(context).extension<AppColors>()?.amberSoft ?? Theme.of(context).colorScheme.secondaryContainer),
+          (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
         ),
       ProposalStatus.accepted => (
           l10n.proposalAccepted,
-          AppPalette.green100,
-          AppPalette.green800,
+          (Theme.of(context).extension<AppColors>()?.successSoft ?? Theme.of(context).colorScheme.primaryContainer),
+          (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
         ),
       ProposalStatus.declined => (
           l10n.proposalDeclined,
-          AppPalette.red100,
-          AppPalette.red800,
+          Theme.of(context).colorScheme.errorContainer,
+          Theme.of(context).colorScheme.error,
         ),
       ProposalStatus.withdrawn => (
           l10n.proposalWithdrawn,
-          AppPalette.slate100,
-          AppPalette.slate600,
+          Theme.of(context).colorScheme.surface,
+          Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ProposalStatus.paid || ProposalStatus.active => (
           l10n.projectStatusActive,
-          AppPalette.green100,
-          AppPalette.green800,
+          (Theme.of(context).extension<AppColors>()?.successSoft ?? Theme.of(context).colorScheme.primaryContainer),
+          (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
         ),
       ProposalStatus.completionRequested => (
           l10n.proposalCompletionRequestedMessage,
-          AppPalette.amber100,
-          AppPalette.amber800,
+          (Theme.of(context).extension<AppColors>()?.amberSoft ?? Theme.of(context).colorScheme.secondaryContainer),
+          (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
         ),
       ProposalStatus.completed => (
           l10n.projectStatusCompleted,
-          AppPalette.sky100,
-          AppPalette.sky800,
+          Theme.of(context).colorScheme.primaryContainer,
+          Theme.of(context).colorScheme.primary,
         ),
     };
 

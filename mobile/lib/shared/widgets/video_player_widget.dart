@@ -1,7 +1,6 @@
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../../core/theme/app_palette.dart';
 
 /// Reusable in-app video player backed by [video_player] + [chewie].
 ///
@@ -39,6 +38,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     try {
       await _videoController.initialize();
+      if (!mounted) return;
+      final primary = Theme.of(context).colorScheme.primary;
       _chewieController = ChewieController(
         videoPlayerController: _videoController,
         autoPlay: widget.autoPlay,
@@ -52,13 +53,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           ),
         ),
         materialProgressColors: ChewieProgressColors(
-          playedColor: AppPalette.rose500,
-          handleColor: AppPalette.rose500,
+          playedColor: primary,
+          handleColor: primary,
           backgroundColor: Colors.grey.shade300,
           bufferedColor: Colors.grey.shade200,
         ),
       );
-      if (mounted) setState(() {});
+      setState(() {});
     } catch (e) {
       if (mounted) setState(() => _hasError = true);
     }
@@ -134,8 +135,8 @@ class _LoadingPlaceholder extends StatelessWidget {
         color: Colors.black,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(color: AppPalette.rose500),
+      child: Center(
+        child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
       ),
     );
   }

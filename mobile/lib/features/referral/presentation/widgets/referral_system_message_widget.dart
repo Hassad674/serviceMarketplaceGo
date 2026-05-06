@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// ReferralSystemMessageWidget renders a referral lifecycle event as an
 /// interactive card inside a conversation. Role-aware accept / reject /
 /// negotiate buttons appear based on the authoritative referral state
@@ -48,18 +48,22 @@ class ReferralSystemMessageWidget extends ConsumerWidget {
     return null;
   }
 
-  ({IconData icon, Color color, String headline}) _tone() {
+  ({IconData icon, Color color, String headline}) _tone(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColors>();
+    final warning = ext?.warning ?? cs.tertiary;
+    final success = ext?.success ?? cs.primary;
     if (type == 'referral_intro_negotiated') {
       return (
         icon: Icons.swap_horiz_rounded,
-        color: AppPalette.amber500,
+        color: warning,
         headline: 'Contre-proposition de taux',
       );
     }
     if (type == 'referral_intro_activated' || _newStatus == 'active') {
       return (
         icon: Icons.handshake_outlined,
-        color: AppPalette.emerald500,
+        color: success,
         headline: 'Mise en relation activée',
       );
     }
@@ -67,19 +71,19 @@ class ReferralSystemMessageWidget extends ConsumerWidget {
       if (_newStatus == 'expired') {
         return (
           icon: Icons.hourglass_bottom,
-          color: AppPalette.slate500,
+          color: cs.onSurfaceVariant,
           headline: 'Mise en relation expirée',
         );
       }
       return (
         icon: Icons.cancel_outlined,
-        color: AppPalette.slate500,
+        color: cs.onSurfaceVariant,
         headline: 'Mise en relation clôturée',
       );
     }
     return (
       icon: Icons.handshake_outlined,
-      color: AppPalette.rose500,
+      color: cs.primary,
       headline: "Nouvelle proposition d'apport d'affaires",
     );
   }
@@ -92,7 +96,7 @@ class ReferralSystemMessageWidget extends ConsumerWidget {
       return _LegacyChip(content: content);
     }
 
-    final tone = _tone();
+    final tone = _tone(context);
     final liveAsync = ref.watch(referralByIdProvider(referralId));
     final viewerRole = _viewerRole();
     final rate = _ratePct;
@@ -232,25 +236,25 @@ class _LegacyChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppPalette.rose500.withValues(alpha: 0.1),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.handshake_outlined,
                 size: 16,
-                color: AppPalette.rose500,
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
                   content.isEmpty ? 'Mise en relation activée' : content,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: AppPalette.rose500,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -465,7 +469,7 @@ class _ReferralActionsInlineState
           return FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: AppPalette.rose500,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               textStyle: const TextStyle(
@@ -480,8 +484,8 @@ class _ReferralActionsInlineState
           return OutlinedButton(
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppPalette.rose600,
-              side: const BorderSide(color: AppPalette.red200),
+              foregroundColor: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
+              side: BorderSide(color: Theme.of(context).colorScheme.errorContainer),
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               textStyle: const TextStyle(
