@@ -24,6 +24,7 @@ import (
 	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/repository"
 )
 
@@ -120,22 +121,59 @@ func (s *stubMilestoneFull) ListByProposals(ctx context.Context, ids []uuid.UUID
 	return s.stubMilestoneRepoForSummary.ListByProposals(ctx, ids)
 }
 
+// stubAttributionLister wires the V7 NF-12 defence-in-depth filter.
+// The resolver intersects the requested ids with this lister's view
+// of `referral_attributions` for the referral being viewed.
+type stubAttributionLister struct {
+	byReferral map[uuid.UUID][]*referral.Attribution
+	err        error
+}
+
+func (s *stubAttributionLister) ListAttributionsByReferral(_ context.Context, referralID uuid.UUID) ([]*referral.Attribution, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.byReferral[referralID], nil
+}
+
+// allowAttributionsFor produces a stub lister that admits every
+// proposal id in the supplied list under the supplied referralID.
+// Convenience for tests where the attribution allow-list is identical
+// to the request and the goal is to exercise the post-filter logic.
+func allowAttributionsFor(referralID uuid.UUID, proposalIDs ...uuid.UUID) *stubAttributionLister {
+	atts := make([]*referral.Attribution, 0, len(proposalIDs))
+	for _, pid := range proposalIDs {
+		atts = append(atts, &referral.Attribution{
+			ID:          uuid.New(),
+			ReferralID:  referralID,
+			ProposalID:  pid,
+			ProviderID:  uuid.New(),
+			ClientID:    uuid.New(),
+			RatePctSnapshot: 10,
+		})
+	}
+	return &stubAttributionLister{
+		byReferral: map[uuid.UUID][]*referral.Attribution{referralID: atts},
+	}
+}
+
 func TestProposalRepoSummaryResolver_NilProposals_ReturnsEmpty(t *testing.T) {
-	r := referralapp.NewProposalRepoSummaryResolver(nil, nil)
-	out, err := r.ResolveProposalSummaries(context.Background(), []uuid.UUID{uuid.New()})
+	r := referralapp.NewProposalRepoSummaryResolver(nil, nil, &stubAttributionLister{})
+	out, err := r.ResolveProposalSummaries(context.Background(), uuid.New(), []uuid.UUID{uuid.New()})
 	require.NoError(t, err)
 	assert.Empty(t, out)
 }
 
 func TestProposalRepoSummaryResolver_EmptyIDs(t *testing.T) {
-	r := referralapp.NewProposalRepoSummaryResolver(&stubProposalRepoForSummary{}, nil)
-	out, err := r.ResolveProposalSummaries(context.Background(), nil)
+	r := referralapp.NewProposalRepoSummaryResolver(&stubProposalRepoForSummary{}, nil, &stubAttributionLister{})
+	out, err := r.ResolveProposalSummaries(context.Background(), uuid.New(), nil)
 	require.NoError(t, err)
 	assert.Empty(t, out)
 }
 
 func TestProposalRepoSummaryResolver_HappyPath_AggregatesFundedMilestones(t *testing.T) {
 	pid := uuid.New()
+	refID := uuid.New()
 	proposalRepo := &stubProposalRepoForSummary{
 		byID: map[uuid.UUID]*proposal.Proposal{
 			pid: {ID: pid, Title: "T", Status: proposal.StatusActive},
@@ -153,8 +191,8 @@ func TestProposalRepoSummaryResolver_HappyPath_AggregatesFundedMilestones(t *tes
 			},
 		},
 	}
-	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, mileRepo)
-	out, err := r.ResolveProposalSummaries(context.Background(), []uuid.UUID{pid})
+	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, mileRepo, allowAttributionsFor(refID, pid))
+	out, err := r.ResolveProposalSummaries(context.Background(), refID, []uuid.UUID{pid})
 	require.NoError(t, err)
 	require.Contains(t, out, pid)
 	summary := out[pid]
@@ -168,13 +206,14 @@ func TestProposalRepoSummaryResolver_HappyPath_AggregatesFundedMilestones(t *tes
 func TestProposalRepoSummaryResolver_ProposalLookupFailure_SkipsMissing(t *testing.T) {
 	pid := uuid.New()
 	missing := uuid.New()
+	refID := uuid.New()
 	proposalRepo := &stubProposalRepoForSummary{
 		byID: map[uuid.UUID]*proposal.Proposal{
 			pid: {ID: pid, Title: "T"},
 		},
 	}
-	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, nil)
-	out, err := r.ResolveProposalSummaries(context.Background(), []uuid.UUID{pid, missing})
+	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, nil, allowAttributionsFor(refID, pid, missing))
+	out, err := r.ResolveProposalSummaries(context.Background(), refID, []uuid.UUID{pid, missing})
 	require.NoError(t, err)
 	assert.Len(t, out, 1, "missing rows are silently dropped — UI degrades gracefully")
 	assert.Contains(t, out, pid)
@@ -182,16 +221,74 @@ func TestProposalRepoSummaryResolver_ProposalLookupFailure_SkipsMissing(t *testi
 
 func TestProposalRepoSummaryResolver_MilestoneError_DegradesToCountsZero(t *testing.T) {
 	pid := uuid.New()
+	refID := uuid.New()
 	proposalRepo := &stubProposalRepoForSummary{
 		byID: map[uuid.UUID]*proposal.Proposal{pid: {ID: pid, Title: "T"}},
 	}
 	mileRepo := &stubMilestoneFull{
 		stubMilestoneRepoForSummary: &stubMilestoneRepoForSummary{err: errors.New("ms err")},
 	}
-	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, mileRepo)
-	out, err := r.ResolveProposalSummaries(context.Background(), []uuid.UUID{pid})
+	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, mileRepo, allowAttributionsFor(refID, pid))
+	out, err := r.ResolveProposalSummaries(context.Background(), refID, []uuid.UUID{pid})
 	require.NoError(t, err, "milestone failure must NOT bubble — UI shows zero counts")
 	assert.Equal(t, 0, out[pid].MilestonesTotal)
+}
+
+// V7 NF-12: defence-in-depth — even if the caller passes a foreign
+// proposal id (one that is not attributed to this referral), the
+// resolver must drop it on the floor instead of leaking the proposal
+// across tenants via the system-actor read path.
+func TestProposalRepoSummaryResolver_NF12_FiltersForeignProposalIDs(t *testing.T) {
+	mineID := uuid.New()
+	foreignID := uuid.New() // attacker-supplied: NOT attributed to the referral
+	refID := uuid.New()
+	proposalRepo := &stubProposalRepoForSummary{
+		byID: map[uuid.UUID]*proposal.Proposal{
+			mineID:    {ID: mineID, Title: "Mine", Status: proposal.StatusActive},
+			foreignID: {ID: foreignID, Title: "Other tenant's secret", Status: proposal.StatusActive},
+		},
+	}
+	r := referralapp.NewProposalRepoSummaryResolver(
+		proposalRepo, nil,
+		allowAttributionsFor(refID, mineID), // ONLY mineID is attributed
+	)
+	out, err := r.ResolveProposalSummaries(context.Background(), refID, []uuid.UUID{mineID, foreignID})
+	require.NoError(t, err)
+	assert.Len(t, out, 1, "foreign id must be dropped, not surfaced")
+	assert.Contains(t, out, mineID)
+	assert.NotContains(t, out, foreignID,
+		"NF-12: cross-tenant proposal must NEVER leak through the system-actor branch")
+}
+
+// V7 NF-12: with no attribution lister wired, the resolver fails
+// closed (returns empty) — a missing wiring must NOT silently
+// re-open the cross-tenant leak.
+func TestProposalRepoSummaryResolver_NF12_NilAttributionLister_FailsClosed(t *testing.T) {
+	pid := uuid.New()
+	proposalRepo := &stubProposalRepoForSummary{
+		byID: map[uuid.UUID]*proposal.Proposal{pid: {ID: pid, Title: "T"}},
+	}
+	r := referralapp.NewProposalRepoSummaryResolver(proposalRepo, nil, nil)
+	out, err := r.ResolveProposalSummaries(context.Background(), uuid.New(), []uuid.UUID{pid})
+	require.NoError(t, err)
+	assert.Empty(t, out, "fail-closed: no allow-list = no reads")
+}
+
+// V7 NF-12: a database-side failure on the attribution lookup also
+// fails closed — a transient outage must not let a forgery slip
+// through.
+func TestProposalRepoSummaryResolver_NF12_AttributionLookupError_FailsClosed(t *testing.T) {
+	pid := uuid.New()
+	proposalRepo := &stubProposalRepoForSummary{
+		byID: map[uuid.UUID]*proposal.Proposal{pid: {ID: pid, Title: "T"}},
+	}
+	r := referralapp.NewProposalRepoSummaryResolver(
+		proposalRepo, nil,
+		&stubAttributionLister{err: errors.New("db down")},
+	)
+	out, err := r.ResolveProposalSummaries(context.Background(), uuid.New(), []uuid.UUID{pid})
+	require.NoError(t, err)
+	assert.Empty(t, out, "fail-closed on attribution lookup error")
 }
 
 // ─── OrgDirectoryMemberResolver ───────────────────────────────────────

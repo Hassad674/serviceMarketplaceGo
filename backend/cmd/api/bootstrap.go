@@ -318,6 +318,13 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	teamHandler := team.TeamHandler
 	roleOverridesHandler := team.RoleOverridesHandler
 
+	// V7 N7: replace role-overrides handler's naive XFF parser with
+	// the rate-limiter's trust-aware ClientIP. Without this, an
+	// attacker could spoof X-Forwarded-For to plant any IP they want
+	// in the audit log; with this, only IPs forwarded by an explicit
+	// trusted-proxy CIDR are honoured.
+	roleOverridesHandler.WithIPExtractor(httpRateLimiter.ClientIP)
+
 	skills := wireSkillsAndPricing(infra.DB, infra.OrganizationRepo, infra.UserRepo, searchPublisher)
 	expertiseSvc := skills.ExpertiseSvc
 	skillSvc := skills.SkillSvc

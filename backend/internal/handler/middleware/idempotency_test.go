@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -818,5 +819,64 @@ func TestCaptureSafeHeaders_AllowListOnly(t *testing.T) {
 		if _, ok := got[deny]; ok {
 			t.Errorf("unsafe header %q must be dropped: %#v", deny, got)
 		}
+	}
+}
+
+// V7 V6-3: replay must restore Content-Encoding so a gzipped response
+// is announced as gzip on the second call. Without this, the cached
+// (already-encoded) bytes are served raw and the client renders them
+// as garbage.
+func TestCaptureSafeHeaders_PreservesContentEncoding(t *testing.T) {
+	h := http.Header{}
+	h.Set("Content-Encoding", "gzip")
+	got := captureSafeHeaders(h)
+	if got == nil {
+		t.Fatal("expected non-nil header map when Content-Encoding present")
+	}
+	if got["Content-Encoding"] != "gzip" {
+		t.Fatalf("V6-3: Content-Encoding must survive the safe-header filter, got %#v", got)
+	}
+}
+
+// V7 V6-3: end-to-end — when the original handler emits a
+// Content-Encoding header, the cached response replay re-emits it on
+// the second call. Failure mode this guards against: the client
+// receives the encoded bytes raw because the encoding header was
+// dropped, so it cannot decode them and renders garbage.
+func TestIdempotency_Replay_RestoresContentEncoding(t *testing.T) {
+	cache := newFakeCache()
+	calls := atomic.Int32{}
+	body := []byte("\x1f\x8b\x08\x00...gzip-payload...") // pretend gzip frame
+	mw := Idempotency(cache)
+	h := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Encoding", "gzip")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(body)
+	}))
+
+	uid := uuid.New()
+	key := "ce-replay-key"
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("POST", "/api/v1/files", strings.NewReader(`{"x":1}`))
+		req.Header.Set(IdempotencyHeader, key)
+		req = withUserContext(req, uid)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("call %d status: got %d", i, rec.Code)
+		}
+		if got := rec.Header().Get("Content-Encoding"); got != "gzip" {
+			t.Fatalf("call %d MUST surface Content-Encoding: gzip, got %q", i, got)
+		}
+		if got := rec.Body.Bytes(); !bytes.Equal(got, body) {
+			t.Fatalf("call %d body mismatch — encoded payload must round-trip identically", i)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("V6-3: replay path must NOT re-invoke handler, got %d", got)
 	}
 }

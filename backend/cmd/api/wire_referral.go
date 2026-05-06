@@ -69,7 +69,11 @@ func wireReferral(deps referralDeps) referralWiring {
 		SnapshotProfiles:  referralapp.NewThinSnapshotLoader(deps.FreelanceProfile),
 		StripeAccounts:    referralapp.NewOrgStripeAccountResolver(deps.Organizations),
 		OrgMembers:        referralapp.NewOrgDirectoryMemberResolver(deps.Organizations, deps.OrganizationMems),
-		ProposalSummaries: referralapp.NewProposalRepoSummaryResolver(deps.Proposals, deps.Milestones),
+		// V7 NF-12: pass the referral repo as the attribution lister so
+		// the resolver can independently filter requested proposal ids
+		// against the referral_attributions table — defence-in-depth
+		// against cross-tenant proposal lookups via WithSystemActor.
+		ProposalSummaries: referralapp.NewProposalRepoSummaryResolver(deps.Proposals, deps.Milestones, referralRepo),
 	})
 	// Setter-based wiring to avoid import cycles between
 	// proposal/payment/embedded.

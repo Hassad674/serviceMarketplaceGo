@@ -53,7 +53,12 @@ type orgContext = orgapp.Context
 // satisfy the domain's password rules (≥8 chars, upper, lower, digit,
 // special) so the discard call exercises the same bcrypt cost class
 // as a real password.
-const timingParityDummyPassword = "TimingParityDummy_Password_v1!"
+//
+// gosec G101 false-positive: this is NOT a credential — it is a fixed
+// throwaway string the hasher consumes to equalise CPU cost between
+// the two register branches. Suppress G101 explicitly so the audit
+// trail stays clean. Closes V7 V5-8.
+const timingParityDummyPassword = "TimingParityDummy_Password_v1!" // #nosec G101 -- timing-parity dummy, not a real credential
 
 type RegisterInput struct {
 	Email       string

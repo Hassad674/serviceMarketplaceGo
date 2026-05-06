@@ -99,6 +99,13 @@ func NewCachedPublicProfileReader(client *goredis.Client, inner portservice.Publ
 // happy path) or the literal negativeMarker byte (the not-found
 // path). The discriminator is the first byte: '{' for JSON, '_'
 // for the marker — see the constant comment for why.
+//
+// V7 V6-1: same double-check inside singleflight as the freelance
+// profile cache — see freelance_profile_cache.go for the failure
+// mode. The earlier fix (commit d361e90f) only stabilised the test
+// (starting gate + longer delay); this addresses the prod-code
+// root cause so the coalescing contract holds even under burst
+// scheduling without the test's artificial 250ms delay.
 func (c *CachedPublicProfileReader) GetProfile(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error) {
 	key := c.keyPrefix + orgID.String()
 
@@ -110,6 +117,13 @@ func (c *CachedPublicProfileReader) GetProfile(ctx context.Context, orgID uuid.U
 	}
 
 	v, err, _ := c.group.Do(key, func() (any, error) {
+		// Double-check the cache under the singleflight slot.
+		if hit, found, isNotFound := c.tryGet(ctx, key); found {
+			if isNotFound {
+				return nil, profile.ErrProfileNotFound
+			}
+			return hit, nil
+		}
 		return c.fillFromInner(ctx, key, orgID)
 	})
 	if err != nil {

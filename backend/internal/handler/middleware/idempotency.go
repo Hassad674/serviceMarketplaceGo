@@ -347,12 +347,19 @@ func replayCachedResponse(w http.ResponseWriter, cached *IdempotentResponse) {
 // echoes, custom auth headers) is intentionally dropped — replaying
 // them under a possibly-different requester is a privilege-escalation
 // risk we never accept.
+//
+// Content-Encoding is included so a gzipped (or br/deflate-compressed)
+// response replays correctly: the cached Body bytes are the encoded
+// payload, and the client decodes them transparently using this header.
+// Dropping it would serve the encoded bytes raw, which the client
+// would render as garbage. Closes V7 V6-3.
 var safeReplayedHeaders = map[string]struct{}{
 	"Location":              {},
 	"Etag":                  {},
 	"X-Request-Id":          {},
 	"Cache-Control":         {},
 	"Vary":                  {},
+	"Content-Encoding":      {},
 }
 
 // captureSafeHeaders extracts the safe-to-replay subset from h.

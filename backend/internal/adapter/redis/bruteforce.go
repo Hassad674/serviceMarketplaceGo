@@ -48,6 +48,13 @@ const (
 	loginLockedKeyPrefix     = "login_locked:"
 	loginAttemptsIPKeyPrefix = "login_attempts_ip:"
 	loginLockedIPKeyPrefix   = "login_locked_ip:"
+
+	// redisCallTimeout caps every brute-force Redis round-trip so a
+	// slow/hung node cannot pin a request goroutine indefinitely. 200ms
+	// is the auth-path budget — typical prod RTT is < 5ms, jitter spikes
+	// to ~50ms, so 200ms gives 4x headroom while still protecting the
+	// worker pool during a Redis brown-out. Closes V7 V5-4.
+	redisCallTimeout = 200 * time.Millisecond
 )
 
 // recordFailureScript atomically increments the attempts counter,
@@ -176,11 +183,20 @@ func (s *BruteForceService) lockedIPKey(ip string) string {
 // IsLocked returns true when the lockout flag exists for the given
 // email. A Redis failure returns (false, err) so the caller can choose
 // to fail open (we do — see brute force on the auth handler).
+//
+// V7 V5-4: the EXISTS round-trip is wrapped in a 200ms timeout so a
+// slow / hung Redis instance cannot pin the calling goroutine
+// indefinitely. This is the standard "auth-path Redis call" budget —
+// long enough that ordinary network jitter (RTT < 5ms in prod) never
+// trips it, short enough that a single hostile node cannot exhaust
+// the request worker pool during an outage.
 func (s *BruteForceService) IsLocked(ctx context.Context, email string) (bool, error) {
 	email = normaliseEmail(email)
 	if email == "" {
 		return false, nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, redisCallTimeout)
+	defer cancel()
 	count, err := s.client.Exists(ctx, s.lockedKey(email)).Result()
 	if err != nil {
 		return false, fmt.Errorf("brute force is_locked: %w", err)
@@ -254,11 +270,16 @@ func (s *BruteForceService) RetryAfter(ctx context.Context, email string) (time.
 // semantics as IsLocked. The string is the limiter-normalised key
 // (rl.ClientIP) so an IPv6 attacker hopping inside a /64 hits the
 // same bucket.
+//
+// V7 V5-4: same 200ms guard as IsLocked — see the comment there for
+// why this budget was chosen.
 func (s *BruteForceService) IsIPLocked(ctx context.Context, ip string) (bool, error) {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
 		return false, nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, redisCallTimeout)
+	defer cancel()
 	count, err := s.client.Exists(ctx, s.lockedIPKey(ip)).Result()
 	if err != nil {
 		return false, fmt.Errorf("brute force is_ip_locked: %w", err)
