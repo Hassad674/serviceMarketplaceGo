@@ -70,7 +70,7 @@ export function ReportCard({ report, onResolve, onDismiss, isResolving }: Report
               const highlightParam = isMessageReport ? `?highlight=${report.target_id}` : ""
               navigate(`/conversations/${report.conversation_id}${highlightParam}`)
             }}
-            className="flex items-center gap-1 text-rose-600 hover:text-rose-700 hover:underline transition-colors"
+            className="flex items-center gap-1 text-primary hover:text-primary-deep hover:underline transition-colors"
           >
             <ExternalLink className="h-3 w-3" />
             {isMessageReport ? "Voir le message" : "Voir la conversation"}

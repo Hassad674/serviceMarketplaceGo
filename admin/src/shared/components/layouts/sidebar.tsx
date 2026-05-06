@@ -32,7 +32,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-[280px] flex-col border-r border-gray-100/50 bg-white/80 backdrop-blur-xl">
       <div className="flex h-16 items-center border-b border-gray-100/50 px-6">
-        <h1 className="text-lg font-bold bg-gradient-to-r from-rose-500 to-rose-600 bg-clip-text text-transparent">
+        <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-primary-deep bg-clip-text text-transparent">
           Marketplace Admin
         </h1>
       </div>
@@ -47,7 +47,7 @@ export function Sidebar() {
               cn(
                 "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
                 isActive
-                  ? "bg-rose-50 text-rose-600"
+                  ? "bg-primary-soft text-primary-deep"
                   : "text-muted-foreground hover:bg-gray-50 hover:text-foreground",
               )
             }
@@ -55,7 +55,7 @@ export function Sidebar() {
             {({ isActive }) => (
               <>
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-rose-500" />
+                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
                 )}
                 <Icon className="h-4 w-4" />
                 <span className="flex-1">{label}</span>

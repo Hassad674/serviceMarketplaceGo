@@ -11,7 +11,7 @@ const variants = {
 const roleVariants: Record<string, string> = {
   agency: "bg-blue-50 text-blue-700",
   enterprise: "bg-violet-50 text-violet-700",
-  provider: "bg-rose-50 text-rose-700",
+  provider: "bg-pink-soft text-primary-deep",
   admin: "bg-slate-100 text-slate-700",
 }
 

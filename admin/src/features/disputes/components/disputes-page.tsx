@@ -95,7 +95,7 @@ function DisputeCard({ dispute, onClick }: { dispute: AdminDispute; onClick: () 
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-rose-200 transition-all text-left"
+      className="w-full rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left"
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
