@@ -5,16 +5,17 @@ import { ImageContent, DocumentContent, VoiceContent, isImageMimeType } from "./
 import type { AdminMessage } from "../types"
 
 /**
- * Background colors for different senders in the chat.
- * Cycles through these to distinguish participants.
+ * Background tints for different senders in the chat.
+ * Cycles through these to distinguish participants — all sourced from the
+ * Soleil semantic token surface (no raw Tailwind palette).
  */
 const SENDER_COLORS = [
-  "bg-gray-100",
-  "bg-blue-50",
-  "bg-amber-50",
-  "bg-emerald-50",
-  "bg-violet-50",
+  "bg-muted",
+  "bg-primary/5",
+  "bg-[var(--amber-soft)]",
+  "bg-success-soft",
   "bg-pink-soft",
+  "bg-primary-soft",
 ] as const
 
 type MessageBubbleProps = {
@@ -38,7 +39,7 @@ export function MessageBubble({ message, senderColorIndex, highlighted }: Messag
       id={`msg-${message.id}`}
       className={cn(
         "flex items-start gap-3 rounded-2xl p-1 transition-all duration-300",
-        highlighted && "ring-2 ring-red-500 bg-red-50/30 animate-highlight-fade",
+        highlighted && "ring-2 ring-destructive bg-destructive/5 animate-highlight-fade",
       )}
     >
       <Avatar name={message.sender_name} size="sm" className="mt-1 shrink-0" />
@@ -83,8 +84,8 @@ function BubbleHeader({ senderName, senderRole, timestamp, moderationStatus }: {
 
 function ModerationBadge({ status }: { status: "flagged" | "hidden" }) {
   const styles = status === "hidden"
-    ? "bg-red-100 text-red-700 border-red-200"
-    : "bg-amber-100 text-amber-700 border-amber-200"
+    ? "bg-destructive/15 text-destructive border-destructive/30"
+    : "bg-[var(--amber-soft)] text-[var(--warning)] border-[var(--warning)]/30"
   const label = status === "hidden" ? "Masque" : "Signale"
 
   return (

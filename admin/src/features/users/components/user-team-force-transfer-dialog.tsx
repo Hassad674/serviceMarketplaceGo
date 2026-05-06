@@ -62,7 +62,7 @@ export function UserTeamForceTransferDialog({
       </DialogDescription>
       <div className="mt-4 space-y-4">
         {options.length === 0 ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-lg border border-[var(--warning)]/30 bg-[var(--amber-soft)] p-4 text-sm text-[var(--warning)]">
             Aucun membre &eacute;ligible. Invitez d&apos;abord un nouvel op&eacute;rateur dans l&apos;organisation.
           </div>
         ) : (

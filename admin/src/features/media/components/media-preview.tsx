@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { FileText, Film, Music, Play, FileQuestion } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
@@ -222,36 +222,50 @@ type TextFileContentProps = {
   className?: string
 }
 
+async function fetchTextPreview(fileUrl: string): Promise<{ content: string; truncated: boolean }> {
+  // Presigned MinIO URLs are short-lived — TanStack Query (with the
+  // staleTime configured below) keeps the rendered preview around long
+  // enough to navigate away and back without a re-fetch, while still
+  // expiring before the URL itself does.
+  const res = await fetch(fileUrl)
+  const text = await res.text()
+  if (text.length > MAX_TEXT_LENGTH) {
+    return { content: text.slice(0, MAX_TEXT_LENGTH), truncated: true }
+  }
+  return { content: text, truncated: false }
+}
+
 function TextFileContent({ fileUrl, className }: TextFileContentProps) {
-  const [textContent, setTextContent] = useState<string | null>(null)
-  const [isTruncated, setIsTruncated] = useState(false)
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin", "media-preview", "text", fileUrl],
+    queryFn: () => fetchTextPreview(fileUrl),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: false,
+  })
 
-  useEffect(() => {
-    fetch(fileUrl)
-      .then((res) => res.text())
-      .then((text) => {
-        if (text.length > MAX_TEXT_LENGTH) {
-          setTextContent(text.slice(0, MAX_TEXT_LENGTH))
-          setIsTruncated(true)
-        } else {
-          setTextContent(text)
-        }
-      })
-      .catch(() => setTextContent("Impossible de charger le fichier"))
-  }, [fileUrl])
-
-  if (textContent === null) {
+  if (isLoading) {
     return (
       <div className={cn("w-full h-[600px] rounded-lg border border-gray-200 bg-gray-50 animate-pulse", className)} />
+    )
+  }
+
+  if (isError || !data) {
+    return (
+      <div className={cn("w-full", className)}>
+        <pre className="w-full max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-mono whitespace-pre-wrap">
+          Impossible de charger le fichier
+        </pre>
+      </div>
     )
   }
 
   return (
     <div className={cn("w-full", className)}>
       <pre className="w-full max-h-[600px] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-mono whitespace-pre-wrap">
-        {textContent}
+        {data.content}
       </pre>
-      {isTruncated && (
+      {data.truncated && (
         <p className="mt-2 text-xs text-muted-foreground text-center">
           Fichier tronqu{"é"} (trop volumineux)
         </p>

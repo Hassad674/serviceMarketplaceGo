@@ -40,19 +40,23 @@ type StatCardProps = {
 }
 
 function StatCard({ label, value, icon: Icon, color = "primary" }: StatCardProps) {
+  // Color "channels" used by tiles. The legacy palette names (blue / violet /
+  // emerald / pink) are kept as keys to preserve the StatCard API; their
+  // values now resolve to Soleil semantic tokens. Soleil has no cool tones,
+  // so blue/violet/emerald collapse to corail and warm-pink variants.
   const bgMap: Record<string, string> = {
     primary: "bg-primary/10",
-    blue: "bg-blue-50",
-    violet: "bg-violet-50",
+    blue: "bg-primary-soft",
+    violet: "bg-[var(--pink-soft)]",
     pink: "bg-pink-soft",
-    emerald: "bg-emerald-50",
+    emerald: "bg-success-soft",
   }
   const textMap: Record<string, string> = {
     primary: "text-primary",
-    blue: "text-blue-600",
-    violet: "text-violet-600",
+    blue: "text-primary-deep",
+    violet: "text-primary-deep",
     pink: "text-pink",
-    emerald: "text-emerald-600",
+    emerald: "text-success",
   }
 
   return (
@@ -81,7 +85,7 @@ function StatusOverview({ stats }: { stats: DashboardStats }) {
     { label: "Actifs", value: stats.active_users, dotColor: "bg-success" },
     { label: "Suspendus", value: stats.suspended_users, dotColor: "bg-warning" },
     { label: "Bannis", value: stats.banned_users, dotColor: "bg-destructive" },
-    { label: "Jobs ouverts", value: stats.open_jobs, dotColor: "bg-blue-500" },
+    { label: "Jobs ouverts", value: stats.open_jobs, dotColor: "bg-primary" },
   ]
 
   return (
