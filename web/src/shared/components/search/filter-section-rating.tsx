@@ -38,7 +38,7 @@ export function FilterSectionRating({
               className={cn(
                 "rounded-sm p-0.5 transition-colors",
                 selected ? "text-amber-400" : "text-muted-foreground/40",
-                "hover:text-amber-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20",
+                "hover:text-amber-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
               )}
             >
               <Star

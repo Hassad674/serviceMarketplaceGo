@@ -15,17 +15,17 @@ export type AvailabilityStatus =
 
 const STATUS_STYLES: Record<AvailabilityStatus, string> = {
   available_now:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30",
+    "bg-success-soft text-success border-success/30",
   available_soon:
-    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30",
+    "bg-amber-soft text-warning border-warning/30",
   not_available:
-    "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
+    "bg-primary-soft text-primary-deep border-primary/30",
 }
 
 const DOT_STYLES: Record<AvailabilityStatus, string> = {
-  available_now: "bg-emerald-500",
-  available_soon: "bg-amber-500",
-  not_available: "bg-rose-500",
+  available_now: "bg-success",
+  available_soon: "bg-warning",
+  not_available: "bg-destructive",
 }
 
 interface AvailabilityPillProps {

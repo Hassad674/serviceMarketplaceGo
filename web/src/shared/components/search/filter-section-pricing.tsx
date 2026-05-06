@@ -140,7 +140,7 @@ function NumberInputWithSuffix({
           const raw = e.target.value.trim()
           onChange(raw === "" ? null : Math.max(0, Number(raw) || 0))
         }}
-        className="h-10 w-full min-w-0 rounded-lg border border-border bg-background pl-3 pr-8 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+        className="h-10 w-full min-w-0 rounded-lg border border-border bg-background pl-3 pr-8 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
       />
       <span
         aria-hidden="true"

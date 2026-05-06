@@ -17,7 +17,7 @@ const ACTION_STYLES: Record<
   proposed: {
     label: "Proposition initiale",
     icon: <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />,
-    tone: "bg-rose-50 text-rose-700",
+    tone: "bg-primary-soft text-primary-deep",
   },
   countered: {
     label: "Contre-proposition",
@@ -56,7 +56,7 @@ export function NegotiationTimeline({
         {[0, 1].map((i) => (
           <div
             key={i}
-            className="h-12 animate-pulse rounded-lg border border-slate-200 bg-slate-50"
+            className="h-12 animate-pulse rounded-lg border border-border bg-muted"
           />
         ))}
       </div>
@@ -64,7 +64,7 @@ export function NegotiationTimeline({
   }
   if (!data || data.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+      <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-slate-500">
         Aucun événement de négociation pour le moment.
       </p>
     )
@@ -77,7 +77,7 @@ export function NegotiationTimeline({
         return (
           <li
             key={event.id}
-            className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3"
+            className="flex items-start gap-3 rounded-lg border border-border bg-white p-3"
           >
             <span
               className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${style.tone}`}

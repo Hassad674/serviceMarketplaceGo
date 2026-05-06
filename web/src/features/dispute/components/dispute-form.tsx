@@ -96,7 +96,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-xs focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-800"
+            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
           >
             <option value="">{t("reasonPlaceholder")}</option>
             {reasons.map((r) => (
@@ -117,7 +117,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                 name="amountType"
                 checked={amountType === "total"}
                 onChange={() => setAmountType("total")}
-                className="text-rose-500"
+                className="text-primary"
               />
               {userRole === "client"
                 ? t("totalRefund", { amount: formatEur(proposalAmount) })
@@ -129,7 +129,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                 name="amountType"
                 checked={amountType === "partial"}
                 onChange={() => setAmountType("partial")}
-                className="text-rose-500"
+                className="text-primary"
               />
               {t("partialAmount")}
             </label>
@@ -141,7 +141,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                   max={proposalAmount / 100}
                   value={partialAmount / 100 || ""}
                   onChange={(e) => setPartialAmount(Math.round(Number(e.target.value) * 100))}
-                  className="h-9 w-32 rounded-lg border border-slate-200 px-3 text-sm shadow-xs focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-800"
+                  className="h-9 w-32 rounded-lg border border-border px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
                   placeholder="0"
                 />
                 <span className="text-sm text-slate-500">EUR</span>
@@ -163,7 +163,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             maxLength={2000}
             rows={3}
             placeholder={t("messageToPartyPlaceholder")}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-xs focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
           />
           <FileChips files={partyFiles} onRemove={(i) => setPartyFiles((f) => f.filter((_, j) => j !== i))} />
           <Button variant="ghost" size="auto"
@@ -188,7 +188,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             maxLength={5000}
             rows={4}
             placeholder={t("descriptionPlaceholder")}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-xs focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
           />
           <div className="flex items-center justify-between mt-1">
             <div>
@@ -211,7 +211,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           <Button variant="ghost" size="auto"
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors dark:border-slate-600 dark:text-slate-400"
+            className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
           >
             {t("cancelBtn")}
           </Button>
@@ -262,7 +262,7 @@ function FileChips({ files, onRemove }: { files: File[]; onRemove: (index: numbe
       {files.map((f, i) => (
         <div
           key={`${f.name}-${i}`}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
         >
           <FileText className="h-3.5 w-3.5 text-slate-400" />
           <span className="max-w-[150px] truncate text-slate-600 dark:text-slate-400">{f.name}</span>

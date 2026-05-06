@@ -31,12 +31,12 @@ export function AnonymizedProviderCard({
   return (
     <article
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
+        "rounded-2xl border border-border bg-white p-6 shadow-sm",
         className,
       )}
     >
       <header className="mb-4 flex items-center gap-3">
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-rose-50 text-rose-500">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
           <Sparkles className="h-6 w-6" aria-hidden="true" />
         </div>
         <div>
@@ -111,7 +111,7 @@ interface RowProps {
 function Row({ icon, label, children }: RowProps) {
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 text-rose-500">{icon}</div>
+      <div className="mt-0.5 text-primary">{icon}</div>
       <div className="flex-1">
         <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
         <dd className="text-sm text-slate-900">{children}</dd>

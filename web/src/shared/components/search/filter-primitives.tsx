@@ -42,9 +42,9 @@ export function PillButton({
       className={cn(
         "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
         selected
-          ? "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+          ? "border-primary bg-primary-soft text-primary-deep"
           : "border-border bg-background text-muted-foreground hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
       )}
     >
       {label}
@@ -75,7 +75,7 @@ export function NumberInput({
         const raw = e.target.value.trim()
         onChange(raw === "" ? null : Math.max(0, Number(raw) || 0))
       }}
-      className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+      className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
     />
   )
 }
@@ -95,7 +95,7 @@ export function CheckboxRow({
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 rounded border-border text-rose-500 focus:ring-rose-500/20"
+        className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
       />
       <span className="flex-1 truncate">{label}</span>
     </label>

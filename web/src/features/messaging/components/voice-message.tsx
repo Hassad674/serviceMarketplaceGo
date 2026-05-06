@@ -91,18 +91,18 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200",
           isOwn
             ? "bg-white/20 hover:bg-white/30 active:scale-[0.95]"
-            : "bg-rose-100 hover:bg-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 active:scale-[0.95]",
+            : "bg-primary-soft hover:bg-primary/30 active:scale-[0.95]",
         )}
         aria-label={isPlaying ? "Pause" : "Play"}
       >
         {isPlaying ? (
           <Pause
-            className={cn("h-4 w-4", isOwn ? "text-white" : "text-rose-600 dark:text-rose-400")}
+            className={cn("h-4 w-4", isOwn ? "text-white" : "text-primary-deep")}
             strokeWidth={2}
           />
         ) : (
           <Play
-            className={cn("h-4 w-4", isOwn ? "text-white" : "text-rose-600 dark:text-rose-400")}
+            className={cn("h-4 w-4", isOwn ? "text-white" : "text-primary-deep")}
             strokeWidth={2}
           />
         )}
@@ -124,7 +124,7 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
           <div
             className={cn(
               "h-full rounded-full transition-[width] duration-100",
-              isOwn ? "bg-white" : "bg-rose-500 dark:bg-rose-400",
+              isOwn ? "bg-white" : "bg-primary",
             )}
             style={{ width: `${progress}%` }}
           />
@@ -133,14 +133,14 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
           <Mic
             className={cn(
               "h-3 w-3",
-              isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+              isOwn ? "text-primary-soft" : "text-gray-400 dark:text-gray-500",
             )}
             strokeWidth={1.5}
           />
           <span
             className={cn(
               "font-mono text-[10px]",
-              isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+              isOwn ? "text-primary-soft" : "text-gray-400 dark:text-gray-500",
             )}
           >
             {displayDuration}

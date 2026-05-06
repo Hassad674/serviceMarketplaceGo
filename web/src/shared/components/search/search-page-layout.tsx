@@ -235,7 +235,7 @@ function TopBar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t("searchPlaceholder")}
-          className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-4 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+          className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-4 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
         />
       </label>
       <div className="flex items-center gap-2">
@@ -244,7 +244,7 @@ function TopBar({
           <Select
             value={sort}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
-            className="h-11 rounded-xl border border-border bg-card px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            className="h-11 rounded-xl border border-border bg-card px-3 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
           >
             <option value="relevance">{tSort("relevance")}</option>
             <option value="rating">{tSort("rating")}</option>
@@ -257,7 +257,7 @@ function TopBar({
           type="button"
           onClick={onOpenDrawer}
           aria-label={t("showFilters")}
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground shadow-xs hover:border-rose-200 lg:hidden"
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground shadow-xs hover:border-primary/30 lg:hidden"
         >
           <Filter className="h-4 w-4" aria-hidden />
           <span>{t("showFilters")}</span>
@@ -376,7 +376,7 @@ function InfiniteScrollFooter({
           type="button"
           onClick={onLoadMore}
           disabled={isLoadingMore}
-          className="rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-primary-deep hover:shadow-card active:scale-[0.98] disabled:opacity-50"
         >
           {isLoadingMore ? loadingLabel : loadMoreLabel}
         </Button>

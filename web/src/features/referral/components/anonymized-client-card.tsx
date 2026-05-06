@@ -35,7 +35,7 @@ export function AnonymizedClientCard({
   return (
     <article
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
+        "rounded-2xl border border-border bg-white p-6 shadow-sm",
         className,
       )}
     >
@@ -91,7 +91,7 @@ export function AnonymizedClientCard({
             </Row>
           )}
           {snapshot.need_summary && (
-            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            <div className="rounded-lg bg-muted p-3 text-sm text-slate-700">
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                 Besoin
               </p>

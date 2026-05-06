@@ -86,7 +86,7 @@ function SectionHeader({ count }: { count?: number }) {
   return (
     <header className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-deep">
           <Briefcase className="h-4 w-4" aria-hidden="true" />
         </div>
         <div className="min-w-0">
@@ -188,7 +188,7 @@ function AttributionRow({
               aria-label={`Progression ${progress}%`}
             >
               <span
-                className="absolute inset-y-0 left-0 rounded-full bg-rose-500 transition-all dark:bg-rose-400"
+                className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
                 style={{ width: `${progress}%` }}
               />
             </span>
@@ -247,7 +247,7 @@ function CommissionColumn({
   const hasClawback = clawedBack > 0
 
   const primaryCls = hasPaid
-    ? "text-rose-600 dark:text-rose-400"
+    ? "text-primary-deep"
     : "text-slate-400 dark:text-slate-500"
 
   let caption: string | null = null
