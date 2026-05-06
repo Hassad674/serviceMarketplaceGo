@@ -72,6 +72,13 @@ func NewCachedExpertiseReader(client *goredis.Client, inner portservice.Expertis
 // marshal cost per miss but unambiguous reconstruction on hit
 // (vs a comma-joined string that would mishandle commas in keys
 // the day someone introduces them).
+//
+// V7 V6-1: same double-check inside singleflight as the freelance
+// profile cache — see freelance_profile_cache.go for the failure
+// mode and rationale. Without this, two goroutines that both miss
+// the cache can each invoke inner once if the second arrives
+// after the first's group.Do has already returned and forgotten
+// the key.
 func (c *CachedExpertiseReader) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]string, error) {
 	key := expertiseKeyPrefix + orgID.String()
 
@@ -83,6 +90,10 @@ func (c *CachedExpertiseReader) ListByOrganization(ctx context.Context, orgID uu
 	// 2. Cache miss — coalesce concurrent callers via singleflight
 	//    so we hit the DB once even under a thundering herd.
 	v, err, _ := c.group.Do(key, func() (any, error) {
+		// Double-check the cache under the singleflight slot.
+		if hit, ok := c.tryGet(ctx, key); ok {
+			return hit, nil
+		}
 		return c.fillFromInner(ctx, key, orgID)
 	})
 	if err != nil {

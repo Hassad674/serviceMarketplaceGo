@@ -98,7 +98,12 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 	}
 	summaries := map[uuid.UUID]*ProposalSummary{}
 	if s.proposalSummaries != nil {
-		summaries, _ = s.proposalSummaries.ResolveProposalSummaries(ctx, ids)
+		// V7 NF-12: the resolver re-validates that every id is in this
+		// referral's attribution set, even though we just built the list
+		// from that same set — the explicit referralID parameter is the
+		// defence-in-depth guard against a future caller mis-deriving
+		// the id batch.
+		summaries, _ = s.proposalSummaries.ResolveProposalSummaries(ctx, referralID, ids)
 	}
 
 	// Aggregate commission stats per attribution.

@@ -88,6 +88,13 @@ func NewCachedSkillCatalogReader(client *goredis.Client, inner SkillCatalogReade
 // GetCuratedForExpertise satisfies SkillCatalogReader. The cache
 // key includes the limit so two callers asking for different limit
 // values receive distinct entries.
+//
+// V7 V6-1 (same bug class as the freelance profile cache):
+// double-check inside the singleflight callback collapses the
+// race where two goroutines both observe a miss and the second
+// enters singleflight.Do AFTER the first completed (group has
+// already forgotten the key). Without this, inner is invoked
+// twice on a thundering-herd cold start.
 func (c *CachedSkillCatalogReader) GetCuratedForExpertise(ctx context.Context, expertiseKey string, limit int) ([]*domainskill.CatalogEntry, error) {
 	key := skillCatalogListKeyPrefix + expertiseKey + ":" + strconv.Itoa(limit)
 
@@ -96,6 +103,11 @@ func (c *CachedSkillCatalogReader) GetCuratedForExpertise(ctx context.Context, e
 	}
 
 	v, err, _ := c.group.Do(key, func() (any, error) {
+		// Double-check the cache under the singleflight slot — see
+		// the freelance profile cache for the failure mode this guards.
+		if entries, ok := c.tryGetList(ctx, key); ok {
+			return entries, nil
+		}
 		return c.fillListFromInner(ctx, key, expertiseKey, limit)
 	})
 	if err != nil {
@@ -145,6 +157,9 @@ func (c *CachedSkillCatalogReader) fillListFromInner(ctx context.Context, key, e
 // CountCuratedForExpertise satisfies SkillCatalogReader. Counts
 // are stored as plain decimal strings — no JSON envelope, no
 // micro-marshaling cost on the hot path.
+//
+// V7 V6-1: same double-check inside singleflight as the list path —
+// see GetCuratedForExpertise for the failure mode.
 func (c *CachedSkillCatalogReader) CountCuratedForExpertise(ctx context.Context, expertiseKey string) (int, error) {
 	key := skillCatalogCountKeyPrefix + expertiseKey
 
@@ -153,6 +168,9 @@ func (c *CachedSkillCatalogReader) CountCuratedForExpertise(ctx context.Context,
 	}
 
 	v, err, _ := c.group.Do(key, func() (any, error) {
+		if count, ok := c.tryGetCount(ctx, key); ok {
+			return count, nil
+		}
 		return c.fillCountFromInner(ctx, key, expertiseKey)
 	})
 	if err != nil {
