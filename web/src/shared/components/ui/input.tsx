@@ -6,9 +6,9 @@ import { cn } from "@/shared/lib/utils"
 
 /**
  * Input — the project's single source of truth for text-like
- * controls. Mirrors the admin primitive but adopts the polished
- * design tokens documented in CLAUDE.md: h-10, rounded-lg, shadow-xs
- * at rest, focus:border-rose-500 focus:ring-4 ring-rose-500/10.
+ * controls. Mirrors the admin primitive and adopts the Soleil v2
+ * visual language: h-10, rounded-lg, shadow-xs at rest, sable border,
+ * focus:border-primary + focus:ring-primary/15 (corail focus ring).
  *
  * Errors use `border-red-500` + `ring-4 ring-red-500/10`. Callers
  * should pass `aria-invalid` + `aria-describedby` (this component
@@ -24,19 +24,17 @@ import { cn } from "@/shared/lib/utils"
  */
 const inputVariants = cva(
 	cn(
-		"block w-full rounded-lg border bg-white px-3 text-sm shadow-xs",
+		"block w-full rounded-lg border bg-card px-3 text-sm shadow-xs",
 		"transition-all duration-200 ease-out",
-		"placeholder:text-slate-400",
+		"placeholder:text-muted-foreground",
 		"focus:outline-none focus:ring-4",
-		"disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-50",
-		"dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500",
-		"dark:disabled:bg-slate-800",
+		"disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-muted",
 	),
 	{
 		variants: {
 			state: {
 				default:
-					"border-slate-200 focus:border-rose-500 focus:ring-rose-500/10 dark:border-slate-700",
+					"border-border focus:border-primary focus:ring-primary/15",
 				error:
 					"border-red-500 focus:border-red-500 focus:ring-red-500/10",
 			},
@@ -119,7 +117,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 				{label && (
 					<label
 						htmlFor={id}
-						className="text-sm font-medium text-slate-900 dark:text-slate-200"
+						className="text-sm font-medium text-foreground"
 					>
 						{label}
 					</label>
@@ -135,7 +133,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 					</p>
 				)}
 				{!error && hint && (
-					<p id={`${id}-hint`} className="text-xs text-slate-500 dark:text-slate-400">
+					<p id={`${id}-hint`} className="text-xs text-muted-foreground">
 						{hint}
 					</p>
 				)}

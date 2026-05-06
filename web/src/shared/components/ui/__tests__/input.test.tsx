@@ -64,12 +64,12 @@ describe("Input", () => {
 		expect(screen.getByLabelText("x").className).toContain(marker)
 	})
 
-	it("has rose focus ring + border on default state", () => {
+	it("has corail focus ring + sable border on default state", () => {
 		render(<Input aria-label="Email" />)
 		const input = screen.getByLabelText("Email")
-		expect(input.className).toContain("focus:border-rose-500")
-		expect(input.className).toContain("focus:ring-rose-500/10")
-		expect(input.className).toContain("border-slate-200")
+		expect(input.className).toContain("focus:border-primary")
+		expect(input.className).toContain("focus:ring-primary/15")
+		expect(input.className).toContain("border-border")
 	})
 
 	it("disabled state blocks interaction", async () => {
