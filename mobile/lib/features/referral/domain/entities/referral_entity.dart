@@ -1,13 +1,29 @@
-/// Referral domain entity for the apport d'affaires (business referral)
-/// feature. Mirrors the backend `ReferralResponse` shape (snake_case JSON).
+// Referral domain entities for the apport d'affaires (business referral)
+// feature. Mirrors the backend `ReferralResponse` shape (snake_case JSON).
+// Plain Dart classes — build_runner is broken in this repo so Freezed
+// is not used (same convention as DisputeEntity).
+
+/// Coerces a dynamic JSON value into `Map<String, dynamic>?` defensively.
 ///
-/// IMPORTANT: ratePct is intentionally nullable. The backend redacts it
-/// when the viewer is the client and the referral is in a pre-active
-/// state (Modèle A: the client never sees the commission rate). Widgets
-/// must handle the null case gracefully.
-///
-/// Plain Dart class — build_runner is broken in this repo so Freezed
-/// is not used (same convention as DisputeEntity).
+/// Dart map literals nested inside a `Map<String, dynamic>` value-context
+/// are inferred as `Map<dynamic, dynamic>`, so a direct
+/// `as Map<String, dynamic>?` cast crashes with a runtime type error
+/// (e.g. tests using `{'provider': {}}`). This helper detects any Map
+/// shape and re-keys to `<String, dynamic>` so parsing survives both
+/// `jsonDecode` payloads (already typed) and in-memory test fixtures.
+Map<String, dynamic>? _readMap(Object? value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
+  return null;
+}
+
+/// Referral entity. ratePct is intentionally nullable: the backend
+/// redacts it when the viewer is the client and the referral is in a
+/// pre-active state (Modèle A: the client never sees the commission
+/// rate). Widgets must handle the null case gracefully.
 class Referral {
   const Referral({
     required this.id,
@@ -75,7 +91,7 @@ class Referral {
       status: json['status'] as String,
       version: json['version'] as int,
       introSnapshot: IntroSnapshot.fromJson(
-        (json['intro_snapshot'] as Map<String, dynamic>?) ?? const {},
+        _readMap(json['intro_snapshot']) ?? const {},
       ),
       introMessageForMe: json['intro_message_for_me'] as String?,
       activatedAt: json['activated_at'] as String?,
@@ -100,10 +116,10 @@ class IntroSnapshot {
   factory IntroSnapshot.fromJson(Map<String, dynamic> json) {
     return IntroSnapshot(
       provider: ProviderSnapshot.fromJson(
-        (json['provider'] as Map<String, dynamic>?) ?? const {},
+        _readMap(json['provider']) ?? const {},
       ),
       client: ClientSnapshot.fromJson(
-        (json['client'] as Map<String, dynamic>?) ?? const {},
+        _readMap(json['client']) ?? const {},
       ),
     );
   }
