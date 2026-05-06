@@ -88,7 +88,7 @@ describe("FileMessage — download interaction", () => {
     rerender(<FileMessage metadata={createMetadata()} isOwn={true} />)
     const ownClasses = screen.getByRole("button").className
     expect(otherClasses).not.toBe(ownClasses)
-    expect(ownClasses).toMatch(/rose/)
+    expect(ownClasses).toMatch(/primary/)
   })
 
   it("renders the download caption under image previews", () => {

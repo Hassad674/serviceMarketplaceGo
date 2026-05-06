@@ -28,16 +28,16 @@ export function DidYouMeanBanner({ correctedQuery, onApply }: DidYouMeanBannerPr
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-foreground dark:border-rose-500/30 dark:bg-rose-500/10"
+      className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-foreground"
     >
-      <Sparkles className="h-4 w-4 text-rose-600 dark:text-rose-400" aria-hidden />
+      <Sparkles className="h-4 w-4 text-primary-deep" aria-hidden />
       <span className="flex-1">
         {t("didYouMean")}{" "}
         <Button variant="ghost" size="auto"
           type="button"
           onClick={() => onApply(trimmed)}
           aria-label={t("didYouMeanCta")}
-          className="font-semibold text-rose-700 underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:underline dark:text-rose-300"
+          className="font-semibold text-primary-deep underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:underline"
         >
           {trimmed}
         </Button>

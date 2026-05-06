@@ -32,8 +32,8 @@ export function SendMessageButton({ targetOrgId, targetDisplayName }: SendMessag
       onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
-        "bg-rose-500 text-white shadow-sm",
-        "transition-all duration-200 hover:bg-rose-600 hover:shadow-md active:scale-[0.98]",
+        "bg-primary text-white shadow-sm",
+        "transition-all duration-200 hover:bg-primary-deep hover:shadow-md active:scale-[0.98]",
       )}
     >
       <MessageSquare className="h-4 w-4" strokeWidth={1.5} />

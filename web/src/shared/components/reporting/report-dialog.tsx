@@ -90,7 +90,7 @@ export function ReportDialog({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose()
@@ -111,7 +111,7 @@ export function ReportDialog({
           </div>
           <Button variant="ghost" size="auto"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="rounded-lg p-1 text-slate-400 hover:bg-muted"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -128,8 +128,8 @@ export function ReportDialog({
               className={cn(
                 "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                 reason === r
-                  ? "border-rose-500 bg-rose-50 text-rose-700 dark:border-rose-400 dark:bg-rose-500/10 dark:text-rose-300"
-                  : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50",
+                  ? "border-primary bg-primary-soft text-primary-deep"
+                  : "border-border text-foreground hover:bg-muted dark:border-slate-600 dark:text-slate-300",
               )}
             >
               <Input
@@ -144,12 +144,12 @@ export function ReportDialog({
                 className={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2",
                   reason === r
-                    ? "border-rose-500"
-                    : "border-slate-300 dark:border-slate-500",
+                    ? "border-primary"
+                    : "border-border-strong dark:border-slate-500",
                 )}
               >
                 {reason === r && (
-                  <div className="h-2 w-2 rounded-full bg-rose-500" />
+                  <div className="h-2 w-2 rounded-full bg-primary" />
                 )}
               </div>
               {t(`reason_${r}`)}
@@ -168,7 +168,7 @@ export function ReportDialog({
             placeholder={t("descriptionPlaceholder")}
             maxLength={2000}
             rows={3}
-            className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
           />
           <p className="mt-1 text-right text-xs text-slate-400">
             {description.length} / 2000
@@ -187,7 +187,7 @@ export function ReportDialog({
         <Button variant="ghost" size="auto"
           onClick={handleSubmit}
           disabled={!reason || mutation.isPending || alreadyReported}
-          className="w-full rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
         >
           {mutation.isPending ? t("submitting") : t("submitReport")}
         </Button>

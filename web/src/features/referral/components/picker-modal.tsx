@@ -70,7 +70,7 @@ export function PickerModal({
           <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-1 text-slate-400 transition hover:bg-muted hover:text-slate-700"
             aria-label="Fermer"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -117,10 +117,10 @@ export function PickerTrigger({
           }
         }}
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm transition",
-          "focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100",
-          "hover:border-slate-400",
-          open && "border-rose-500 ring-2 ring-rose-100",
+          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-strong bg-white px-4 py-2.5 text-left text-sm transition",
+          "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+          "hover:border-foreground/40",
+          open && "border-primary ring-2 ring-primary/20",
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
@@ -131,7 +131,7 @@ export function PickerTrigger({
               e.stopPropagation()
               onClear()
             }}
-            className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-muted hover:text-slate-700"
             aria-label="Effacer la sélection"
           >
             <X className="h-4 w-4" aria-hidden="true" />

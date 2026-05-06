@@ -56,7 +56,7 @@ export function FilterSectionLocation({
           onChange={(e) => onCityChange(e.target.value)}
           placeholder={t("cityPlaceholder")}
           aria-label={t("cityPlaceholder")}
-          className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+          className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
         />
         <Input
           type="text"
@@ -67,7 +67,7 @@ export function FilterSectionLocation({
           placeholder={t("countryPlaceholder")}
           aria-label={t("countryPlaceholder")}
           maxLength={2}
-          className="h-10 w-20 rounded-lg border border-border bg-background px-3 text-sm uppercase shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+          className="h-10 w-20 rounded-lg border border-border bg-background px-3 text-sm uppercase shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
         />
         <NumberInput
           placeholder={t("radiusPlaceholder")}

@@ -112,7 +112,7 @@ export function PortfolioItemCard({
               e.stopPropagation()
               onEdit?.()
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-rose-600 sm:h-9 sm:w-9"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-primary-deep sm:h-9 sm:w-9"
             aria-label={t("edit")}
           >
             <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />

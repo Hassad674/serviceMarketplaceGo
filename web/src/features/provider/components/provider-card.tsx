@@ -22,7 +22,7 @@ const CARD_MAX_VISIBLE_SKILLS = 4
 const BADGE_STYLES: Record<SearchType, string> = {
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
   enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
-  freelancer: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
+  freelancer: "bg-primary-soft text-primary-deep",
   referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
@@ -94,7 +94,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               className="h-12 w-12 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-pink text-sm font-semibold text-white">
               {getInitials(profile)}
             </div>
           )}
@@ -103,7 +103,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+            <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white group-hover:text-primary-deep transition-colors">
               {profile.name || t("noTitle")}
             </h3>
             <span
@@ -155,7 +155,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
 const AVAILABILITY_DOT_STYLES = {
   available_now: "bg-emerald-500",
   available_soon: "bg-amber-500",
-  not_available: "bg-rose-500",
+  not_available: "bg-destructive",
 } as const
 
 interface ProviderCardSignalsProps {

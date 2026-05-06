@@ -121,7 +121,7 @@ export function SearchFilterSidebar({
         <Button variant="ghost" size="auto"
           type="button"
           onClick={onApply}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-500 px-4 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-primary-deep hover:shadow-card active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
         >
           {t("apply")}
         </Button>
@@ -129,7 +129,7 @@ export function SearchFilterSidebar({
           <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onChange(EMPTY_SEARCH_FILTERS)}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           >
             {t("reset")}
           </Button>

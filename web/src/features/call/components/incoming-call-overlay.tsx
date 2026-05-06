@@ -59,7 +59,7 @@ export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallO
 
         {/* Caller info */}
         <div className="mb-8 flex flex-col items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-xl font-bold text-white shadow-lg">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-pink text-xl font-bold text-white shadow-lg">
             {initials}
           </div>
           <p className="text-xl font-bold text-gray-900 dark:text-white">

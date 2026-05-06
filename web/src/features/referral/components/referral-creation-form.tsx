@@ -122,7 +122,7 @@ export function ReferralCreationForm() {
             step={0.5}
             value={ratePct}
             onChange={(e) => setRatePct(parseFloat(e.target.value))}
-            className="w-full accent-rose-500"
+            className="w-full accent-primary"
           />
           <div className="mt-1 flex justify-between text-xs text-slate-500">
             <span>0 %</span>
@@ -134,7 +134,7 @@ export function ReferralCreationForm() {
           <Select
             value={durationMonths}
             onChange={(e) => setDurationMonths(parseInt(e.target.value, 10))}
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
+            className="w-full rounded-lg border border-border-strong px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {[3, 6, 9, 12, 18, 24].map((n) => (
               <option key={n} value={n}>
@@ -199,7 +199,7 @@ export function ReferralCreationForm() {
             rows={3}
             maxLength={2000}
             placeholder="Ex : Ce client a un projet de refonte branding qui colle parfaitement à ton positionnement."
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
+            className="w-full rounded-lg border border-border-strong px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             required
           />
         </Field>
@@ -210,7 +210,7 @@ export function ReferralCreationForm() {
             rows={3}
             maxLength={2000}
             placeholder="Ex : Voici un prestataire avec qui je travaille depuis trois ans, parfait pour votre besoin."
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
+            className="w-full rounded-lg border border-border-strong px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             required
           />
         </Field>
@@ -219,7 +219,7 @@ export function ReferralCreationForm() {
       {submitError && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="rounded-lg border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-primary-deep"
         >
           {submitError}
         </div>
@@ -228,7 +228,7 @@ export function ReferralCreationForm() {
       <Button variant="ghost" size="auto"
         type="submit"
         disabled={create.isPending}
-        className="inline-flex items-center justify-center gap-2 self-end rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-2 self-end rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
       >
         {create.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -249,7 +249,7 @@ interface SectionProps {
 
 function Section({ title, description, children }: SectionProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <header className="mb-4">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">{description}</p>
@@ -283,12 +283,12 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
   return (
-    <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+    <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm">
       <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+        className="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary"
       />
       <span className="text-slate-700">{label}</span>
     </label>
