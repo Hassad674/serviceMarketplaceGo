@@ -40,7 +40,7 @@ export function AIChatPanel({ disputeId, history, budgetExceeded }: AIChatPanelP
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-violet-500" />
+          <Bot className="h-5 w-5 text-primary" />
           Demander a l&apos;assistant IA
         </CardTitle>
       </CardHeader>

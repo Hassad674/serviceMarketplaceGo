@@ -98,7 +98,7 @@ function StarRating({ rating, label }: { rating: number; label: string }) {
             key={i}
             className={`h-4 w-4 ${
               i < rating
-                ? "fill-amber-400 text-amber-400"
+                ? "fill-[var(--warning)] text-[var(--warning)]"
                 : "fill-none text-gray-300"
             }`}
           />

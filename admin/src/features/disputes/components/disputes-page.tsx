@@ -99,10 +99,10 @@ function DisputeCard({ dispute, onClick }: { dispute: AdminDispute; onClick: () 
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-          dispute.status === "escalated" ? "bg-orange-100" : "bg-amber-100"
+          dispute.status === "escalated" ? "bg-destructive/15" : "bg-[var(--amber-soft)]"
         }`}>
           <Icon className={`h-4.5 w-4.5 ${
-            dispute.status === "escalated" ? "text-orange-600" : "text-amber-600"
+            dispute.status === "escalated" ? "text-destructive" : "text-[var(--warning)]"
           }`} />
         </div>
 
