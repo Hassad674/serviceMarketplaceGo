@@ -19,7 +19,6 @@ import 'routes/dashboard_routes.dart';
 import 'routes/payment_routes.dart';
 import 'routes/profile_routes.dart';
 import 'routes/team_routes.dart';
-import '../theme/app_palette.dart';
 
 // Re-export DashboardScreen so existing imports of `app_router.dart` for
 // the symbol keep compiling without requiring a callsite change.
@@ -370,7 +369,7 @@ class _ShellBottomNav extends ConsumerWidget {
       ),
       child: NavigationBar(
         selectedIndex: selectedIndex,
-        destinations: _buildDestinations(l10n, totalUnread),
+        destinations: _buildDestinations(context, l10n, totalUnread),
         onDestinationSelected: (index) {
           const routes = [
             RoutePaths.dashboard,
@@ -385,9 +384,13 @@ class _ShellBottomNav extends ConsumerWidget {
   }
 
   List<NavigationDestination> _buildDestinations(
+    BuildContext context,
     AppLocalizations l10n,
     int totalUnread,
   ) {
+    // Soleil v2 : badge de messages utilise la couleur primaire corail
+    // (Theme.of(context).colorScheme.primary) au lieu du legacy rose500.
+    final badgeColor = Theme.of(context).colorScheme.primary;
     final messagesIcon = totalUnread > 0
         ? Badge(
             label: Text(
@@ -397,7 +400,7 @@ class _ShellBottomNav extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: AppPalette.rose500,
+            backgroundColor: badgeColor,
             child: const Icon(Icons.chat_outlined),
           )
         : const Icon(Icons.chat_outlined);
@@ -410,7 +413,7 @@ class _ShellBottomNav extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: AppPalette.rose500,
+            backgroundColor: badgeColor,
             child: const Icon(Icons.chat),
           )
         : const Icon(Icons.chat);

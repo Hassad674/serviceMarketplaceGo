@@ -6,17 +6,18 @@ import { cn } from "@/shared/lib/utils"
 
 /**
  * Button — the project's single source of truth for clickable
- * actions in the web app. Mirrors the admin primitive but pulls in
- * the design-system polish documented in CLAUDE.md (rose primary
- * gradient, shadow-glow on hover, active:scale-[0.98] press feedback,
- * tactile sizes 8/9/10).
+ * actions in the web app. Mirrors the admin primitive and ports the
+ * Soleil v2 visual language (corail primary, calm shadows, sable
+ * borders for outline/secondary). Press feedback stays
+ * `active:scale-[0.98]` and tactile sizes 8/9/10.
  *
  * Variants:
- *   - primary    — gradient-primary CTA, glows on hover, presses on tap
- *   - secondary  — muted grey for low-emphasis actions
- *   - outline    — transparent with border, used in card actions
- *   - ghost      — no chrome, used in icon buttons / list rows
- *   - destructive — red for irreversible actions (cancel, delete)
+ *   - primary    — solid corail CTA on shadow-sm, hover deepens to
+ *                  primary/90, active presses (no glow — Soleil is calm)
+ *   - secondary  — primary-soft pill (rose pâle) for low-emphasis actions
+ *   - outline    — sable border on ivoire surface for card actions
+ *   - ghost      — no chrome, primary-soft hover, used in icon buttons
+ *   - destructive — corail foncé for irreversible actions
  *
  * Sizes:
  *   - sm  (h-8)  — table rows, compact toolbars
@@ -32,22 +33,22 @@ const buttonVariants = cva(
 	cn(
 		"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium",
 		"transition-all duration-200 ease-out",
-		"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+		"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 		"disabled:pointer-events-none disabled:opacity-50",
 	),
 	{
 		variants: {
 			variant: {
 				primary:
-					"gradient-primary text-white shadow-sm hover:shadow-glow active:scale-[0.98]",
+					"bg-primary text-white shadow-sm hover:bg-primary/90 active:scale-[0.98]",
 				secondary:
-					"bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
+					"bg-secondary text-secondary-foreground hover:bg-secondary/80",
 				outline:
-					"border border-slate-200 bg-white text-slate-900 hover:bg-slate-50 hover:border-rose-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
+					"border border-border bg-card text-foreground hover:bg-muted hover:border-border-strong",
 				ghost:
-					"text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+					"text-foreground hover:bg-muted",
 				destructive:
-					"bg-red-500 text-white shadow-sm hover:bg-red-600 active:scale-[0.98]",
+					"bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:scale-[0.98]",
 			},
 			size: {
 				sm: "h-8 px-3 text-xs",

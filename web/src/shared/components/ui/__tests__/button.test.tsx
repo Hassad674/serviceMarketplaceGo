@@ -21,21 +21,21 @@ describe("Button", () => {
 		expect(screen.getByRole("button")).toHaveAttribute("type", "reset")
 	})
 
-	it("applies primary variant by default with rose gradient", () => {
+	it("applies primary variant by default with corail solid", () => {
 		render(<Button type="button">Primary</Button>)
 		const btn = screen.getByRole("button")
-		expect(btn.className).toContain("gradient-primary")
+		expect(btn.className).toContain("bg-primary")
 		expect(btn.className).toContain("text-white")
-		// Glow on hover is the design-system signature for primary CTAs.
-		expect(btn.className).toContain("hover:shadow-glow")
+		// Soleil v2: hover deepens to primary/90 (no glow — calm motion).
+		expect(btn.className).toContain("hover:bg-primary/90")
 		expect(btn.className).toContain("active:scale-[0.98]")
 	})
 
 	it.each([
-		["secondary", "bg-slate-100"],
-		["outline", "border-slate-200"],
-		["ghost", "hover:bg-slate-100"],
-		["destructive", "bg-red-500"],
+		["secondary", "bg-secondary"],
+		["outline", "border-border"],
+		["ghost", "hover:bg-muted"],
+		["destructive", "bg-destructive"],
 	] as const)("applies %s variant classes", (variant, marker) => {
 		render(
 			<Button type="button" variant={variant}>
@@ -78,7 +78,7 @@ describe("Button", () => {
 		)
 		const btn = screen.getByRole("button")
 		expect(btn.className).toContain("custom-class")
-		expect(btn.className).toContain("gradient-primary")
+		expect(btn.className).toContain("bg-primary")
 	})
 
 	it("respects disabled state and blocks pointer events", () => {

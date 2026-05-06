@@ -6,11 +6,11 @@ import { cn } from "@/shared/lib/utils"
 
 /**
  * Select — minimal native-select wrapper that mirrors the Input
- * primitive's visual language (rose focus ring, h-10 default height,
- * shadow-xs at rest). Wrapping `<select>` keeps native keyboard
- * behaviour for free: Up/Down to move through options, Enter to
- * commit, Escape to dismiss the dropdown — all without bringing in
- * a Radix dependency.
+ * primitive's Soleil v2 visual language (corail focus ring, h-10
+ * default height, sable border, shadow-xs at rest). Wrapping
+ * `<select>` keeps native keyboard behaviour for free: Up/Down to
+ * move through options, Enter to commit, Escape to dismiss the
+ * dropdown — all without bringing in a Radix dependency.
  *
  * Callers can either pass `<option>` children OR an `options` array
  * (the latter is convenient for data-driven selects from API DTOs).
@@ -21,18 +21,16 @@ import { cn } from "@/shared/lib/utils"
  */
 const selectVariants = cva(
 	cn(
-		"block w-full appearance-none rounded-lg border bg-white pr-10 pl-3 text-sm shadow-xs",
+		"block w-full appearance-none rounded-lg border bg-card pr-10 pl-3 text-sm shadow-xs",
 		"transition-all duration-200 ease-out",
 		"focus:outline-none focus:ring-4",
-		"disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-50",
-		"dark:bg-slate-900 dark:text-slate-100",
-		"dark:disabled:bg-slate-800",
+		"disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-muted",
 	),
 	{
 		variants: {
 			state: {
 				default:
-					"border-slate-200 focus:border-rose-500 focus:ring-rose-500/10 dark:border-slate-700",
+					"border-border focus:border-primary focus:ring-primary/15",
 				error:
 					"border-red-500 focus:border-red-500 focus:ring-red-500/10",
 			},
@@ -130,7 +128,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 				    click target stays the select itself. */}
 				<svg
 					aria-hidden="true"
-					className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+					className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
 					width="16"
 					height="16"
 					viewBox="0 0 16 16"
@@ -158,7 +156,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 				{label && (
 					<label
 						htmlFor={id}
-						className="text-sm font-medium text-slate-900 dark:text-slate-200"
+						className="text-sm font-medium text-foreground"
 					>
 						{label}
 					</label>
@@ -174,7 +172,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 					</p>
 				)}
 				{!error && hint && (
-					<p id={`${id}-hint`} className="text-xs text-slate-500 dark:text-slate-400">
+					<p id={`${id}-hint`} className="text-xs text-muted-foreground">
 						{hint}
 					</p>
 				)}
