@@ -38,7 +38,7 @@ export function ScoreBadge({ score }: { score: number }) {
   }
   if (score >= 60) {
     return (
-      <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold font-mono text-orange-700">
+      <span className="inline-flex items-center rounded-full bg-[var(--amber-soft)] px-2 py-0.5 text-xs font-semibold font-mono text-[var(--warning)]">
         {score.toFixed(1)}%
       </span>
     )

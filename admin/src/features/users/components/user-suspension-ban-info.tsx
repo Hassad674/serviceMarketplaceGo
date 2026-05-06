@@ -13,23 +13,23 @@ type SuspensionInfoCardProps = {
 
 export function SuspensionInfoCard({ reason, suspendedAt, expiresAt }: SuspensionInfoCardProps) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-      <h2 className="mb-3 text-sm font-semibold text-amber-800">Suspension active</h2>
+    <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--amber-soft)] p-6">
+      <h2 className="mb-3 text-sm font-semibold text-[var(--warning)]">Suspension active</h2>
       <dl className="space-y-2 text-sm">
         <div>
-          <dt className="text-amber-600">Raison</dt>
-          <dd className="font-medium text-amber-900">{reason}</dd>
+          <dt className="text-[var(--warning)]/80">Raison</dt>
+          <dd className="font-medium text-foreground">{reason}</dd>
         </div>
         {suspendedAt && (
           <div>
-            <dt className="text-amber-600">Suspendu le</dt>
-            <dd className="text-amber-900">{formatDate(suspendedAt)}</dd>
+            <dt className="text-[var(--warning)]/80">Suspendu le</dt>
+            <dd className="text-foreground">{formatDate(suspendedAt)}</dd>
           </div>
         )}
         {expiresAt && (
           <div>
-            <dt className="text-amber-600">Expire le</dt>
-            <dd className="text-amber-900">{formatDate(expiresAt)}</dd>
+            <dt className="text-[var(--warning)]/80">Expire le</dt>
+            <dd className="text-foreground">{formatDate(expiresAt)}</dd>
           </div>
         )}
       </dl>
@@ -44,17 +44,17 @@ type BanInfoCardProps = {
 
 export function BanInfoCard({ reason, bannedAt }: BanInfoCardProps) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-      <h2 className="mb-3 text-sm font-semibold text-red-800">Bannissement actif</h2>
+    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6">
+      <h2 className="mb-3 text-sm font-semibold text-destructive">Bannissement actif</h2>
       <dl className="space-y-2 text-sm">
         <div>
-          <dt className="text-red-600">Raison</dt>
-          <dd className="font-medium text-red-900">{reason}</dd>
+          <dt className="text-destructive/80">Raison</dt>
+          <dd className="font-medium text-foreground">{reason}</dd>
         </div>
         {bannedAt && (
           <div>
-            <dt className="text-red-600">Banni le</dt>
-            <dd className="text-red-900">{formatDate(bannedAt)}</dd>
+            <dt className="text-destructive/80">Banni le</dt>
+            <dd className="text-foreground">{formatDate(bannedAt)}</dd>
           </div>
         )}
       </dl>

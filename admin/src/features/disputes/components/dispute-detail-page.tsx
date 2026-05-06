@@ -51,7 +51,7 @@ export function DisputeDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-violet-500" />
+                  <Bot className="h-5 w-5 text-primary" />
                   Resume IA
                 </CardTitle>
               </CardHeader>
@@ -110,7 +110,7 @@ export function DisputeDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-blue-500" />
+                <MessageSquare className="h-5 w-5 text-primary" />
                 Propositions ({dispute.counter_proposals.length})
               </CardTitle>
             </CardHeader>
@@ -321,14 +321,14 @@ function CancellationPendingBanner({ dispute }: { dispute: AdminDispute }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-xl border border-orange-300 bg-orange-50 p-4 dark:border-orange-500/30 dark:bg-orange-500/10"
+      className="flex items-start gap-3 rounded-xl border border-[var(--warning)]/30 bg-[var(--amber-soft)] p-4"
     >
-      <Ban className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" aria-hidden />
+      <Ban className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" aria-hidden />
       <div className="flex-1">
-        <p className="text-sm font-semibold text-orange-900 dark:text-orange-200">
+        <p className="text-sm font-semibold text-[var(--warning)]">
           Demande d&apos;annulation en attente
         </p>
-        <p className="mt-1 text-xs text-orange-800/90 dark:text-orange-200/80">
+        <p className="mt-1 text-xs text-foreground/80">
           Le {requesterRole} demande l&apos;annulation du litige et attend la
           reponse de l&apos;autre partie. Le dossier peut se cloturer
           spontanement avant votre decision — il est recommande d&apos;attendre
@@ -345,7 +345,7 @@ function ForceEscalateButton({ disputeId }: { disputeId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-orange-700">
+        <CardTitle className="flex items-center gap-2 text-[var(--warning)]">
           <Scale className="h-5 w-5" />
           Outil de developpement
         </CardTitle>

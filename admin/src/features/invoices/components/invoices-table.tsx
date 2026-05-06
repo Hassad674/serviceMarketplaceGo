@@ -115,7 +115,7 @@ function Th({ children }: { children: React.ReactNode }) {
 function TypeBadge({ row }: { row: AdminInvoiceRow }) {
   if (row.is_credit_note) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--amber-soft)] px-2 py-1 text-xs font-medium text-[var(--warning)]">
         <FileMinus className="h-3.5 w-3.5" />
         Avoir
       </span>
@@ -123,7 +123,7 @@ function TypeBadge({ row }: { row: AdminInvoiceRow }) {
   }
   const label = TYPE_LABELS[row.source_type ?? ""] ?? "Facture"
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-primary-soft px-2 py-1 text-xs font-medium text-primary-deep">
       <FileText className="h-3.5 w-3.5" />
       {label}
     </span>
