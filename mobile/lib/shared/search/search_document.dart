@@ -105,7 +105,7 @@ class SearchDocument {
     }
 
     SearchDocumentPricing? pricing;
-    final pricingType = _pricingTypeFromWire(json['pricing_type'] as String?);
+    final pricingType = _pricingTypeFromWire(_readStringOrNull(json['pricing_type']));
     if (pricingType != null) {
       pricing = SearchDocumentPricing(
         type: pricingType,
@@ -113,7 +113,7 @@ class SearchDocument {
         maxAmount: json['pricing_max_amount'] is num
             ? (json['pricing_max_amount'] as num).toInt()
             : null,
-        currency: (json['pricing_currency'] ?? 'EUR') as String,
+        currency: _readString(json['pricing_currency'], 'EUR'),
         negotiable: json['pricing_negotiable'] == true,
       );
     }
@@ -126,16 +126,16 @@ class SearchDocument {
         : '';
 
     return SearchDocument(
-      id: (json['id'] ?? '') as String,
+      id: _readString(json['id']),
       persona: persona,
-      displayName: (json['display_name'] ?? '') as String,
-      title: (json['title'] ?? '') as String,
-      photoUrl: (json['photo_url'] ?? '') as String,
-      city: (json['city'] ?? '') as String,
-      countryCode: (json['country_code'] ?? '') as String,
+      displayName: _readString(json['display_name']),
+      title: _readString(json['title']),
+      photoUrl: _readString(json['photo_url']),
+      city: _readString(json['city']),
+      countryCode: _readString(json['country_code']),
       languagesProfessional: _stringList(json['languages_professional']),
       availabilityStatus:
-          _availabilityFromWire(json['availability_status'] as String?),
+          _availabilityFromWire(_readStringOrNull(json['availability_status'])),
       expertiseDomains: _stringList(json['expertise_domains']),
       skills: skills,
       pricing: pricing,
@@ -183,16 +183,16 @@ class SearchDocument {
     }
 
     return SearchDocument(
-      id: (json['organization_id'] ?? json['id'] ?? '') as String,
+      id: _readString(json['organization_id'] ?? json['id']),
       persona: persona,
-      displayName: (json['name'] ?? json['display_name'] ?? '') as String,
-      title: (json['title'] ?? '') as String,
-      photoUrl: (json['photo_url'] ?? '') as String,
-      city: (json['city'] ?? '') as String,
-      countryCode: (json['country_code'] ?? '') as String,
+      displayName: _readString(json['name'] ?? json['display_name']),
+      title: _readString(json['title']),
+      photoUrl: _readString(json['photo_url']),
+      city: _readString(json['city']),
+      countryCode: _readString(json['country_code']),
       languagesProfessional: languages,
       availabilityStatus: _availabilityFromWire(
-        json['availability_status'] as String?,
+        _readStringOrNull(json['availability_status']),
       ),
       expertiseDomains: _stringList(json['expertise_domains']),
       skills: skills,
@@ -203,7 +203,7 @@ class SearchDocument {
       ),
       totalEarned: _readInt(json['total_earned']),
       completedProjects: _readInt(json['completed_projects']),
-      createdAt: (json['created_at'] ?? '') as String,
+      createdAt: _readString(json['created_at']),
     );
   }
 }
@@ -243,6 +243,23 @@ int _readInt(Object? raw) {
   return 0;
 }
 
+// _readString coerces any JSON scalar (or null) into a String. The
+// backend serialises some fields as numbers (numeric ids, country
+// codes, etc.) which the previous `as String` casts blew up at
+// runtime. `.toString()` handles int / double / bool / String / null
+// uniformly without throwing.
+String _readString(Object? raw, [String fallback = '']) {
+  if (raw == null) return fallback;
+  if (raw is String) return raw.isEmpty ? fallback : raw;
+  return raw.toString();
+}
+
+String? _readStringOrNull(Object? raw) {
+  if (raw == null) return null;
+  if (raw is String) return raw.isEmpty ? null : raw;
+  return raw.toString();
+}
+
 SearchDocumentPricing? _pickPricing(
   Object? rows,
   SearchDocumentPersona persona,
@@ -263,7 +280,7 @@ SearchDocumentPricing? _pickPricing(
   }
   if (chosen == null) return null;
 
-  final type = _pricingTypeFromWire(chosen['type'] as String?);
+  final type = _pricingTypeFromWire(_readStringOrNull(chosen['type']));
   if (type == null) return null;
 
   return SearchDocumentPricing(
@@ -272,7 +289,7 @@ SearchDocumentPricing? _pickPricing(
     maxAmount: chosen['max_amount'] is num
         ? (chosen['max_amount'] as num).toInt()
         : null,
-    currency: (chosen['currency'] ?? 'EUR') as String,
+    currency: _readString(chosen['currency'], 'EUR'),
     negotiable: chosen['negotiable'] == true,
   );
 }
