@@ -40,11 +40,22 @@ extension StringExtension on String {
   }
 
   /// Returns initials from a name: "John Doe" -> "JD".
+  ///
+  /// Returns an empty string for empty / whitespace-only input — this is
+  /// the safe fallback used by avatar widgets that otherwise show a
+  /// portrait or icon instead of a letter.
   String get initials {
-    final parts = trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '';
+    final trimmed = trim();
+    if (trimmed.isEmpty) return '';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    // After trim+split on whitespace, every part is guaranteed to have
+    // at least one character — but we double-check to stay defensive
+    // against unexpected unicode / split edge cases.
+    if (parts.isEmpty || parts[0].isEmpty) return '';
     if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
+    final last = parts.last;
+    if (last.isEmpty) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${last[0]}'.toUpperCase();
   }
 }
 
