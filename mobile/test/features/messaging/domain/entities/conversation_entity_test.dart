@@ -4,18 +4,23 @@ import 'package:marketplace_mobile/features/messaging/domain/entities/conversati
 void main() {
   group('ConversationEntity', () {
     test('creates with all required fields', () {
+      // Team R7 (April 2026) renamed otherUserName -> otherOrgName,
+      // otherUserRole -> otherOrgType, and added otherOrgId. The other
+      // user id is still surfaced for proposal + call subsystems that
+      // anchor on user ids.
       const conversation = ConversationEntity(
         id: 'conv-1',
         otherUserId: 'user-2',
-        otherUserName: 'Alice Martin',
-        otherUserRole: 'provider',
+        otherOrgId: 'org-2',
+        otherOrgName: 'Alice Martin',
+        otherOrgType: 'provider',
         otherPhotoUrl: '',
       );
 
       expect(conversation.id, 'conv-1');
       expect(conversation.otherUserId, 'user-2');
-      expect(conversation.otherUserName, 'Alice Martin');
-      expect(conversation.otherUserRole, 'provider');
+      expect(conversation.otherOrgName, 'Alice Martin');
+      expect(conversation.otherOrgType, 'provider');
       expect(conversation.otherPhotoUrl, '');
     });
 
@@ -23,8 +28,9 @@ void main() {
       const conversation = ConversationEntity(
         id: 'conv-2',
         otherUserId: 'user-3',
-        otherUserName: 'Bob Agency',
-        otherUserRole: 'agency',
+        otherOrgId: 'org-3',
+        otherOrgName: 'Bob Agency',
+        otherOrgType: 'agency',
         otherPhotoUrl: '',
       );
 
@@ -39,8 +45,9 @@ void main() {
       final json = {
         'id': 'conv-10',
         'other_user_id': 'user-20',
-        'other_user_name': 'Test User',
-        'other_user_role': 'provider',
+        'other_org_id': 'org-20',
+        'other_org_name': 'Test User',
+        'other_org_type': 'provider',
         'other_photo_url': 'https://example.com/photo.jpg',
         'last_message': 'Hello',
         'last_message_at': '2026-03-26T10:00:00Z',
@@ -52,7 +59,7 @@ void main() {
       final conversation = ConversationEntity.fromJson(json);
       expect(conversation.id, 'conv-10');
       expect(conversation.otherUserId, 'user-20');
-      expect(conversation.otherUserName, 'Test User');
+      expect(conversation.otherOrgName, 'Test User');
       expect(conversation.otherPhotoUrl, 'https://example.com/photo.jpg');
       expect(conversation.lastMessage, 'Hello');
       expect(conversation.unreadCount, 5);
@@ -64,12 +71,13 @@ void main() {
       final json = {
         'id': 'conv-11',
         'other_user_id': 'user-21',
+        'other_org_id': 'org-21',
       };
 
       final conversation = ConversationEntity.fromJson(json);
       expect(conversation.id, 'conv-11');
-      expect(conversation.otherUserName, '');
-      expect(conversation.otherUserRole, '');
+      expect(conversation.otherOrgName, '');
+      expect(conversation.otherOrgType, '');
       expect(conversation.otherPhotoUrl, '');
       expect(conversation.lastMessage, isNull);
       expect(conversation.unreadCount, 0);
@@ -80,8 +88,9 @@ void main() {
       const original = ConversationEntity(
         id: 'conv-1',
         otherUserId: 'user-2',
-        otherUserName: 'Alice',
-        otherUserRole: 'provider',
+        otherOrgId: 'org-2',
+        otherOrgName: 'Alice',
+        otherOrgType: 'provider',
         otherPhotoUrl: '',
         unreadCount: 3,
         online: false,
@@ -94,7 +103,7 @@ void main() {
       );
 
       expect(updated.id, 'conv-1');
-      expect(updated.otherUserName, 'Alice');
+      expect(updated.otherOrgName, 'Alice');
       expect(updated.unreadCount, 0);
       expect(updated.online, true);
       expect(updated.lastMessage, 'New message');
@@ -104,8 +113,9 @@ void main() {
       const original = ConversationEntity(
         id: 'conv-1',
         otherUserId: 'user-2',
-        otherUserName: 'Alice',
-        otherUserRole: 'provider',
+        otherOrgId: 'org-2',
+        otherOrgName: 'Alice',
+        otherOrgType: 'provider',
         otherPhotoUrl: 'https://example.com/photo.jpg',
         lastMessage: 'Hello',
         lastMessageAt: '2026-03-26T10:00:00Z',
@@ -118,8 +128,8 @@ void main() {
 
       expect(copy.id, original.id);
       expect(copy.otherUserId, original.otherUserId);
-      expect(copy.otherUserName, original.otherUserName);
-      expect(copy.otherUserRole, original.otherUserRole);
+      expect(copy.otherOrgName, original.otherOrgName);
+      expect(copy.otherOrgType, original.otherOrgType);
       expect(copy.otherPhotoUrl, original.otherPhotoUrl);
       expect(copy.lastMessage, original.lastMessage);
       expect(copy.lastMessageAt, original.lastMessageAt);

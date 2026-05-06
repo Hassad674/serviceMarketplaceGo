@@ -8,7 +8,7 @@
 - 🟡 `in-progress` — batch dispatched, agent working
 - 🔵 `in-review` — PR open, awaiting orchestrator audit
 - 🟢 `merged` — PR merged, screen marked done
-- ⚫ `skipped` — explicitly skipped (feature absent from repo, etc.)
+- ⚫ `skipped` — explicitly skipped (covered by another screen, feature absent, etc.)
 - 🔴 `blocked` — blocker found, see batch file
 
 ---
@@ -17,22 +17,23 @@
 
 | Item | Status | Notes / PR |
 |------|--------|------------|
-| Foundation scaffold (CLAUDE.md, design/, scripts) | 🟢 | PR #107 (merged) |
-| `inventory.md` + `tracking.md` (this file) | 🟡 | Current branch `chore/design-inventory-and-tracking` |
-| Phase 0 batch — tokens (web `globals.css` + admin `index.css` + mobile `soleil_theme.dart` + `Portrait` primitive web/mobile) | ⚪ | TBD |
+| Foundation scaffold (CLAUDE.md, design/, scripts) | 🟢 | PR #107 |
+| `inventory.md` + `tracking.md` | 🟢 | PR #108 |
+| Pre-work answers + 1-screen-1-commit + Android-only rules | 🟢 | PR #109 |
+| Phase 0 batch — Soleil v2 tokens (web `globals.css` + admin `index.css` + mobile `app_theme.dart` + `Portrait` primitive web/mobile) | 🟢 | PR #110 |
 
 ---
 
 ## Phase 1 · Calibration (3 reference screens + 1 mobile)
 
-> Goal: ship 3 representative web screens (orchestrator + Hassad) + 1 mobile screen to lock the visual identity, the brief format, and validate that an agent can carry the load before going parallel.
+> Goal: ship 3 representative web screens + 1 mobile screen to lock the visual identity, the brief format, and validate that an agent can carry the load before going parallel.
 
 | ID | Screen | Mode | Status | PR |
 |----|--------|------|--------|-----|
-| W-01 | Connexion | Orchestrator-implemented, manual | 🔵 in-review | #111 |
-| W-11 | Dashboard freelance | Orchestrator-implemented, manual + Sidebar/Header extraction | 🔵 in-review | #112 |
-| W-16 | Profil prestataire | **Agent-dispatched** (calibration: tests if the brief format holds against a fresh agent) | 🟡 in-progress | (pending) |
-| M-01 | Connexion mobile | TBD (after W-16 audit) | ⚪ | — |
+| W-01 | Connexion | Orchestrator-implemented, manual | 🟢 | #111 |
+| W-11 | Dashboard freelance | Orchestrator-implemented, manual + Sidebar/Header extraction | 🟢 | #112 |
+| W-16 | Profil prestataire | **Agent-dispatched** (calibration: tests if the brief format holds against a fresh agent) | 🟢 | #114, #115 (v2) |
+| M-01 | Connexion mobile | Agent-dispatched | 🟢 | #116 |
 
 ---
 
@@ -44,65 +45,65 @@
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-01 | Connexion | 🔵 in-review | calibration-1 | #111 |
-| W-02 | Inscription · choix de rôle | ⚪ | — | — |
-| W-03 | Inscription · prestataire | ⚪ | — | — |
-| W-04 | Inscription · entreprise | ⚪ | — | — |
-| W-05 | Stripe Connect | ⚪ | — | — |
+| W-01 | Connexion | 🟢 | calibration-1 | #111 |
+| W-02 | Inscription · choix de rôle | 🟢 | w02-register | #118 |
+| W-03 | Inscription · prestataire | 🟢 | register-fix | #122 |
+| W-04 | Inscription · entreprise | 🟢 | register-fix | #122 |
+| W-05 | Stripe Connect · KYC | 🟢 | kyc-visual | #139 |
 
 ### 2 · Entreprise · annonces & projets (5)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-06 | Mes annonces (liste) | ⚪ | — | — |
-| W-07 | Détail annonce · description | ⚪ | — | — |
-| W-08 | Détail annonce · candidatures | ⚪ | — | — |
-| W-09 | Création d'une annonce | ⚪ | — | — |
-| W-10 | Détail projet | ⚪ | — | — |
+| W-06 | Mes annonces (liste) | 🟢 | mes-annonces | #128 |
+| W-07 | Détail annonce · description | 🟢 | detail-annonce | #133 |
+| W-08 | Détail annonce · candidatures | 🟢 | detail-annonce | #133 |
+| W-09 | Création d'une annonce | 🟢 | creation-annonce | #132 |
+| W-10 | Détail projet | 🟢 | proposal-flow | #136 |
 
 ### 3 · Freelance · opportunités & missions (5)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-11 | Tableau de bord prestataire | 🔵 in-review | calibration-2 | #112 |
-| W-12 | Opportunités (feed) | ⚪ | — | — |
-| W-13 | Détail opportunité + candidature | ⚪ | — | — |
+| W-11 | Tableau de bord prestataire | 🟢 | calibration-2 | #112 |
+| W-12 | Opportunités (feed) | 🟢 | opportunites | #127 |
+| W-13 | Détail opportunité + candidature | 🟢 | opportunites | #127 |
 | W-14 | Mes candidatures | ⚪ | — | — |
-| W-15 | Mission active (livrer jalon) | ⚪ | — | — |
+| W-15 | Mission active (livrer jalon) | 🟢 | proposal-flow (covered by W-10 page) | #136 |
 
 ### 4 · Profil prestataire (2)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-16 | Profil public + privé | 🟡 in-progress (agent) | calibration-3 (agent dispatch) | (pending) |
-| W-17 | (covered by W-16) | — | — | — |
+| W-16 | Profil public + privé | 🟢 | calibration-3 + v2 cards + width-fix | #114, #115, #124 |
+| W-17 | (covered by W-16) | ⚫ | (same page) | — |
 
 ### 5 · Argent · portefeuille & facturation (3)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-18 | Portefeuille | ⚪ | — | — |
-| W-19 | Factures | ⚪ | — | — |
-| W-20 | Profil de facturation | ⚪ | — | — |
+| W-18 | Portefeuille | 🟢 | wallet + responsive-fix | #121, #125 |
+| W-19 | Factures | 🟢 | factures | #134 |
+| W-20 | Profil de facturation | 🟢 | profil-facturation | #135 |
 
 ### 6 · Communication & équipe (2)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-21 | Messagerie | ⚪ | — | — |
-| W-22 | Équipe & permissions | ⚪ | — | — |
+| W-21 | Messagerie | 🟢 | messagerie-widget | #131 |
+| W-22 | Équipe & permissions | 🟢 | team-search | #141 |
 
 ### 7 · Compte & paramètres (1)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-23 | Compte (préférences) | ⚪ | — | — |
+| W-23 | Compte (préférences) | 🟢 | w23-account + compte-fix | #119, #123 |
 
 ### 8 · Notifications (1)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| W-24 | Notifications | ⚪ | — | — |
+| W-24 | Notifications | 🟢 | notifications | #129 |
 
 ---
 
@@ -112,72 +113,78 @@
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-01 | Connexion | ⚪ | — | — |
-| M-02 | Inscription · choix de rôle | ⚪ | — | — |
+| M-01 | Connexion | 🟢 | m01-mobile-connexion | #116 |
+| M-02 | Inscription · choix de rôle | 🟢 | m02-mobile-signup-role | #120 |
 
 ### 2 · Activité (4)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-03 | Dashboard freelance | ⚪ | — | — |
-| M-04 | Dashboard entreprise | ⚪ | — | — |
+| M-03 | Dashboard freelance | 🟢 | mobile-dashboards | #138 |
+| M-04 | Dashboard entreprise | 🟢 | mobile-dashboards | #138 |
 | M-05 | Mes candidatures | ⚪ | — | — |
-| M-06 | Détail mission | ⚪ | — | — |
+| M-06 | Détail mission | ⚫ | covered by proposal_detail_screen (mobile mirror of W-10/W-15) | #136 |
 
 ### 3 · Annonces entreprise (3)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-07 | Mes annonces | ⚪ | — | — |
-| M-08 | Détail annonce + candidatures | ⚪ | — | — |
-| M-09 | Créer une annonce | ⚪ | — | — |
+| M-07 | Mes annonces | 🟢 | mes-annonces | #128 |
+| M-08 | Détail annonce + candidatures | 🟢 | detail-annonce | #133 |
+| M-09 | Créer une annonce | 🟢 | creation-annonce | #132 |
 
 ### 4 · Recherche & profil (2)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-12 | Recherche freelances | ⚪ | — | — |
-| M-13 | Profil prestataire | ⚪ | — | — |
+| M-12 | Recherche freelances | 🟢 | team-search | #141 |
+| M-13 | Profil prestataire | 🟢 | covered by mobile/M-16-fix (PR mis-named, target was freelance_profile_screen which is M-13) | #117 |
 
 ### 5 · Argent (3)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-14 | Portefeuille | ⚪ | — | — |
-| M-15 | Factures | ⚪ | — | — |
-| M-16 | Détail paiement | ⚪ | — | — |
+| M-14 | Portefeuille | 🟢 | wallet-fix (mobile WalletHero + balance row) | #125 |
+| M-15 | Factures | 🟢 | factures + mobile-invoicing (lives in `invoicing/`, not `invoice/` skeleton) | #134, #140 |
+| M-16 | Détail paiement | ⚫ | inventory entry pointed at a non-existent screen — superseded by the M-13 polish that landed under the M-16 label. No standalone "détail paiement" screen exists in the repo. | — |
 
 ### 6 · Communication (3)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-17 | Conversation active | ⚪ | — | — |
-| M-18 | Liste conversations | ⚪ | — | — |
-| M-19 | Notifications | ⚪ | — | — |
+| M-17 | Conversation active | 🟢 | messagerie-widget + system-messages-fix | #131, #137 |
+| M-18 | Liste conversations | 🟢 | messagerie-widget | #131 |
+| M-19 | Notifications | 🟢 | notifications | #129 |
 
 ### 7 · Compte (1)
 
 | ID | Screen | Status | Batch | PR |
 |----|--------|--------|-------|-----|
-| M-20 | Mon compte | ⚪ | — | — |
+| M-20 | Mon compte | 🟢 | compte-fix (drawer + new account screen) | #123 |
 
 ---
 
 ## Aggregate
 
-| Surface | Total | Done | In review | In progress | Remaining |
-|---------|-------|------|-----------|-------------|-----------|
-| Web | 24 | 0 | 2 (W-01, W-11) | 1 (W-16 agent) | 21 |
-| Mobile | 18 | 0 | 0 | 0 | 18 |
-| **Total** | **42** | **0** | **2** | **1** | **39** |
+| Surface | Total | Done 🟢 | Skipped ⚫ | Remaining ⚪ |
+|---------|-------|---------|------------|---------------|
+| Web | 24 | 22 | 1 (W-17 = W-16) | 1 (W-14) |
+| Mobile | 18 | 15 | 2 (M-06 covered, M-16 superseded) | 1 (M-05) |
+| **Total** | **42** | **37** | **3** | **2** |
 
-Note pratique : W-10 et W-15 partagent la même page → 23 PRs web pour 24 IDs. W-16 et W-17 partagent la même feature (public/privé) → 22 PRs web en pratique.
+Note pratique : W-10 et W-15 partagent la même page (proposal-detail-view) → un seul PR #136 couvre les deux IDs côté web. W-16 et W-17 partagent la même feature (public/privé) → un seul PR #114/#115 couvre les deux. Côté mobile, M-06 est couvert par le proposal_detail_screen porté dans #136, et M-16 (détail paiement) n'existait pas comme écran standalone dans le repo — l'inventory pointait vers une référence qui n'a jamais été implémentée.
 
 ---
 
 ## Last 5 merged batches
 
-(empty — chantier just started)
+| Date | PR | Wave | Screens |
+|------|-----|------|---------|
+| 2026-05-05 | #141 | team-search | W-22 + M-12 |
+| 2026-05-05 | #140 | mobile-invoicing | M-15 (invoicing/) |
+| 2026-05-05 | #139 | kyc-visual | W-05 KYC |
+| 2026-05-05 | #138 | mobile-dashboards | M-03 + M-04 |
+| 2026-05-05 | #137 | system-messages-fix | M-17 polish |
 
 ---
 
