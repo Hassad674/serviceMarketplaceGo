@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/subscription.dart';
 import '../providers/subscription_providers.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Compact, clickable Premium pill surfaced in the drawer / header /
 /// profile strip. Mirrors the web `SubscriptionBadge` — the badge owns
@@ -64,22 +63,26 @@ _BadgeVariant _pickVariant(BuildContext context, Subscription? sub) {
     );
   }
   if (sub.status == SubscriptionStatus.pastDue) {
-    // Paiement échoué — informative orange.
-    return const _BadgeVariant(
+    final ext = theme.extension<AppColors>();
+    final cs = theme.colorScheme;
+    final amberSoft = ext?.amberSoft ?? cs.secondaryContainer;
+    final warning = ext?.warning ?? cs.tertiary;
+    // Paiement échoué — informative ambre.
+    return _BadgeVariant(
       label: 'Paiement échoué · gérer',
       semantics: 'Paiement Premium échoué, gérer l\'abonnement',
-      background: AppPalette.orange100, // orange-100
-      foreground: AppPalette.orange700, // orange-700
-      border: AppPalette.orange300, // orange-300
+      background: amberSoft,
+      foreground: warning,
+      border: warning,
       showIcon: false,
     );
   }
   if (sub.cancelAtPeriodEnd) {
-    // Auto-renew off — outline rose.
+    // Auto-renew off — outline corail.
     return _BadgeVariant(
       label: 'Gérer l\'abonnement',
       semantics: 'Abonnement Premium actif, gérer',
-      background: AppPalette.rose50, // rose-50
+      background: theme.colorScheme.primaryContainer,
       foreground: primary,
       border: primary,
       showIcon: false,

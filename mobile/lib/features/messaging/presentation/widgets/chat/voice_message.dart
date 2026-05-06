@@ -2,7 +2,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Renders a voice message player inside a chat bubble.
 ///
@@ -106,7 +105,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
             decoration: BoxDecoration(
               color: widget.isOwn
                   ? Colors.white.withValues(alpha: 0.2)
-                  : AppPalette.pink100,
+                  : (Theme.of(context).extension<AppColors>()?.pinkSoft ?? Theme.of(context).colorScheme.surfaceContainerHigh),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -114,7 +113,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
               size: 20,
               color: widget.isOwn
                   ? Colors.white
-                  : AppPalette.rose500,
+                  : Theme.of(context).colorScheme.primary,
             ),
           ),
         ),
@@ -135,11 +134,11 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
                   minHeight: 4,
                   backgroundColor: widget.isOwn
                       ? Colors.white.withValues(alpha: 0.2)
-                      : (appColors?.border ?? AppPalette.slate200),
+                      : (appColors?.border ?? Theme.of(context).colorScheme.outline),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     widget.isOwn
                         ? Colors.white
-                        : AppPalette.rose500,
+                        : Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -152,7 +151,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
                     color: widget.isOwn
                         ? Colors.white.withValues(alpha: 0.6)
                         : (appColors?.mutedForeground ??
-                            AppPalette.slate400),
+                            Theme.of(context).colorScheme.outline),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -163,7 +162,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
                       color: widget.isOwn
                           ? Colors.white.withValues(alpha: 0.7)
                           : (appColors?.mutedForeground ??
-                              AppPalette.slate400),
+                              Theme.of(context).colorScheme.outline),
                     ),
                   ),
                 ],

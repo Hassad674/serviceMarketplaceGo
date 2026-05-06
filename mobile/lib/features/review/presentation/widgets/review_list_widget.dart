@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/review.dart';
 import '../../../../shared/widgets/review_card_widget.dart';
 import '../providers/review_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Legacy standalone reviews section. Kept for potential admin/moderation
 /// use; no longer mounted on the public profile screens — project history
 /// is now the unified entry point there.
@@ -49,7 +49,7 @@ class ReviewListWidget extends ConsumerWidget {
       children: [
         Text('Reviews', style: theme.textTheme.titleMedium),
         const Spacer(),
-        const Icon(Icons.star, color: AppPalette.amber400, size: 20),
+        Icon(Icons.star, color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary), size: 20),
         const SizedBox(width: 4),
         Text(
           avg.average.toStringAsFixed(1),

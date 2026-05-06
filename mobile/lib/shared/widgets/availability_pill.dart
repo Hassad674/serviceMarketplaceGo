@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_palette.dart';
 
+import '../../core/theme/app_theme.dart';
 /// Generic availability pill used by both freelance and referrer
 /// profile headers. Renders a colored badge based on a wire value
 /// (e.g. `available_now`, `available_soon`, `not_available`). Pure
@@ -33,7 +33,7 @@ class AvailabilityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tone = _toneFor(wireValue);
+    final tone = _toneFor(context, wireValue);
     final horizontalPadding = compact ? 8.0 : 12.0;
     final verticalPadding = compact ? 4.0 : 6.0;
 
@@ -71,29 +71,35 @@ class AvailabilityPill extends StatelessWidget {
     );
   }
 
-  _PillTone _toneFor(String wireValue) {
+  _PillTone _toneFor(BuildContext context, String wireValue) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColors>();
+    final amberSoft = ext?.amberSoft ?? cs.secondaryContainer;
+    final warning = ext?.warning ?? cs.tertiary;
+    final successSoft = ext?.successSoft ?? cs.primaryContainer;
+    final success = ext?.success ?? cs.primary;
     switch (wireValue) {
       case 'available_soon':
-        return const _PillTone(
-          background: AppPalette.amber50, // amber-50
-          border: AppPalette.amber200, // amber-200
-          foreground: AppPalette.amber700, // amber-700
-          dot: AppPalette.amber500, // amber-500
+        return _PillTone(
+          background: amberSoft,
+          border: amberSoft,
+          foreground: warning,
+          dot: warning,
         );
       case 'not_available':
-        return const _PillTone(
-          background: AppPalette.red50, // red-50
-          border: AppPalette.red200, // red-200
-          foreground: AppPalette.red700, // red-700
-          dot: AppPalette.red500, // red-500
+        return _PillTone(
+          background: cs.errorContainer,
+          border: cs.errorContainer,
+          foreground: cs.error,
+          dot: cs.error,
         );
       case 'available_now':
       default:
-        return const _PillTone(
-          background: AppPalette.emerald50, // emerald-50
-          border: AppPalette.emerald200, // emerald-200
-          foreground: AppPalette.emerald700, // emerald-700
-          dot: AppPalette.emerald500, // emerald-500
+        return _PillTone(
+          background: successSoft,
+          border: successSoft,
+          foreground: success,
+          dot: success,
         );
     }
   }

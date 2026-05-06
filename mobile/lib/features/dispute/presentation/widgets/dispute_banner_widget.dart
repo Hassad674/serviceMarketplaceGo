@@ -47,7 +47,7 @@ class DisputeBannerWidget extends StatelessWidget {
     // refused-feedback) stays available all the way through admin mediation.
     final canStillNegotiate = isOpen || isEscalated;
 
-    final color = disputeStatusColor(dispute.status);
+    final color = disputeStatusColor(context, dispute.status);
     final bgColor = color.withValues(alpha: 0.08);
     final borderColor = color.withValues(alpha: 0.3);
 

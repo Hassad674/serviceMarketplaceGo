@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// ReferralStatusChip renders the referral status as a colour-coded pill.
 /// Tones mirror the web feature: amber for pending, emerald for active,
 /// rose for failure-terminal, slate for success-terminal.
@@ -11,7 +11,7 @@ class ReferralStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _paletteFor(status);
+    final palette = _paletteFor(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -53,33 +53,40 @@ class ReferralStatusChip extends StatelessWidget {
     }
   }
 
-  static _Palette _paletteFor(String status) {
+  static _Palette _paletteFor(BuildContext context, String status) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColors>();
+    final amberSoft = ext?.amberSoft ?? cs.secondaryContainer;
+    final warning = ext?.warning ?? cs.tertiary;
+    final successSoft = ext?.successSoft ?? cs.primaryContainer;
+    final success = ext?.success ?? cs.primary;
+    final primaryDeep = ext?.primaryDeep ?? cs.error;
     if (status.startsWith('pending_')) {
-      return const _Palette(
-        background: AppPalette.amber100,
-        border: AppPalette.amber300,
-        foreground: AppPalette.amber700,
+      return _Palette(
+        background: amberSoft,
+        border: warning,
+        foreground: warning,
       );
     }
     if (status == 'active') {
-      return const _Palette(
-        background: AppPalette.emerald100,
-        border: AppPalette.emerald300,
-        foreground: AppPalette.emerald700,
+      return _Palette(
+        background: successSoft,
+        border: success,
+        foreground: success,
       );
     }
     if (status == 'terminated') {
-      return const _Palette(
-        background: AppPalette.slate100,
-        border: AppPalette.slate300,
-        foreground: AppPalette.slate700,
+      return _Palette(
+        background: cs.surface,
+        border: cs.outline,
+        foreground: cs.onSurfaceVariant,
       );
     }
     // rejected / expired / cancelled
-    return const _Palette(
-      background: AppPalette.rose100,
-      border: AppPalette.rose300,
-      foreground: AppPalette.rose700,
+    return _Palette(
+      background: cs.primaryContainer,
+      border: cs.primary,
+      foreground: primaryDeep,
     );
   }
 }

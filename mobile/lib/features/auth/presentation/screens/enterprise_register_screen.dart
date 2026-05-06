@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Enterprise registration form.
 ///
@@ -75,10 +74,10 @@ class _EnterpriseRegisterScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Role badge
-                const _RoleBadge(
+                _RoleBadge(
                   icon: Icons.corporate_fare,
                   label: 'Enterprise',
-                  color: AppPalette.violet500, // purple to match web
+                  color: Theme.of(context).colorScheme.primary, // purple to match web
                 ),
                 const SizedBox(height: 24),
 

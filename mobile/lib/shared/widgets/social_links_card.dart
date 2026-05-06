@@ -3,7 +3,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
-import '../../core/theme/app_palette.dart';
 
 /// Shape of a single link passed to the card. Kept intentionally
 /// light so each persona feature can re-use the widget without
@@ -35,14 +34,26 @@ class _PlatformMeta {
   final Color color;
 }
 
-const _platforms = <_PlatformMeta>[
-  _PlatformMeta('linkedin', Icons.business, AppPalette.linkedinBlue),
-  _PlatformMeta('instagram', Icons.camera_alt, AppPalette.instagramPink),
-  _PlatformMeta('youtube', Icons.play_circle_fill, AppPalette.pureRed),
-  _PlatformMeta('twitter', Icons.alternate_email, AppPalette.twitterBlue),
-  _PlatformMeta('github', Icons.code, AppPalette.gray800),
-  _PlatformMeta('website', Icons.language, AppPalette.rose500),
+const _platformKeys = [
+  'linkedin',
+  'instagram',
+  'youtube',
+  'twitter',
+  'github',
+  'website',
 ];
+
+List<_PlatformMeta> _buildPlatforms(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return [
+    const _PlatformMeta('linkedin', Icons.business, Color(0xFF0A66C2)),
+    const _PlatformMeta('instagram', Icons.camera_alt, Color(0xFFE4405F)),
+    _PlatformMeta('youtube', Icons.play_circle_fill, cs.error),
+    const _PlatformMeta('twitter', Icons.alternate_email, Color(0xFF1DA1F2)),
+    _PlatformMeta('github', Icons.code, cs.onSurface),
+    _PlatformMeta('website', Icons.language, cs.primary),
+  ];
+}
 
 String _platformLabel(String key, AppLocalizations l10n) {
   switch (key) {
@@ -63,8 +74,8 @@ String _platformLabel(String key, AppLocalizations l10n) {
   }
 }
 
-_PlatformMeta? _metaForPlatform(String key) {
-  for (final meta in _platforms) {
+_PlatformMeta? _metaForPlatform(BuildContext context, String key) {
+  for (final meta in _buildPlatforms(context)) {
     if (meta.key == key) return meta;
   }
   return null;
@@ -188,7 +199,7 @@ class _SocialLinksList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: links.map((link) {
-        final meta = _metaForPlatform(link.platform);
+        final meta = _metaForPlatform(context, link.platform);
         if (meta == null) return const SizedBox.shrink();
         return _SocialLinkTile(meta: meta, url: link.url);
       }).toList(),
@@ -304,9 +315,8 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
   void initState() {
     super.initState();
     _controllers = <String, TextEditingController>{
-      for (final meta in _platforms)
-        meta.key:
-            TextEditingController(text: widget.initial[meta.key] ?? ''),
+      for (final key in _platformKeys)
+        key: TextEditingController(text: widget.initial[key] ?? ''),
     };
   }
 
@@ -323,13 +333,13 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      for (final meta in _platforms) {
-        final next = _controllers[meta.key]!.text.trim();
-        final had = (widget.initial[meta.key] ?? '').isNotEmpty;
+      for (final key in _platformKeys) {
+        final next = _controllers[key]!.text.trim();
+        final had = (widget.initial[key] ?? '').isNotEmpty;
         if (next.isNotEmpty) {
-          await widget.editor.onUpsert(meta.key, next);
+          await widget.editor.onUpsert(key, next);
         } else if (had) {
-          await widget.editor.onDelete(meta.key);
+          await widget.editor.onDelete(key);
         }
       }
       if (!mounted) return;
@@ -366,7 +376,7 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
-            for (final meta in _platforms) ...[
+            for (final meta in _buildPlatforms(context)) ...[
               _EditorField(meta: meta, controller: _controllers[meta.key]!),
               const SizedBox(height: 12),
             ],

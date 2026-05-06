@@ -6,8 +6,8 @@ import '../../../../shared/widgets/profile_display_card_shell.dart';
 import '../../../../shared/widgets/review_card_widget.dart';
 import '../../domain/entities/referrer_reputation.dart';
 import '../providers/referrer_reputation_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Apporteur reputation surface: dedicated rating (distinct from the
 /// freelance rating) + history of attributed missions. Visual grammar
 /// mirrors the freelance project-history card so users find it
@@ -179,10 +179,10 @@ class _ReputationHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.star_rounded,
               size: 18,
-              color: AppPalette.amber500,
+              color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
             ),
             const SizedBox(width: 6),
             Text(
@@ -344,12 +344,16 @@ class _StatusBadge extends StatelessWidget {
     ThemeData theme,
     AppLocalizations l10n,
   ) {
+    final ext = theme.extension<AppColors>();
+    final cs = theme.colorScheme;
+    final successSoft = ext?.successSoft ?? cs.primaryContainer;
+    final success = ext?.success ?? cs.primary;
     switch (status) {
       case 'completed':
         return (
           l10n.reputationStatusCompleted,
-          AppPalette.emerald100,
-          AppPalette.emerald700,
+          successSoft,
+          success,
         );
       case 'disputed':
         return (
@@ -363,8 +367,8 @@ class _StatusBadge extends StatelessWidget {
       case 'completion_requested':
         return (
           l10n.reputationStatusActive,
-          AppPalette.blue100,
-          AppPalette.blue700,
+          theme.colorScheme.primaryContainer,
+          theme.colorScheme.primary,
         );
       case 'pending':
         return (

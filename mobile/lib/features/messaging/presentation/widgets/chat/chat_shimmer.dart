@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Skeleton loading state for the chat screen.
 class ChatShimmer extends StatelessWidget {
@@ -11,9 +10,9 @@ class ChatShimmer extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final baseColor =
-        isDark ? AppPalette.slate800 : AppPalette.slate200;
+        isDark ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outline;
     final highlightColor =
-        isDark ? AppPalette.slate700 : AppPalette.slate100;
+        isDark ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.surface;
 
     return Shimmer.fromColors(
       baseColor: baseColor,

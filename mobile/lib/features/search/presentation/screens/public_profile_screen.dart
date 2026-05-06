@@ -155,7 +155,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           ProfileIdentityHeader(
             displayName: resolvedName,
             initials: initials,
-            accentColor: publicProfileRoleColor(resolvedOrgType),
+            accentColor: publicProfileRoleColor(context, resolvedOrgType),
             title: title,
             photoUrl: photoUrl,
             trailing: resolvedOrgType != null

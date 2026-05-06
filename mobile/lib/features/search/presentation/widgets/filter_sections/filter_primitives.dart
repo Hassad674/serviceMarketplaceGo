@@ -8,19 +8,16 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_palette.dart';
 import '../../../../../core/theme/app_theme.dart';
 
 // Soleil v2: filter primitives prefer the corail (primary) family from
 // the active theme via `colorScheme.primary` and the `AppColors`
-// extension. The kFilter* constants are kept as a legacy fallback for
-// test environments that mount the widgets without the Soleil theme
-// extension wired up — production code paths always go through
-// `Theme.of(context)`. Once those tests migrate to a Soleil-aware
-// pump helper, these constants can be deleted.
-const Color kFilterRose500 = AppPalette.rose500;
-const Color kFilterRose100 = AppPalette.rose100;
-const Color kFilterRose700 = AppPalette.rose700;
+// extension. The kFilter* constants below are static fallbacks pinned
+// to the Soleil v2 corail palette — used only when the surrounding
+// theme is missing the Soleil extension (legacy test mounts).
+const Color kFilterRose500 = Color(0xFFE85D4A); // corail
+const Color kFilterRose100 = Color(0xFFFDE9E3); // corail-soft
+const Color kFilterRose700 = Color(0xFFC43A26); // corail-deep
 
 /// Section shell with a 12 px caps header + the sub-widget. Spacing
 /// matches the 4 px design grid (8/16/20 increments only).

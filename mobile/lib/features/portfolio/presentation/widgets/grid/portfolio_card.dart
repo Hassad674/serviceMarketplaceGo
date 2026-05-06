@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/portfolio_item.dart';
 import '../portfolio_video_thumbnail.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Compact tile rendered inside the portfolio grid — cover, media
 /// counts, optional edit/delete actions.
@@ -35,7 +34,7 @@ class PortfolioCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: AppPalette.slate900,
+          color: Theme.of(context).colorScheme.onSurface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.08),
@@ -130,18 +129,21 @@ class PortfolioCard extends StatelessWidget {
 
   Widget _placeholderCover(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppPalette.slate200, AppPalette.slate300],
+          colors: [
+            Theme.of(context).colorScheme.outline,
+            Theme.of(context).colorScheme.outline,
+          ],
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.image_outlined,
           size: 36,
-          color: AppPalette.slate400,
+          color: Theme.of(context).colorScheme.outline,
         ),
       ),
     );
@@ -242,8 +244,8 @@ class _BottomTitle extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              AppPalette.black80,
-              AppPalette.black95,
+              Colors.black87,
+              Colors.black,
             ],
           ),
         ),
@@ -295,7 +297,7 @@ class _CardActionButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 16,
-          color: destructive ? Colors.red : AppPalette.slate700,
+          color: destructive ? Colors.red : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
