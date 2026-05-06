@@ -33,10 +33,10 @@ export function BillingProfilePageClient() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Profil de facturation
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Ces informations apparaissent sur les factures que la plateforme
           émet à ton organisation. Elles doivent être complètes pour pouvoir
           retirer ton solde et souscrire à un abonnement Premium.

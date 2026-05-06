@@ -72,11 +72,11 @@ export default function SubscribeReturnPage() {
     <div className="flex min-h-[60vh] items-center justify-center p-6">
       <div
         className={cn(
-          "w-full max-w-md rounded-2xl border p-8 text-center shadow-sm",
+          "w-full max-w-md rounded-2xl border p-8 text-center shadow-[var(--shadow-card)]",
           status === "pending"
-            ? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/40"
+            ? "border-border bg-card"
             : status === "ready"
-              ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-slate-900/40"
+              ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-card dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-card"
               : "border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10",
         )}
       >
@@ -91,16 +91,16 @@ export default function SubscribeReturnPage() {
 function PendingContent() {
   return (
     <>
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
         <Loader2
-          className="h-7 w-7 animate-spin text-slate-500 dark:text-slate-300"
+          className="h-7 w-7 animate-spin text-muted-foreground"
           aria-hidden="true"
         />
       </div>
-      <h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
+      <h1 className="mt-5 text-xl font-semibold text-foreground">
         Activation en cours…
       </h1>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      <p className="mt-2 text-sm text-muted-foreground">
         Paiement confirmé. Nous finalisons ton abonnement Premium — ça prend
         quelques secondes.
       </p>
@@ -114,10 +114,10 @@ function ReadyContent({ isMobile }: { isMobile: boolean }) {
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
         <CheckCircle2 className="h-7 w-7 text-white" aria-hidden="true" />
       </div>
-      <h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
+      <h1 className="mt-5 text-xl font-semibold text-foreground">
         Premium activé
       </h1>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      <p className="mt-2 text-sm text-muted-foreground">
         {isMobile
           ? "Tu peux fermer cette fenêtre et revenir à l'application."
           : "Tes prochaines missions ne seront plus soumises aux frais de plateforme."}
@@ -127,9 +127,9 @@ function ReadyContent({ isMobile }: { isMobile: boolean }) {
           href="/dashboard"
           className={cn(
             "mt-6 inline-flex w-full items-center justify-center rounded-full",
-            "bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 text-sm font-semibold text-white",
+            "gradient-primary px-4 py-3 text-sm font-semibold text-white",
             "transition-all duration-200 hover:shadow-glow active:scale-[0.98]",
-            "focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+            "focus:outline-none focus:ring-2 focus:ring-primary/40",
           )}
         >
           Retour au tableau de bord
@@ -148,10 +148,10 @@ function TimeoutContent({ isMobile }: { isMobile: boolean }) {
           aria-hidden="true"
         />
       </div>
-      <h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
+      <h1 className="mt-5 text-xl font-semibold text-foreground">
         Paiement confirmé
       </h1>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      <p className="mt-2 text-sm text-muted-foreground">
         Ton paiement est bien passé. L&apos;activation Premium prend parfois un peu
         plus de temps — rafraîchis l&apos;application dans une minute.
       </p>
@@ -160,10 +160,9 @@ function TimeoutContent({ isMobile }: { isMobile: boolean }) {
           href="/dashboard"
           className={cn(
             "mt-6 inline-flex w-full items-center justify-center rounded-full",
-            "border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700",
-            "transition-colors duration-200 hover:bg-slate-50",
-            "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
-            "focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+            "border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground",
+            "transition-colors duration-200 hover:bg-muted",
+            "focus:outline-none focus:ring-2 focus:ring-primary/40",
           )}
         >
           Retour au tableau de bord

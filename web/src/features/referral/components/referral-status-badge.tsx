@@ -32,7 +32,7 @@ function labelFor(status: ReferralStatus): string {
 const TONE_CLASSES: Record<ReturnType<typeof statusTone>, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
   active: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  "terminal-success": "bg-muted text-slate-700 ring-border",
+  "terminal-success": "bg-muted text-foreground ring-border",
   "terminal-failure": "bg-primary-soft text-primary-deep ring-primary/30",
 }
 

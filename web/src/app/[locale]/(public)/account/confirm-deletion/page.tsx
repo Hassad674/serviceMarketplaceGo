@@ -52,18 +52,18 @@ function ConfirmInner() {
 
   return (
     <main className="mx-auto max-w-lg px-6 py-16">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-card)]">
         {state === "success" ? (
           <>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-foreground">
               {t("success.title")}
             </h1>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-3 text-sm text-muted-foreground">
               {t("success.body", {
                 date: hardDeleteAt ? new Date(hardDeleteAt).toLocaleDateString() : "—",
               })}
             </p>
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-4 text-sm text-muted-foreground">
               {t("success.cancelHint")}
             </p>
           </>
@@ -72,7 +72,7 @@ function ConfirmInner() {
             <h1 className="text-2xl font-bold text-red-700 dark:text-red-400">
               {t("error.title")}
             </h1>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-3 text-sm text-muted-foreground">
               {error ?? t("errors.generic")}
             </p>
           </>
@@ -85,7 +85,7 @@ function ConfirmInner() {
 function Skeleton() {
   return (
     <main className="mx-auto max-w-lg px-6 py-16">
-      <div className="h-32 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-700" />
+      <div className="h-32 animate-pulse rounded-2xl bg-muted" />
     </main>
   )
 }

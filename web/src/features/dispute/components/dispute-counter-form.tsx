@@ -70,7 +70,7 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Slider */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-2 block text-sm font-medium text-foreground">
             {t("counterSplitLabel")}
           </label>
 
@@ -85,10 +85,10 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
           />
 
           <div className="mt-2 flex justify-between text-sm">
-            <div className="text-slate-600 dark:text-slate-400">
+            <div className="text-muted-foreground">
               <span className="font-medium">{t("client")}:</span> {formatEur(clientAmount)}
             </div>
-            <div className="text-slate-600 dark:text-slate-400">
+            <div className="text-muted-foreground">
               <span className="font-medium">{t("provider")}:</span> {formatEur(providerAmount)}
             </div>
           </div>
@@ -96,7 +96,7 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
 
         {/* Message */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             {t("counterMessageLabel")}
           </label>
           <textarea
@@ -105,7 +105,7 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
             rows={3}
             maxLength={2000}
             placeholder={t("counterMessagePlaceholder")}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
 
           {/* File chips + add button */}
@@ -114,15 +114,15 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
               {files.map((f, i) => (
                 <div
                   key={`${f.name}-${i}`}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs"
                 >
-                  <FileText className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="max-w-[150px] truncate text-slate-600 dark:text-slate-400">{f.name}</span>
-                  <span className="text-slate-400">({(f.size / 1024).toFixed(0)} KB)</span>
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="max-w-[150px] truncate text-muted-foreground">{f.name}</span>
+                  <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span>
                   <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => removeFile(i)}
-                    className="ml-0.5 text-slate-400 hover:text-red-500 transition-colors"
+                    className="ml-0.5 text-muted-foreground hover:text-red-500 transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -133,7 +133,7 @@ export function DisputeCounterForm({ disputeId, proposalAmount, onSuccess, onCan
           <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setModalOpen(true)}
-            className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors"
+            className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <Paperclip className="h-3.5 w-3.5" />
             {t("addFiles")}

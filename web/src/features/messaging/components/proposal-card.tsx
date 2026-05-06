@@ -39,7 +39,7 @@ const STATUS_BORDER_COLOR: Record<ProposalStatus, string> = {
   pending: "border-l-primary",
   accepted: "border-l-green-500",
   declined: "border-l-red-500",
-  withdrawn: "border-l-slate-400",
+  withdrawn: "border-l-border-strong",
   paid: "border-l-emerald-500",
   active: "border-l-emerald-500",
   completion_requested: "border-l-amber-500",
@@ -107,8 +107,8 @@ export function ProposalCard({
       className={cn(
         "w-full max-w-[420px] rounded-xl border-l-[3px] border overflow-hidden cursor-pointer",
         "transition-all duration-200 animate-fade-in",
-        "bg-white dark:bg-slate-800/50",
-        "border-border dark:border-slate-700",
+        "bg-card",
+        "border-border",
         "hover:shadow-md",
         borderColor,
       )}
@@ -135,8 +135,8 @@ export function ProposalCard({
         />
 
         <div className="flex items-center justify-center gap-1.5 pt-1">
-          <ExternalLink className="h-3 w-3 text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
-          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+          <ExternalLink className="h-3 w-3 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-[10px] font-medium text-muted-foreground">
             {t("viewDetails")}
           </span>
         </div>
@@ -161,12 +161,12 @@ function ProposalCardHeader({
           <Handshake className="h-4 w-4 text-primary-deep" strokeWidth={1.5} />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-medium text-muted-foreground">
             {isCounterProposal
               ? t("counterProposal", { version: metadata.proposal_version })
               : t("proposalFrom", { name: metadata.proposal_sender_name })}
           </p>
-          <h3 className="truncate text-sm font-bold text-slate-900 dark:text-white">
+          <h3 className="truncate text-sm font-bold text-foreground">
             {metadata.proposal_title}
           </h3>
         </div>
@@ -222,12 +222,12 @@ function StatCell({
   value: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg bg-muted p-2 dark:bg-slate-700/50">
-      <span className="text-slate-400 dark:text-slate-500">{icon}</span>
-      <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+    <div className="flex flex-col items-center gap-1 rounded-lg bg-muted p-2">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
         {label}
       </span>
-      <span className="text-xs font-semibold text-slate-900 dark:text-white text-center truncate w-full">
+      <span className="text-xs font-semibold text-foreground text-center truncate w-full">
         {value}
       </span>
     </div>
@@ -267,7 +267,7 @@ function ProposalCardActions({
 
   return (
     <>
-      <div className="border-t border-slate-100 dark:border-slate-700" />
+      <div className="border-t border-border" />
       <div className="flex gap-2">
         {showPendingActions && (
           <PendingActionButtons
@@ -286,8 +286,8 @@ function ProposalCardActions({
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
               "text-sm font-medium transition-all duration-200",
-              "border border-border dark:border-slate-600",
-              "text-slate-700 dark:text-slate-300",
+              "border border-border",
+              "text-foreground",
               "hover:border-primary/40",
               "active:scale-[0.98]",
             )}
@@ -341,7 +341,7 @@ function PendingActionButtons({
         className={cn(
           "flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2",
           "text-sm font-medium transition-all duration-200",
-          "text-slate-500 hover:text-red-500",
+          "text-muted-foreground hover:text-red-500",
           "active:scale-[0.98]",
           "disabled:opacity-50 disabled:cursor-not-allowed",
         )}
@@ -402,7 +402,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     withdrawn: {
       label: t("withdrawn"),
       icon: XCircle,
-      className: "bg-muted text-slate-600 dark:text-slate-400",
+      className: "bg-muted text-muted-foreground",
     },
     paid: {
       label: t("paid"),
@@ -422,7 +422,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     completed: {
       label: t("completed"),
       icon: CheckCircle2,
-      className: "bg-muted text-slate-600 dark:text-slate-400",
+      className: "bg-muted text-muted-foreground",
     },
   }
 

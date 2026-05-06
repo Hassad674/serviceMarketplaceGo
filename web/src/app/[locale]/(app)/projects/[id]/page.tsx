@@ -87,7 +87,7 @@ export default function ProjectDetailPage({
 
           {/* Counter-proposal form */}
           {showCounterForm && canRespondProposal && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mt-4 rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
               <DisputeCounterForm
                 disputeId={dispute.id}
                 proposalAmount={dispute.proposal_amount}
@@ -136,8 +136,8 @@ export default function ProjectDetailPage({
           one-time proposals). */}
       {showDisputeForm && proposal && (
         <div className="mx-auto max-w-5xl px-4 pt-8">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+            <h3 className="mb-4 text-lg font-semibold text-foreground">
               {t("openDispute")}
             </h3>
             <DisputeForm

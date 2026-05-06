@@ -51,12 +51,12 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
   if (!token) {
     return (
-      <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg text-center space-y-4">
+      <div className="animate-scale-in rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-card)] text-center space-y-4">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20">
           <XCircle className="h-7 w-7 text-red-600 dark:text-red-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("invalidLink")}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <h2 className="text-lg font-bold text-foreground">{t("invalidLink")}</h2>
+        <p className="text-sm text-muted-foreground">
           {t("invalidLinkDesc")}
         </p>
         <Link
@@ -83,12 +83,12 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
   if (success) {
     return (
-      <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg space-y-4 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-          <CheckCircle2 className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+      <div className="animate-scale-in rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-card)] space-y-4 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-soft">
+          <CheckCircle2 className="h-7 w-7 text-success" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("resetSuccess")}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <h2 className="text-lg font-bold text-foreground">{t("resetSuccess")}</h2>
+        <p className="text-sm text-muted-foreground">
           {tCommon("canSignIn")}
         </p>
         <Link
@@ -102,7 +102,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   }
 
   return (
-    <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg">
+    <div className="animate-scale-in rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-card)]">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {error && (
           <div className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400" role="alert">
@@ -111,7 +111,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             {t("newPassword")}
           </label>
           <div className="relative">
@@ -120,13 +120,13 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("newPasswordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              className="h-12 rounded-xl px-4 pr-11"
               {...registerField("password")}
             />
             <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
               aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -135,13 +135,13 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           {errors.password && (
             <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.password.message}</p>
           )}
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-muted-foreground">
             {tCommon("passwordHintFull")}
           </p>
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
             {t("confirmPassword")}
           </label>
           <div className="relative">
@@ -150,13 +150,13 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("confirmPasswordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              className="h-12 rounded-xl px-4 pr-11"
               {...registerField("confirmPassword")}
             />
             <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
               aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}

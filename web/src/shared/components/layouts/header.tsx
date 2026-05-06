@@ -15,6 +15,7 @@ import { useSubscription } from "@/features/subscription/hooks/use-subscription"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 import { Portrait } from "@/shared/components/ui/portrait"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -84,14 +85,15 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
       {/* Search — Soleil pill */}
       <div className="relative hidden flex-1 sm:block sm:max-w-sm">
-        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
-        <input
+        <Search className="absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
+        <Input
           type="text"
           placeholder={tCommon("search")}
+          aria-label={tCommon("search")}
           className={cn(
-            "h-10 w-full rounded-full border border-border bg-background pl-10 pr-4 text-sm text-foreground",
-            "placeholder:text-muted-foreground transition-all duration-150",
-            "focus:border-primary focus:bg-card focus:outline-none focus:ring-4 focus:ring-primary/15",
+            "h-10 w-full rounded-full bg-background pl-10 pr-4",
+            "transition-all duration-150",
+            "focus:bg-card",
           )}
         />
       </div>

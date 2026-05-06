@@ -35,7 +35,7 @@ export function AnonymizedClientCard({
   return (
     <article
       className={cn(
-        "rounded-2xl border border-border bg-white p-6 shadow-sm",
+        "rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]",
         className,
       )}
     >
@@ -44,17 +44,17 @@ export function AnonymizedClientCard({
           <Building2 className="h-6 w-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-foreground">
             Client proposé
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Identité révélée à l&rsquo;acceptation
           </p>
         </div>
       </header>
 
       {!hasAnyField ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           L&rsquo;apporteur a choisi de ne révéler aucun détail avant
           l&rsquo;acceptation.
         </p>
@@ -91,8 +91,8 @@ export function AnonymizedClientCard({
             </Row>
           )}
           {snapshot.need_summary && (
-            <div className="rounded-lg bg-muted p-3 text-sm text-slate-700">
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+            <div className="rounded-lg bg-muted p-3 text-sm text-foreground">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Besoin
               </p>
               {snapshot.need_summary}
@@ -115,8 +115,8 @@ function Row({ icon, label, children }: RowProps) {
     <div className="flex items-start gap-3">
       <div className="mt-0.5 text-blue-500">{icon}</div>
       <div className="flex-1">
-        <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-        <dd className="text-sm text-slate-900">{children}</dd>
+        <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+        <dd className="text-sm text-foreground">{children}</dd>
       </div>
     </div>
   )

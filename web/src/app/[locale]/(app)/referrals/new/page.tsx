@@ -7,10 +7,10 @@ export default function NewReferralPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Nouvelle mise en relation
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Présentez un prestataire à un client. Vous négociez la commission
           avec le prestataire en privé ; le client accepte ou refuse la mise
           en relation sans voir le taux.

@@ -44,22 +44,22 @@ export default function CancelDeletionPage() {
 
   return (
     <main className="mx-auto max-w-lg px-6 py-16">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-card)]">
         {done ? (
           <>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-foreground">
               {t("done.title")}
             </h1>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-3 text-sm text-muted-foreground">
               {t("done.body")}
             </p>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-foreground">
               {t("title")}
             </h1>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-3 text-sm text-muted-foreground">
               {t("body")}
             </p>
             {error && (

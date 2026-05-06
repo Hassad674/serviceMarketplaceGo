@@ -64,9 +64,9 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
       )}
 
       {showNegotiate ? (
-        <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
               Nouveau taux : {counterRate.toFixed(counterRate % 1 === 0 ? 0 : 1)} %
             </label>
             <Input
@@ -80,7 +80,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
               Message (optionnel)
             </label>
             <textarea

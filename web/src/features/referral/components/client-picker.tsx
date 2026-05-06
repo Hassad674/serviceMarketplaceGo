@@ -71,15 +71,15 @@ export function ClientPicker({
         {value ? (
           <>
             <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
-            <span className="truncate text-slate-900">{value.name}</span>
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+            <span className="truncate text-foreground">{value.name}</span>
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               Entreprise
             </span>
           </>
         ) : (
           <>
-            <MessageCircle className="h-4 w-4 text-slate-400" aria-hidden="true" />
-            <span className="text-slate-500">
+            <MessageCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="text-muted-foreground">
               Choisir depuis une conversation…
             </span>
           </>
@@ -93,19 +93,19 @@ export function ClientPicker({
         description="Uniquement les clients avec qui vous avez déjà une conversation."
       >
         <div className="flex flex-1 flex-col">
-          <div className="border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
+          <div className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
             Vous ne pouvez introduire qu&rsquo;un client avec qui vous avez
             déjà échangé. C&rsquo;est la base d&rsquo;un apport d&rsquo;affaires :
             une relation chaude, pas un contact froid.
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500">
+              <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Chargement…
               </div>
             ) : enterprises.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 Aucune conversation avec un client.
                 <br />
                 Commencez par échanger avec un prospect avant de le présenter.
@@ -129,11 +129,11 @@ export function ClientPicker({
                             {c.other_org_name.slice(0, 1).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate font-medium text-slate-900">
+                            <div className="truncate font-medium text-foreground">
                               {c.other_org_name}
                             </div>
                             {c.last_message && (
-                              <div className="truncate text-xs text-slate-500">
+                              <div className="truncate text-xs text-muted-foreground">
                                 {c.last_message}
                               </div>
                             )}

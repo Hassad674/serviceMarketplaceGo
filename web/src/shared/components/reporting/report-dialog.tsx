@@ -90,7 +90,7 @@ export function ReportDialog({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose()
@@ -102,7 +102,7 @@ export function ReportDialog({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Flag className="h-5 w-5 text-red-500" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="text-lg font-semibold text-foreground">
               {targetType === "message" && t("reportMessage")}
               {targetType === "user" && t("reportUser")}
               {targetType === "job" && t("reportJob")}
@@ -111,14 +111,14 @@ export function ReportDialog({
           </div>
           <Button variant="ghost" size="auto"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-muted"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* Reasons */}
-        <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <p className="mb-3 text-sm font-medium text-foreground">
           {t("selectReason")}
         </p>
         <div className="mb-4 space-y-2">
@@ -129,7 +129,7 @@ export function ReportDialog({
                 "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                 reason === r
                   ? "border-primary bg-primary-soft text-primary-deep"
-                  : "border-border text-foreground hover:bg-muted dark:border-slate-600 dark:text-slate-300",
+                  : "border-border text-foreground hover:bg-muted",
               )}
             >
               <Input
@@ -145,7 +145,7 @@ export function ReportDialog({
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2",
                   reason === r
                     ? "border-primary"
-                    : "border-border-strong dark:border-slate-500",
+                    : "border-border-strong",
                 )}
               >
                 {reason === r && (
@@ -159,7 +159,7 @@ export function ReportDialog({
 
         {/* Description */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1 block text-sm font-medium text-foreground">
             {t("description")}
           </label>
           <textarea
@@ -168,9 +168,9 @@ export function ReportDialog({
             placeholder={t("descriptionPlaceholder")}
             maxLength={2000}
             rows={3}
-            className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">
+          <p className="mt-1 text-right text-xs text-muted-foreground">
             {description.length} / 2000
           </p>
         </div>

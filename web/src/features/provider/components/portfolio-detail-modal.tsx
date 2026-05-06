@@ -78,7 +78,7 @@ export function PortfolioDetailModal({
         </Button>
 
         {/* Gallery — top on mobile, left on desktop */}
-        <div className="relative flex aspect-video w-full shrink-0 items-center justify-center bg-slate-950 md:aspect-auto md:h-[600px] md:w-3/5">
+        <div className="relative flex aspect-video w-full shrink-0 items-center justify-center bg-foreground md:aspect-auto md:h-[600px] md:w-3/5">
           {media.length > 0 ? (
             <>
               {current?.media_type === "video" ? (
@@ -194,7 +194,7 @@ export function PortfolioDetailModal({
                       }`}
                     >
                       {m.media_type === "video" ? (
-                        <div className="relative h-full w-full bg-slate-900">
+                        <div className="relative h-full w-full bg-foreground">
                           {m.thumbnail_url ? (
                             // Square thumbnail strip — parent is
                             // aspect-square, so fill + sizes is the

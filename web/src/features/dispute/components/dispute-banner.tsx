@@ -23,7 +23,7 @@ const STATUS_CONFIG = {
   negotiation: { icon: Clock, bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20", text: "text-amber-900 dark:text-amber-300", iconColor: "text-amber-500" },
   escalated: { icon: ShieldAlert, bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20", text: "text-orange-900 dark:text-orange-300", iconColor: "text-orange-500" },
   resolved: { icon: CheckCircle2, bg: "bg-green-50 dark:bg-green-500/10", border: "border-green-200 dark:border-green-500/20", text: "text-green-900 dark:text-green-300", iconColor: "text-green-500" },
-  cancelled: { icon: XCircle, bg: "bg-muted", border: "border-border", text: "text-slate-900 dark:text-slate-300", iconColor: "text-slate-500" },
+  cancelled: { icon: XCircle, bg: "bg-muted", border: "border-border", text: "text-foreground", iconColor: "text-muted-foreground" },
 } as const
 
 export function DisputeBanner({
@@ -86,12 +86,12 @@ export function DisputeBanner({
             {t(`status.${dispute.status}`)}
           </p>
 
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t("reason." + dispute.reason)} — {formatEur(dispute.requested_amount)} {t("requested")}
           </p>
 
           {dispute.status === "open" || dispute.status === "negotiation" ? (
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5" aria-hidden />
               {daysLeft > 0
                 ? t("daysLeft", { days: daysLeft })
@@ -108,16 +108,16 @@ export function DisputeBanner({
           )}
 
           {lastCP && (
-            <div className="mt-2 rounded-lg bg-white/60 dark:bg-slate-800/60 p-3 text-sm">
-              <p className="font-medium text-slate-700 dark:text-slate-300">{t("lastProposal")}</p>
-              <p className="text-slate-600 dark:text-slate-400">
+            <div className="mt-2 rounded-lg bg-card/60 p-3 text-sm">
+              <p className="font-medium text-foreground">{t("lastProposal")}</p>
+              <p className="text-muted-foreground">
                 {t("split", {
                   client: formatEur(lastCP.amount_client),
                   provider: formatEur(lastCP.amount_provider),
                 })}
               </p>
               {lastCP.message && (
-                <p className="mt-1 text-xs text-slate-500 italic">&quot;{lastCP.message}&quot;</p>
+                <p className="mt-1 text-xs text-muted-foreground italic">&quot;{lastCP.message}&quot;</p>
               )}
             </div>
           )}
@@ -152,11 +152,11 @@ export function DisputeBanner({
           )}
 
           {dispute.status === "resolved" && dispute.resolution_note && (
-            <div className="mt-2 rounded-lg bg-white/60 dark:bg-slate-800/60 p-3 text-sm">
-              <p className="font-medium text-slate-700 dark:text-slate-300">{t("resolution")}</p>
-              <p className="text-slate-600 dark:text-slate-400">{dispute.resolution_note}</p>
+            <div className="mt-2 rounded-lg bg-card/60 p-3 text-sm">
+              <p className="font-medium text-foreground">{t("resolution")}</p>
+              <p className="text-muted-foreground">{dispute.resolution_note}</p>
               {dispute.resolution_amount_client != null && dispute.resolution_amount_provider != null && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {t("split", {
                     client: formatEur(dispute.resolution_amount_client),
                     provider: formatEur(dispute.resolution_amount_provider),

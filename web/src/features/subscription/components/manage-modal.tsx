@@ -35,7 +35,7 @@ export function ManageModal({ open, onClose }: ManageModalProps) {
 	if (!subscription) {
 		return (
 			<Modal open={open} onClose={onClose} title="Gérer l'abonnement">
-				<p className="text-sm text-slate-500 dark:text-slate-400">
+				<p className="text-sm text-muted-foreground">
 					Aucun abonnement actif.
 				</p>
 			</Modal>
@@ -65,20 +65,20 @@ function PlanSummary({ subscription }: { subscription: Subscription }) {
       ? "Annuel"
       : null
   return (
-    <div className="rounded-xl border border-border bg-muted p-4 dark:border-slate-700 dark:bg-slate-800/40">
+    <div className="rounded-xl border border-border bg-muted p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          <p className="text-sm font-semibold text-foreground">
             {planLabel}
           </p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {cycle} · {price} €
           </p>
         </div>
-        <p className="text-right text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-right text-xs text-muted-foreground">
           Prochain renouvellement
           <br />
-          <span className="font-medium text-slate-700 dark:text-slate-300">
+          <span className="font-medium text-foreground">
             {formatDate(subscription.current_period_end)}
           </span>
         </p>
@@ -101,8 +101,8 @@ function StatsPanel({ startedAt }: { startedAt: string }) {
   if (!stats) return null
   const saved = formatCurrency(stats.saved_fee_cents / 100)
   return (
-    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary-soft to-white p-4">
-      <p className="text-sm text-slate-700 dark:text-slate-200">
+    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary-soft to-card p-4">
+      <p className="text-sm text-foreground">
         Tu as économisé{" "}
         <span className="font-mono font-semibold text-primary-deep">
           {saved}
@@ -118,12 +118,12 @@ function AutoRenewSwitch({ subscription }: { subscription: Subscription }) {
   const toggle = useToggleAutoRenew()
   const checked = !subscription.cancel_at_period_end
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/30">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        <p className="text-sm font-medium text-foreground">
           Renouvellement automatique
         </p>
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {checked
             ? "Tu seras facturé automatiquement à chaque échéance"
             : "Premium expirera à la fin de la période actuelle"}
@@ -162,7 +162,7 @@ function SwitchToggle({
         "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200",
         "focus:outline-none focus:ring-2 focus:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        checked ? "bg-primary" : "bg-slate-300 dark:bg-slate-600",
+        checked ? "bg-primary" : "bg-border-strong",
       )}
     >
       <span
@@ -213,10 +213,10 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
       : null
 
   return (
-    <div className="rounded-xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-800/30">
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-xs text-muted-foreground">
         Cycle actuel :{" "}
-        <span className="font-medium text-slate-700 dark:text-slate-300">
+        <span className="font-medium text-foreground">
           {subscription.billing_cycle === "annual" ? "annuel" : "mensuel"}
         </span>
       </p>
@@ -290,7 +290,7 @@ function ConfirmCycleChange({
           type="button"
           onClick={onCancel}
           disabled={pending}
-          className="flex-1 rounded-lg border border-border-strong bg-white px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          className="flex-1 rounded-lg border border-border-strong bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
         >
           Annuler
         </Button>
@@ -326,7 +326,7 @@ function PreviewMessage({
 }) {
   if (loading) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-muted-foreground">
         Calcul du montant…
       </p>
     )
@@ -341,9 +341,9 @@ function PreviewMessage({
   if (preview.prorate_immediately) {
     // Upgrade — Stripe charges the delta today.
     return (
-      <p className="text-xs text-slate-600 dark:text-slate-300">
+      <p className="text-xs text-muted-foreground">
         Tu seras facturé{" "}
-        <span className="font-semibold text-slate-900 dark:text-white">
+        <span className="font-semibold text-foreground">
           {formatCurrency(preview.amount_due_cents / 100)}
         </span>{" "}
         aujourd&apos;hui. Ton cycle passe en{" "}
@@ -357,9 +357,9 @@ function PreviewMessage({
   // returns the next monthly invoice window (today + 1 month), which
   // would misleadingly shorten the access date displayed to the user.
   return (
-    <p className="text-xs text-slate-600 dark:text-slate-300">
+    <p className="text-xs text-muted-foreground">
       Aucun débit aujourd&apos;hui. Tu gardes ton accès jusqu&apos;au{" "}
-      <span className="font-semibold text-slate-900 dark:text-white">
+      <span className="font-semibold text-foreground">
         {formatDate(currentPeriodEnd)}
       </span>
       , puis tu passeras en {target === "annual" ? "annuel" : "mensuel"}.
@@ -376,7 +376,7 @@ function PortalActions() {
   }, [portal])
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border pt-4 dark:border-slate-700">
+    <div className="flex flex-col gap-2 border-t border-border pt-4">
       <PortalButton
         label="Gérer mon paiement"
         onClick={handleOpen}
@@ -406,9 +406,8 @@ function PortalButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition-colors",
-        "hover:bg-muted hover:text-slate-900",
-        "dark:text-slate-400 dark:hover:text-slate-100",
+        "rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground",
         "disabled:cursor-not-allowed disabled:opacity-60",
       )}
     >

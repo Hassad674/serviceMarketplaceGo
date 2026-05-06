@@ -95,7 +95,7 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
 function BadgeSkeleton() {
   return (
     <div
-      className="h-6 w-[110px] animate-shimmer rounded-full bg-slate-200 dark:bg-slate-700"
+      className="h-6 w-[110px] animate-shimmer rounded-full bg-muted"
       aria-hidden="true"
     />
   )

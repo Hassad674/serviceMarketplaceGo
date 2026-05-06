@@ -64,7 +64,7 @@ function ResolvedCard({ dispute, currentUserId, t }: ResolvedCardProps) {
             })}
           </p>
 
-          <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-white/60 p-3 text-sm dark:bg-slate-800/40">
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-card/60 p-3 text-sm">
             <SplitCell
               label={t("client")}
               amount={clientAmount}
@@ -80,11 +80,11 @@ function ResolvedCard({ dispute, currentUserId, t }: ResolvedCardProps) {
           </div>
 
           {dispute.resolution_note && (
-            <div className="mt-3 rounded-lg bg-white/60 p-3 text-sm dark:bg-slate-800/40">
+            <div className="mt-3 rounded-lg bg-card/60 p-3 text-sm">
               <p className="mb-1 text-xs font-medium text-emerald-900 dark:text-emerald-200">
                 {t("decisionMessage")}
               </p>
-              <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+              <p className="whitespace-pre-wrap text-foreground">
                 {dispute.resolution_note}
               </p>
             </div>
@@ -111,21 +111,21 @@ function CancelledCard({ dispute, t }: CancelledCardProps) {
   return (
     <div
       role="status"
-      className="mb-4 rounded-xl border border-border bg-muted/60 p-4 dark:border-slate-700 dark:bg-slate-800/40 animate-slide-up"
+      className="mb-4 rounded-xl border border-border bg-muted/60 p-4 animate-slide-up"
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700/40">
-          <XCircle className="h-4 w-4 text-slate-600 dark:text-slate-300" aria-hidden />
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+          <XCircle className="h-4 w-4 text-muted-foreground" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-200">
+          <p className="text-sm font-semibold text-foreground">
             {t("disputeCancelledTitle")}
           </p>
-          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {t("disputeCancelledSubtitle")}
           </p>
           {dispute.resolved_at && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               {formatDate(dispute.resolved_at)}
             </p>
           )}
@@ -147,18 +147,18 @@ function SplitCell({ label, amount, percent, highlighted }: SplitCellProps) {
     <div
       className={
         highlighted
-          ? "rounded-md border border-emerald-300 bg-white p-2 dark:border-emerald-500/40 dark:bg-slate-800"
+          ? "rounded-md border border-emerald-300 bg-card p-2 dark:border-emerald-500/40"
           : "p-2"
       }
     >
-      <p className="flex items-center gap-1 text-xs text-slate-500">
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
         {highlighted && <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-hidden />}
         {label}
       </p>
-      <p className="font-mono text-base font-semibold text-slate-900 dark:text-slate-100">
+      <p className="font-mono text-base font-semibold text-foreground">
         {formatEur(amount)}
       </p>
-      <p className="text-xs text-slate-500">{percent}%</p>
+      <p className="text-xs text-muted-foreground">{percent}%</p>
     </div>
   )
 }

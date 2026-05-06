@@ -40,7 +40,7 @@ export function PortfolioItemCard({
 
   return (
     <div
-      className="group relative aspect-[4/5] cursor-pointer overflow-hidden rounded-2xl bg-slate-900 shadow-sm transition-all duration-300 ease-out hover:shadow-xl hover:-translate-y-1"
+      className="group relative aspect-[4/5] cursor-pointer overflow-hidden rounded-2xl bg-foreground shadow-[var(--shadow-card)] transition-all duration-300 ease-out hover:shadow-xl hover:-translate-y-1"
       onClick={onView}
     >
       {/* Cover — custom thumbnail (videos) > image > video first frame > placeholder.
@@ -72,8 +72,8 @@ export function PortfolioItemCard({
           className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
-          <ImageIcon className="h-12 w-12 text-slate-400" strokeWidth={1.5} />
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-border-strong">
+          <ImageIcon className="h-12 w-12 text-muted-foreground" strokeWidth={1.5} />
         </div>
       )}
 
@@ -112,7 +112,7 @@ export function PortfolioItemCard({
               e.stopPropagation()
               onEdit?.()
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-primary-deep sm:h-9 sm:w-9"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card/95 text-foreground shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-card hover:text-primary-deep sm:h-9 sm:w-9"
             aria-label={t("edit")}
           >
             <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -122,7 +122,7 @@ export function PortfolioItemCard({
               e.stopPropagation()
               onDelete?.()
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-red-600 sm:h-9 sm:w-9"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card/95 text-foreground shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-card hover:text-red-600 sm:h-9 sm:w-9"
             aria-label={t("delete")}
           >
             <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />

@@ -35,10 +35,10 @@ export function ReferralDashboard() {
     <div className="space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Apports d&rsquo;affaires
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Vos mises en relation et leurs commissions.
           </p>
         </div>
@@ -142,16 +142,16 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, accent }: StatCardProps) {
   return (
-    <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+    <article className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-3">
         <div className={`grid h-10 w-10 place-items-center rounded-full ${accent}`}>
           {icon}
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </p>
-          <p className="text-2xl font-semibold tabular-nums text-slate-900">
+          <p className="text-2xl font-semibold tabular-nums text-foreground">
             {value}
           </p>
         </div>
@@ -174,13 +174,13 @@ function Section({ title, description, emptyState, loading, children }: SectionP
   return (
     <section>
       <header className="mb-3">
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         {description && (
-          <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
         )}
       </header>
       {loading ? <SectionSkeleton /> : children || (
-        <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-sm text-slate-500">
+        <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
           {emptyState}
         </p>
       )}
@@ -215,23 +215,23 @@ function ReferralList({ items }: ReferralListProps) {
         <li key={r.id}>
           <Link
             href={`/referrals/${r.id}`}
-            className="group flex items-center justify-between gap-4 rounded-2xl border border-border bg-white p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+            className="group flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] transition hover:border-primary/30 hover:shadow-md"
           >
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <ReferralStatusBadge status={r.status} />
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted-foreground">
                   v{r.version} · {formatRatePct(r.rate_pct)} · {r.duration_months}{" "}
                   mois
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-slate-700">
-                <Briefcase className="mr-1.5 inline h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+              <p className="mt-1.5 text-sm text-foreground">
+                <Briefcase className="mr-1.5 inline h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                 Couple <code className="font-mono text-xs">{r.provider_id.slice(0, 8)}</code> →{" "}
                 <code className="font-mono text-xs">{r.client_id.slice(0, 8)}</code>
               </p>
               {r.activated_at && r.expires_at && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Activée le{" "}
                   {new Date(r.activated_at).toLocaleDateString("fr-FR")}, expire le{" "}
                   {new Date(r.expires_at).toLocaleDateString("fr-FR")}
@@ -239,7 +239,7 @@ function ReferralList({ items }: ReferralListProps) {
               )}
             </div>
             <ArrowRight
-              className="h-5 w-5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-primary"
+              className="h-5 w-5 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary"
               aria-hidden="true"
             />
           </Link>

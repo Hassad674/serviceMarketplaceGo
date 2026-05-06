@@ -43,10 +43,10 @@ function BannerCta({
         <Sparkles className="h-5 w-5 text-primary-deep" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+        <p className="text-sm font-semibold text-foreground">
           Passe Premium, paie 0 € de frais
         </p>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           {monthlyPrice} €/mois · rentable dès 2 missions
         </p>
       </div>
@@ -82,7 +82,7 @@ function InlineCta({
         "focus:outline-none focus:ring-2 focus:ring-primary/40",
       )}
     >
-      <span className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+      <span className="flex items-center gap-2 text-xs text-foreground">
         <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
         <span>
           Premium à <strong className="font-semibold">{monthlyPrice} €/mois</strong> → 0 € de frais

@@ -66,14 +66,14 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
       </div>
 
       {referral.intro_message_for_me && (
-        <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
           <header className="mb-2 flex items-center gap-2">
             <MessageSquareQuote className="h-4 w-4 text-primary" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-foreground">
               Mot de l&rsquo;apporteur
             </h2>
           </header>
-          <p className="whitespace-pre-line text-sm text-slate-700">
+          <p className="whitespace-pre-line text-sm text-foreground">
             &ldquo;{referral.intro_message_for_me}&rdquo;
           </p>
         </section>
@@ -81,7 +81,7 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
 
       <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <header className="mb-3">
-          <h2 className="text-sm font-semibold text-slate-900">Vos actions</h2>
+          <h2 className="text-sm font-semibold text-foreground">Vos actions</h2>
         </header>
         <ReferralActions referral={referral} viewerRole={viewerRole} />
       </section>
@@ -99,9 +99,9 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
       {/* Negotiation timeline is hidden from the client until activation
           to avoid leaking historical rate values (Modèle A). */}
       {(viewerRole !== "client" || referral.status === "active") && (
-        <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
           <header className="mb-3">
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-foreground">
               Historique de négociation
             </h2>
           </header>
@@ -134,11 +134,11 @@ function Header({ referral }: HeaderProps) {
   return (
     <header className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-foreground">
           Mise en relation
         </h1>
         <ReferralStatusBadge status={referral.status} />
-        <span className="text-xs text-slate-500">v{referral.version}</span>
+        <span className="text-xs text-muted-foreground">v{referral.version}</span>
       </div>
       <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric icon={<Percent className="h-4 w-4" />} label="Commission">
@@ -172,8 +172,8 @@ function Metric({ icon, label, children }: MetricProps) {
     <div className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2">
       <span className="text-primary">{icon}</span>
       <div>
-        <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-        <dd className="text-sm font-medium text-slate-900">{children}</dd>
+        <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+        <dd className="text-sm font-medium text-foreground">{children}</dd>
       </div>
     </div>
   )

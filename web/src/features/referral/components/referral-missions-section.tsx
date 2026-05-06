@@ -36,18 +36,18 @@ export function ReferralMissionsSection({
 
   if (isLoading) {
     return (
-      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
         <SectionHeader />
-        <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-700/60">
+        <ul className="mt-3 divide-y divide-border">
           {[0, 1, 2].map((i) => (
             <li key={i} className="py-3">
               <div className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
+                <div className="h-2 w-2 rounded-full bg-muted" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 w-2/3 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
-                  <div className="h-2.5 w-1/2 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+                  <div className="h-3.5 w-2/3 animate-shimmer rounded bg-muted" />
+                  <div className="h-2.5 w-1/2 animate-shimmer rounded bg-muted" />
                 </div>
-                <div className="h-5 w-16 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+                <div className="h-5 w-16 animate-shimmer rounded bg-muted" />
               </div>
             </li>
           ))}
@@ -66,9 +66,9 @@ export function ReferralMissionsSection({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
       <SectionHeader count={attributions.length} />
-      <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-700/60">
+      <ul className="mt-2 divide-y divide-border">
         {attributions.map((a) => (
           <li key={a.id}>
             <AttributionRow
@@ -90,16 +90,16 @@ function SectionHeader({ count }: { count?: number }) {
           <Briefcase className="h-4 w-4" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+          <h2 className="text-sm font-semibold text-foreground">
             Missions pendant cette mise en relation
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Propositions signées pendant la fenêtre d&apos;exclusivité.
           </p>
         </div>
       </div>
       {count !== undefined && (
-        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
           {count}
         </span>
       )}
@@ -160,7 +160,7 @@ function AttributionRow({
       {/* Main content: title + meta lines */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+          <span className="truncate text-sm font-semibold text-foreground">
             {title}
           </span>
           <span
@@ -174,13 +174,13 @@ function AttributionRow({
         </div>
 
         {/* Milestone progress line — {paid}/{total} drives the bar */}
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className="tabular-nums">
             {mDone}/{mTotal} jalons
           </span>
           {mTotal > 0 && (
             <span
-              className="relative h-1 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"
+              className="relative h-1 w-16 overflow-hidden rounded-full bg-muted"
               role="progressbar"
               aria-valuenow={progress}
               aria-valuemin={0}
@@ -196,7 +196,7 @@ function AttributionRow({
         </div>
 
         {/* Attribution date + rate — tertiary info */}
-        <div className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
           Attribuée le {attributedOn}
           {rate !== undefined && (
             <>
@@ -248,7 +248,7 @@ function CommissionColumn({
 
   const primaryCls = hasPaid
     ? "text-primary-deep"
-    : "text-slate-400 dark:text-slate-500"
+    : "text-muted-foreground"
 
   let caption: string | null = null
   if (!hasPaid && !hasEscrow) {
@@ -276,11 +276,11 @@ function CommissionColumn({
         </div>
       )}
       {caption ? (
-        <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+        <div className="mt-0.5 text-[10px] text-muted-foreground">
           {caption}
         </div>
       ) : (
-        <div className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
           Commission
         </div>
       )}
@@ -330,16 +330,16 @@ function proposalStatus(status: string | undefined): StatusMeta {
     case "withdrawn":
       return {
         label: labelFor(status),
-        dotCls: "bg-slate-400 ring-2 ring-slate-400/20",
+        dotCls: "bg-border-strong ring-2 ring-border-strong/20",
         pillCls:
-          "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+          "bg-muted text-muted-foreground",
       }
     default:
       return {
         label: status ?? "—",
-        dotCls: "bg-slate-400 ring-2 ring-slate-400/20",
+        dotCls: "bg-border-strong ring-2 ring-border-strong/20",
         pillCls:
-          "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+          "bg-muted text-muted-foreground",
       }
   }
 }

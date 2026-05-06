@@ -83,10 +83,10 @@ export default function SubscribeEmbedPage() {
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-2xl flex-col p-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {step === "billing" ? "Informations de facturation" : "Paiement"}
         </h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-1 text-sm text-muted-foreground">
           {step === "billing"
             ? "Vérifie tes informations légales avant le paiement. Elles serviront sur tes factures."
             : "Règle ton abonnement Premium en toute sécurité avec Stripe."}
@@ -97,8 +97,7 @@ export default function SubscribeEmbedPage() {
             onClick={() => setStep("billing")}
             className={cn(
               "mt-3 inline-flex items-center gap-1.5 text-sm font-medium",
-              "text-slate-600 transition-colors hover:text-rose-600",
-              "dark:text-slate-300 dark:hover:text-rose-400",
+              "text-muted-foreground transition-colors hover:text-primary-deep",
             )}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -156,12 +155,12 @@ function CycleToggle({
     <div
       role="tablist"
       aria-label="Periode de facturation"
-      className="mb-6 flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50"
+      className="mb-6 flex items-center gap-1 rounded-full border border-border bg-muted p-1"
     >
       <CycleTab active={cycle === "monthly"} onClick={() => onChange("monthly")}>
         <span className="flex items-center justify-center gap-1.5">
           Mensuel
-          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-normal text-muted-foreground">
             {monthlyAmount} €/mois
           </span>
         </span>
@@ -169,10 +168,10 @@ function CycleToggle({
       <CycleTab active={cycle === "annual"} onClick={() => onChange("annual")}>
         <span className="flex items-center justify-center gap-1.5">
           Annuel
-          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-normal text-muted-foreground">
             {annualPerMonth} €/mois
           </span>
-          <span className="inline-flex items-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+          <span className="inline-flex items-center rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
             -21%
           </span>
         </span>
@@ -199,8 +198,8 @@ function CycleTab({
       className={cn(
         "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
         active
-          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
-          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+          ? "bg-card text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -257,7 +256,7 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
   return (
     <div className="space-y-6">
       {sync.isPending && (
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Récupération de tes informations Stripe…
         </div>
@@ -270,7 +269,7 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
         </div>
       )}
       <BillingProfileForm variant="compact" onSaved={onContinue} />
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+      <div className="rounded-xl border border-border bg-muted p-4 text-xs text-muted-foreground">
         Une fois ton profil enregistré et complet, tu passes automatiquement à
         l&apos;étape de paiement.
       </div>
@@ -390,11 +389,11 @@ function PaymentStep({
   if (!options) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Préparation du paiement…
         </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500">
+        <p className="text-xs text-muted-foreground">
           Création de la session Stripe en cours…
         </p>
       </div>

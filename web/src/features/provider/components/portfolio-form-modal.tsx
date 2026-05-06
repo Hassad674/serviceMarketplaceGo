@@ -361,7 +361,7 @@ export function PortfolioFormModal({
                     } ${i === 0 ? "ring-2 ring-primary/30" : ""}`}
                   >
                     {m.media_type === "video" ? (
-                      <div className="relative h-full w-full bg-slate-900">
+                      <div className="relative h-full w-full bg-foreground">
                         {m.thumbnail_url ? (
                           // Square form-modal thumbnail — fill + sizes
                           // since the parent is aspect-square.

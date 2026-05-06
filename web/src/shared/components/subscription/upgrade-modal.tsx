@@ -86,7 +86,7 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
           pending={pending}
           onSubmit={handleSubmit}
         />
-        <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-center text-xs text-muted-foreground">
           Tu peux annuler à tout moment
         </p>
       </div>
@@ -112,7 +112,7 @@ function CycleToggle({
     <div
       role="tablist"
       aria-label="Periode de facturation"
-      className="flex items-center gap-1 rounded-full border border-border bg-muted p-1 dark:border-slate-700 dark:bg-slate-800/50"
+      className="flex items-center gap-1 rounded-full border border-border bg-muted p-1"
     >
       <CycleTab active={cycle === "monthly"} onClick={() => onChange("monthly")}>
         Mensuel
@@ -147,8 +147,8 @@ function CycleTab({
       className={cn(
         "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
         active
-          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
-          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+          ? "bg-card text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -171,24 +171,24 @@ function PlanCard({
 }) {
   const title = role === "agency" ? "Premium Agence" : "Premium Freelance"
   return (
-    <div className="rounded-xl border border-border bg-gradient-to-br from-primary-soft to-white p-5">
-      <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
+    <div className="rounded-xl border border-border bg-gradient-to-br from-primary-soft to-card p-5">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
       {cycle === "monthly" ? (
-        <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+        <p className="mt-2 text-3xl font-bold text-foreground">
           {monthlyAmount} €
-          <span className="ml-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          <span className="ml-1 text-sm font-medium text-muted-foreground">
             /mois
           </span>
         </p>
       ) : (
         <div className="mt-2">
-          <p className="text-3xl font-bold text-slate-900 dark:text-white">
+          <p className="text-3xl font-bold text-foreground">
             {annualPerMonth} €
-            <span className="ml-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+            <span className="ml-1 text-sm font-medium text-muted-foreground">
               /mois
             </span>
           </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Facturé {annualAmount} €/an
           </p>
         </div>
@@ -213,10 +213,10 @@ function AutoRenewCheckbox({
         className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-border-strong text-primary-deep focus:ring-2 focus:ring-primary/30"
       />
       <span className="space-y-1 text-sm">
-        <span className="block font-medium text-slate-900 dark:text-slate-100">
+        <span className="block font-medium text-foreground">
           Activer le renouvellement automatique
         </span>
-        <span className="block text-xs text-slate-500 dark:text-slate-400">
+        <span className="block text-xs text-muted-foreground">
           Si désactivé, tu paies une fois puis Premium expire naturellement.
         </span>
       </span>

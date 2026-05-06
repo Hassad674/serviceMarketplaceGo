@@ -78,15 +78,15 @@ export function ProviderPicker({
         {value ? (
           <>
             <Users className="h-4 w-4 text-primary" aria-hidden="true" />
-            <span className="truncate text-slate-900">{value.name}</span>
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+            <span className="truncate text-foreground">{value.name}</span>
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               {orgTypeLabel(value.orgType)}
             </span>
           </>
         ) : (
           <>
-            <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
-            <span className="text-slate-500">
+            <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="text-muted-foreground">
               Rechercher un freelance ou une agence…
             </span>
           </>
@@ -119,7 +119,7 @@ interface TabBarProps {
 
 function TabBar({ tab, onChange }: TabBarProps) {
   return (
-    <div role="tablist" className="flex border-b border-slate-100 px-2">
+    <div role="tablist" className="flex border-b border-border px-2">
       <TabButton
         active={tab === "search"}
         onClick={() => onChange("search")}
@@ -154,7 +154,7 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
       onClick={onClick}
       className={cn(
         "relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
-        active ? "text-primary-deep" : "text-slate-500 hover:text-slate-700",
+        active ? "text-primary-deep" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {icon}
@@ -207,9 +207,9 @@ function SearchTab({ currentValue, onSelect }: SearchTabProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="border-b border-slate-100 p-3">
+      <div className="border-b border-border p-3">
         <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
-          <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             type="text"
             autoFocus
@@ -249,10 +249,10 @@ function SearchTab({ currentValue, onSelect }: SearchTabProps) {
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar name={p.name} />
                       <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">
+                        <div className="truncate font-medium text-foreground">
                           {p.name}
                         </div>
-                        <div className="truncate text-xs text-slate-500">
+                        <div className="truncate text-xs text-muted-foreground">
                           {orgTypeLabel(p.org_type)}
                           {p.title ? ` · ${p.title}` : null}
                         </div>
@@ -300,7 +300,7 @@ function ConversationsTab({ currentValue, onSelect }: ConversationsTabProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
+      <div className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
         <Sparkles
           className="mr-1 inline h-3.5 w-3.5 text-primary"
           aria-hidden="true"
@@ -336,10 +336,10 @@ function ConversationsTab({ currentValue, onSelect }: ConversationsTabProps) {
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar name={c.other_org_name} />
                       <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">
+                        <div className="truncate font-medium text-foreground">
                           {c.other_org_name}
                         </div>
-                        <div className="truncate text-xs text-slate-500">
+                        <div className="truncate text-xs text-muted-foreground">
                           {orgTypeLabel(c.other_org_type)}
                           {c.last_message ? ` · ${c.last_message}` : null}
                         </div>
@@ -374,7 +374,7 @@ function Avatar({ name }: { name: string }) {
 
 function LoadingRow() {
   return (
-    <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500">
+    <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       Chargement…
     </div>
@@ -382,7 +382,7 @@ function LoadingRow() {
 }
 
 function EmptyRow({ message }: { message: string }) {
-  return <div className="p-8 text-center text-sm text-slate-500">{message}</div>
+  return <div className="p-8 text-center text-sm text-muted-foreground">{message}</div>
 }
 
 function orgTypeLabel(orgType: string): string {

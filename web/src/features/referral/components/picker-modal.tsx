@@ -48,7 +48,7 @@ export function PickerModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 px-4 pt-16 pb-8 animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-foreground/50 px-4 pt-16 pb-8 animate-in fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -56,21 +56,21 @@ export function PickerModal({
     >
       <div
         className={cn(
-          "flex max-h-[calc(100vh-8rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl",
+          "flex max-h-[calc(100vh-8rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl",
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
             {description && (
-              <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
             )}
           </div>
           <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-muted hover:text-slate-700"
+            className="rounded-lg p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             aria-label="Fermer"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -103,7 +103,7 @@ export function PickerTrigger({
 }: PickerTriggerProps) {
   return (
     <div>
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+      <span className="mb-1.5 block text-sm font-medium text-foreground">
         {label}
       </span>
       <div
@@ -117,7 +117,7 @@ export function PickerTrigger({
           }
         }}
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-strong bg-white px-4 py-2.5 text-left text-sm transition",
+          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-strong bg-card px-4 py-2.5 text-left text-sm transition",
           "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
           "hover:border-foreground/40",
           open && "border-primary ring-2 ring-primary/20",
@@ -131,7 +131,7 @@ export function PickerTrigger({
               e.stopPropagation()
               onClear()
             }}
-            className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-muted hover:text-slate-700"
+            className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             aria-label="Effacer la sélection"
           >
             <X className="h-4 w-4" aria-hidden="true" />

@@ -89,14 +89,14 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Reason */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             {t("reasonLabel")}
           </label>
           <Select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
-            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
+            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
           >
             <option value="">{t("reasonPlaceholder")}</option>
             {reasons.map((r) => (
@@ -107,7 +107,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Amount */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             {t("amountLabel")}
           </label>
           <div className="flex flex-col gap-2">
@@ -141,10 +141,10 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                   max={proposalAmount / 100}
                   value={partialAmount / 100 || ""}
                   onChange={(e) => setPartialAmount(Math.round(Number(e.target.value) * 100))}
-                  className="h-9 w-32 rounded-lg border border-border px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
+                  className="h-9 w-32 rounded-lg border border-border bg-card px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
                   placeholder="0"
                 />
-                <span className="text-sm text-slate-500">EUR</span>
+                <span className="text-sm text-muted-foreground">EUR</span>
               </div>
             )}
           </div>
@@ -152,10 +152,10 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Message to the other party */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             {t("messageToPartyLabel")}
           </label>
-          <p className="mb-2 text-xs text-slate-400">{t("messageToPartyHint")}</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t("messageToPartyHint")}</p>
           <textarea
             value={messageToParty}
             onChange={(e) => setMessageToParty(e.target.value)}
@@ -163,13 +163,13 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             maxLength={2000}
             rows={3}
             placeholder={t("messageToPartyPlaceholder")}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
           <FileChips files={partyFiles} onRemove={(i) => setPartyFiles((f) => f.filter((_, j) => j !== i))} />
           <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setPartyModalOpen(true)}
-            className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors"
+            className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <Paperclip className="h-3.5 w-3.5" />
             {t("addFiles")}
@@ -178,17 +178,17 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Detailed description for admin mediation */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             {t("descriptionLabel")}
           </label>
-          <p className="mb-2 text-xs text-slate-400">{t("descriptionHint")}</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t("descriptionHint")}</p>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={5000}
             rows={4}
             placeholder={t("descriptionPlaceholder")}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
           <div className="flex items-center justify-between mt-1">
             <div>
@@ -196,13 +196,13 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
               <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setMediationModalOpen(true)}
-                className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors"
+                className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Paperclip className="h-3.5 w-3.5" />
                 {t("addFiles")}
               </Button>
             </div>
-            <p className="text-xs text-slate-400">{description.length}/5000</p>
+            <p className="text-xs text-muted-foreground">{description.length}/5000</p>
           </div>
         </div>
 
@@ -262,15 +262,15 @@ function FileChips({ files, onRemove }: { files: File[]; onRemove: (index: numbe
       {files.map((f, i) => (
         <div
           key={`${f.name}-${i}`}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs"
         >
-          <FileText className="h-3.5 w-3.5 text-slate-400" />
-          <span className="max-w-[150px] truncate text-slate-600 dark:text-slate-400">{f.name}</span>
-          <span className="text-slate-400">({(f.size / 1024).toFixed(0)} KB)</span>
+          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="max-w-[150px] truncate text-muted-foreground">{f.name}</span>
+          <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span>
           <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onRemove(i)}
-            className="ml-0.5 text-slate-400 hover:text-red-500 transition-colors"
+            className="ml-0.5 text-muted-foreground hover:text-red-500 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </Button>

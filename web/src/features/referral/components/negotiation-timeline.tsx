@@ -32,7 +32,7 @@ const ACTION_STYLES: Record<
   rejected: {
     label: "Refusé",
     icon: <X className="h-3.5 w-3.5" aria-hidden="true" />,
-    tone: "bg-slate-100 text-slate-600",
+    tone: "bg-muted text-muted-foreground",
   },
 }
 
@@ -64,7 +64,7 @@ export function NegotiationTimeline({
   }
   if (!data || data.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-slate-500">
+      <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
         Aucun événement de négociation pour le moment.
       </p>
     )
@@ -77,7 +77,7 @@ export function NegotiationTimeline({
         return (
           <li
             key={event.id}
-            className="flex items-start gap-3 rounded-lg border border-border bg-white p-3"
+            className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
           >
             <span
               className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${style.tone}`}
@@ -87,22 +87,22 @@ export function NegotiationTimeline({
             </span>
             <div className="flex-1 text-sm">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-foreground">
                   {ROLE_LABELS[event.actor_role]}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted-foreground">
                   {style.label} · v{event.version}
                 </span>
                 {showRate && (
-                  <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">
+                  <span className="ml-auto rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
                     {event.rate_pct.toFixed(event.rate_pct % 1 === 0 ? 0 : 1)}%
                   </span>
                 )}
               </div>
               {event.message && (
-                <p className="mt-1 text-sm text-slate-600">&ldquo;{event.message}&rdquo;</p>
+                <p className="mt-1 text-sm text-muted-foreground">&ldquo;{event.message}&rdquo;</p>
               )}
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {new Date(event.created_at).toLocaleString("fr-FR", {
                   dateStyle: "medium",
                   timeStyle: "short",

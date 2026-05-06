@@ -124,7 +124,7 @@ export function ReferralCreationForm() {
             onChange={(e) => setRatePct(parseFloat(e.target.value))}
             className="w-full accent-primary"
           />
-          <div className="mt-1 flex justify-between text-xs text-slate-500">
+          <div className="mt-1 flex justify-between text-xs text-muted-foreground">
             <span>0 %</span>
             <span>15 %</span>
             <span>30 %</span>
@@ -249,10 +249,10 @@ interface SectionProps {
 
 function Section({ title, description, children }: SectionProps) {
   return (
-    <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
       <header className="mb-4">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        <p className="mt-1 text-sm text-slate-500">{description}</p>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </header>
       <div className="space-y-4">{children}</div>
     </section>
@@ -267,7 +267,7 @@ interface FieldProps {
 function Field({ label, children }: FieldProps) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+      <span className="mb-1.5 block text-sm font-medium text-foreground">
         {label}
       </span>
       {children}
@@ -290,7 +290,7 @@ function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
         onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary"
       />
-      <span className="text-slate-700">{label}</span>
+      <span className="text-foreground">{label}</span>
     </label>
   )
 }

@@ -79,7 +79,7 @@ export function MessageBubble({
     return (
       <div className={cn("flex flex-col gap-1", state.isOwn ? "items-end" : "items-start")}>
         {isSuperseded && (
-          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 px-2">
+          <span className="text-[10px] font-medium text-muted-foreground px-2">
             {tp("supersededByVersion", { version: meta.proposal_version + 1 })}
           </span>
         )}
@@ -169,8 +169,8 @@ export function MessageBubble({
   if (message.deleted_at) {
     return (
       <div className={cn("flex", state.isOwn ? "justify-end" : "justify-start")}>
-        <div className="max-w-[75%] rounded-2xl bg-slate-100/60 px-4 py-2.5 dark:bg-slate-800/40">
-          <p className="text-sm italic text-slate-400 dark:text-slate-500">
+        <div className="max-w-[75%] rounded-2xl bg-muted/60 px-4 py-2.5">
+          <p className="text-sm italic text-muted-foreground">
             {t("messageDeleted")}
           </p>
         </div>
@@ -212,13 +212,13 @@ function CallSystemBubble({
 
   return (
     <div className="flex justify-center py-2">
-      <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 dark:bg-slate-800">
+      <div className="flex items-center gap-2 rounded-full bg-muted px-4 py-1.5">
         {isCallMissed ? (
           <PhoneMissed className="h-3.5 w-3.5 text-red-500" />
         ) : (
           <Phone className="h-3.5 w-3.5 text-emerald-500" />
         )}
-        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <span className="text-xs font-medium text-muted-foreground">
           {isCallMissed
             ? t("callMissed")
             : `${t("callEnded")} — ${duration ? formatDuration(duration) : "0:00"}`}
