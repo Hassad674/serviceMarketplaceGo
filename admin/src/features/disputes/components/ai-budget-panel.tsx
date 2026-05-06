@@ -32,9 +32,9 @@ export function AIBudgetPanel({ disputeId, budget }: AIBudgetPanelProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-violet-500" />
+          <Wallet className="h-5 w-5 text-primary" />
           Budget IA
-          <span className="ml-2 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
+          <span className="ml-2 rounded-md bg-[var(--pink-soft)] px-2 py-0.5 text-xs font-medium text-primary-deep">
             Tier {budget.tier} — {TIER_LABELS[budget.tier] ?? budget.tier}
           </span>
         </CardTitle>
