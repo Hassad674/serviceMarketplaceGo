@@ -184,12 +184,28 @@ void main() {
       expect(''.initials, equals(''));
     });
 
+    test('returns empty string for whitespace-only name', () {
+      expect('   '.initials, equals(''));
+    });
+
+    test('returns empty string for tabs and newlines only', () {
+      expect('\t\n  \r'.initials, equals(''));
+    });
+
     test('handles extra whitespace', () {
       expect('  John   Doe  '.initials, equals('JD'));
     });
 
     test('uppercases initials from lowercase input', () {
       expect('john doe'.initials, equals('JD'));
+    });
+
+    test('handles single character input', () {
+      expect('A'.initials, equals('A'));
+    });
+
+    test('handles single character lowercase input', () {
+      expect('a'.initials, equals('A'));
     });
   });
 
