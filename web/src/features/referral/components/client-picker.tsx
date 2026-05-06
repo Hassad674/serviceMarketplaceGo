@@ -70,7 +70,7 @@ export function ClientPicker({
       >
         {value ? (
           <>
-            <Building2 className="h-4 w-4 text-rose-500" aria-hidden="true" />
+            <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
             <span className="truncate text-slate-900">{value.name}</span>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
               Entreprise
@@ -120,8 +120,8 @@ export function ClientPicker({
                         type="button"
                         onClick={() => select(c)}
                         className={cn(
-                          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-rose-50",
-                          selected && "bg-rose-50",
+                          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-primary-soft",
+                          selected && "bg-primary-soft",
                         )}
                       >
                         <div className="flex min-w-0 items-center gap-3">
@@ -141,7 +141,7 @@ export function ClientPicker({
                         </div>
                         {selected && (
                           <Check
-                            className="h-4 w-4 shrink-0 text-rose-500"
+                            className="h-4 w-4 shrink-0 text-primary"
                             aria-hidden="true"
                           />
                         )}

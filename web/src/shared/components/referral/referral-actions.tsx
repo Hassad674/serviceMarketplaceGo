@@ -57,14 +57,14 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="rounded-lg border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-primary-deep"
         >
           {error}
         </div>
       )}
 
       {showNegotiate ? (
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Nouveau taux : {counterRate.toFixed(counterRate % 1 === 0 ? 0 : 1)} %
@@ -76,7 +76,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
               step={0.5}
               value={counterRate}
               onChange={(e) => setCounterRate(parseFloat(e.target.value))}
-              className="w-full accent-rose-500"
+              className="w-full accent-primary"
             />
           </div>
           <div>
@@ -87,14 +87,14 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
+              className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowNegotiate(false)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-border-strong px-4 py-2 text-sm text-foreground hover:bg-muted"
             >
               Annuler
             </Button>
@@ -104,7 +104,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
                 send({ action: "negotiate", new_rate_pct: counterRate, message })
               }
               disabled={respond.isPending}
-              className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-deep disabled:opacity-50"
             >
               {respond.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -219,9 +219,9 @@ function ActionButton({
     negotiate: onNegotiate,
   }
   const variantClasses: Record<UIAction["variant"], string> = {
-    primary: "bg-rose-500 text-white hover:bg-rose-600",
-    secondary: "border border-slate-300 text-slate-700 hover:bg-slate-50",
-    danger: "border border-rose-200 text-rose-700 hover:bg-rose-50",
+    primary: "bg-primary text-white hover:bg-primary-deep",
+    secondary: "border border-border-strong text-foreground hover:bg-muted",
+    danger: "border border-primary/30 text-primary-deep hover:bg-primary-soft",
   }
   return (
     <Button variant="ghost" size="auto"

@@ -24,11 +24,11 @@ describe("MessageAreaSkeleton", () => {
     expect(rows[1].className).toContain("justify-end")
   })
 
-  it("uses pulsing rose tint for outgoing rows and gray for incoming", () => {
+  it("uses pulsing corail tint for outgoing rows and gray for incoming", () => {
     const { container } = render(<MessageAreaSkeleton />)
     const bubbles = container.querySelectorAll(".animate-pulse")
-    // Outgoing bubbles (even indices) carry rose-200; incoming (odd) gray.
-    expect(bubbles[1].className).toContain("rose-200")
+    // Outgoing bubbles (even indices) carry primary-soft; incoming (odd) gray.
+    expect(bubbles[1].className).toContain("primary-soft")
     expect(bubbles[0].className).toContain("gray-200")
   })
 

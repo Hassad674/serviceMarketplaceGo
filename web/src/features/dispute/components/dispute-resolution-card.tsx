@@ -111,7 +111,7 @@ function CancelledCard({ dispute, t }: CancelledCardProps) {
   return (
     <div
       role="status"
-      className="mb-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40 animate-slide-up"
+      className="mb-4 rounded-xl border border-border bg-muted/60 p-4 dark:border-slate-700 dark:bg-slate-800/40 animate-slide-up"
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700/40">

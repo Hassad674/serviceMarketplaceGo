@@ -68,7 +68,7 @@ export function ReferrerProjectHistorySection(
                 disabled={query.isFetchingNextPage}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors",
-                  "hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-rose-950/20",
+                  "hover:border-primary/30 hover:bg-primary-soft/50",
                   "disabled:opacity-60 disabled:cursor-not-allowed",
                 )}
               >
@@ -104,7 +104,7 @@ function SectionHeader({ ratingAvg, reviewCount }: SectionHeaderProps) {
           {t("reputationSectionTitle")}
         </h2>
         <span
-          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-50 to-rose-100/60 px-3 py-1 text-xs font-semibold text-rose-700 dark:from-rose-950/40 dark:to-rose-900/40 dark:text-rose-200"
+          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary-soft to-primary-soft/60 px-3 py-1 text-xs font-semibold text-primary-deep"
           aria-label={`${t("reputationRatingLabel")} · ${formattedAvg} / 5`}
         >
           <Star
@@ -176,7 +176,7 @@ function HistoryEntryCard({ entry }: HistoryEntryCardProps) {
       className={cn(
         "rounded-2xl border bg-card p-5 shadow-sm transition-colors",
         hasReview
-          ? "border-border hover:border-rose-200"
+          ? "border-border hover:border-primary/30"
           : "border-border/60 bg-muted/20",
       )}
     >

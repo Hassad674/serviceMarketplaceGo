@@ -25,10 +25,10 @@ export function ProjectHistoryCard({ entry }: ProjectHistoryCardProps) {
   const showTitle = entry.title.trim().length > 0
 
   return (
-    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-rose-200">
+    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/30">
       {/* Header: amount + date */}
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-50 to-rose-100/60 px-3 py-1.5 text-sm font-semibold text-rose-700">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary-soft to-primary-soft/60 px-3 py-1.5 text-sm font-semibold text-primary-deep">
           <Euro className="h-3.5 w-3.5" strokeWidth={2.5} />
           {format.number(amount, {
             style: "currency",

@@ -26,7 +26,7 @@ export function ApplicationList() {
       <div className="text-center py-12">
         <FileText className="mx-auto h-10 w-10 text-slate-300 mb-3" />
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("noApplications")}</p>
-        <Link href="/opportunities" className="mt-3 inline-block text-sm font-medium text-rose-600 hover:underline">
+        <Link href="/opportunities" className="mt-3 inline-block text-sm font-medium text-primary-deep hover:underline">
           {t("browse")}
         </Link>
       </div>

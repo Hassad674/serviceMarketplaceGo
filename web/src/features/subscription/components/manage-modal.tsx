@@ -65,7 +65,7 @@ function PlanSummary({ subscription }: { subscription: Subscription }) {
       ? "Annuel"
       : null
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+    <div className="rounded-xl border border-border bg-muted p-4 dark:border-slate-700 dark:bg-slate-800/40">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -101,10 +101,10 @@ function StatsPanel({ startedAt }: { startedAt: string }) {
   if (!stats) return null
   const saved = formatCurrency(stats.saved_fee_cents / 100)
   return (
-    <div className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-4 dark:border-rose-500/30 dark:from-rose-500/10 dark:to-slate-900/40">
+    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary-soft to-white p-4">
       <p className="text-sm text-slate-700 dark:text-slate-200">
         Tu as économisé{" "}
-        <span className="font-mono font-semibold text-rose-600 dark:text-rose-300">
+        <span className="font-mono font-semibold text-primary-deep">
           {saved}
         </span>{" "}
         depuis le{" "}
@@ -118,7 +118,7 @@ function AutoRenewSwitch({ subscription }: { subscription: Subscription }) {
   const toggle = useToggleAutoRenew()
   const checked = !subscription.cancel_at_period_end
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/30">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/30">
       <div>
         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
           Renouvellement automatique
@@ -160,9 +160,9 @@ function SwitchToggle({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200",
-        "focus:outline-none focus:ring-2 focus:ring-rose-500/40",
+        "focus:outline-none focus:ring-2 focus:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        checked ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-600",
+        checked ? "bg-primary" : "bg-slate-300 dark:bg-slate-600",
       )}
     >
       <span
@@ -213,7 +213,7 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
       : null
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/30">
+    <div className="rounded-xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-800/30">
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Cycle actuel :{" "}
         <span className="font-medium text-slate-700 dark:text-slate-300">
@@ -239,9 +239,8 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
             disabled={disabled}
             title={hint ?? undefined}
             className={cn(
-              "mt-2 w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600",
-              "transition-colors duration-200 hover:bg-rose-100",
-              "dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20",
+              "mt-2 w-full rounded-lg border border-primary/30 bg-primary-soft px-3 py-2 text-xs font-semibold text-primary-deep",
+              "transition-colors duration-200 hover:bg-primary-soft/80",
               "disabled:cursor-not-allowed disabled:opacity-60",
             )}
           >
@@ -291,7 +290,7 @@ function ConfirmCycleChange({
           type="button"
           onClick={onCancel}
           disabled={pending}
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          className="flex-1 rounded-lg border border-border-strong bg-white px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
         >
           Annuler
         </Button>
@@ -300,8 +299,8 @@ function ConfirmCycleChange({
           onClick={onConfirm}
           disabled={pending || loading || error}
           className={cn(
-            "flex-1 rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white",
-            "transition-all hover:bg-rose-600 active:scale-[0.98]",
+            "flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white",
+            "transition-all hover:bg-primary-deep active:scale-[0.98]",
             "disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >
@@ -377,7 +376,7 @@ function PortalActions() {
   }, [portal])
 
   return (
-    <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+    <div className="flex flex-col gap-2 border-t border-border pt-4 dark:border-slate-700">
       <PortalButton
         label="Gérer mon paiement"
         onClick={handleOpen}
@@ -408,8 +407,8 @@ function PortalButton({
       disabled={disabled}
       className={cn(
         "rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition-colors",
-        "hover:bg-slate-100 hover:text-slate-900",
-        "dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
+        "hover:bg-muted hover:text-slate-900",
+        "dark:text-slate-400 dark:hover:text-slate-100",
         "disabled:cursor-not-allowed disabled:opacity-60",
       )}
     >

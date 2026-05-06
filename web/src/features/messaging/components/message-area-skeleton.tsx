@@ -15,7 +15,7 @@ export function MessageAreaSkeleton() {
             <div
               className={cn(
                 "animate-pulse rounded-2xl px-4 py-2.5",
-                i % 2 === 0 ? "bg-rose-200 dark:bg-rose-500/20" : "bg-gray-200 dark:bg-gray-700",
+                i % 2 === 0 ? "bg-primary-soft" : "bg-gray-200 dark:bg-gray-700",
               )}
               style={{ width: `${40 + (i * 10) % 35}%`, height: "48px" }}
             />
