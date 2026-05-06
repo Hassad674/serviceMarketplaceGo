@@ -38,13 +38,13 @@ void main() {
       };
 
       final result = await repo.startConversation(
-        recipientId: 'user-2',
+        recipientOrgId: 'org-2',
         content: 'Hi there',
       );
 
       expect(result.conversationId, 'conv-new');
       expect(result.message.id, 'msg-1');
-      expect(capturedBody!['recipient_id'], 'user-2');
+      expect(capturedBody!['recipient_org_id'], 'org-2');
       expect(capturedBody!['content'], 'Hi there');
     });
   });

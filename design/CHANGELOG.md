@@ -55,6 +55,104 @@ Plus two new rules added to the chantier:
 
 Both rules also inserted into `design/agent-templates/shared-rules.md` (so every dispatched agent gets them) and into a new auto-memory entry `design_one_screen_one_commit.md`.
 
-Branch: `chore/design-prework-answers`. PR: TBD.
+Branch: `chore/design-prework-answers`. PR #109.
 
 Next: Phase 0 batch — implement Soleil v2 tokens in `web/src/styles/globals.css` + `admin/src/index.css` + `mobile/lib/core/theme/soleil_theme.dart` + create `Portrait` primitive web/mobile + load fonts. Orchestrator-run in main session.
+
+---
+
+## 2026-05-04 (later) — Phase 0 tokens + Portrait primitive
+
+Foundation batch landed: Soleil v2 tokens are now live in the three apps and the `Portrait` primitive (6 deterministic palettes, SVG-only, no initials/emojis fallback) is available on web and mobile. Web `globals.css` rewires Tailwind tokens to Soleil; admin `index.css` mirrors them; mobile `core/theme/app_theme.dart` exposes the new `AppColors` ThemeExtension with 8 Soleil-specific fields (`subtleForeground`, `primaryDeep`, `accentSoft`, `successSoft`, `pink`, `pinkSoft`, `amberSoft`, `borderStrong`) on top of the 6 legacy aliases. Fraunces + Inter Tight + Geist Mono are loaded via `next/font/google` on web and `google_fonts` on mobile (JetBrains Mono temporarily standing in for Geist Mono pending package update).
+
+Side effect: the legacy `cardShadowHover` getter was renamed to `cardShadowStrong` (1 BoxShadow instead of 2 — calmer Soleil shadow). The mobile test suite picked up compile errors that were addressed in a follow-up honesty PR.
+
+Branch: `chore/design-phase-0-tokens`. PR #110.
+
+---
+
+## 2026-05-04 / 2026-05-05 — Phase 1 calibration
+
+Three reference web screens + one mobile screen ported to Soleil v2 to lock the visual identity and validate the agent dispatch format.
+
+- **W-01 Connexion** (orchestrator-implemented): editorial header, Fraunces title, italic corail accent, ivoire bg, Soleil card form with corail focus. PR #111.
+- **W-11 Dashboard freelance** (orchestrator-implemented + Sidebar/Header extraction): full app shell port. Sidebar 280px wide, corail-soft active pill, Fraunces section heads. PR #112.
+- **W-16 Profil prestataire** (agent-dispatched, calibration test): two PR sequence — first port (#114 `feat/design-w16-profil`) then a v2 cards restructure (#115 `feat/design-w16-profil-v2`) after Hassad's feedback. Validated that the brief format works for fresh agents.
+- **M-01 Connexion mobile** (agent-dispatched): same login flow, Fraunces + corail accents on Pixel 5 emulator. PR #116.
+
+Plus tracking + M-01 prep doc PR #113 between W-11 and W-16.
+
+---
+
+## 2026-05-05 — Auth + onboarding finish (Wave 0bis)
+
+Closing the auth funnel on Soleil v2.
+
+- **W-02 Inscription · choix de rôle** — three role cards (Prestataire / Client / Apporteur d'affaires), corail-soft active pill, Fraunces titles. PR #118.
+- **W-23 Compte** — preferences page on Soleil card stack. PR #119.
+- **W-18 Portefeuille** — hero card with Fraunces total, Geist Mono amounts, Soleil tones for incoming/outgoing. PR #121.
+- **M-02 Inscription · choix de rôle mobile** — mobile mirror of W-02. PR #120.
+- **M-16 mobile fix** — 4 polish fixes on `freelance_profile_screen.dart` (Portrait widget replaces initials avatar, corail StadiumBorder CTA, header meta strip with daily rate + availability dot, padding rebalanced). The PR was labelled M-16 but actually targets the M-13 file path (Profil prestataire mobile). PR #117.
+
+---
+
+## 2026-05-05 — Closing fixes wave (Wave A)
+
+Fixes on top of the calibration wave that addressed Hassad's review feedback.
+
+- **#122 register-fix** — W-03 / W-04 step-2 inscription forms (provider/agency/enterprise) ported to Soleil v2 (corail focus, Fraunces section heads, ivoire fields).
+- **#123 compte-fix** — W-23 redesigned toggles (bigger pill, no TYPE column), new mobile `account_screen.dart` for M-20 + drawer entry.
+- **#124 profil-fix** — W-16 v3 polish: max-w-4xl column on web, ProjectHistorySection lifted to LAST position, mobile parity fixes.
+- **#125 wallet-fix** — W-18 responsive layout (md: breakpoint instead of sm:, hero card narrow padding) + mobile WalletHeroCard text visibility on light bg.
+- **#126 toggle + profile width** — Soleil polish on the toggle pill geometry + max-w-5xl on profile shells.
+
+---
+
+## 2026-05-05 — Annonce + opportunités lifecycle (Wave A continued)
+
+Full marketplace loop ported.
+
+- **#127 opportunites** — W-12 feed (corail filter chips, Soleil cards) + W-13 détail opportunité + mobile mirror.
+- **#128 mes-annonces** — W-06 entreprise list + M-07 mobile mirror.
+- **#129 notifications** — W-24 web + M-19 mobile (corail unread dot, Soleil card per notification, Geist Mono timestamps).
+- **#131 messagerie-widget** — W-21 page + Widget raccourci on dashboards + M-17 conversation + M-18 list mobile. Soleil bubbles (corail outgoing, ivoire incoming), system messages now visually distinct.
+- **#132 creation-annonce** — W-09 web + M-09 mobile, multi-step form on Soleil cards.
+- **#133 detail-annonce** — W-07 description + W-08 candidatures + edit + M-08 mobile.
+- **#134 factures** — W-19 invoices list + M-15 mobile.
+- **#135 profil-facturation** — W-20 billing profile form + mobile billing widget.
+
+---
+
+## 2026-05-05 — Boucle marketplace + system messages
+
+- **#136 proposal-flow** — création + détail + pay + mobile. Single PR covers W-09 proposal create, W-10 client + W-15 provider detail (role-aware proposal-detail-view), payment-mode-toggle, milestone-tracker, payment-simulation. The mobile `proposal_detail_screen.dart` ported here implicitly covers M-06 Détail mission (the inventory entry that pointed at a non-existent standalone "détail mission" screen).
+- **#137 system-messages-fix** — port of system messages bubbles to Soleil + overflow text polish on long names.
+
+---
+
+## 2026-05-05 — Closing wave (Wave B)
+
+- **#138 mobile-dashboards** — M-03 freelance + M-04 entreprise dashboards ported (Soleil hero card, mini-stats row, recent activity Fraunces heads).
+- **#139 kyc-visual** — W-05 Stripe Connect / KYC pages visual port (corail step indicators, Soleil status pills sapin / amber / corail).
+- **#140 mobile-invoicing** — M-15 factures + billing profile screens deeper port (the M-15 lives in `mobile/lib/features/invoicing/`, not in the empty `invoice/` skeleton the inventory referenced).
+- **#141 team-search** — W-22 Équipe & permissions (Soleil cards per member, role pills) + M-12 Recherche freelances mobile (filter sheet, Soleil cards).
+
+---
+
+## 2026-05-05 — Search-cast safety net
+
+Tightening the Typesense client after live data exposed type drift.
+
+- **#142 typesense-search-id-cast** — coerce `search_id` + `next_cursor` to String defensively in the SearchDocument decoder so an unexpected int from the server doesn't crash the mobile screen.
+- **#143 search-document-string-coercion** — same pattern applied to all SearchDocument String fields (display_name, role, location, etc.). Pure resilience layer; no UI change.
+
+---
+
+## 2026-05-05 — Honesty + mobile test compile fix
+
+V6 audit flagged two regressions:
+
+- The mobile test suite no longer compiled — Phase 0's `AppColors` constructor now requires 8 additional Soleil-specific fields (`accentSoft`, `amberSoft`, `borderStrong`, `pink`, `pinkSoft`, `primaryDeep`, `subtleForeground`, `successSoft`), and the team R7 refactor renamed `otherUserName/otherUserRole` to `otherOrgName/otherOrgType` on `ConversationEntity`. The `messaging_repository_impl_test.dart` still called `startConversation(recipientId:)` instead of the new `recipientOrgId:` parameter. The `cardShadowHover` getter was renamed to `cardShadowStrong` (1 BoxShadow now). Compile errors went from 97 → 23 (the remaining 23 are pre-Phase 0 issues: integration_test invalidated by ApiClient.get adding `Options? options`, `provider_card.dart` removed by #adfac6c7, `credits_display_test.dart` orphan helper).
+- `tracking.md` claimed "0 done / 21 web remaining / 18 mobile remaining" while reality was 27+ screens shipped. `RESUME.md` claimed "Phase 1 NOT STARTED" while Phase 1 + 2 + 3 + closing waves were all done. Both updated to reflect reality with PR refs verified against `git log`.
+
+Branch: `fix/honesty-and-test-compile`. Tests + design docs only — zero touch to `mobile/lib/`, `web/src/`, `admin/src/`, or `backend/`.

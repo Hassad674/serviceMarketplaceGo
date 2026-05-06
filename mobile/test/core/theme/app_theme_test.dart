@@ -113,6 +113,14 @@ void main() {
         border: Colors.grey,
         success: Colors.green,
         warning: Colors.amber,
+        subtleForeground: Colors.grey,
+        primaryDeep: Colors.pink,
+        accentSoft: Colors.pink,
+        successSoft: Colors.green,
+        pink: Colors.pink,
+        pinkSoft: Colors.pink,
+        amberSoft: Colors.amber,
+        borderStrong: Colors.grey,
       );
 
       final modified = original.copyWith(success: Colors.blue);
@@ -130,6 +138,14 @@ void main() {
         border: Colors.grey,
         success: Colors.green,
         warning: Colors.amber,
+        subtleForeground: Colors.grey,
+        primaryDeep: Colors.pink,
+        accentSoft: Colors.pink,
+        successSoft: Colors.green,
+        pink: Colors.pink,
+        pinkSoft: Colors.pink,
+        amberSoft: Colors.amber,
+        borderStrong: Colors.grey,
       );
 
       final copy = original.copyWith();
@@ -150,6 +166,14 @@ void main() {
         border: Color(0xFF000000),
         success: Color(0xFF000000),
         warning: Color(0xFF000000),
+        subtleForeground: Color(0xFF000000),
+        primaryDeep: Color(0xFF000000),
+        accentSoft: Color(0xFF000000),
+        successSoft: Color(0xFF000000),
+        pink: Color(0xFF000000),
+        pinkSoft: Color(0xFF000000),
+        amberSoft: Color(0xFF000000),
+        borderStrong: Color(0xFF000000),
       );
       const end = AppColors(
         muted: Color(0xFFFFFFFF),
@@ -158,6 +182,14 @@ void main() {
         border: Color(0xFFFFFFFF),
         success: Color(0xFFFFFFFF),
         warning: Color(0xFFFFFFFF),
+        subtleForeground: Color(0xFFFFFFFF),
+        primaryDeep: Color(0xFFFFFFFF),
+        accentSoft: Color(0xFFFFFFFF),
+        successSoft: Color(0xFFFFFFFF),
+        pink: Color(0xFFFFFFFF),
+        pinkSoft: Color(0xFFFFFFFF),
+        amberSoft: Color(0xFFFFFFFF),
+        borderStrong: Color(0xFFFFFFFF),
       );
 
       final mid = start.lerp(end, 0.5);
@@ -176,6 +208,14 @@ void main() {
         border: Colors.grey,
         success: Colors.green,
         warning: Colors.amber,
+        subtleForeground: Colors.grey,
+        primaryDeep: Colors.pink,
+        accentSoft: Colors.pink,
+        successSoft: Colors.green,
+        pink: Colors.pink,
+        pinkSoft: Colors.pink,
+        amberSoft: Colors.amber,
+        borderStrong: Colors.grey,
       );
 
       final result = start.lerp(null, 0.5);
@@ -200,9 +240,11 @@ void main() {
       expect(AppTheme.cardShadow.length, equals(2));
     });
 
-    test('cardShadowHover returns non-empty list', () {
-      expect(AppTheme.cardShadowHover, isNotEmpty);
-      expect(AppTheme.cardShadowHover.length, equals(2));
+    test('cardShadowStrong returns non-empty list', () {
+      // Phase 0 (Soleil v2) renamed cardShadowHover -> cardShadowStrong
+      // and reduced the stack from 2 BoxShadows to 1 (calmer Soleil shadow).
+      expect(AppTheme.cardShadowStrong, isNotEmpty);
+      expect(AppTheme.cardShadowStrong.length, equals(1));
     });
   });
 }
