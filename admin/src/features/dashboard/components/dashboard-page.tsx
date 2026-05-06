@@ -44,14 +44,14 @@ function StatCard({ label, value, icon: Icon, color = "primary" }: StatCardProps
     primary: "bg-primary/10",
     blue: "bg-blue-50",
     violet: "bg-violet-50",
-    rose: "bg-rose-50",
+    pink: "bg-pink-soft",
     emerald: "bg-emerald-50",
   }
   const textMap: Record<string, string> = {
     primary: "text-primary",
     blue: "text-blue-600",
     violet: "text-violet-600",
-    rose: "text-rose-600",
+    pink: "text-pink",
     emerald: "text-emerald-600",
   }
 
@@ -235,7 +235,7 @@ export function DashboardPage() {
           label="Freelances"
           value={stats.users_by_role?.provider ?? 0}
           icon={UserCheck}
-          color="rose"
+          color="pink"
         />
         <StatCard
           label="Projets actifs"

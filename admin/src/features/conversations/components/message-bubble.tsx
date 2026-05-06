@@ -14,7 +14,7 @@ const SENDER_COLORS = [
   "bg-amber-50",
   "bg-emerald-50",
   "bg-violet-50",
-  "bg-rose-50",
+  "bg-pink-soft",
 ] as const
 
 type MessageBubbleProps = {
