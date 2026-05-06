@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../messaging/domain/entities/message_entity.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Rich card for dispute system messages in the chat.
 ///
@@ -47,13 +46,13 @@ class DisputeCard extends StatelessWidget {
 
     final Color color;
     if (isOpened) {
-      color = AppPalette.orange600; // orange-600
+      color = (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary); // orange-600
     } else if (isCancellationRequest) {
-      color = AppPalette.amber600; // amber-600
+      color = (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary); // amber-600
     } else if (isCounterRejected) {
-      color = AppPalette.red500; // red-500
+      color = Theme.of(context).colorScheme.error; // red-500
     } else {
-      color = AppPalette.amber600; // default: amber for counter_proposal
+      color = (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary); // default: amber for counter_proposal
     }
 
     String subtitle;
@@ -246,7 +245,7 @@ class _ResolvedDecisionCard extends StatelessWidget {
     final resolutionNote = metadata['resolution_note'] as String? ?? '';
     final resolvedAt = metadata['resolved_at'] as String? ?? '';
 
-    const emerald = AppPalette.emerald600;
+    final emerald = (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -272,7 +271,7 @@ class _ResolvedDecisionCard extends StatelessWidget {
                     color: emerald.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.balance, size: 18, color: emerald),
+                  child: Icon(Icons.balance, size: 18, color: emerald),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -283,7 +282,7 @@ class _ResolvedDecisionCard extends StatelessWidget {
                         l10n.disputeDecisionTitle,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: AppPalette.emerald800,
+                          color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -293,7 +292,7 @@ class _ResolvedDecisionCard extends StatelessWidget {
                           _formatEurStatic(myAmount),
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppPalette.emerald800.withValues(alpha: 0.75),
+                          color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary).withValues(alpha: 0.75),
                         ),
                       ),
                     ],
@@ -339,14 +338,14 @@ class _ResolvedDecisionCard extends StatelessWidget {
                       l10n.disputeDecisionMessage,
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: AppPalette.emerald800,
+                        color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       resolutionNote,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppPalette.slate700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -410,7 +409,7 @@ class _SplitCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const emerald = AppPalette.emerald600;
+    final emerald = theme.extension<AppColors>()!.success;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -429,13 +428,13 @@ class _SplitCell extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (highlighted) ...[
-                const Icon(Icons.check_circle, size: 12, color: emerald),
+                Icon(Icons.check_circle, size: 12, color: emerald),
                 const SizedBox(width: 4),
               ],
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppPalette.slate500,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -445,13 +444,13 @@ class _SplitCell extends StatelessWidget {
             _ResolvedDecisionCard._formatEurStatic(amount),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppPalette.slate900,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           Text(
             '$percent%',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.slate500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],

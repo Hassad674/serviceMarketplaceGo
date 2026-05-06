@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../profile_tier1/domain/entities/pricing.dart';
 import '../../../../profile_tier1/domain/entities/pricing_kind.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Maps the legacy `pricing` array to a single [Pricing] row keyed by
 /// `direct`. Agencies only advertise a direct rate on the public
@@ -45,16 +44,15 @@ String workModeLabel(String key, AppLocalizations l10n) {
   }
 }
 
-Color publicProfileRoleColor(String? orgType) {
+Color publicProfileRoleColor(BuildContext context, String? orgType) {
+  final cs = Theme.of(context).colorScheme;
   switch (orgType) {
     case 'agency':
-      return AppPalette.blue600;
     case 'enterprise':
-      return AppPalette.violet500;
     case 'provider_personal':
-      return AppPalette.rose500;
+      return cs.primary;
     default:
-      return AppPalette.slate500;
+      return cs.onSurfaceVariant;
   }
 }
 

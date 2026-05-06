@@ -59,6 +59,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  fonts:
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.otf
+          weight: 400
+        - asset: assets/fonts/GeistMono-Medium.otf
+          weight: 500
 
 dependency_overrides:
   record_linux: ^1.0.0

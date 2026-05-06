@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/features/subscription/domain/entities/subscription.dart';
 import 'package:marketplace_mobile/features/subscription/presentation/providers/subscription_providers.dart';
 import 'package:marketplace_mobile/features/subscription/presentation/widgets/subscription_badge.dart';
@@ -60,14 +61,19 @@ void main() {
     await tester.pump();
     expect(find.text('Paiement échoué · gérer'), findsOneWidget);
 
-    // Verify the orange palette was picked.
+    // Verify the ambre palette (Soleil v2) was picked. amberSoft falls
+    // back to colorScheme.secondaryContainer if the AppColors extension
+    // is not wired (legacy test mounts).
     final container = tester.widget<Container>(
       find
           .descendant(of: find.byType(InkWell), matching: find.byType(Container))
           .first,
     );
     final deco = container.decoration as BoxDecoration;
-    expect(deco.color, const Color(0xFFFFEDD5));
+    final expected =
+        AppTheme.light.extension<AppColors>()?.amberSoft ??
+            AppTheme.light.colorScheme.secondaryContainer;
+    expect(deco.color, expected);
   });
 
   testWidgets('active sub renders "Gérer l\'abonnement"', (tester) async {

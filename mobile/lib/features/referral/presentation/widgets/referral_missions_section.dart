@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// ReferralMissionsSection lists the proposals attributed to a
 /// referral during its exclusivity window, with proposal title +
 /// status + milestone progress and commission totals.
@@ -128,13 +128,13 @@ class _SectionContainer extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: AppPalette.rose500.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.business_center_outlined,
                   size: 16,
-                  color: AppPalette.rose500,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 10),
@@ -196,7 +196,7 @@ class _AttributionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _proposalStatus(attribution.proposalStatus);
+    final status = _proposalStatus(context, attribution.proposalStatus);
     final paid = attribution.totalCommissionCents ?? 0;
     final escrow = attribution.escrowCommissionCents ?? 0;
     final clawedBack = attribution.clawedBackCommissionCents ?? 0;
@@ -308,7 +308,7 @@ class _AttributionRow extends StatelessWidget {
                           child: FractionallySizedBox(
                             widthFactor: progress,
                             child: Container(
-                              color: AppPalette.rose500,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ),
@@ -350,26 +350,33 @@ class _AttributionRow extends StatelessWidget {
     );
   }
 
-  ({String label, Color color}) _proposalStatus(String status) {
+  ({String label, Color color}) _proposalStatus(
+    BuildContext context,
+    String status,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColors>();
+    final success = ext?.success ?? cs.primary;
+    final warning = ext?.warning ?? cs.tertiary;
     switch (status) {
       case 'paid':
       case 'active':
       case 'completion_requested':
-        return (label: _labelFor(status), color: AppPalette.emerald500);
+        return (label: _labelFor(status), color: success);
       case 'completed':
-        return (label: 'Terminée', color: AppPalette.blue500);
+        return (label: 'Terminée', color: cs.primary);
       case 'pending':
       case 'accepted':
-        return (label: _labelFor(status), color: AppPalette.amber500);
+        return (label: _labelFor(status), color: warning);
       case 'disputed':
-        return (label: 'En litige', color: AppPalette.red500);
+        return (label: 'En litige', color: cs.error);
       case 'declined':
       case 'withdrawn':
-        return (label: _labelFor(status), color: AppPalette.slate500);
+        return (label: _labelFor(status), color: cs.onSurfaceVariant);
       default:
         return (
           label: status.isEmpty ? '—' : status,
-          color: AppPalette.slate500,
+          color: cs.onSurfaceVariant,
         );
     }
   }
@@ -448,7 +455,7 @@ class _CommissionColumn extends StatelessWidget {
     final hasClawback = clawedBack > 0;
 
     final primaryColor = hasPaid
-        ? AppPalette.rose500
+        ? Theme.of(context).colorScheme.primary
         : Colors.grey.shade400;
 
     String? caption;
@@ -473,11 +480,11 @@ class _CommissionColumn extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '+ ${_formatEur(escrow)} en séquestre',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              color: AppPalette.amber600,
+              color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
               fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -485,11 +492,11 @@ class _CommissionColumn extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '- ${_formatEur(clawedBack)} reprises',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              color: AppPalette.red600,
+              color: Theme.of(context).colorScheme.error,
               fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

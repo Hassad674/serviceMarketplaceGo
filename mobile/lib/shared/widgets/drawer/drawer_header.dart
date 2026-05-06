@@ -4,7 +4,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
 import 'drawer_items.dart';
 import 'drawer_label_resolver.dart';
-import '../../../core/theme/app_palette.dart';
 
 /// Avatar + name + role badge shown at the top of the app drawer.
 class DrawerHeaderTile extends StatelessWidget {
@@ -24,8 +23,8 @@ class DrawerHeaderTile extends StatelessWidget {
         user?['first_name'] as String? ??
         'User';
     final initials = _computeInitials(user);
-    final badgeColors = drawerRoleBadgeColors[role] ??
-        (AppPalette.slate100, AppPalette.slate500);
+    final badgeColors = drawerRoleBadgeColors(context)[role] ??
+        (Theme.of(context).colorScheme.surface, Theme.of(context).colorScheme.onSurfaceVariant);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -35,12 +34,15 @@ class DrawerHeaderTile extends StatelessWidget {
           Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppPalette.rose500, AppPalette.violet500],
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primary,
+                ],
               ),
             ),
             alignment: Alignment.center,

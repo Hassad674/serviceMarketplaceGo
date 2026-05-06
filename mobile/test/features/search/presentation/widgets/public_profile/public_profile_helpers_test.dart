@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/features/search/presentation/widgets/public_profile/public_profile_helpers.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
@@ -92,18 +93,50 @@ void main() {
   });
 
   group('publicProfileRoleColor', () {
-    test('returns the right color for each org type', () {
-      expect(publicProfileRoleColor('agency'), const Color(0xFF2563EB));
-      expect(publicProfileRoleColor('enterprise'), const Color(0xFF8B5CF6));
-      expect(
-        publicProfileRoleColor('provider_personal'),
-        const Color(0xFFF43F5E),
+    testWidgets('returns the right color for each org type',
+        (tester) async {
+      late Color agency;
+      late Color enterprise;
+      late Color provider;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) {
+              agency = publicProfileRoleColor(context, 'agency');
+              enterprise = publicProfileRoleColor(context, 'enterprise');
+              provider = publicProfileRoleColor(context, 'provider_personal');
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
       );
+      // Soleil v2 collapses cool tones onto corail.
+      final corail = AppTheme.light.colorScheme.primary;
+      expect(agency, corail);
+      expect(enterprise, corail);
+      expect(provider, corail);
     });
 
-    test('falls back to slate for null or unknown', () {
-      expect(publicProfileRoleColor(null), const Color(0xFF64748B));
-      expect(publicProfileRoleColor('mystery'), const Color(0xFF64748B));
+    testWidgets('falls back to onSurfaceVariant for null or unknown',
+        (tester) async {
+      late Color nullColor;
+      late Color mysteryColor;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) {
+              nullColor = publicProfileRoleColor(context, null);
+              mysteryColor = publicProfileRoleColor(context, 'mystery');
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      final mute = AppTheme.light.colorScheme.onSurfaceVariant;
+      expect(nullColor, mute);
+      expect(mysteryColor, mute);
     });
   });
 

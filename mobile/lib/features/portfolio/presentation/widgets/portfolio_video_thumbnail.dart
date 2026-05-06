@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Renders the first frame of a video as a thumbnail.
 ///
@@ -55,10 +54,10 @@ class _PortfolioVideoThumbnailState extends State<PortfolioVideoThumbnail> {
   @override
   Widget build(BuildContext context) {
     if (_failed || _controller == null) {
-      return _placeholder();
+      return _placeholder(context);
     }
     if (!_ready) {
-      return _placeholder();
+      return _placeholder(context);
     }
     return FittedBox(
       fit: widget.fit,
@@ -71,13 +70,14 @@ class _PortfolioVideoThumbnailState extends State<PortfolioVideoThumbnail> {
     );
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppPalette.slate700, AppPalette.slate900],
+          colors: [cs.onSurfaceVariant, cs.onSurface],
         ),
       ),
     );

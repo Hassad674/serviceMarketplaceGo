@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../core/models/review.dart';
 import 'review_card_widget.dart';
-import '../../core/theme/app_palette.dart';
 
+import '../../core/theme/app_theme.dart';
 /// Shared card rendering one completed project — amount pill + date
 /// header, optional title, embedded review (or "Awaiting review"
 /// placeholder), and an optional [footer] slot consumers can use to
@@ -75,26 +75,29 @@ class ProjectHistoryCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppPalette.rose100, AppPalette.red50],
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primaryContainer,
+                      Theme.of(context).colorScheme.errorContainer,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.euro,
                       size: 13,
-                      color: AppPalette.rose700,
+                      color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
                     ),
                     const SizedBox(width: 3),
                     Text(
                       formattedAmount.replaceAll('€', '').trim(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppPalette.rose700,
+                        color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
                       ),
                     ),
                   ],

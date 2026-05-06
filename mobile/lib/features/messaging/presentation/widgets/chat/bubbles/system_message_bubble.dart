@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
 import 'system_message_palette.dart';
@@ -13,14 +12,12 @@ class SystemMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
 
     final visuals = systemMessageVisualsFor(
+      context: context,
       message: message,
       l10n: l10n,
-      appColors: appColors,
     );
 
     return Padding(

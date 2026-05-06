@@ -3,7 +3,6 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Skeleton rendered while the public profile JSON is loading.
 class PublicProfileShimmer extends StatelessWidget {
@@ -14,9 +13,9 @@ class PublicProfileShimmer extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final baseColor =
-        isDark ? AppPalette.slate800 : AppPalette.slate200;
+        isDark ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outline;
     final highlightColor =
-        isDark ? AppPalette.slate700 : AppPalette.slate100;
+        isDark ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.surface;
 
     return Shimmer.fromColors(
       baseColor: baseColor,

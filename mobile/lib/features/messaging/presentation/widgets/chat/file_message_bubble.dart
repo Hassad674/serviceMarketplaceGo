@@ -6,7 +6,6 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../domain/entities/message_entity.dart';
 import 'message_context_menu.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Renders a file message bubble with image preview support.
 class FileMessageBubble extends StatelessWidget {
@@ -66,8 +65,8 @@ class FileMessageBubble extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: isOwn
-                    ? AppPalette.rose500
-                    : (appColors?.muted ?? AppPalette.slate100),
+                    ? Theme.of(context).colorScheme.primary
+                    : (appColors?.muted ?? Theme.of(context).colorScheme.surface),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(

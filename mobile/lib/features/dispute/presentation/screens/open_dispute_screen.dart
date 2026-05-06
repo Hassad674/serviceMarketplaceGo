@@ -13,7 +13,6 @@ import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../../data/dispute_uploader.dart';
 import '../../types/dispute.dart';
 import '../providers/dispute_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Form screen for opening a dispute on a proposal.
 ///
@@ -337,19 +336,19 @@ class _WarningBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.amber100,
+        color: (Theme.of(context).extension<AppColors>()?.amberSoft ?? Theme.of(context).colorScheme.secondaryContainer),
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: AppPalette.amber300),
+        border: Border.all(color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppPalette.amber800, size: 20),
+          Icon(Icons.warning_amber_rounded,
+              color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: AppPalette.amber800, fontSize: 13),
+              style: TextStyle(color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary), fontSize: 13),
             ),
           ),
         ],

@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/shared/widgets/drawer/drawer_items.dart';
 
 void main() {
@@ -66,10 +68,22 @@ void main() {
   });
 
   group('drawerRoleBadgeColors', () {
-    test('contains entries for the three primary roles', () {
-      expect(drawerRoleBadgeColors.containsKey('agency'), isTrue);
-      expect(drawerRoleBadgeColors.containsKey('enterprise'), isTrue);
-      expect(drawerRoleBadgeColors.containsKey('provider'), isTrue);
+    testWidgets('contains entries for the three primary roles', (tester) async {
+      late Map<String, (Color, Color)> colors;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) {
+              colors = drawerRoleBadgeColors(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(colors.containsKey('agency'), isTrue);
+      expect(colors.containsKey('enterprise'), isTrue);
+      expect(colors.containsKey('provider'), isTrue);
     });
   });
 }

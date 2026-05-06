@@ -8,7 +8,6 @@ import '../../profile/flag_emoji.dart';
 import '../../profile/money_format.dart';
 import '../../search/search_document.dart';
 import '../availability_pill.dart';
-import '../../../core/theme/app_palette.dart';
 
 /// Mobile mirror of the web SearchResultCard. Consumes the frozen
 /// SearchDocument contract so the future Typesense swap is a single
@@ -147,9 +146,12 @@ class _InitialsBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppPalette.rose100, AppPalette.rose50],
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer,
+            Theme.of(context).colorScheme.primaryContainer,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -157,10 +159,10 @@ class _InitialsBackdrop extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         _initials(name),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 42,
           fontWeight: FontWeight.w700,
-          color: AppPalette.rose500,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -184,7 +186,7 @@ class _RatingBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star, size: 12, color: AppPalette.amber400),
+          Icon(Icons.star, size: 12, color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary)),
           const SizedBox(width: 3),
           Text(
             rating.average.toStringAsFixed(1),
@@ -356,10 +358,10 @@ class _TotalEarnedLine extends StatelessWidget {
     final formatted = formatMoney(document.totalEarned, currency, locale);
     return Text(
       l10n.searchTotalEarnedLine(formatted),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w700,
-        color: AppPalette.rose600,
+        color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
       ),
     );
   }
@@ -391,15 +393,15 @@ class _PricingLine extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: AppPalette.rose100,
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               l10n.searchNegotiableBadge,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: AppPalette.rose700,
+                color: (Theme.of(context).extension<AppColors>()?.primaryDeep ?? Theme.of(context).colorScheme.error),
               ),
             ),
           ),

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../review/presentation/providers/review_provider.dart';
-import '../../../../../core/theme/app_palette.dart';
 
 /// Vertical 16dp gap that hides itself when the previous block is
 /// not visible. Keeps the column tight when the profile collapses.
@@ -51,7 +50,7 @@ class PublicProfileSendMessageButton extends StatelessWidget {
             : const Icon(Icons.chat_outlined, size: 20),
         label: Text(l10n.messagingSendMessage),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppPalette.rose500,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
@@ -72,16 +71,17 @@ class PublicProfileOrgTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = _color(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         _label,
         style: TextStyle(
-          color: _color,
+          color: color,
           fontWeight: FontWeight.w600,
           fontSize: 13,
         ),
@@ -102,16 +102,15 @@ class PublicProfileOrgTypeBadge extends StatelessWidget {
     }
   }
 
-  Color get _color {
+  Color _color(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     switch (orgType) {
       case 'agency':
-        return AppPalette.blue600;
       case 'enterprise':
-        return AppPalette.violet500;
       case 'provider_personal':
-        return AppPalette.rose500;
+        return cs.primary;
       default:
-        return AppPalette.slate500;
+        return cs.onSurfaceVariant;
     }
   }
 }
@@ -134,7 +133,7 @@ class PublicProfileAverageRating extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star, color: AppPalette.amber400, size: 16),
+            Icon(Icons.star, color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary), size: 16),
             const SizedBox(width: 4),
             Text(
               avg.average.toStringAsFixed(1),

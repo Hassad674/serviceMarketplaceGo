@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/message_entity.dart';
 import '../voice_message.dart';
-import '../../../../../../core/theme/app_palette.dart';
 
 /// Bubble wrapping the inline voice player. Reads the URL and duration
 /// out of the message metadata.
@@ -37,8 +36,8 @@ class VoiceMessageBubble extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isOwn
-                  ? AppPalette.rose500
-                  : (appColors?.muted ?? AppPalette.slate100),
+                  ? Theme.of(context).colorScheme.primary
+                  : (appColors?.muted ?? Theme.of(context).colorScheme.surface),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_palette.dart';
 
+import '../../../core/theme/app_theme.dart';
 /// Single drawer navigation item descriptor.
 ///
 /// Encodes the label key, icon, route, and access gates (role + optional
@@ -29,13 +29,20 @@ class DrawerItem {
   final List<String>? orgTypes;
 }
 
-/// Role badge background+foreground colors — matches web sidebar
-/// `ROLE_COLORS`.
-const drawerRoleBadgeColors = {
-  'agency': (AppPalette.blue100, AppPalette.blue700), // blue-100, blue-700
-  'enterprise': (AppPalette.purple100, AppPalette.purple700), // purple-100, purple-700
-  'provider': (AppPalette.rose100, AppPalette.rose700), // rose-100, rose-700
-};
+/// Role badge background+foreground colors — Soleil v2 collapses the
+/// 3 cool tones (blue/purple/rose) onto a single corail palette since
+/// the theme has no cool branch. The role is still differentiated by
+/// the icon + label.
+Map<String, (Color, Color)> drawerRoleBadgeColors(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  final ext = Theme.of(context).extension<AppColors>();
+  final primaryDeep = ext?.primaryDeep ?? cs.error;
+  return {
+    'agency': (cs.primaryContainer, cs.primary),
+    'enterprise': (cs.primaryContainer, cs.primary),
+    'provider': (cs.primaryContainer, primaryDeep),
+  };
+}
 
 /// Primary navigation entries (top section of the drawer).
 const drawerPrimaryItems = [

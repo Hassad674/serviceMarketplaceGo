@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/subscription.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Amber banner shown inside the plan summary when the subscription has
 /// a pending billing-cycle change scheduled. Mirrors the web variant.
@@ -29,11 +28,10 @@ class PendingChangeHint extends StatelessWidget {
     final currentLabel =
         subscription.billingCycle == BillingCycle.annual ? 'annuel' : 'mensuel';
     final formattedDate = DateFormat('dd/MM/yyyy').format(effectiveAt);
-    final amberBorder = (appColors?.warning ?? AppPalette.amber500)
-        .withValues(alpha: 0.4);
-    final amberBg = (appColors?.warning ?? AppPalette.amber500)
-        .withValues(alpha: 0.1);
-    const amberFg = AppPalette.amber800; // amber-800 for legible copy
+    final warning = appColors?.warning ?? theme.colorScheme.tertiary;
+    final amberBorder = warning.withValues(alpha: 0.4);
+    final amberBg = warning.withValues(alpha: 0.1);
+    final amberFg = warning;
 
     return Container(
       width: double.infinity,
@@ -45,7 +43,7 @@ class PendingChangeHint extends StatelessWidget {
       ),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 12, color: amberFg),
+          style: TextStyle(fontSize: 12, color: amberFg),
           children: [
             TextSpan(text: 'Passage en $nextLabel prévu le '),
             TextSpan(

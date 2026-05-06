@@ -6,7 +6,6 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../providers/social_links_provider.dart';
-import '../../../../core/theme/app_palette.dart';
 
 /// Platform metadata used to render icons and labels.
 class _PlatformMeta {
@@ -16,14 +15,33 @@ class _PlatformMeta {
   final Color color;
 }
 
-const _platforms = [
-  _PlatformMeta('linkedin', Icons.business, AppPalette.linkedinBlue),
-  _PlatformMeta('instagram', Icons.camera_alt, AppPalette.instagramPink),
-  _PlatformMeta('youtube', Icons.play_circle_fill, AppPalette.pureRed),
-  _PlatformMeta('twitter', Icons.alternate_email, AppPalette.twitterBlue),
-  _PlatformMeta('github', Icons.code, AppPalette.gray800),
-  _PlatformMeta('website', Icons.language, AppPalette.rose500),
+/// Stable list of platform keys — used in `for ... in _platformKeys` loops
+/// where a context isn't available (e.g. `initState`). For the rendering
+/// metadata (icon + theme-aware color), call [_buildPlatforms].
+const _platformKeys = [
+  'linkedin',
+  'instagram',
+  'youtube',
+  'twitter',
+  'github',
+  'website',
 ];
+
+/// Social platforms metadata. Color tokens are theme-aware (Soleil v2):
+/// brand-specific colors stay literal (LinkedIn blue, Instagram pink,
+/// Twitter blue) while system tones (YouTube red, GitHub black-ish,
+/// website neutral) come from the active theme.
+List<_PlatformMeta> _buildPlatforms(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return [
+    const _PlatformMeta('linkedin', Icons.business, Color(0xFF0A66C2)),
+    const _PlatformMeta('instagram', Icons.camera_alt, Color(0xFFE4405F)),
+    _PlatformMeta('youtube', Icons.play_circle_fill, cs.error),
+    const _PlatformMeta('twitter', Icons.alternate_email, Color(0xFF1DA1F2)),
+    _PlatformMeta('github', Icons.code, cs.onSurface),
+    _PlatformMeta('website', Icons.language, cs.primary),
+  ];
+}
 
 String _platformLabel(String key, AppLocalizations l10n) {
   switch (key) {
@@ -44,8 +62,8 @@ String _platformLabel(String key, AppLocalizations l10n) {
   }
 }
 
-_PlatformMeta? _metaForPlatform(String key) {
-  for (final meta in _platforms) {
+_PlatformMeta? _metaForPlatform(BuildContext context, String key) {
+  for (final meta in _buildPlatforms(context)) {
     if (meta.key == key) return meta;
   }
   return null;
@@ -198,7 +216,7 @@ class _SocialLinksList extends StatelessWidget {
       children: links.map((link) {
         final platform = link['platform'] as String;
         final url = link['url'] as String;
-        final meta = _metaForPlatform(platform);
+        final meta = _metaForPlatform(context, platform);
         if (meta == null) return const SizedBox.shrink();
         return _SocialLinkTile(meta: meta, url: url);
       }).toList(),
@@ -293,8 +311,8 @@ class _SocialLinksEditorState extends ConsumerState<_SocialLinksEditor> {
   void initState() {
     super.initState();
     _controllers = {
-      for (final meta in _platforms)
-        meta.key: TextEditingController(text: widget.initial[meta.key] ?? ''),
+      for (final key in _platformKeys)
+        key: TextEditingController(text: widget.initial[key] ?? ''),
     };
   }
 
@@ -310,17 +328,17 @@ class _SocialLinksEditorState extends ConsumerState<_SocialLinksEditor> {
     setState(() => _saving = true);
     try {
       final api = ref.read(apiClientProvider);
-      for (final meta in _platforms) {
-        final url = _controllers[meta.key]!.text.trim();
-        final hadBefore = (widget.initial[meta.key] ?? '').isNotEmpty;
+      for (final key in _platformKeys) {
+        final url = _controllers[key]!.text.trim();
+        final hadBefore = (widget.initial[key] ?? '').isNotEmpty;
 
         if (url.isNotEmpty) {
           await api.put(
             '/api/v1/profile/social-links',
-            data: {'platform': meta.key, 'url': url},
+            data: {'platform': key, 'url': url},
           );
         } else if (hadBefore) {
-          await api.delete('/api/v1/profile/social-links/${meta.key}');
+          await api.delete('/api/v1/profile/social-links/$key');
         }
       }
       widget.onSaved();
@@ -362,7 +380,7 @@ class _SocialLinksEditorState extends ConsumerState<_SocialLinksEditor> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
-            for (final meta in _platforms) ...[
+            for (final meta in _buildPlatforms(context)) ...[
               _EditorField(
                 meta: meta,
                 controller: _controllers[meta.key]!,

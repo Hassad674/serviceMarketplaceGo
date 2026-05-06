@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../domain/entities/message_entity.dart';
-import '../../../../../../core/theme/app_palette.dart';
 
+import '../../../../../../core/theme/app_theme.dart';
 /// Card rendered for `evaluation_request` system messages.
 ///
 /// Provides a "Leave a review" CTA when both the client and provider
@@ -27,7 +27,7 @@ class EvaluationRequestBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    const color = AppPalette.emerald500; // emerald-500
+    final color = (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary);
 
     final meta = message.metadata;
     final proposalId = meta?['proposal_id'] as String? ?? '';
@@ -53,12 +53,12 @@ class EvaluationRequestBubble extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.star_outline, size: 16, color: color),
+                  Icon(Icons.star_outline, size: 16, color: color),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       l10n.evaluationRequestMessage,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: color,
@@ -80,7 +80,7 @@ class EvaluationRequestBubble extends StatelessWidget {
                           )
                       : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppPalette.rose500,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     textStyle: const TextStyle(
                       fontSize: 12,

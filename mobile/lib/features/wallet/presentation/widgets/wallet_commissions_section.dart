@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/wallet_entity.dart';
 import 'wallet_atoms.dart';
-import '../../../../core/theme/app_palette.dart';
 
+import '../../../../core/theme/app_theme.dart';
 /// Commissions block: 3 balance cards (Pending / Received / Clawed
 /// back) + history list. Hidden by the parent when commission summary
 /// is empty AND no records exist.
@@ -34,7 +34,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.schedule,
                 label: 'Pending',
                 amount: summary.pendingCents + summary.pendingKycCents,
-                color: AppPalette.amber500,
+                color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
               ),
             ),
             const SizedBox(width: 8),
@@ -43,7 +43,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.verified_outlined,
                 label: 'Received',
                 amount: summary.paidCents,
-                color: AppPalette.green500,
+                color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
               ),
             ),
             const SizedBox(width: 8),
@@ -52,7 +52,7 @@ class WalletCommissionsSection extends StatelessWidget {
                 icon: Icons.undo,
                 label: 'Clawed back',
                 amount: summary.clawedBackCents,
-                color: AppPalette.blue600,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -82,16 +82,16 @@ class WalletCommissionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final chip = _commissionChip(record.status);
+    final chip = _commissionChip(context, record.status);
 
     final isPending =
         record.status == 'pending' || record.status == 'pending_kyc';
     final isClawed = record.status == 'clawed_back';
 
     final Color accentColor = isPending
-        ? AppPalette.amber500
+        ? (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary)
         : isClawed
-            ? AppPalette.blue600
+            ? Theme.of(context).colorScheme.primary
             : Colors.transparent;
 
     return Container(
@@ -172,22 +172,29 @@ class WalletCommissionTile extends StatelessWidget {
     );
   }
 
-  ({String label, Color color}) _commissionChip(String status) {
+  ({String label, Color color}) _commissionChip(
+    BuildContext context,
+    String status,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColors>();
+    final success = ext?.success ?? cs.primary;
+    final warning = ext?.warning ?? cs.tertiary;
     switch (status) {
       case 'paid':
-        return (label: 'Received', color: AppPalette.emerald500);
+        return (label: 'Received', color: success);
       case 'pending':
-        return (label: 'Pending', color: AppPalette.amber500);
+        return (label: 'Pending', color: warning);
       case 'pending_kyc':
-        return (label: 'KYC required', color: AppPalette.orange600);
+        return (label: 'KYC required', color: warning);
       case 'clawed_back':
-        return (label: 'Clawed back', color: AppPalette.blue500);
+        return (label: 'Clawed back', color: cs.primary);
       case 'failed':
-        return (label: 'Failed', color: AppPalette.red500);
+        return (label: 'Failed', color: cs.error);
       case 'cancelled':
-        return (label: 'Cancelled', color: AppPalette.slate500);
+        return (label: 'Cancelled', color: cs.onSurfaceVariant);
       default:
-        return (label: status, color: AppPalette.slate500);
+        return (label: status, color: cs.onSurfaceVariant);
     }
   }
 }
