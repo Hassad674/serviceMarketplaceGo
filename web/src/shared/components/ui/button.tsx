@@ -12,8 +12,14 @@ import { cn } from "@/shared/lib/utils"
  * `active:scale-[0.98]` and tactile sizes 8/9/10.
  *
  * Variants:
- *   - primary    — solid corail CTA on shadow-sm, hover deepens to
- *                  primary/90, active presses (no glow — Soleil is calm)
+ *   - primary    — solid corail-deep CTA on shadow-sm, hover lightens
+ *                  back to corail (--primary), active presses. The
+ *                  base bg is `--primary-deep` (#c43a26) so white text
+ *                  on the resting state passes WCAG AA contrast
+ *                  (5.83:1) — corail (#e85d4a) only reaches 3.45:1
+ *                  which fails AA for normal-size labels. The brand
+ *                  identity stays warm (corail family) but at the
+ *                  AA-compliant value.
  *   - secondary  — primary-soft pill (rose pâle) for low-emphasis actions
  *   - outline    — sable border on ivoire surface for card actions
  *   - ghost      — no chrome, primary-soft hover, used in icon buttons
@@ -40,7 +46,7 @@ const buttonVariants = cva(
 		variants: {
 			variant: {
 				primary:
-					"bg-primary text-white shadow-sm hover:bg-primary/90 active:scale-[0.98]",
+					"bg-primary-deep text-white shadow-sm hover:bg-primary active:scale-[0.98]",
 				secondary:
 					"bg-secondary text-secondary-foreground hover:bg-secondary/80",
 				outline:

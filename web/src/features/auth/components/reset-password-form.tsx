@@ -61,7 +61,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         </p>
         <Link
           href="/forgot-password"
-          className="inline-block text-sm font-medium text-rose-500 hover:text-rose-600"
+          className="inline-block text-sm font-medium text-[var(--text-link)] hover:text-primary"
         >
           {tCommon("requestNewLink")}
         </Link>

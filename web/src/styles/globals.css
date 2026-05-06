@@ -22,10 +22,17 @@
   --subtle-foreground: #a89679;     /* sable — mono labels, tertiary text */
 
   /* Accents */
-  --primary: #e85d4a;               /* corail — CTAs, accents */
+  --primary: #e85d4a;               /* corail — non-text accents (icon discs, soft bgs, dividers, illustrations) */
   --primary-soft: #fde9e3;          /* rose pâle — soft bg, active pill */
-  --primary-deep: #c43a26;          /* corail foncé — hover, error */
+  --primary-deep: #c43a26;          /* corail foncé — hover, errors, AA-compliant text accents */
   --primary-foreground: #fffbf5;    /* text on primary */
+
+  /* Body-text accent — corail at body sizes (14-16px) fails WCAG AA on
+   * ivoire (3.34:1). The deeper corail (#c43a26 on #fffbf5 = 4.92:1) is
+   * AA-compliant, so all inline accent text + body links use this token
+   * via Tailwind utility `text-[var(--text-link)]`. Hover stays on
+   * `--primary` (corail) for a subtle warm-up. */
+  --text-link: var(--primary-deep);
 
   /* Decorative gradient stops */
   --pink: #f08aa8;                  /* rose chaud */
@@ -92,6 +99,9 @@
   --primary-soft: #3d201b;          /* corail très foncé bg */
   --primary-deep: #ff9784;          /* corail très clair pour hover dark */
   --primary-foreground: #1a1410;
+  /* Dark variant — corail brightened (#fb7d68) on warm slate already
+   * exceeds AA (≈5.4:1), so the dark text-link stays on `--primary`. */
+  --text-link: var(--primary);
 
   --pink: #f08aa8;
   --pink-soft: #3d2230;

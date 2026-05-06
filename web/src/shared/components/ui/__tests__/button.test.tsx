@@ -21,13 +21,16 @@ describe("Button", () => {
 		expect(screen.getByRole("button")).toHaveAttribute("type", "reset")
 	})
 
-	it("applies primary variant by default with corail solid", () => {
+	it("applies primary variant by default with corail-deep solid", () => {
 		render(<Button type="button">Primary</Button>)
 		const btn = screen.getByRole("button")
-		expect(btn.className).toContain("bg-primary")
+		// Soleil v2 + WCAG AA: resting bg uses corail-deep (#c43a26 →
+		// 5.83:1 white-on-bg) so primary CTAs pass AA contrast on their
+		// label. Hover lightens back to corail (#e85d4a) for the warm
+		// "wake-up" beat.
+		expect(btn.className).toContain("bg-primary-deep")
 		expect(btn.className).toContain("text-white")
-		// Soleil v2: hover deepens to primary/90 (no glow — calm motion).
-		expect(btn.className).toContain("hover:bg-primary/90")
+		expect(btn.className).toContain("hover:bg-primary")
 		expect(btn.className).toContain("active:scale-[0.98]")
 	})
 

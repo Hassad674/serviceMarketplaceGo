@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
+import { Button } from "@/shared/components/ui/button"
 import type { JobFormData } from "../types"
 import { createDefaultJobFormData } from "../types"
 import { useCreateJob } from "../hooks/use-jobs"
@@ -146,12 +147,12 @@ export function CreateJobForm() {
 
       {/* Editorial header */}
       <header className="mb-8">
-        <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+        <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-link)]">
           {t("createJob_w09_eyebrow")}
         </p>
         <h1 className="font-serif text-[30px] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[42px]">
           {t("createJob_w09_titlePrefix")}{" "}
-          <span className="italic text-primary">{t("createJob_w09_titleAccent")}</span>
+          <span className="italic text-[var(--text-link)]">{t("createJob_w09_titleAccent")}</span>
         </h1>
         <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed text-muted-foreground">
           {t("createJob_w09_subtitle")}
@@ -197,27 +198,30 @@ export function CreateJobForm() {
 
       {/* Footer actions */}
       <div className="mt-8 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={handleCancel}
           className={cn(
-            "inline-flex items-center justify-center rounded-full px-5 py-2.5",
+            "rounded-full px-5 py-2.5",
             "text-[13.5px] font-semibold text-muted-foreground transition-all duration-200",
-            "hover:text-foreground",
+            "hover:text-foreground hover:bg-transparent",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
         >
           {t("cancel")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="auto"
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
           className={cn(
-            "inline-flex items-center justify-center gap-2 rounded-full",
-            "bg-primary px-7 py-3 text-[13.5px] font-bold text-primary-foreground",
-            "transition-all duration-200 ease-out",
-            "hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
+            "gap-2 rounded-full",
+            "px-7 py-3 text-[13.5px] font-bold",
+            "hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)]",
             "active:scale-[0.98]",
             "disabled:cursor-not-allowed disabled:opacity-60",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -229,7 +233,7 @@ export function CreateJobForm() {
               <ArrowRight className="h-4 w-4" strokeWidth={2} />
             </>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -265,12 +269,14 @@ function AccordionSection({
           : "border-border hover:border-border-strong",
       )}
     >
-      <button
+      <Button
+        variant="ghost"
+        size="auto"
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex w-full items-center gap-4 px-6 py-5 text-left",
-          "rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "flex w-full items-center gap-4 px-6 py-5 text-left justify-start whitespace-normal",
+          "rounded-[20px] hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
         aria-expanded={isOpen}
       >
@@ -302,7 +308,7 @@ function AccordionSection({
         >
           ›
         </span>
-      </button>
+      </Button>
 
       <div
         className={cn(

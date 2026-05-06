@@ -55,7 +55,7 @@ export function ForgotPasswordForm() {
         </p>
         <Link
           href="/login"
-          className="inline-block text-sm font-medium text-rose-500 hover:text-rose-600"
+          className="inline-block text-sm font-medium text-[var(--text-link)] hover:text-primary"
         >
           {t("backToLogin")}
         </Link>
@@ -101,7 +101,7 @@ export function ForgotPasswordForm() {
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
         <Link
           href="/login"
-          className="font-medium text-rose-500 hover:text-rose-600"
+          className="font-medium text-[var(--text-link)] hover:text-primary"
         >
           {t("backToLogin")}
         </Link>
