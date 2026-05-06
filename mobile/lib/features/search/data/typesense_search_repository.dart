@@ -256,8 +256,15 @@ class TypesenseSearchRepository {
     final corrected =
         correctedRaw is String && correctedRaw.isNotEmpty ? correctedRaw : null;
 
+    // Defensive `.toString()` on `search_id` / `next_cursor`: the backend
+    // serialises these as numbers in some response shapes (Typesense
+    // `request_params.search_id` is numeric, the Go proxy passes it
+    // through). A direct `as String?` cast crashes the listing screen at
+    // runtime — coerce instead.
+    final searchIdRaw = json['search_id'];
+    final nextCursorRaw = json['next_cursor'];
     return TypesenseSearchResult(
-      searchId: json['search_id'] as String? ?? '',
+      searchId: searchIdRaw == null ? '' : searchIdRaw.toString(),
       documents: docs,
       highlights: highlights,
       facetCounts: facetCounts,
@@ -267,7 +274,7 @@ class TypesenseSearchRepository {
       searchTimeMs: (json['search_time_ms'] as num?)?.toInt() ?? 0,
       correctedQuery: corrected,
       hasMore: json['has_more'] as bool? ?? false,
-      nextCursor: json['next_cursor'] as String?,
+      nextCursor: nextCursorRaw?.toString(),
     );
   }
 }
