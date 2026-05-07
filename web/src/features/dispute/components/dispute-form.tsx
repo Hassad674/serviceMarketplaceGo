@@ -107,46 +107,78 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Amount */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">
+          <label
+            htmlFor="dispute-amount-slider"
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
             {t("amountLabel")}
           </label>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm">
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm font-medium text-foreground">
+                {amountType === "total"
+                  ? userRole === "client"
+                    ? t("totalRefund", { amount: formatEur(proposalAmount) })
+                    : t("totalRelease", { amount: formatEur(proposalAmount) })
+                  : `${t("partialAmount")} (${formatEur(partialAmount)})`}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                / {formatEur(proposalAmount)}
+              </span>
+            </div>
+            <input
+              id="dispute-amount-slider"
+              type="range"
+              min={1}
+              max={proposalAmount}
+              step={1}
+              value={amountType === "total" ? proposalAmount : partialAmount || 1}
+              onChange={(e) => {
+                const value = Number(e.target.value)
+                if (value >= proposalAmount) {
+                  setAmountType("total")
+                  setPartialAmount(0)
+                } else {
+                  setAmountType("partial")
+                  setPartialAmount(value)
+                }
+              }}
+              aria-label={t("amountLabel")}
+              className={cn(
+                "h-2 w-full cursor-pointer appearance-none rounded-full bg-border-strong outline-none",
+                "accent-primary",
+                "focus-visible:ring-2 focus-visible:ring-primary/40",
+                // Webkit thumb
+                "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5",
+                "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md",
+                "[&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing",
+                // Firefox thumb
+                "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full",
+                "[&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:shadow-md",
+                "[&::-moz-range-thumb]:cursor-grab",
+              )}
+            />
+            <div className="flex items-center gap-2">
               <Input
-                type="radio"
-                name="amountType"
-                checked={amountType === "total"}
-                onChange={() => setAmountType("total")}
-                className="text-primary"
+                type="number"
+                min={1}
+                max={proposalAmount / 100}
+                value={Math.round((amountType === "total" ? proposalAmount : partialAmount) / 100) || ""}
+                onChange={(e) => {
+                  const cents = Math.round(Number(e.target.value) * 100)
+                  if (cents >= proposalAmount) {
+                    setAmountType("total")
+                    setPartialAmount(0)
+                  } else {
+                    setAmountType("partial")
+                    setPartialAmount(Math.max(1, cents))
+                  }
+                }}
+                className="h-9 w-32 rounded-lg border border-border bg-card px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
+                placeholder="0"
               />
-              {userRole === "client"
-                ? t("totalRefund", { amount: formatEur(proposalAmount) })
-                : t("totalRelease", { amount: formatEur(proposalAmount) })}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Input
-                type="radio"
-                name="amountType"
-                checked={amountType === "partial"}
-                onChange={() => setAmountType("partial")}
-                className="text-primary"
-              />
-              {t("partialAmount")}
-            </label>
-            {amountType === "partial" && (
-              <div className="ml-6 flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={proposalAmount / 100}
-                  value={partialAmount / 100 || ""}
-                  onChange={(e) => setPartialAmount(Math.round(Number(e.target.value) * 100))}
-                  className="h-9 w-32 rounded-lg border border-border bg-card px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10"
-                  placeholder="0"
-                />
-                <span className="text-sm text-muted-foreground">EUR</span>
-              </div>
-            )}
+              <span className="text-sm text-muted-foreground">EUR</span>
+            </div>
           </div>
         </div>
 
