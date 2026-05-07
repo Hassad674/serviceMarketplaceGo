@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/system"
 )
 
 type MarkAsReadInput struct {
@@ -79,21 +80,29 @@ func (s *Service) GetTotalUnread(ctx context.Context, userID uuid.UUID) (int, er
 }
 
 func (s *Service) DeliverMessage(ctx context.Context, messageID, userID uuid.UUID) error {
-	msg, err := s.messages.GetMessage(ctx, messageID)
-	if err != nil {
-		return fmt.Errorf("get message: %w", err)
-	}
-
 	orgID, err := s.resolveUserOrgID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("resolve user org: %w", err)
 	}
+
+	// Resolve the message under the recipient's tenant context so
+	// RLS admits the row before we even reach the org-authorisation
+	// check. GetMessageForCaller installs orgID + userID as the
+	// tenant context.
+	msg, err := s.messages.GetMessageForCaller(ctx, messageID, orgID, userID)
+	if err != nil {
+		return fmt.Errorf("get message: %w", err)
+	}
+
 	if err := s.requireOrgAuthorized(ctx, msg.ConversationID, orgID, userID); err != nil {
 		return err
 	}
 
 	if msg.Status == message.MessageStatusSent {
-		return s.messages.UpdateMessageStatus(ctx, messageID, message.MessageStatusDelivered)
+		// UpdateMessageStatus is a delivery-marker write — the
+		// recipient is updating their own row. Tag system since the
+		// authorisation has already passed.
+		return s.messages.UpdateMessageStatus(system.WithSystemActor(ctx), messageID, message.MessageStatusDelivered)
 	}
 
 	return nil

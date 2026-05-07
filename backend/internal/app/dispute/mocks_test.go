@@ -412,6 +412,12 @@ func (m *mockMilestoneRepo) ListByProposal(_ context.Context, _ uuid.UUID) ([]*m
 	return nil, nil
 }
 
+// ListByProposalForOrg ignores the org param — see
+// proposal/mocks_test.go for the rationale.
+func (m *mockMilestoneRepo) ListByProposalForOrg(_ context.Context, _, _ uuid.UUID) ([]*milestonedomain.Milestone, error) {
+	return nil, nil
+}
+
 func (m *mockMilestoneRepo) GetCurrentActive(_ context.Context, proposalID uuid.UUID) (*milestonedomain.Milestone, error) {
 	return synthDisputeMilestoneForProposal(proposalID), nil
 }

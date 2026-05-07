@@ -158,7 +158,16 @@ func (r *DisputeRepository) GetByIDForOrg(ctx context.Context, id, callerOrgID u
 	return d, nil
 }
 
+// GetByProposalID returns the active dispute for a proposal, or nil
+// when none exists. SYSTEM-ACTOR: callers MUST tag their context
+// because the lookup sits BEFORE the tenant context can be
+// established (the only caller is the OpenDispute pre-check which
+// runs after the proposal ownership check has already passed).
+// Under prod NOSUPERUSER NOBYPASSRLS without the tag, this returns
+// nil even when a dispute exists — surfaced as a WARN log via the
+// shared guardrail.
 func (r *DisputeRepository) GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*dispute.Dispute, error) {
+	warnIfNotSystemActor(ctx, "DisputeRepository.GetByProposalID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

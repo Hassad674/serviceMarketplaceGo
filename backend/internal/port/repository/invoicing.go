@@ -36,7 +36,20 @@ type InvoiceRepository interface {
 	ReserveNumber(ctx context.Context, scope invoicing.CounterScope) (int64, error)
 
 	// FindInvoiceByID returns a single invoice with all its items.
+	//
+	// SYSTEM-ACTOR contract: callers must tag their context with
+	// system.WithSystemActor (admin path, webhook path) — under prod
+	// NOSUPERUSER NOBYPASSRLS without the tag, the policy filters
+	// every row and the caller receives ErrNotFound. User-facing
+	// callers must use FindInvoiceByIDForOrg instead.
 	FindInvoiceByID(ctx context.Context, id uuid.UUID) (*invoicing.Invoice, error)
+
+	// FindInvoiceByIDForOrg returns a single invoice + items under the
+	// caller's org tenant context. RLS admits the row only when the
+	// invoice's recipient_organization_id matches the caller's org.
+	// User-facing handlers (PDF download, etc.) must always use this
+	// variant.
+	FindInvoiceByIDForOrg(ctx context.Context, id, orgID uuid.UUID) (*invoicing.Invoice, error)
 
 	// FindInvoiceByStripeEventID is the lookup path used by webhook
 	// handlers when checking dedup at the persistence level (defense

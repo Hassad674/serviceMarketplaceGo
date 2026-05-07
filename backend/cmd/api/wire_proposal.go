@@ -43,6 +43,13 @@ type proposalReposWiring struct {
 type proposalReposDeps struct {
 	Cfg *config.Config
 	DB  *sql.DB
+	// TxRunner is the routed transaction runner from
+	// wireInfrastructure. When set, every RunInTxWithTenant call on
+	// the proposal/milestone/payment-record repos picks the right
+	// pool (NOBYPASSRLS for user-facing, BYPASSRLS for system-actor)
+	// based on `system.IsSystemActor(ctx)`. When nil — only in
+	// tests — the helpers fall back to a fresh, single-pool runner.
+	TxRunner *postgres.TxRunner
 }
 
 // wireProposalRepos brings up the early-stage proposal repositories
@@ -59,6 +66,15 @@ type proposalReposDeps struct {
 func wireProposalRepos(deps proposalReposDeps) proposalReposWiring {
 	db := deps.DB
 
+	// Resolve the transaction runner. Production always passes the
+	// routed runner from wireInfrastructure so RunInTxWithTenant
+	// picks the right pool by context. Tests fall back to a fresh
+	// single-pool runner over the test DB.
+	sharedRunner := deps.TxRunner
+	if sharedRunner == nil {
+		sharedRunner = postgres.NewTxRunner(db)
+	}
+
 	// Proposal
 	// BUG-NEW-04 path 4/8: proposals is RLS-protected by migration 125
 	// (USING client_organization_id = current_org OR provider_organization_id
@@ -66,7 +82,7 @@ func wireProposalRepos(deps proposalReposDeps) proposalReposWiring {
 	// GetByIDForOrg / List* pass under prod NOSUPERUSER NOBYPASSRLS.
 	// Legacy GetByID stays for system-actor scheduler paths that run
 	// with a privileged DB connection.
-	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(postgres.NewTxRunner(db))
+	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(sharedRunner)
 
 	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
 	// The proposal app service consumes milestoneSvc to delegate the
@@ -79,7 +95,7 @@ func wireProposalRepos(deps proposalReposDeps) proposalReposWiring {
 	// under prod NOSUPERUSER NOBYPASSRLS. Each operation resolves the
 	// parent proposal's stakeholder org via a defensive lookup before
 	// opening the tenant tx.
-	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(postgres.NewTxRunner(db))
+	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(sharedRunner)
 	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
 		Milestones: milestoneRepo,
 	})
@@ -92,7 +108,7 @@ func wireProposalRepos(deps proposalReposDeps) proposalReposWiring {
 	// client's org (resolved from organization_members at INSERT time)
 	// is the access boundary; provider-side reads of money received go
 	// through the tenant-isolated proposal path instead.
-	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(postgres.NewTxRunner(db))
+	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(sharedRunner)
 
 	// Credit bonus fraud log
 	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
@@ -114,9 +130,14 @@ func wireProposalRepos(deps proposalReposDeps) proposalReposWiring {
 	// matching `search.reindex` pending event in a single atomic
 	// transaction — preventing permanent Postgres / Typesense drift
 	// when the publisher Schedule path would otherwise fail after
-	// the profile UPDATE has already committed. Cheap to construct:
-	// holds only a *sql.DB pointer.
-	txRunner := postgres.NewTxRunner(db)
+	// the profile UPDATE has already committed.
+	//
+	// Reuses the routed runner from wireInfrastructure so the outbox
+	// commit lands on the same pool as the underlying mutation —
+	// avoiding a split-context tx where the profile UPDATE runs as
+	// `marketplace_app` (NOBYPASSRLS) while the outbox INSERT runs as
+	// `marketplace_scheduler` (BYPASSRLS).
+	txRunner := sharedRunner
 
 	// Milestone audit trail (phase 9 — append-only). Every successful
 	// withMilestoneLock writes one row recording from→to status pair,

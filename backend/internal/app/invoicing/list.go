@@ -77,7 +77,13 @@ func (s *Service) GetInvoicePDFURL(ctx context.Context, organizationID, invoiceI
 	if expiry <= 0 {
 		expiry = 5 * time.Minute
 	}
-	inv, err := s.invoices.FindInvoiceByID(ctx, invoiceID)
+	// User-facing PDF download path — RLS-isolated lookup. The repo
+	// applies the per-tenant filter inside RunInTxWithTenant so a
+	// cross-tenant invoice returns ErrNotFound, which we map to a
+	// 404 below. The defensive cross-tenant check that follows is
+	// kept as a belt-and-suspenders guard against a misconfigured
+	// pool where RLS happens to be bypassed.
+	inv, err := s.invoices.FindInvoiceByIDForOrg(ctx, invoiceID, organizationID)
 	if err != nil {
 		return "", fmt.Errorf("get invoice pdf: %w", err)
 	}

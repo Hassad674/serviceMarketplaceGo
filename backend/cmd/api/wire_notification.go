@@ -34,6 +34,10 @@ type notificationDeps struct {
 	Ctx           context.Context
 	Cfg           *config.Config
 	DB            *sql.DB
+	// TxRunner is the routed transaction runner from
+	// wireInfrastructure. Forwarded to the NotificationRepository so
+	// every RunInTxWithTenant lands on the right pool.
+	TxRunner      *postgres.TxRunner
 	Redis         *goredis.Client
 	SourceID      string
 	Email         service.EmailService
@@ -59,7 +63,11 @@ func wireNotificationFeature(deps notificationDeps) notificationWiring {
 	// Production rotates the application DB role to NOSUPERUSER
 	// NOBYPASSRLS — without the txRunner wrap, INSERTs into notifications
 	// are rejected and SELECT/UPDATE/DELETE silently return 0 rows.
-	notifRepo := postgres.NewNotificationRepository(deps.DB).WithTxRunner(postgres.NewTxRunner(deps.DB))
+	notifTxRunner := deps.TxRunner
+	if notifTxRunner == nil {
+		notifTxRunner = postgres.NewTxRunner(deps.DB)
+	}
+	notifRepo := postgres.NewNotificationRepository(deps.DB).WithTxRunner(notifTxRunner)
 	notifQueue := redisadapter.NewNotificationJobQueue(deps.Redis, deps.SourceID)
 	if err := notifQueue.EnsureGroup(context.Background()); err != nil {
 		slog.Error("failed to create notification job group", "error", err)

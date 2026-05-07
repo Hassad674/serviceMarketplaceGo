@@ -11,6 +11,7 @@ import (
 	domain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // ChargeService owns the PaymentIntent lifecycle: creation,
@@ -74,7 +75,11 @@ func (c *ChargeService) CreatePaymentIntent(ctx context.Context, input portservi
 		return nil, errors.New("stripe not configured")
 	}
 
-	existing, err := c.records.GetByMilestoneID(ctx, input.MilestoneID)
+	// Idempotency probe — the proposal ownership has already been
+	// confirmed at the caller's app service before reaching here.
+	// system-tag the read because the milestone's owning org isn't
+	// available at this layer.
+	existing, err := c.records.GetByMilestoneID(system.WithSystemActor(ctx), input.MilestoneID)
 	if err == nil && existing != nil {
 		return c.createPaymentIntentFromExisting(ctx, input)
 	}
@@ -128,6 +133,9 @@ func (c *ChargeService) CreatePaymentIntent(ctx context.Context, input portservi
 // createPaymentIntentFromExisting re-creates a PaymentIntent for an
 // existing milestone record (idempotent via Stripe's idempotency key).
 func (c *ChargeService) createPaymentIntentFromExisting(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
+	// Continuation of the idempotency path — same system tag
+	// rationale as CreatePaymentIntent above.
+	ctx = system.WithSystemActor(ctx)
 	existing, err := c.records.GetByMilestoneID(ctx, input.MilestoneID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch existing record: %w", err)
@@ -198,6 +206,9 @@ func (c *ChargeService) createPaymentIntentFromExisting(ctx context.Context, inp
 // `payment_confirm_attempt_unverified` here when ErrPaymentNotConfirmed
 // fires — that is the signal of a possible fraud attempt.
 func (c *ChargeService) MarkPaymentSucceeded(ctx context.Context, proposalID uuid.UUID) error {
+	// Webhook / scheduler path — system tag so the lookup runs
+	// against the BYPASSRLS pool.
+	ctx = system.WithSystemActor(ctx)
 	record, err := c.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("find record: %w", err)

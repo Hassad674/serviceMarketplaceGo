@@ -11,6 +11,7 @@ import (
 
 	domain "marketplace-backend/internal/domain/payment"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // payout_transfer.go — the transfer-side methods of PayoutService:
@@ -37,6 +38,11 @@ import (
 // skipped via the gate, but intent-wise the caller should be
 // explicit).
 func (p *PayoutService) TransferToProvider(ctx context.Context, proposalID uuid.UUID) error {
+	// TransferToProvider runs from the macro-complete hook on the
+	// proposal service AND from the outbox worker. Both paths have
+	// already passed authorisation upstream — tag the reads
+	// system-actor so they bypass the per-tenant routing.
+	ctx = system.WithSystemActor(ctx)
 	records, err := p.records.ListByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("list payment records: %w", err)
@@ -99,6 +105,10 @@ func (p *PayoutService) TransferToProvider(ctx context.Context, proposalID uuid.
 // ErrTransferAlreadyDone if it was already transferred, and
 // ErrStripeAccountNotFound if the provider has not completed KYC.
 func (p *PayoutService) TransferMilestone(ctx context.Context, milestoneID uuid.UUID) error {
+	// Same rationale as TransferToProvider — this is a system-driven
+	// release path triggered by milestone completion or scheduled
+	// auto-release.
+	ctx = system.WithSystemActor(ctx)
 	record, err := p.records.GetByMilestoneID(ctx, milestoneID)
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)
@@ -224,6 +234,9 @@ func (p *PayoutService) TransferMilestone(ctx context.Context, milestoneID uuid.
 //     the provider finishes KYC and calls RequestPayout, they receive
 //     the split amount — not the original proposal amount.
 func (p *PayoutService) TransferPartialToProvider(ctx context.Context, proposalID uuid.UUID, amount int64) error {
+	// Dispute-driven path. The dispute service has already
+	// authorised the resolution by the time we get here.
+	ctx = system.WithSystemActor(ctx)
 	record, err := p.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)
@@ -304,6 +317,9 @@ func (p *PayoutService) RefundToClient(ctx context.Context, proposalID uuid.UUID
 	if amount <= 0 {
 		return nil
 	}
+	// Dispute resolution path — system-tagged like the rest of the
+	// dispute-driven payout flows.
+	ctx = system.WithSystemActor(ctx)
 	record, err := p.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)

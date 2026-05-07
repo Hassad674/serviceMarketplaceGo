@@ -38,6 +38,11 @@ type disputeDeps struct {
 	Ctx            context.Context
 	Cfg            *config.Config
 	DB             *sql.DB
+	// TxRunner is the routed transaction runner from
+	// wireInfrastructure. When set, dispute writes route by context
+	// (NOBYPASSRLS for user-facing, BYPASSRLS for the dispute
+	// scheduler's system-actor goroutine).
+	TxRunner       *postgres.TxRunner
 	Proposals      repository.ProposalRepository
 	Milestones     repository.MilestoneRepository
 	Users          repository.UserRepository
@@ -68,7 +73,11 @@ func wireDispute(deps disputeDeps) disputeWiring {
 	// dispute_ai_chat_messages) are NOT directly RLS-protected so they
 	// stay on the legacy direct-db path; the application-level
 	// authorization layer enforces access through the parent dispute.
-	disputeRepo := postgres.NewDisputeRepository(db).WithTxRunner(postgres.NewTxRunner(db))
+	txRunner := deps.TxRunner
+	if txRunner == nil {
+		txRunner = postgres.NewTxRunner(db)
+	}
+	disputeRepo := postgres.NewDisputeRepository(db).WithTxRunner(txRunner)
 	var aiAnalyzer service.AIAnalyzer
 	if cfg.AnthropicAPIKey != "" {
 		aiAnalyzer = anthropicadapter.NewAnalyzer(cfg.AnthropicAPIKey)

@@ -261,7 +261,7 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 		// The next milestone is now waiting for funding. Schedule
 		// the fund-reminder + auto-close timers so we nudge the
 		// client and gracefully end the project if they ghost.
-		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
+		if next, nextErr := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
 			s.scheduleMilestoneFundReminder(ctx, next.ID)
 			s.scheduleProposalAutoClose(ctx, p.ID)
 		}

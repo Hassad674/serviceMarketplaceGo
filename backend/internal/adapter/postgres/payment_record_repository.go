@@ -155,7 +155,14 @@ func (r *PaymentRecordRepository) GetByID(ctx context.Context, id uuid.UUID) (*p
 // so this lookup is kept for legacy callers but returns the newest row
 // by created_at. For strict milestone-level idempotency, use
 // GetByMilestoneID instead.
+//
+// SYSTEM-ACTOR: callers must tag their context — the lookup runs
+// before the tenant context can be established (it's keyed on
+// proposal id, not on the calling org). Under prod NOSUPERUSER
+// NOBYPASSRLS without the tag, the policy filters every row and the
+// caller receives ErrPaymentRecordNotFound.
 func (r *PaymentRecordRepository) GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error) {
+	warnIfNotSystemActor(ctx, "PaymentRecordRepository.GetByProposalID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -177,7 +184,10 @@ func (r *PaymentRecordRepository) GetByProposalID(ctx context.Context, proposalI
 // transfer path which must release ALL pending milestones — picking the
 // most recent row (the old GetByProposalID behaviour) missed jalons 1..N-1
 // on multi-milestone proposals and left them stuck in escrow.
+//
+// SYSTEM-ACTOR — see GetByProposalID for the rationale.
 func (r *PaymentRecordRepository) ListByProposalID(ctx context.Context, proposalID uuid.UUID) ([]*payment.PaymentRecord, error) {
+	warnIfNotSystemActor(ctx, "PaymentRecordRepository.ListByProposalID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -221,7 +231,12 @@ func (r *PaymentRecordRepository) ListByProposalID(ctx context.Context, proposal
 // Used by CreatePaymentIntent as the idempotency key so a retry on the
 // same milestone reuses the existing Stripe PaymentIntent instead of
 // creating a duplicate one.
+//
+// SYSTEM-ACTOR — see GetByProposalID for the rationale. The
+// CreatePaymentIntent caller tags its context after passing the
+// proposal ownership check.
 func (r *PaymentRecordRepository) GetByMilestoneID(ctx context.Context, milestoneID uuid.UUID) (*payment.PaymentRecord, error) {
+	warnIfNotSystemActor(ctx, "PaymentRecordRepository.GetByMilestoneID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

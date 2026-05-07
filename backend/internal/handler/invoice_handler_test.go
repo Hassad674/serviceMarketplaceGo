@@ -49,6 +49,16 @@ func (r *invFakeRepo) FindInvoiceByID(_ context.Context, id uuid.UUID) (*domain.
 	}
 	return nil, domain.ErrNotFound
 }
+func (r *invFakeRepo) FindInvoiceByIDForOrg(_ context.Context, id, orgID uuid.UUID) (*domain.Invoice, error) {
+	inv, ok := r.byID[id]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if inv.RecipientOrganizationID != orgID {
+		return nil, domain.ErrNotFound
+	}
+	return inv, nil
+}
 func (r *invFakeRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*domain.Invoice, error) {
 	return nil, domain.ErrNotFound
 }
@@ -203,7 +213,11 @@ func TestInvoice_GetPDF_RedirectsToPresignedURL(t *testing.T) {
 	_, _ = io.ReadAll(rec.Body)
 }
 
-func TestInvoice_GetPDF_OtherOrg_403(t *testing.T) {
+func TestInvoice_GetPDF_OtherOrg_404(t *testing.T) {
+	// RLS hardening (2026-05-07): the GetInvoicePDFURL path now uses
+	// FindInvoiceByIDForOrg, which surfaces a cross-tenant attempt
+	// as ErrNotFound instead of ErrCrossOrgInvoiceAccess. The 404
+	// response is intentional — never leak existence to a non-owner.
 	h := newInvHarness(t)
 	otherOrg := uuid.New()
 	inv := makeInvoice(t, otherOrg, "FAC-000001", time.Now().UTC())
@@ -214,7 +228,7 @@ func TestInvoice_GetPDF_OtherOrg_403(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.handler.GetPDF(rec, req)
 
-	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestInvoice_CurrentMonth_HappyPath(t *testing.T) {

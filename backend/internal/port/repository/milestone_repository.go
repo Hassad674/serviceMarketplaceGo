@@ -68,7 +68,17 @@ type MilestoneRepository interface {
 	// ListByProposal returns every milestone of a proposal, ordered by
 	// ascending sequence. Used to render the milestone tracker and compute
 	// the proposal's macro status.
+	//
+	// Caller must have either system-actor tag on ctx (scheduler /
+	// reconciler) or use the ListByProposalForOrg variant — the bare
+	// form goes through the legacy non-tenant code path which under
+	// prod NOSUPERUSER NOBYPASSRLS returns an empty slice.
 	ListByProposal(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error)
+
+	// ListByProposalForOrg returns every milestone of a proposal under
+	// the caller's org tenant context. RLS admits the rows only when
+	// callerOrgID is one of the parent proposal's stakeholder orgs.
+	ListByProposalForOrg(ctx context.Context, proposalID, callerOrgID uuid.UUID) ([]*milestone.Milestone, error)
 
 	// GetCurrentActive returns the first non-terminal milestone of the
 	// proposal by ascending sequence, or milestone.ErrMilestoneNotFound if

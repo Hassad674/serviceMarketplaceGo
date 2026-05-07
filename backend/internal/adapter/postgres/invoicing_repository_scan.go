@@ -87,7 +87,18 @@ func (r *InvoiceRepository) HasInvoiceItemForPaymentRecord(ctx context.Context, 
 // owned by the given organization in [periodStart, periodEnd) that have
 // NOT yet been invoiced. The org match flows from
 // payment_records.provider_id → users.id → users.organization_id.
+// ListReleasedPaymentRecordsForOrg is the monthly batch feeder. The
+// JOIN to users on provider_id makes the row visibility independent
+// of the per-tenant payment_records policy, but the underlying
+// payment_records still requires app.current_org_id to be set under
+// NOSUPERUSER NOBYPASSRLS — without the system tag the policy
+// filters every row.
+//
+// SYSTEM-ACTOR: invoicing.IssueMonthlyConsolidated and the
+// /me/invoicing/current-month handler both tag their ctx before
+// reaching this method.
 func (r *InvoiceRepository) ListReleasedPaymentRecordsForOrg(ctx context.Context, organizationID uuid.UUID, periodStart, periodEnd time.Time) ([]repo.ReleasedPaymentRecord, error) {
+	warnIfNotSystemActor(ctx, "InvoiceRepository.ListReleasedPaymentRecordsForOrg")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

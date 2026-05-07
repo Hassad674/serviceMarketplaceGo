@@ -88,6 +88,9 @@ func (m *mockMessageRepo) GetMessage(ctx context.Context, id uuid.UUID) (*messag
 	}
 	return nil, message.ErrMessageNotFound
 }
+func (m *mockMessageRepo) GetMessageForCaller(ctx context.Context, id, _, _ uuid.UUID) (*message.Message, error) {
+	return m.GetMessage(ctx, id)
+}
 func (m *mockMessageRepo) ListMessages(ctx context.Context, p repository.ListMessagesParams) ([]*message.Message, string, error) {
 	if m.listMessagesFn != nil {
 		return m.listMessagesFn(ctx, p)

@@ -135,6 +135,10 @@ func (m *messageReaderMock) GetMessage(_ context.Context, _ uuid.UUID) (*message
 	m.getMessageCalls++
 	return &message.Message{}, nil
 }
+func (m *messageReaderMock) GetMessageForCaller(_ context.Context, _, _, _ uuid.UUID) (*message.Message, error) {
+	m.getMessageCalls++
+	return &message.Message{}, nil
+}
 func (m *messageReaderMock) ListMessages(_ context.Context, _ repository.ListMessagesParams) ([]*message.Message, string, error) {
 	return nil, "", nil
 }

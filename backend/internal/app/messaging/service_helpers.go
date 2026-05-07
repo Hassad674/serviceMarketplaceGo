@@ -13,6 +13,7 @@ import (
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/system"
 )
 
 func (s *Service) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
@@ -298,7 +299,11 @@ func (s *Service) populateReplyPreview(ctx context.Context, msg *message.Message
 	if msg.ReplyToID == nil {
 		return
 	}
-	replied, err := s.messages.GetMessage(ctx, *msg.ReplyToID)
+	// Reply preview enrichment runs after the parent message has
+	// already been delivered through an authorised flow (CreateMessage
+	// or ListMessages). Tag system so the lookup admits the row
+	// without re-resolving the caller's tenant context.
+	replied, err := s.messages.GetMessage(system.WithSystemActor(ctx), *msg.ReplyToID)
 	if err != nil {
 		slog.Warn("failed to fetch reply-to message", "reply_to_id", msg.ReplyToID, "error", err)
 		return

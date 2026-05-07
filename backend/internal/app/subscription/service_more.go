@@ -12,6 +12,7 @@ import (
 	"marketplace-backend/internal/domain/billing"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // CyclePreviewResult is the app-layer preview — Stripe's raw invoice
@@ -103,7 +104,12 @@ func (s *Service) GetStats(ctx context.Context, organizationID, actorUserID uuid
 		return nil, fmt.Errorf("stats: actor not found")
 	}
 
-	amounts, aErr := s.amounts.ListProviderMilestoneAmountsSince(ctx, actorUserID, sub.StartedAt)
+	// Subscription stats — actor is reading their own data, but
+	// payment_records is RLS-protected and the lookup is keyed on
+	// provider_id (not on the calling org). Tag system so the query
+	// runs on the BYPASSRLS pool — the upstream auth check has
+	// already confirmed the actor identity.
+	amounts, aErr := s.amounts.ListProviderMilestoneAmountsSince(system.WithSystemActor(ctx), actorUserID, sub.StartedAt)
 	if aErr != nil {
 		return nil, fmt.Errorf("stats: list amounts: %w", aErr)
 	}

@@ -14,6 +14,7 @@ import (
 	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // ---------------------------------------------------------------------------
@@ -153,7 +154,14 @@ func (s *Service) restoreProposalAndDistribute(ctx context.Context, d *disputedo
 // Non-terminal non-pending milestones (funded, submitted, disputed) are
 // skipped — they already have a resolution path of their own.
 func (s *Service) cancelPendingFundingMilestones(ctx context.Context, proposalID uuid.UUID) {
-	milestones, err := s.milestones.ListByProposal(ctx, proposalID)
+	// The cancel flow runs after the dispute has been resolved or the
+	// auto-resolve scheduler has fired — both paths have already
+	// confirmed authorisation. Tag the milestone reads system-actor
+	// so they bypass the per-tenant RLS routing that would otherwise
+	// hide rows when the caller's org id is not stamped on the ctx.
+	sysCtx := system.WithSystemActor(ctx)
+
+	milestones, err := s.milestones.ListByProposal(sysCtx, proposalID)
 	if err != nil {
 		slog.Error("dispute: list milestones for cancellation",
 			"proposal_id", proposalID, "error", err)
@@ -164,7 +172,7 @@ func (s *Service) cancelPendingFundingMilestones(ctx context.Context, proposalID
 			continue
 		}
 		// Refetch with lock to apply the optimistic update cleanly.
-		locked, err := s.milestones.GetByIDWithVersion(ctx, m.ID)
+		locked, err := s.milestones.GetByIDWithVersion(sysCtx, m.ID)
 		if err != nil {
 			slog.Error("dispute: lock milestone for cancel",
 				"milestone_id", m.ID, "error", err)
@@ -450,7 +458,11 @@ func (s *Service) loadPostMissionMessages(ctx context.Context, d *disputedomain.
 	if s.messageRepo == nil {
 		return nil
 	}
-	msgs, err := s.messageRepo.ListMessagesSinceTime(ctx, d.ConversationID, since, 200)
+	// AI summary is generated server-side after auth has already
+	// confirmed the dispute is visible to the caller. Tag the read
+	// system-actor so the messages RLS policy does not filter rows
+	// keyed on a tenant the AI worker doesn't carry.
+	msgs, err := s.messageRepo.ListMessagesSinceTime(system.WithSystemActor(ctx), d.ConversationID, since, 200)
 	if err != nil {
 		slog.Warn("dispute: failed to load conversation messages for AI summary",
 			"dispute_id", d.ID, "error", err)

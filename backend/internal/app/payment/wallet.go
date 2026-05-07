@@ -13,6 +13,7 @@ import (
 	domainuser "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // WalletService is the read-side of the payment feature: wallet
@@ -204,8 +205,13 @@ func (w *WalletService) populateCommissionSide(ctx context.Context, wallet *Wall
 }
 
 // GetPaymentRecord returns the payment record for a proposal.
+//
+// SYSTEM-ACTOR: this helper is only used by internal cross-feature
+// flows (no HTTP handler calls it directly) AFTER the proposal
+// ownership has been confirmed upstream. Tag the read so the
+// BYPASSRLS pool serves the lookup.
 func (w *WalletService) GetPaymentRecord(ctx context.Context, proposalID uuid.UUID) (*domain.PaymentRecord, error) {
-	return w.records.GetByProposalID(ctx, proposalID)
+	return w.records.GetByProposalID(system.WithSystemActor(ctx), proposalID)
 }
 
 // PreviewFee returns the fee schedule for the authenticated user

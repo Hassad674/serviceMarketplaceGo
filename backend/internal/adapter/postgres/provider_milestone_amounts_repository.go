@@ -29,9 +29,14 @@ func NewProviderMilestoneAmountsRepository(db *sql.DB) *ProviderMilestoneAmounts
 // Includes records in every status — the fee would have been charged
 // regardless of downstream transfer success, so counting them gives the
 // user the truest picture of what Premium saved them.
+// ListProviderMilestoneAmountsSince reads payment_records (RLS-
+// protected) keyed on provider_id rather than organization_id.
+// SYSTEM-ACTOR: subscription stats endpoint tags the ctx after
+// confirming the caller is asking about themselves.
 func (r *ProviderMilestoneAmountsRepository) ListProviderMilestoneAmountsSince(
 	ctx context.Context, providerID uuid.UUID, since time.Time,
 ) ([]int64, error) {
+	warnIfNotSystemActor(ctx, "ProviderMilestoneAmountsRepository.ListProviderMilestoneAmountsSince")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

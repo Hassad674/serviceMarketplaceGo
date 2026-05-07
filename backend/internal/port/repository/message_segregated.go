@@ -32,6 +32,7 @@ type MessageReader interface {
 	IsParticipant(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
 	IsOrgAuthorizedForConversation(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error)
 	GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error)
+	GetMessageForCaller(ctx context.Context, id, callerOrgID, callerUserID uuid.UUID) (*message.Message, error)
 	ListMessages(ctx context.Context, params ListMessagesParams) ([]*message.Message, string, error)
 	GetMessagesSinceSeq(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
 	ListMessagesSinceTime(ctx context.Context, conversationID uuid.UUID, since time.Time, limit int) ([]*message.Message, error)

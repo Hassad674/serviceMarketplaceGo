@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/invoicing"
+	"marketplace-backend/internal/system"
 )
 
 // IssueCreditNoteInput groups the constructor arguments for the credit
@@ -125,7 +126,12 @@ func (s *Service) loadOriginalForCreditNote(ctx context.Context, in IssueCreditN
 	if in.AmountCents <= 0 {
 		return nil, fmt.Errorf("invoicing: credit note amount must be positive: %w", invoicing.ErrInvalidAmount)
 	}
-	original, err := s.invoices.FindInvoiceByID(ctx, in.OriginalInvoiceID)
+	// Credit-note flow: the parent IssueCreditNote is called from
+	// (a) the Stripe charge.refunded webhook (system path) and (b)
+	// the admin manual-refund handler (admin role enforced
+	// upstream). Both paths legitimately need cross-tenant access
+	// to the source invoice — system-tag the lookup.
+	original, err := s.invoices.FindInvoiceByID(system.WithSystemActor(ctx), in.OriginalInvoiceID)
 	if err != nil {
 		return nil, fmt.Errorf("invoicing: load original invoice: %w", err)
 	}

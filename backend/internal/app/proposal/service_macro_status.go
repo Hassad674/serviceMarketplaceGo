@@ -9,6 +9,7 @@ import (
 
 	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/system"
 )
 
 // recomputeMacroStatus derives the proposal's macro status from its
@@ -44,7 +45,16 @@ func (s *Service) recomputeMacroStatus(ctx context.Context, p *domain.Proposal) 
 		return nil
 	}
 
-	milestones, err := s.milestones.ListByProposal(ctx, p.ID)
+	// recomputeMacroStatus runs from BOTH user-facing flows (Fund/
+	// Submit/Approve/Release on a milestone) and system-actor flows
+	// (scheduler, webhook reconciler). Tag the read with system-actor
+	// so it always lands on the BYPASSRLS pool — the macro recompute
+	// happens AFTER the caller has already passed an ownership check
+	// on the parent proposal, so cross-tenant exposure is impossible
+	// at this layer. The simpler alternative (require an org id
+	// param) would force a 4-hop refactor through every callsite for
+	// no security gain.
+	milestones, err := s.milestones.ListByProposal(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return fmt.Errorf("list milestones: %w", err)
 	}
@@ -163,8 +173,12 @@ func latestReleasedAt(milestones []*milestone.Milestone) *time.Time {
 // methods (InitiatePayment, RequestCompletion, CompleteProposal, etc.)
 // to fetch the current active milestone for a proposal. Returns
 // milestone.ErrMilestoneNotFound when every milestone is terminal.
+//
+// Tagged system-actor before the read because the helper runs after
+// the action method has already passed an ownership check on the
+// parent proposal — see recomputeMacroStatus for the same rationale.
 func (s *Service) getCurrentActiveMilestone(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
-	return s.milestones.GetCurrentActive(ctx, proposalID)
+	return s.milestones.GetCurrentActive(system.WithSystemActor(ctx), proposalID)
 }
 
 // withMilestoneLock is the optimistic read-lock-mutate-write pattern

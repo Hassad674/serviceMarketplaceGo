@@ -101,6 +101,15 @@ type MessageRepository interface {
 	// role lacks BYPASSRLS.
 	CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error
 	GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error)
+
+	// GetMessageForCaller returns a single message under the
+	// caller's tenant context. The caller's orgID + userID are
+	// installed via SET LOCAL before the SELECT so the messages RLS
+	// policy admits the row when the caller is on the conversation's
+	// org side OR is a participant. User-facing flows (Edit /
+	// Delete / DeliverMessage) MUST use this variant — the bare
+	// GetMessage form is system-actor only.
+	GetMessageForCaller(ctx context.Context, id, callerOrgID, callerUserID uuid.UUID) (*message.Message, error)
 	ListMessages(ctx context.Context, params ListMessagesParams) ([]*message.Message, string, error)
 	GetMessagesSinceSeq(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
 	// ListMessagesSinceTime returns messages of a conversation created at or

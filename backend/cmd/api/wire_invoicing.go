@@ -26,6 +26,10 @@ import (
 // profile flows.
 type invoicingDeps struct {
 	DB              *sql.DB
+	// TxRunner is the routed transaction runner from
+	// wireInfrastructure. Forwarded to the InvoiceRepository so
+	// invoice writes use the right pool.
+	TxRunner        *postgres.TxRunner
 	Redis           *goredis.Client
 	Email           service.EmailService
 	Storage         service.StorageService
@@ -91,7 +95,11 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 	// stay on the legacy direct-db path — production must keep
 	// that handler on a privileged DB role. Documented in the
 	// repo docstring.
-	invoiceRepo := postgres.NewInvoiceRepository(deps.DB).WithTxRunner(postgres.NewTxRunner(deps.DB))
+	invoicingTxRunner := deps.TxRunner
+	if invoicingTxRunner == nil {
+		invoicingTxRunner = postgres.NewTxRunner(deps.DB)
+	}
+	invoiceRepo := postgres.NewInvoiceRepository(deps.DB).WithTxRunner(invoicingTxRunner)
 	billingProfileRepo := postgres.NewBillingProfileRepository(deps.DB)
 	invoiceDeliverer := emailadapter.NewDeliverer(deps.Email)
 	invoiceIdempotency := redisadapter.NewWebhookIdempotencyStore(

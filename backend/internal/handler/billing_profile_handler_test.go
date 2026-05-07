@@ -68,6 +68,9 @@ func (bpFakeInvoiceRepo) ReserveNumber(_ context.Context, _ domain.CounterScope)
 func (bpFakeInvoiceRepo) FindInvoiceByID(_ context.Context, _ uuid.UUID) (*domain.Invoice, error) {
 	return nil, domain.ErrNotFound
 }
+func (bpFakeInvoiceRepo) FindInvoiceByIDForOrg(_ context.Context, _, _ uuid.UUID) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
 func (bpFakeInvoiceRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*domain.Invoice, error) {
 	return nil, domain.ErrNotFound
 }

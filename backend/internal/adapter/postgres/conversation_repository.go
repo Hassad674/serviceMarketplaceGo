@@ -188,7 +188,14 @@ func isSerializationError(err error) bool {
 		strings.Contains(err.Error(), "40001")
 }
 
+// Deprecated: GetConversation has no app-layer callers as of the RLS
+// hardening pass (2026-05-07). The admin path has its own
+// AdminConversationRepository, and user-facing flows go through
+// IsParticipant / IsOrgAuthorizedForConversation. Reintroduce as
+// GetConversationForCaller(id, orgID, userID) when a real consumer
+// needs the bare conversation row.
 func (r *ConversationRepository) GetConversation(ctx context.Context, id uuid.UUID) (*message.Conversation, error) {
+	warnIfNotSystemActor(ctx, "ConversationRepository.GetConversation")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 

@@ -66,6 +66,9 @@ func (f *refundFakeRepo) FindInvoiceByID(_ context.Context, id uuid.UUID) (*invo
 	}
 	return nil, invoicing.ErrNotFound
 }
+func (f *refundFakeRepo) FindInvoiceByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*invoicing.Invoice, error) {
+	return f.FindInvoiceByID(ctx, id)
+}
 func (f *refundFakeRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*invoicing.Invoice, error) {
 	return nil, invoicing.ErrNotFound
 }

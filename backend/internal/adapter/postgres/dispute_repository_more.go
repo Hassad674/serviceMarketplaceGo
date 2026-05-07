@@ -202,7 +202,14 @@ func (r *DisputeRepository) ListChatMessages(ctx context.Context, disputeID uuid
 // Stats
 // ---------------------------------------------------------------------------
 
+// Deprecated: CountByUserID has no app-layer callers as of the RLS
+// hardening pass (2026-05-07). The disputes RLS policy is org-scoped,
+// not user-scoped, so this method would silently return 0 once the
+// API rotates to NOSUPERUSER NOBYPASSRLS. New consumers must use
+// CountByOrganization instead — open an issue if you need a
+// user-keyed counter.
 func (r *DisputeRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (int, error) {
+	warnIfNotSystemActor(ctx, "DisputeRepository.CountByUserID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
