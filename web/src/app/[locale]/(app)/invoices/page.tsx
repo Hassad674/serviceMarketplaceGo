@@ -1,19 +1,21 @@
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
-import { CurrentMonthAggregate } from "@/features/invoicing/components/current-month-aggregate"
-import { InvoiceList } from "@/features/invoicing/components/invoice-list"
+import { InvoicesTabs } from "./invoices-tabs"
 
-// W-19 · Factures — Soleil v2.
+// W-19 · Factures + Reçus — Soleil v2.
 // Editorial header (corail mono eyebrow + Fraunces serif title with
-// italic corail accent + tabac subtitle) wraps the existing
-// CurrentMonthAggregate (running commissions) and InvoiceList
-// (paginated archive). The page stays a Server Component — only the
-// two child sections need client interactivity.
+// italic corail accent + tabac subtitle) wraps a tab switcher
+// (URL-driven via `?tab=invoices|receipts`).
 //
-// Out-of-scope flagged (NOT shipped this batch — features absent from repo):
-//   - Filter pills (sent / received / all): the /api/v1/me/invoices
-//     endpoint exposes no status/direction filter; rendering a pill
-//     would require a new hook. SKIP+FLAG per design/rules.md §3.
+// Tab "Factures" — existing platform invoices: CurrentMonthAggregate
+// (running commissions) + InvoiceList (paginated archive).
+// Tab "Reçus" — new transaction-receipt list backed by
+// `/api/v1/receipts*` (PR #165).
+//
+// Composition stays in this page file (per web/CLAUDE.md "features
+// never import other features"). The `InvoicesTabs` client wrapper
+// is colocated in this route directory because it imports from BOTH
+// the invoicing and receipt features and is therefore not feature-scoped.
 
 export const metadata: Metadata = {
   title: "Mes factures",
@@ -36,8 +38,7 @@ export default async function InvoicesPage() {
           {t("heroSubtitle")}
         </p>
       </header>
-      <CurrentMonthAggregate />
-      <InvoiceList />
+      <InvoicesTabs />
     </div>
   )
 }
