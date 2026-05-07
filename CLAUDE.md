@@ -1,5 +1,36 @@
 # Marketplace Service
 
+---
+
+## Project state — near-final, production-grade rigor required
+
+**The app is near-final and deployed in production** (Vercel for web, Railway for backend, Neon for DB, Cloudflare R2 for storage, Typesense for search, LiveKit for video, Resend for email, Stripe for payments). A polish phase has already been completed. **No second polish phase will be tolerated.**
+
+This means every single change — bug fix, feature addition, refactor, dependency bump — must be:
+
+- **Performant** — no N+1, no needless re-renders, indexed queries, lazy-loaded routes, p95 budgets respected (see "Performance standards" section).
+- **Maintainable** — file/function size limits respected, naming intentional, no duplication beyond the rule of three, every behavior covered by a test.
+- **Architecturally clean** — hexagonal layering on backend (handler → app → domain ← port ← adapter), feature isolation on web/mobile (zero cross-feature import), Clean Architecture on Flutter, RESTful + envelope-shaped responses.
+- **Secure** — input validated at the boundary, parameterized SQL, JWT + RBAC + ownership check at every mutation, secrets only in env vars, CSP/CORS/headers cohérent across environments (env-driven, not hardcoded).
+- **Evolutive** — interfaces small and focused (ISP), env-aware configuration over hardcode, swappable adapters, tests that catch regressions before they ship.
+
+**Self-review checklist before any merge or final report:**
+
+1. Does this change pass the validation pipeline (`go build`, `go vet`, `go test`, `tsc --noEmit`, `vitest run`, `flutter analyze`, `flutter test`) end-to-end? Paste the output.
+2. Are there new tests covering the new behavior AND the regression cases that motivated the change? Coverage of new code ≥ 90%.
+3. Does the change respect the file/function size limits (600 lines / 50 lines / 4 params / 3 nesting / cyclomatic < 10)?
+4. Does the change respect the layering rules (no cross-feature import, no app-imports-adapter, no handler-business-logic)?
+5. Does the change avoid hardcoding any URL, secret, or environment-specific value? If yes, is it env-driven AND fail-fast at build/start when the env is missing in production?
+6. Does the change introduce or rely on any third-party origin (script, image, fetch, websocket)? If yes, is the CSP updated AND a CSP test ensures the origin is whitelisted?
+7. Does the change touch user-visible strings? If yes, every string is i18n-keyed in `messages/{fr,en}.json` (web) / ARB (mobile), with tutoiement in French.
+8. Does the change touch a UI component? If yes, the design system Soleil v2 tokens are used, no hex hardcoded, no inline `style={{}}`.
+9. Mobile parity — if this is a web-facing feature/fix, the mobile equivalent must ship in the same round (or be explicitly flagged as out of scope with a justification).
+10. Does the change require an env var update on Vercel/Railway? If yes, document it in the PR description AND add a fail-fast guard in code.
+
+**Briefing agents:** every agent dispatch must repeat these requirements explicitly in the prompt. Bias toward over-testing rather than under-testing. Any agent that returns a green pipeline without paste of the actual output is to be re-dispatched with stricter brief.
+
+---
+
 ## What is this project
 
 Open-source B2B marketplace connecting agencies, freelancers, enterprises, and business referrers. Not a simple directory or job board — this is a full-featured marketplace with contracts, matching, messaging, payments, and administration.

@@ -17,6 +17,7 @@ import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Portrait } from "@/shared/components/ui/portrait"
+import { LogoutConfirmDialog } from "@/shared/components/layouts/logout-confirm-dialog"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
   agency: "roleAgency",
@@ -49,6 +50,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const logout = useLogout()
   const { isReferrerMode } = useWorkspace()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const tCommon = useTranslations("common")
   const tSidebar = useTranslations("sidebar")
@@ -65,14 +67,20 @@ export function Header({ onMenuToggle }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  async function handleLogout() {
+  function openLogoutDialog() {
     setDropdownOpen(false)
+    setLogoutDialogOpen(true)
+  }
+
+  async function handleLogoutConfirmed() {
+    setLogoutDialogOpen(false)
     await logout()
   }
 
   const profileHref = (user?.role === "provider" && isReferrerMode) ? "/referral" : "/profile"
 
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-5">
       {/* Mobile menu */}
       <Button variant="ghost" size="auto"
@@ -151,7 +159,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   </Link>
                   <div className="my-0.5 border-t border-border" />
                   <Button variant="ghost" size="auto"
-                    onClick={handleLogout}
+                    onClick={openLogoutDialog}
                     className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary-deep"
                   >
                     <LogOut className="h-4 w-4" strokeWidth={1.5} />
@@ -164,6 +172,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
         )}
       </div>
     </header>
+    <LogoutConfirmDialog
+      open={logoutDialogOpen}
+      onClose={() => setLogoutDialogOpen(false)}
+      onConfirm={handleLogoutConfirmed}
+    />
+    </>
   )
 }
 

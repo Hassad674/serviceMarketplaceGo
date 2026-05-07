@@ -3382,6 +3382,103 @@ class AppLocalizationsFr extends AppLocalizations {
   String get accountDeleteAccountAction => 'Supprimer mon compte';
 
   @override
+  String get accountChangeEmailCta => 'Changer mon email';
+
+  @override
+  String get accountChangePasswordCta => 'Changer mon mot de passe';
+
+  @override
+  String get accountChangeEmailTitle => 'Changer mon email';
+
+  @override
+  String get accountChangeEmailSubtitle =>
+      'Confirme ton mot de passe actuel et saisis ta nouvelle adresse email.';
+
+  @override
+  String get accountChangePasswordTitle => 'Changer mon mot de passe';
+
+  @override
+  String get accountChangePasswordSubtitle =>
+      'Confirme ton mot de passe actuel puis choisis-en un nouveau.';
+
+  @override
+  String get accountCurrentPassword => 'Mot de passe actuel';
+
+  @override
+  String get accountCurrentPasswordHint => '••••••••';
+
+  @override
+  String get accountNewEmail => 'Nouvel email';
+
+  @override
+  String get accountNewEmailHint => 'nouveau@email.com';
+
+  @override
+  String get accountNewPassword => 'Nouveau mot de passe';
+
+  @override
+  String get accountConfirmPassword => 'Confirmer le mot de passe';
+
+  @override
+  String get accountPasswordHint =>
+      'Au moins 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.';
+
+  @override
+  String get accountChangeEmailSuccess =>
+      'Email mis à jour. Reconnecte-toi avec ta nouvelle adresse.';
+
+  @override
+  String get accountChangePasswordSuccess =>
+      'Mot de passe mis à jour. Reconnecte-toi avec ton nouveau mot de passe.';
+
+  @override
+  String get accountErrorEmailRequired => 'Adresse email requise.';
+
+  @override
+  String get accountErrorInvalidEmail => 'Adresse email invalide.';
+
+  @override
+  String get accountErrorSameEmail => 'Cette adresse est déjà la tienne.';
+
+  @override
+  String get accountErrorEmailAlreadyExists =>
+      'Cette adresse est déjà utilisée.';
+
+  @override
+  String get accountErrorPasswordRequired => 'Mot de passe requis.';
+
+  @override
+  String get accountErrorWeakPassword =>
+      'Mot de passe trop faible. 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.';
+
+  @override
+  String get accountErrorSamePassword =>
+      'Le nouveau mot de passe doit être différent du précédent.';
+
+  @override
+  String get accountErrorPasswordMismatch =>
+      'Les mots de passe ne correspondent pas.';
+
+  @override
+  String get accountErrorInvalidCredentials => 'Mot de passe actuel incorrect.';
+
+  @override
+  String get accountErrorSessionInvalid => 'Session expirée. Reconnecte-toi.';
+
+  @override
+  String get accountErrorNetwork =>
+      'Connexion impossible. Réessaie dans un instant.';
+
+  @override
+  String get accountErrorGeneric => 'Une erreur est survenue. Réessaie.';
+
+  @override
+  String get passwordShow => 'Afficher le mot de passe';
+
+  @override
+  String get passwordHide => 'Masquer le mot de passe';
+
+  @override
   String get createJob_m09_title => 'Nouvelle annonce';
 
   @override

@@ -6218,6 +6218,180 @@ abstract class AppLocalizations {
   /// **'Delete my account'**
   String get accountDeleteAccountAction;
 
+  /// No description provided for @accountChangeEmailCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Change my email'**
+  String get accountChangeEmailCta;
+
+  /// No description provided for @accountChangePasswordCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Change my password'**
+  String get accountChangePasswordCta;
+
+  /// No description provided for @accountChangeEmailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change my email'**
+  String get accountChangeEmailTitle;
+
+  /// No description provided for @accountChangeEmailSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your current password and enter your new email address.'**
+  String get accountChangeEmailSubtitle;
+
+  /// No description provided for @accountChangePasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change my password'**
+  String get accountChangePasswordTitle;
+
+  /// No description provided for @accountChangePasswordSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your current password, then choose a new one.'**
+  String get accountChangePasswordSubtitle;
+
+  /// No description provided for @accountCurrentPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get accountCurrentPassword;
+
+  /// No description provided for @accountCurrentPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'••••••••'**
+  String get accountCurrentPasswordHint;
+
+  /// No description provided for @accountNewEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'New email'**
+  String get accountNewEmail;
+
+  /// No description provided for @accountNewEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'new@email.com'**
+  String get accountNewEmailHint;
+
+  /// No description provided for @accountNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get accountNewPassword;
+
+  /// No description provided for @accountConfirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get accountConfirmPassword;
+
+  /// No description provided for @accountPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'At least 10 characters with one uppercase, one lowercase, one digit and one special character.'**
+  String get accountPasswordHint;
+
+  /// No description provided for @accountChangeEmailSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Email updated. Sign in again with your new address.'**
+  String get accountChangeEmailSuccess;
+
+  /// No description provided for @accountChangePasswordSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated. Sign in again with your new password.'**
+  String get accountChangePasswordSuccess;
+
+  /// No description provided for @accountErrorEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address required.'**
+  String get accountErrorEmailRequired;
+
+  /// No description provided for @accountErrorInvalidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email address.'**
+  String get accountErrorInvalidEmail;
+
+  /// No description provided for @accountErrorSameEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'This is already your current email.'**
+  String get accountErrorSameEmail;
+
+  /// No description provided for @accountErrorEmailAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already in use.'**
+  String get accountErrorEmailAlreadyExists;
+
+  /// No description provided for @accountErrorPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Password required.'**
+  String get accountErrorPasswordRequired;
+
+  /// No description provided for @accountErrorWeakPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password too weak. Need 10+ characters with one uppercase, one lowercase, one digit and one special character.'**
+  String get accountErrorWeakPassword;
+
+  /// No description provided for @accountErrorSamePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'The new password must be different from the previous one.'**
+  String get accountErrorSamePassword;
+
+  /// No description provided for @accountErrorPasswordMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get accountErrorPasswordMismatch;
+
+  /// No description provided for @accountErrorInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is incorrect.'**
+  String get accountErrorInvalidCredentials;
+
+  /// No description provided for @accountErrorSessionInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired. Please sign in again.'**
+  String get accountErrorSessionInvalid;
+
+  /// No description provided for @accountErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Try again in a moment.'**
+  String get accountErrorNetwork;
+
+  /// No description provided for @accountErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get accountErrorGeneric;
+
+  /// No description provided for @passwordShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get passwordShow;
+
+  /// No description provided for @passwordHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get passwordHide;
+
   /// No description provided for @createJob_m09_title.
   ///
   /// In en, this message translates to:

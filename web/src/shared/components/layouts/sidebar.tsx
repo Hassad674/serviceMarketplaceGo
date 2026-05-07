@@ -30,6 +30,7 @@ import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
 import { Portrait } from "@/shared/components/ui/portrait"
+import { LogoutConfirmDialog } from "@/shared/components/layouts/logout-confirm-dialog"
 
 type NavItem = {
   labelKey: string
@@ -169,7 +170,10 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const displayRole = isReferrerMode ? "referrer" : role
   const portraitId = ROLE_PORTRAIT_ID[displayRole] ?? 0
 
-  async function handleLogout() {
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+
+  async function handleLogoutConfirmed() {
+    setLogoutDialogOpen(false)
     await logout()
   }
 
@@ -296,7 +300,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         {/* Logout */}
         <div className="border-t border-border p-2">
           <Button variant="ghost" size="auto"
-            onClick={handleLogout}
+            onClick={() => setLogoutDialogOpen(true)}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
               "text-muted-foreground transition-all duration-200 hover:bg-background hover:text-foreground",
@@ -309,6 +313,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           </Button>
         </div>
       </aside>
+
+      <LogoutConfirmDialog
+        open={logoutDialogOpen}
+        onClose={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogoutConfirmed}
+      />
     </>
   )
 }

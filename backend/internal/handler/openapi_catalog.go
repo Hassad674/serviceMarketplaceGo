@@ -118,6 +118,18 @@ func catalogueAuth(c map[string]routeSpec) {
 		RequestBody:  rawJSONRequestBody(),
 		SuccessKind:  successRawJSON, SuccessStatus: "200",
 	}
+	c["POST /api/v1/auth/change-email"] = routeSpec{
+		Tags: []string{"auth"}, Summary: "Update the authenticated user's email",
+		AuthRequired: true,
+		RequestBody:  rawJSONRequestBody(),
+		SuccessKind:  successRawJSON, SuccessStatus: "200",
+	}
+	c["POST /api/v1/auth/change-password"] = routeSpec{
+		Tags: []string{"auth"}, Summary: "Rotate the authenticated user's password",
+		AuthRequired: true,
+		RequestBody:  rawJSONRequestBody(),
+		SuccessKind:  successRawJSON, SuccessStatus: "200",
+	}
 }
 
 func catalogueTeam(c map[string]routeSpec) {

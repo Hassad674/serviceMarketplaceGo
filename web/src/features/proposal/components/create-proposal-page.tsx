@@ -130,11 +130,16 @@ export function CreateProposalPage() {
         file.name,
         file.type || "application/octet-stream",
       )
-      await fetch(upload_url, {
+      // fetch() does not throw on HTTP 4xx/5xx — without this guard a
+      // failed upload would still push a broken URL into the proposal.
+      const uploadRes = await fetch(upload_url, {
         method: "PUT",
         body: file,
         headers: { "Content-Type": file.type || "application/octet-stream" },
       })
+      if (!uploadRes.ok) {
+        throw new Error(`upload failed: ${uploadRes.status}`)
+      }
       uploaded.push({
         filename: file.name,
         url: public_url,

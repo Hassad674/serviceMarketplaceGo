@@ -30,7 +30,7 @@ func TestMountHelpers_RouteCounts(t *testing.T) {
 		mount      func(r chi.Router)
 		wantRoutes int
 	}{
-		{"auth", func(r chi.Router) { mountAuthRoutes(r, deps, auth) }, 27},
+		{"auth", func(r chi.Router) { mountAuthRoutes(r, deps, auth) }, 29},
 		{"profile", func(r chi.Router) { mountProfileRoutes(r, deps, auth) }, 44},
 		{"upload", func(r chi.Router) { mountUploadRoutes(r, deps, auth) }, 8},
 		{"search", func(r chi.Router) { mountSearchRoutes(r, deps, auth) }, 3},
