@@ -46,6 +46,16 @@ type PaymentRecord struct {
 	TransferredAt *time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+
+	// BillingSnapshotJSON is the raw JSONB document captured at
+	// payment time describing the billing identity of the three
+	// parties (client / provider / referrer) and the optional
+	// referrer commission amount. Used by the "Reçus" feature to
+	// render historically stable transaction receipts even after
+	// the parties later edit their billing profiles. Nil for
+	// historical rows that predate the snapshot column (migration
+	// 136).
+	BillingSnapshotJSON []byte
 }
 
 // NewPaymentRecord creates a payment record with explicit fee amounts.

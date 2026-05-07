@@ -50,6 +50,7 @@ type routerHandlers struct {
 	Subscription          *handler.SubscriptionHandler
 	BillingProfile        *handler.BillingProfileHandler
 	Invoice               *handler.InvoiceHandler
+	Receipt               *handler.ReceiptHandler
 	AdminCreditNote       *handler.AdminCreditNoteHandler
 	AdminInvoice          *handler.AdminInvoiceHandler
 	Admin                 *handler.AdminHandler
@@ -113,6 +114,7 @@ type finalHandlers struct {
 	Subscription          *handler.SubscriptionHandler
 	BillingProfile        *handler.BillingProfileHandler
 	Invoice               *handler.InvoiceHandler
+	Receipt               *handler.ReceiptHandler
 	AdminCreditNote       *handler.AdminCreditNoteHandler
 	AdminInvoice          *handler.AdminInvoiceHandler
 	Admin                 *handler.AdminHandler
@@ -168,6 +170,7 @@ func buildRouterHandlers(h finalHandlers) routerHandlers {
 		Subscription:          h.Subscription,
 		BillingProfile:        h.BillingProfile,
 		Invoice:               h.Invoice,
+		Receipt:               h.Receipt,
 		AdminCreditNote:       h.AdminCreditNote,
 		AdminInvoice:          h.AdminInvoice,
 		Admin:                 h.Admin,
@@ -223,6 +226,7 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Subscription:          b.Handlers.Subscription,
 		BillingProfile:        b.Handlers.BillingProfile,
 		Invoice:               b.Handlers.Invoice,
+		Receipt:               b.Handlers.Receipt,
 		AdminCreditNote:       b.Handlers.AdminCreditNote,
 		AdminInvoice:          b.Handlers.AdminInvoice,
 		Admin:                 b.Handlers.Admin,

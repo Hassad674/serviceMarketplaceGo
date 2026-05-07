@@ -23,8 +23,10 @@ import (
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
+	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/invoicing"
+	"marketplace-backend/internal/domain/receipt"
 )
 
 //go:embed templates/*.html.tmpl
@@ -43,6 +45,8 @@ type Renderer struct {
 	invoiceEN    *template.Template
 	creditNoteFR *template.Template
 	creditNoteEN *template.Template
+	receiptFR    *template.Template
+	receiptEN    *template.Template
 }
 
 // New parses every embedded template upfront. Failing here means the
@@ -81,12 +85,22 @@ func New() (*Renderer, error) {
 	if err != nil {
 		return nil, err
 	}
+	rcFR, err := parse("receipt.fr.html.tmpl")
+	if err != nil {
+		return nil, err
+	}
+	rcEN, err := parse("receipt.en.html.tmpl")
+	if err != nil {
+		return nil, err
+	}
 
 	return &Renderer{
 		invoiceFR:    invFR,
 		invoiceEN:    invEN,
 		creditNoteFR: cnFR,
 		creditNoteEN: cnEN,
+		receiptFR:    rcFR,
+		receiptEN:    rcEN,
 	}, nil
 }
 
@@ -142,6 +156,16 @@ func (r *Renderer) pickInvoiceTemplate(language string) *template.Template {
 	return r.invoiceEN
 }
 
+// pickReceiptTemplate returns the right receipt template for the
+// language. FR is the platform's primary market; anything that is
+// not explicitly "fr" falls back to English.
+func (r *Renderer) pickReceiptTemplate(language string) *template.Template {
+	if strings.EqualFold(strings.TrimSpace(language), "fr") {
+		return r.receiptFR
+	}
+	return r.receiptEN
+}
+
 // pickCreditNoteTemplate is the avoir twin of pickInvoiceTemplate.
 func (r *Renderer) pickCreditNoteTemplate(language string) *template.Template {
 	if strings.EqualFold(strings.TrimSpace(language), "fr") {
@@ -183,6 +207,88 @@ func (r *Renderer) RenderCreditNote(ctx context.Context, cn *invoicing.CreditNot
 	}
 
 	return r.htmlToPDF(ctx, buf.String())
+}
+
+// RenderReceipt produces the PDF bytes for a transaction receipt.
+// receipts are NOT legal invoices — the template's disclaimer makes
+// that explicit. The view-model formats every cents amount + date
+// here so the template stays purely presentational.
+func (r *Renderer) RenderReceipt(ctx context.Context, rec *receipt.Receipt, language string) ([]byte, error) {
+	if rec == nil {
+		return nil, fmt.Errorf("pdf: receipt is nil")
+	}
+	view := buildReceiptView(rec, language)
+
+	var buf bytes.Buffer
+	tmpl := r.pickReceiptTemplate(language)
+	if err := tmpl.Execute(&buf, view); err != nil {
+		return nil, fmt.Errorf("pdf: execute receipt template: %w", err)
+	}
+	return r.htmlToPDF(ctx, buf.String())
+}
+
+// receiptView is the view-model passed to receipt templates. Cents
+// pre-formatted for display so the templates only need to handle
+// presentation. Pointer fields stay nil when the corresponding
+// snapshot field is empty so the template can render the
+// "données indisponibles" branch without inspecting individual
+// strings.
+type receiptView struct {
+	ReceiptID          string
+	CreatedAt          string
+	ProposalID         string
+	Amount             string
+	Client             *receiptPartyView
+	Provider           *receiptPartyView
+	Referrer           *receiptPartyView
+	ReferrerCommission string
+}
+
+type receiptPartyView struct {
+	Name         string
+	SIRET        string
+	VAT          string
+	AddressLine1 string
+	AddressLine2 string
+	City         string
+	PostalCode   string
+	Country      string
+}
+
+func buildReceiptView(rec *receipt.Receipt, language string) receiptView {
+	view := receiptView{
+		ReceiptID: rec.ID.String(),
+		CreatedAt: formatDate(rec.CreatedAt, language),
+		Amount:    formatAmount(rec.AmountCents, language),
+	}
+	if rec.ProposalID != (uuid.Nil) {
+		view.ProposalID = rec.ProposalID.String()
+	}
+	if rec.SnapshotAvailable {
+		view.Client = partyView(rec.Client)
+		view.Provider = partyView(rec.Provider)
+		view.Referrer = partyView(rec.Referrer)
+		if rec.ReferrerCommissionAmountCents > 0 {
+			view.ReferrerCommission = formatAmount(rec.ReferrerCommissionAmountCents, language)
+		}
+	}
+	return view
+}
+
+func partyView(p *receipt.PartyBilling) *receiptPartyView {
+	if p == nil {
+		return nil
+	}
+	return &receiptPartyView{
+		Name:         p.Name,
+		SIRET:        p.SIRET,
+		VAT:          p.VAT,
+		AddressLine1: p.AddressLine1,
+		AddressLine2: p.AddressLine2,
+		City:         p.City,
+		PostalCode:   p.PostalCode,
+		Country:      p.Country,
+	}
 }
 
 // htmlToPDF spawns a chromedp context, navigates to a data URL of the

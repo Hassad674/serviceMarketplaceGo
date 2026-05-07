@@ -75,6 +75,12 @@ const (
 
 	// Authorization failures
 	ActionAuthorizationDenied Action = "authz.denied"
+
+	// Receipt feature ("Reçus" tab). Emitted by the receipt handler
+	// when an org member views a transaction receipt or downloads
+	// its PDF.
+	ActionReceiptView        Action = "receipt.view"
+	ActionReceiptPDFDownload Action = "receipt.pdf_download"
 )
 
 // ResourceType is the kind of resource the audit entry refers to.
@@ -88,6 +94,7 @@ const (
 	ResourceTypeMember       ResourceType = "member"
 	ResourceTypeInvitation   ResourceType = "invitation"
 	ResourceTypeRole         ResourceType = "role"
+	ResourceTypeReceipt      ResourceType = "receipt"
 )
 
 // Entry is a single audit log row. Construct via NewEntry — the struct

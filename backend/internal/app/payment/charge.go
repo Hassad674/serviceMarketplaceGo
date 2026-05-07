@@ -39,6 +39,13 @@ type ChargeService struct {
 	// dependency surface. The parent Service wires this to the wallet
 	// service's computePlatformFee method.
 	feeCalculator platformFeeCalculator
+
+	// snapshotResolver is the optional hook that builds the JSONB
+	// billing_snapshot stored on a new payment_records row. Used by
+	// the "Reçus" feature to expose stable transaction receipts. nil
+	// disables the hook — the column stays NULL and the receipts UI
+	// renders the row with a "données indisponibles" marker.
+	snapshotResolver portservice.ReceiptSnapshotResolver
 }
 
 // platformFeeCalculator is the narrow port the charge service relies on
@@ -62,6 +69,17 @@ func NewChargeService(deps ChargeServiceDeps) *ChargeService {
 		stripe:        deps.Stripe,
 		feeCalculator: deps.FeeCalculator,
 	}
+}
+
+// SetReceiptSnapshotResolver plugs the optional snapshot resolver
+// post-construction. The resolver is built in cmd/api/main.go after
+// invoicing + referral are wired (both need the user / billing /
+// attribution repositories), so it is set with a fluent setter
+// instead of a constructor argument. Passing nil disables the
+// snapshot — every new payment_records row keeps billing_snapshot
+// NULL.
+func (c *ChargeService) SetReceiptSnapshotResolver(r portservice.ReceiptSnapshotResolver) {
+	c.snapshotResolver = r
 }
 
 // CreatePaymentIntent creates a Stripe PaymentIntent for a milestone
@@ -95,6 +113,7 @@ func (c *ChargeService) CreatePaymentIntent(ctx context.Context, input portservi
 		input.ProposalID, input.MilestoneID, input.ClientID, input.ProviderID,
 		input.ProposalAmount, stripeFee, platformFee,
 	)
+	c.attachReceiptSnapshot(ctx, record, input)
 
 	pi, err := c.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
 		AmountCentimes: record.ClientTotalAmount,
@@ -271,4 +290,43 @@ func (c *ChargeService) VerifyWebhook(payload []byte, signature string) (*portse
 		return nil, errors.New("stripe not configured")
 	}
 	return c.stripe.ConstructWebhookEvent(payload, signature)
+}
+
+// attachReceiptSnapshot resolves and serialises the billing snapshot
+// for a freshly minted payment record. Best-effort: any failure in
+// the resolver or marshaller is logged at WARN and the record's
+// BillingSnapshotJSON stays nil — the receipt UI falls back to the
+// "données indisponibles" marker for that row but the payment goes
+// through.
+//
+// Reasoning: receipts are a presentation layer over payments. They
+// must never gate the money-movement flow; the worst case for a
+// resolver failure is a UX paper cut, not a financial one.
+func (c *ChargeService) attachReceiptSnapshot(ctx context.Context, record *domain.PaymentRecord, input portservice.PaymentIntentInput) {
+	if c.snapshotResolver == nil || record == nil {
+		return
+	}
+	snap, err := c.snapshotResolver.ResolveForPayment(ctx, portservice.ReceiptSnapshotInput{
+		ClientUserID:   input.ClientID,
+		ProviderUserID: input.ProviderID,
+		ProposalID:     input.ProposalID,
+	})
+	if err != nil {
+		slog.Warn("payment: receipt snapshot resolver failed; storing NULL snapshot",
+			"proposal_id", input.ProposalID,
+			"milestone_id", input.MilestoneID,
+			"error", err,
+		)
+		return
+	}
+	payload, err := c.snapshotResolver.MarshalSnapshot(snap)
+	if err != nil {
+		slog.Warn("payment: receipt snapshot marshal failed; storing NULL snapshot",
+			"proposal_id", input.ProposalID,
+			"milestone_id", input.MilestoneID,
+			"error", err,
+		)
+		return
+	}
+	record.BillingSnapshotJSON = payload
 }

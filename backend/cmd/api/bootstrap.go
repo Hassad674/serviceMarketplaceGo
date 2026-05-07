@@ -473,6 +473,21 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	adminCreditNoteHandler := billing.AdminCreditNote
 	adminInvoiceHandler := billing.AdminInvoice
 
+	// Receipts — transaction receipts ("Reçus" tab in the billing UI).
+	// Wire AFTER billing + referral so the snapshot resolver has every
+	// dependency available at boot. The wire's side-effect plugs the
+	// snapshot resolver into payment.CreatePaymentIntent so future
+	// payment_records rows carry a billing_snapshot.
+	receipt := wireReceipt(receiptDeps{
+		DB:             infra.DB,
+		PaymentSvc:     paymentInfoSvc,
+		BillingProfile: postgres.NewBillingProfileRepository(infra.DB),
+		ReferralRepo:   referralRepo,
+		UsersRepo:      infra.UserRepo,
+		AuditRepo:      infra.AuditRepo,
+	})
+	receiptHandler := receipt.Handler
+
 	registerStripeWebhookWorker(pendingEventsWorker, stripeHandler)
 
 	go func() {
@@ -547,6 +562,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			Stripe:          stripeHandler, Wallet: walletHandler, Billing: billingHandler,
 			Subscription:    subscriptionHandler,
 			BillingProfile:  billingProfileHandler, Invoice: invoiceHandler,
+			Receipt:         receiptHandler,
 			AdminCreditNote: adminCreditNoteHandler, AdminInvoice: adminInvoiceHandler,
 			Admin:           adminHandler, Portfolio: portfolioHandler,
 			ProjectHistory:  projectHistoryHandler,

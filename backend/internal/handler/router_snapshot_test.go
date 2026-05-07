@@ -128,6 +128,7 @@ func snapshotDeps() RouterDeps {
 		Subscription:          &SubscriptionHandler{},
 		BillingProfile:        &BillingProfileHandler{},
 		Invoice:               &InvoiceHandler{},
+		Receipt:               &ReceiptHandler{},
 		AdminCreditNote:       &AdminCreditNoteHandler{},
 		AdminInvoice:          &AdminInvoiceHandler{},
 		Admin:                 &AdminHandler{},

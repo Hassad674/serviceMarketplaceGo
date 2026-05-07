@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transaction receipt {{ .ReceiptID }}</title>
+<style>
+  @page { size: A4; margin: 1.5cm; }
+  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10pt; color: #0F172A; line-height: 1.4; }
+  h1 { color: #F43F5E; font-size: 22pt; margin: 0 0 4pt 0; }
+  h2 { font-size: 11pt; margin: 12pt 0 4pt 0; color: #475569; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .header { margin-bottom: 18pt; }
+  .meta { font-size: 9pt; color: #475569; }
+  .parties { display: flex; justify-content: space-between; margin-bottom: 18pt; gap: 8pt; }
+  .parties .col { flex: 1; padding: 8pt; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4pt; }
+  .totals { margin-top: 12pt; margin-left: auto; width: 50%; }
+  .totals table { width: 100%; border-collapse: collapse; }
+  .totals td { padding: 4pt 8pt; }
+  .totals .grand td { font-weight: 700; font-size: 11pt; border-top: 1pt solid #0F172A; padding-top: 8pt; }
+  .disclaimer { margin-top: 18pt; font-size: 8pt; font-style: italic; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 8pt; }
+  .footer { margin-top: 18pt; font-size: 8pt; color: #94A3B8; text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Transaction Receipt</h1>
+  <div class="meta">No. <strong>{{ .ReceiptID }}</strong></div>
+  <div class="meta">Date: {{ .CreatedAt }}</div>
+  {{ if .ProposalID }}<div class="meta">Mission: {{ .ProposalID }}</div>{{ end }}
+</div>
+
+<div class="parties">
+  <div class="col">
+    <h2>Client</h2>
+    {{ if .Client }}
+      <strong>{{ if .Client.Name }}{{ .Client.Name }}{{ else }}Incomplete profile{{ end }}</strong><br>
+      {{ if .Client.AddressLine1 }}{{ .Client.AddressLine1 }}<br>{{ end }}
+      {{ if .Client.AddressLine2 }}{{ .Client.AddressLine2 }}<br>{{ end }}
+      {{ if or .Client.PostalCode .Client.City }}{{ .Client.PostalCode }} {{ .Client.City }}<br>{{ end }}
+      {{ if .Client.Country }}{{ .Client.Country }}<br>{{ end }}
+      {{ if .Client.SIRET }}Tax ID: {{ .Client.SIRET }}<br>{{ end }}
+      {{ if .Client.VAT }}VAT: {{ .Client.VAT }}{{ end }}
+    {{ else }}
+      <em>Data unavailable</em>
+    {{ end }}
+  </div>
+  <div class="col">
+    <h2>Provider</h2>
+    {{ if .Provider }}
+      <strong>{{ if .Provider.Name }}{{ .Provider.Name }}{{ else }}Incomplete profile{{ end }}</strong><br>
+      {{ if .Provider.AddressLine1 }}{{ .Provider.AddressLine1 }}<br>{{ end }}
+      {{ if .Provider.AddressLine2 }}{{ .Provider.AddressLine2 }}<br>{{ end }}
+      {{ if or .Provider.PostalCode .Provider.City }}{{ .Provider.PostalCode }} {{ .Provider.City }}<br>{{ end }}
+      {{ if .Provider.Country }}{{ .Provider.Country }}<br>{{ end }}
+      {{ if .Provider.SIRET }}Tax ID: {{ .Provider.SIRET }}<br>{{ end }}
+      {{ if .Provider.VAT }}VAT: {{ .Provider.VAT }}{{ end }}
+    {{ else }}
+      <em>Data unavailable</em>
+    {{ end }}
+  </div>
+  {{ if .Referrer }}
+  <div class="col">
+    <h2>Business referrer</h2>
+    <strong>{{ if .Referrer.Name }}{{ .Referrer.Name }}{{ else }}Incomplete profile{{ end }}</strong><br>
+    {{ if .Referrer.AddressLine1 }}{{ .Referrer.AddressLine1 }}<br>{{ end }}
+    {{ if .Referrer.AddressLine2 }}{{ .Referrer.AddressLine2 }}<br>{{ end }}
+    {{ if or .Referrer.PostalCode .Referrer.City }}{{ .Referrer.PostalCode }} {{ .Referrer.City }}<br>{{ end }}
+    {{ if .Referrer.Country }}{{ .Referrer.Country }}<br>{{ end }}
+    {{ if .Referrer.SIRET }}Tax ID: {{ .Referrer.SIRET }}<br>{{ end }}
+    {{ if .Referrer.VAT }}VAT: {{ .Referrer.VAT }}{{ end }}
+    {{ if .ReferrerCommission }}<br>Commission: <strong>{{ .ReferrerCommission }}</strong>{{ end }}
+  </div>
+  {{ end }}
+</div>
+
+<div class="totals">
+  <table>
+    <tr class="grand">
+      <td>Total transaction amount</td>
+      <td style="text-align:right;">{{ .Amount }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="disclaimer">
+  <p>This document is a transaction receipt issued by the platform. It is not a legal invoice.
+  The provider remains responsible for issuing their own invoice in compliance with the regulations
+  applicable in their jurisdiction. The content (party identity, amount) is frozen at the payment date.</p>
+</div>
+
+<div class="footer">
+  Generated automatically — do not reply.
+</div>
+</body>
+</html>

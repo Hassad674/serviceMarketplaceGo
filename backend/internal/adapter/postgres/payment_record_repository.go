@@ -84,6 +84,16 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	// will correctly fail at insert time — rejecting callers that forgot
 	// to plumb the milestone through.
 	doInsert := func(runner sqlExecutor) error {
+		// billing_snapshot is the "Reçus" feature snapshot — the JSONB
+		// document captured at payment time freezing the three parties'
+		// billing identity. Nil/empty payloads are stored as NULL so
+		// the column stays optional for back-compat tests and any code
+		// path that bypasses the resolver (e.g. legacy records, dispute
+		// flow that reuses Create from a different shape).
+		var snapshotArg any
+		if len(rec.BillingSnapshotJSON) > 0 {
+			snapshotArg = string(rec.BillingSnapshotJSON)
+		}
 		_, err := runner.ExecContext(ctx, `
 			INSERT INTO payment_records (
 				id, proposal_id, milestone_id, client_id, provider_id,
@@ -92,11 +102,13 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 				client_total_amount, provider_payout,
 				currency, status, transfer_status,
 				paid_at, transferred_at, created_at, updated_at,
-				organization_id, provider_organization_id
+				organization_id, provider_organization_id,
+				billing_snapshot
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
 				(SELECT organization_id FROM organization_members WHERE user_id = $4 LIMIT 1),
-				(SELECT organization_id FROM users WHERE id = $5)
+				(SELECT organization_id FROM users WHERE id = $5),
+				$20
 			)`,
 			rec.ID, rec.ProposalID, rec.MilestoneID, rec.ClientID, rec.ProviderID,
 			ptrString(rec.StripePaymentIntentID), ptrString(rec.StripeTransferID),
@@ -104,6 +116,7 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 			rec.ClientTotalAmount, rec.ProviderPayout,
 			rec.Currency, string(rec.Status), string(rec.TransferStatus),
 			rec.PaidAt, rec.TransferredAt, rec.CreatedAt, rec.UpdatedAt,
+			snapshotArg,
 		)
 		if err != nil {
 			return fmt.Errorf("insert payment record: %w", err)

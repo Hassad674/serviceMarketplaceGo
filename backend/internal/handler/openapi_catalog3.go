@@ -33,6 +33,18 @@ func catalogueBilling(c map[string]routeSpec) {
 		Tags: []string{"billing"}, Summary: "Aggregate of current-month invoicing",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	c["GET /api/v1/receipts/"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "List my transaction receipts",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
+	c["GET /api/v1/receipts/{id}"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "Read a transaction receipt",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
+	c["GET /api/v1/receipts/{id}/pdf"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "Download transaction receipt PDF",
+		AuthRequired: true, SuccessKind: successPDF, SuccessStatus: "200",
+	}
 	c["GET /api/v1/me/billing-profile/"] = routeSpec{
 		Tags: []string{"billing-profile"}, Summary: "Read my billing profile",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",

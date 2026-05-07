@@ -56,6 +56,7 @@ type RouterDeps struct {
 	Subscription        *SubscriptionHandler
 	BillingProfile      *BillingProfileHandler  // optional — nil disables /me/billing-profile routes
 	Invoice             *InvoiceHandler         // optional — nil disables /me/invoices routes
+	Receipt             *ReceiptHandler         // optional — nil disables /receipts routes
 	AdminCreditNote     *AdminCreditNoteHandler // optional — nil disables admin credit-note correction endpoint
 	AdminInvoice        *AdminInvoiceHandler    // optional — nil disables admin "all invoices" listing + PDF redirect
 	Admin               *AdminHandler

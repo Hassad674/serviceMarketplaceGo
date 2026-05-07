@@ -1,0 +1,37 @@
+-- 136_payment_records_billing_snapshot.up.sql
+--
+-- Receipt feature (Contra-like model).
+--
+-- Each payment_records row represents one transaction between a client
+-- org and a provider org (with an optional referrer). For the new
+-- "Reçus" tab in the billing UI, we need to expose a stable snapshot of
+-- the three parties' billing identities (name, SIRET, VAT, postal
+-- address) AT THE MOMENT of the payment. This is intentionally a
+-- snapshot, not a live join: a receipt produced today must not change
+-- if any party later edits its billing profile.
+--
+-- The snapshot is stored as JSONB on the payment_records row directly
+-- (rather than a side table) because it's:
+--   1. always written together with the row
+--   2. always read together with the row
+--   3. opaque to SQL queries — we never filter on its content
+--
+-- Shape of the JSON document:
+--
+--   {
+--     "client":   { "organization_id": "...", "name": "...", "siret": "...", "vat": "...",
+--                   "address_line1": "...", "address_line2": "...", "city": "...",
+--                   "postal_code": "...", "country": "..." },
+--     "provider": { same shape },
+--     "referrer": null  | { same shape },
+--     "referrer_commission_amount_cents": 0
+--   }
+--
+-- Backfill: NOT performed. Historical rows keep billing_snapshot = NULL
+-- and the read API exposes them with a "data unavailable, predates
+-- feature" marker. Re-deriving the snapshot from current billing
+-- profiles would be wrong (those profiles can have changed since the
+-- payment) and cheaper to skip than to get partially wrong.
+
+ALTER TABLE payment_records
+    ADD COLUMN IF NOT EXISTS billing_snapshot JSONB;

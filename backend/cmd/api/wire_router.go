@@ -113,6 +113,7 @@ type routerDepsBundle struct {
 	Subscription          *handler.SubscriptionHandler
 	BillingProfile        *handler.BillingProfileHandler
 	Invoice               *handler.InvoiceHandler
+	Receipt               *handler.ReceiptHandler
 	AdminCreditNote       *handler.AdminCreditNoteHandler
 	AdminInvoice          *handler.AdminInvoiceHandler
 	Admin                 *handler.AdminHandler
@@ -179,6 +180,7 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		Subscription:         b.Subscription,
 		BillingProfile:       b.BillingProfile,
 		Invoice:              b.Invoice,
+		Receipt:              b.Receipt,
 		AdminCreditNote:      b.AdminCreditNote,
 		AdminInvoice:         b.AdminInvoice,
 		Admin:                b.Admin,

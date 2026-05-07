@@ -42,7 +42,7 @@ func TestMountHelpers_RouteCounts(t *testing.T) {
 		{"social", func(r chi.Router) { mountSocialLinkRoutes(r, deps, auth) }, 12},
 		{"portfolio", func(r chi.Router) { mountPortfolioRoutes(r, deps, auth) }, 6},
 		{"notification", func(r chi.Router) { mountNotificationRoutes(r, deps, auth) }, 9},
-		{"billing", func(r chi.Router) { mountBillingRoutes(r, deps, auth) }, 23},
+		{"billing", func(r chi.Router) { mountBillingRoutes(r, deps, auth) }, 26},
 		{"referral", func(r chi.Router) { mountReferralRoutes(r, deps, auth) }, 8},
 		{"dispute", func(r chi.Router) { mountDisputeRoutes(r, deps, auth) }, 7},
 		{"admin", func(r chi.Router) { mountAdminRoutes(r, deps, auth) }, 61},

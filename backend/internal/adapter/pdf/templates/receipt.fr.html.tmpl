@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Reçu de transaction {{ .ReceiptID }}</title>
+<style>
+  @page { size: A4; margin: 1.5cm; }
+  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10pt; color: #0F172A; line-height: 1.4; }
+  h1 { color: #F43F5E; font-size: 22pt; margin: 0 0 4pt 0; }
+  h2 { font-size: 11pt; margin: 12pt 0 4pt 0; color: #475569; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .header { margin-bottom: 18pt; }
+  .meta { font-size: 9pt; color: #475569; }
+  .parties { display: flex; justify-content: space-between; margin-bottom: 18pt; gap: 8pt; }
+  .parties .col { flex: 1; padding: 8pt; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4pt; }
+  .totals { margin-top: 12pt; margin-left: auto; width: 50%; }
+  .totals table { width: 100%; border-collapse: collapse; }
+  .totals td { padding: 4pt 8pt; }
+  .totals .grand td { font-weight: 700; font-size: 11pt; border-top: 1pt solid #0F172A; padding-top: 8pt; }
+  .disclaimer { margin-top: 18pt; font-size: 8pt; font-style: italic; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 8pt; }
+  .footer { margin-top: 18pt; font-size: 8pt; color: #94A3B8; text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Reçu de transaction</h1>
+  <div class="meta">N° <strong>{{ .ReceiptID }}</strong></div>
+  <div class="meta">Date : {{ .CreatedAt }}</div>
+  {{ if .ProposalID }}<div class="meta">Mission : {{ .ProposalID }}</div>{{ end }}
+</div>
+
+<div class="parties">
+  <div class="col">
+    <h2>Client</h2>
+    {{ if .Client }}
+      <strong>{{ if .Client.Name }}{{ .Client.Name }}{{ else }}Profil incomplet{{ end }}</strong><br>
+      {{ if .Client.AddressLine1 }}{{ .Client.AddressLine1 }}<br>{{ end }}
+      {{ if .Client.AddressLine2 }}{{ .Client.AddressLine2 }}<br>{{ end }}
+      {{ if or .Client.PostalCode .Client.City }}{{ .Client.PostalCode }} {{ .Client.City }}<br>{{ end }}
+      {{ if .Client.Country }}{{ .Client.Country }}<br>{{ end }}
+      {{ if .Client.SIRET }}SIRET : {{ .Client.SIRET }}<br>{{ end }}
+      {{ if .Client.VAT }}TVA : {{ .Client.VAT }}{{ end }}
+    {{ else }}
+      <em>Données indisponibles</em>
+    {{ end }}
+  </div>
+  <div class="col">
+    <h2>Prestataire</h2>
+    {{ if .Provider }}
+      <strong>{{ if .Provider.Name }}{{ .Provider.Name }}{{ else }}Profil incomplet{{ end }}</strong><br>
+      {{ if .Provider.AddressLine1 }}{{ .Provider.AddressLine1 }}<br>{{ end }}
+      {{ if .Provider.AddressLine2 }}{{ .Provider.AddressLine2 }}<br>{{ end }}
+      {{ if or .Provider.PostalCode .Provider.City }}{{ .Provider.PostalCode }} {{ .Provider.City }}<br>{{ end }}
+      {{ if .Provider.Country }}{{ .Provider.Country }}<br>{{ end }}
+      {{ if .Provider.SIRET }}SIRET : {{ .Provider.SIRET }}<br>{{ end }}
+      {{ if .Provider.VAT }}TVA : {{ .Provider.VAT }}{{ end }}
+    {{ else }}
+      <em>Données indisponibles</em>
+    {{ end }}
+  </div>
+  {{ if .Referrer }}
+  <div class="col">
+    <h2>Apporteur d'affaire</h2>
+    <strong>{{ if .Referrer.Name }}{{ .Referrer.Name }}{{ else }}Profil incomplet{{ end }}</strong><br>
+    {{ if .Referrer.AddressLine1 }}{{ .Referrer.AddressLine1 }}<br>{{ end }}
+    {{ if .Referrer.AddressLine2 }}{{ .Referrer.AddressLine2 }}<br>{{ end }}
+    {{ if or .Referrer.PostalCode .Referrer.City }}{{ .Referrer.PostalCode }} {{ .Referrer.City }}<br>{{ end }}
+    {{ if .Referrer.Country }}{{ .Referrer.Country }}<br>{{ end }}
+    {{ if .Referrer.SIRET }}SIRET : {{ .Referrer.SIRET }}<br>{{ end }}
+    {{ if .Referrer.VAT }}TVA : {{ .Referrer.VAT }}{{ end }}
+    {{ if .ReferrerCommission }}<br>Commission : <strong>{{ .ReferrerCommission }}</strong>{{ end }}
+  </div>
+  {{ end }}
+</div>
+
+<div class="totals">
+  <table>
+    <tr class="grand">
+      <td>Montant total de la transaction</td>
+      <td style="text-align:right;">{{ .Amount }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="disclaimer">
+  <p>Ce document est un reçu de transaction émis par la plateforme. Il n'a pas valeur de facture légale.
+  Le prestataire est responsable d'émettre sa propre facture conformément à la réglementation applicable
+  dans sa juridiction. Le contenu (identité des parties, montant) est figé à la date du paiement.</p>
+</div>
+
+<div class="footer">
+  Généré automatiquement — ne pas répondre.
+</div>
+</body>
+</html>

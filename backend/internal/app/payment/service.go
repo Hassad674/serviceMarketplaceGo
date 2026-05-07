@@ -171,6 +171,16 @@ func (s *Service) SetProposalStatusReader(r service.ProposalStatusReader) {
 	s.payout.SetProposalStatusReader(r)
 }
 
+// SetReceiptSnapshotResolver plugs the optional billing snapshot
+// resolver into the charge sub-service. Called from cmd/api/main.go
+// after invoicing + referral are wired (both are needed to build
+// the snapshot). Passing nil disables the snapshot — every new
+// payment_records row keeps billing_snapshot NULL and the receipt
+// UI renders the "données indisponibles" marker.
+func (s *Service) SetReceiptSnapshotResolver(r service.ReceiptSnapshotResolver) {
+	s.charge.SetReceiptSnapshotResolver(r)
+}
+
 // SetSubscriptionReader plugs the Premium subscription lookup. When
 // the reader reports active=true for a provider, computePlatformFee
 // waives the fee (returns 0). Setter pattern because the subscription

@@ -168,6 +168,7 @@ func tagFromRoute(route string) string {
 		return "auth"
 	case strings.HasPrefix(route, "/api/v1/billing/") || strings.HasPrefix(route, "/api/v1/wallet/") ||
 		strings.HasPrefix(route, "/api/v1/me/invoices") || strings.HasPrefix(route, "/api/v1/me/invoicing") ||
+		strings.HasPrefix(route, "/api/v1/receipts") ||
 		strings.HasPrefix(route, "/api/v1/subscriptions") || strings.HasPrefix(route, "/api/v1/payment-info/"):
 		return "billing"
 	case strings.HasPrefix(route, "/api/v1/me/billing-profile"):

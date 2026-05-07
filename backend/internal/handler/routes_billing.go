@@ -20,6 +20,7 @@ func mountBillingRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 	mountSubscriptionRoutes(r, deps, auth)
 	mountBillingProfileRoutes(r, deps, auth)
 	mountInvoiceRoutes(r, deps, auth)
+	mountReceiptRoutes(r, deps, auth)
 	mountWalletRoutes(r, deps, auth)
 	mountStripeRoutes(r, deps, auth)
 }
@@ -112,6 +113,24 @@ func mountInvoiceRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 		r.Get("/invoices", deps.Invoice.List)
 		r.Get("/invoices/{id}/pdf", deps.Invoice.GetPDF)
 		r.Get("/invoicing/current-month", deps.Invoice.CurrentMonth)
+	})
+}
+
+func mountReceiptRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http.Handler) {
+	if deps.Receipt == nil {
+		return
+	}
+	// Receipts — transaction receipts (NOT legal invoices) for the
+	// caller's organization. Auth-required, gated by the same
+	// PermBillingView permission as invoices because the data is
+	// the same family of financial information.
+	r.Route("/receipts", func(r chi.Router) {
+		r.Use(auth)
+		r.Use(middleware.NoCache)
+		r.Use(middleware.RequirePermission(organization.PermBillingView))
+		r.Get("/", deps.Receipt.List)
+		r.Get("/{id}", deps.Receipt.Get)
+		r.Get("/{id}/pdf", deps.Receipt.GetPDF)
 	})
 }
 
