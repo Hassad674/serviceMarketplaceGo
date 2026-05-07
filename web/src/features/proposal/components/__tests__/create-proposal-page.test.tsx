@@ -268,4 +268,26 @@ describe("CreateProposalPage", () => {
     // placeholder.
     await screen.findByText("Acme Corp")
   })
+
+  it("renders the global amount input when payment mode is one_time (default)", () => {
+    render(<CreateProposalPage />)
+
+    // Default mode is one_time — the global Montant € input must be present.
+    expect(screen.queryByLabelText(/proposalAmount/)).not.toBeNull()
+  })
+
+  it("hides the global amount input when payment mode is milestone", () => {
+    render(<CreateProposalPage />)
+
+    // Switch to milestone mode by clicking the milestone tab.
+    // PaymentModeToggle renders the option as a button with the
+    // translation key "milestone" as its label.
+    fireEvent.click(screen.getByText("milestone"))
+
+    // In milestone mode each milestone has its own amount input,
+    // so the global "Montant €" input must NOT be in the DOM.
+    expect(screen.queryByLabelText(/proposalAmount/)).toBeNull()
+    // The mode-panel id used by aria-controls also disappears.
+    expect(document.getElementById("payment-mode-panel-one_time")).toBeNull()
+  })
 })
