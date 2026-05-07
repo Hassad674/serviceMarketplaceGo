@@ -81,7 +81,7 @@ function PaymentModeCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group relative flex h-auto w-full flex-col items-start gap-1 rounded-2xl border px-5 py-4 text-left",
+        "group relative flex h-auto w-full min-w-0 flex-col items-start gap-1 whitespace-normal rounded-2xl border py-4 pl-5 pr-10 text-left",
         "transition-all duration-200 ease-out",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         active
@@ -92,7 +92,7 @@ function PaymentModeCard({
     >
       <span
         className={cn(
-          "font-serif text-[16px] font-medium tracking-[-0.01em]",
+          "block w-full whitespace-normal break-words font-serif text-[16px] font-medium tracking-[-0.01em]",
           active ? "text-primary-deep" : "text-foreground",
         )}
       >
@@ -100,7 +100,7 @@ function PaymentModeCard({
       </span>
       <span
         className={cn(
-          "text-[12.5px] leading-snug",
+          "block w-full whitespace-normal break-words text-[12.5px] leading-snug",
           active ? "text-primary-deep/80" : "text-muted-foreground",
         )}
       >
