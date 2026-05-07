@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -572,6 +573,127 @@ func TestCallHandler_EndCall(t *testing.T) {
 			if tc.wantCode != "" {
 				assertErrorCode(t, rec, tc.wantCode)
 			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetMyActiveCall
+// ---------------------------------------------------------------------------
+
+func TestCallHandler_GetMyActiveCall(t *testing.T) {
+	callerID := uuid.New()
+	otherID := uuid.New()
+	callID := uuid.New()
+	convID := uuid.New()
+	startedAt := time.Date(2026, 5, 7, 10, 30, 0, 0, time.UTC)
+
+	activeCall := &calldomain.Call{
+		ID:             callID,
+		ConversationID: convID,
+		InitiatorID:    callerID,
+		RecipientID:    otherID,
+		RoomName:       "call:" + callID.String(),
+		Status:         calldomain.StatusActive,
+		Type:           calldomain.TypeVideo,
+		StartedAt:      &startedAt,
+	}
+
+	tests := []struct {
+		name        string
+		userID      *uuid.UUID
+		setupState  func(*mockCallStateService)
+		wantStatus  int
+		wantCode    string
+		wantDataNil bool
+		wantCallID  string
+	}{
+		{
+			name:   "success — caller is initiator",
+			userID: &callerID,
+			setupState: func(cs *mockCallStateService) {
+				cs.getActiveCallByUserFn = func(_ context.Context, _ uuid.UUID) (*calldomain.Call, error) {
+					cp := *activeCall
+					return &cp, nil
+				}
+			},
+			wantStatus: http.StatusOK,
+			wantCallID: callID.String(),
+		},
+		{
+			name:   "success — caller is recipient (other_participant_id flips)",
+			userID: &otherID,
+			setupState: func(cs *mockCallStateService) {
+				cs.getActiveCallByUserFn = func(_ context.Context, _ uuid.UUID) (*calldomain.Call, error) {
+					cp := *activeCall
+					return &cp, nil
+				}
+			},
+			wantStatus: http.StatusOK,
+			wantCallID: callID.String(),
+		},
+		{
+			name:   "no active call returns data:null",
+			userID: &callerID,
+			setupState: func(cs *mockCallStateService) {
+				cs.getActiveCallByUserFn = func(_ context.Context, _ uuid.UUID) (*calldomain.Call, error) {
+					return nil, calldomain.ErrCallNotFound
+				}
+			},
+			wantStatus:  http.StatusOK,
+			wantDataNil: true,
+		},
+		{
+			name:       "unauthenticated",
+			userID:     nil,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   "unauthorized",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cs := &mockCallStateService{}
+			if tc.setupState != nil {
+				tc.setupState(cs)
+			}
+			h := newTestCallHandler(nil, cs)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/calls/me/active", nil)
+			if tc.userID != nil {
+				req = callAuthCtx(req, *tc.userID)
+			}
+			rec := httptest.NewRecorder()
+			h.GetMyActiveCall(rec, req)
+
+			assert.Equal(t, tc.wantStatus, rec.Code)
+			if tc.wantCode != "" {
+				assertErrorCode(t, rec, tc.wantCode)
+				return
+			}
+			if tc.wantStatus != http.StatusOK {
+				return
+			}
+
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+			if tc.wantDataNil {
+				assert.Nil(t, body["data"], "data must be null when no active call")
+				return
+			}
+
+			data, ok := body["data"].(map[string]any)
+			require.True(t, ok, "data must be an object when an active call exists")
+			assert.Equal(t, tc.wantCallID, data["call_id"])
+			assert.Equal(t, convID.String(), data["conversation_id"])
+			assert.Equal(t, "video", data["type"])
+			assert.Equal(t, "active", data["status"])
+			assert.NotEmpty(t, data["started_at"])
+			// other_participant_id is the user who is NOT the caller.
+			otherInResponse, _ := data["other_participant_id"].(string)
+			assert.NotEmpty(t, otherInResponse)
+			assert.NotEqual(t, tc.userID.String(), otherInResponse,
+				"other_participant_id must never equal the caller")
 		})
 	}
 }

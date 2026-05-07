@@ -51,9 +51,11 @@ func mountCallRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http
 		r.Use(auth)
 		r.Use(middleware.NoCache)
 		r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/initiate", deps.Call.InitiateCall)
-		// Accept/decline/end are receiving-side actions — view permission is sufficient
+		// Accept/decline/end + reconciliation read are receiving-side
+		// actions — view permission is sufficient.
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequirePermission(organization.PermMessagingView))
+			r.Get("/me/active", deps.Call.GetMyActiveCall)
 			r.Post("/{id}/accept", deps.Call.AcceptCall)
 			r.Post("/{id}/decline", deps.Call.DeclineCall)
 			r.Post("/{id}/end", deps.Call.EndCall)

@@ -1512,7 +1512,9 @@
     "you": "You",
     "recipientOffline": "Recipient is offline",
     "recipientBusy": "Recipient is busy",
-    "unknownCaller": "Unknown caller"
+    "unknownCaller": "Unknown caller",
+    "orphanCallTitle": "You have an unfinished call",
+    "orphanCallDescription": "It looks like a previous call was not hung up properly. End it to start a new one."
   },
   "kycBanner": {
     "pendingTitle": "Set up your payment info",

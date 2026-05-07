@@ -3,6 +3,7 @@ package call
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -171,6 +172,30 @@ func (s *Service) Decline(ctx context.Context, callID, userID uuid.UUID) error {
 	_ = s.livekit.DeleteRoom(ctx, c.RoomName)
 
 	return nil
+}
+
+// GetActiveCallForUser returns the user's currently active call as
+// stored in Redis, or (nil, nil) when there is none. This is the
+// reconciliation read used by clients on mount to detect orphan
+// state left over by an abrupt browser close, network loss during a
+// call, or a hangup race condition. A nil result is the normal case
+// (no current call) and is NOT an error — the handler maps it to
+// `{"data": null}` so the client can decide whether to surface a
+// "call still in progress" snackbar with a manual hangup button.
+//
+// The lookup goes through the existing CallStateService port; this
+// wrapper exists so the app layer owns the read (consistent with
+// every other use case) and so future business logic — e.g.,
+// presence-aware staleness detection — has a single seam.
+func (s *Service) GetActiveCallForUser(ctx context.Context, userID uuid.UUID) (*calldomain.Call, error) {
+	c, err := s.callState.GetActiveCallByUser(ctx, userID)
+	if err != nil {
+		if errors.Is(err, calldomain.ErrCallNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get active call for user: %w", err)
+	}
+	return c, nil
 }
 
 type EndInput struct {

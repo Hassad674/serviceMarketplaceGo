@@ -56,6 +56,7 @@ GET /api/v1/admin/users/{id}/reports mw=10
 GET /api/v1/auth/me mw=8
 GET /api/v1/auth/ws-token mw=8
 GET /api/v1/billing/fee-preview mw=8
+GET /api/v1/calls/me/active mw=9
 GET /api/v1/clients/{orgId} mw=6
 GET /api/v1/disputes/mine mw=9
 GET /api/v1/disputes/{id} mw=9
