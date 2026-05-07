@@ -2,9 +2,10 @@ package call
 
 import (
 	"context"
-	"time"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -82,6 +83,19 @@ func (m *mockCallState) RemoveActiveCall(_ context.Context, id uuid.UUID) error 
 		delete(m.calls, id)
 	}
 	return nil
+}
+
+// errorCallState is a CallStateService stub whose GetActiveCallByUser
+// returns an arbitrary infrastructure error (not ErrCallNotFound). It
+// proves GetActiveCallForUser propagates non-NotFound errors with a
+// wrapped operation tag.
+type errorCallState struct {
+	mockCallState
+	err error
+}
+
+func (m *errorCallState) GetActiveCallByUser(_ context.Context, _ uuid.UUID) (*calldomain.Call, error) {
+	return nil, m.err
 }
 
 type mockPresence struct {
@@ -414,6 +428,104 @@ func TestEnd_NotParticipant(t *testing.T) {
 		Duration: 10,
 	})
 	assert.ErrorIs(t, err, calldomain.ErrNotParticipant)
+}
+
+// TestGetActiveCallForUser_HappyPath verifies the wrapper returns the
+// active call exactly as the port reports it when the user is busy.
+func TestGetActiveCallForUser_HappyPath(t *testing.T) {
+	svc, _, _, pr, _, _ := setupService()
+	initiatorID := uuid.New()
+	recipientID := uuid.New()
+	pr.online[recipientID] = true
+
+	result, err := svc.Initiate(context.Background(), InitiateInput{
+		ConversationID: uuid.New(),
+		InitiatorID:    initiatorID,
+		RecipientID:    recipientID,
+		Type:           calldomain.TypeAudio,
+	})
+	require.NoError(t, err)
+
+	got, err := svc.GetActiveCallForUser(context.Background(), initiatorID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, result.CallID, got.ID)
+	assert.Equal(t, calldomain.StatusRinging, got.Status)
+
+	// Recipient also resolves to the same call (both indices are populated).
+	gotRecipient, err := svc.GetActiveCallForUser(context.Background(), recipientID)
+	require.NoError(t, err)
+	require.NotNil(t, gotRecipient)
+	assert.Equal(t, result.CallID, gotRecipient.ID)
+}
+
+// TestGetActiveCallForUser_NoActiveCall verifies a missing call returns
+// (nil, nil) — explicitly NOT an error. This is the dominant case at
+// page mount and the front-end relies on it to render the empty state.
+func TestGetActiveCallForUser_NoActiveCall(t *testing.T) {
+	svc, _, _, _, _, _ := setupService()
+
+	got, err := svc.GetActiveCallForUser(context.Background(), uuid.New())
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+// TestGetActiveCallForUser_PortError ensures infrastructure errors
+// (Redis down, marshal failure, etc.) bubble up wrapped so the handler
+// can return 500 — they are NOT silently swallowed as "no call".
+func TestGetActiveCallForUser_PortError(t *testing.T) {
+	lk := &mockLiveKit{}
+	cs := &errorCallState{err: errors.New("redis: connection refused")}
+	pr := newMockPresence()
+	br := &mockBroadcaster{}
+	ms := &mockMessageSender{}
+	ur := newMockUserRepo()
+
+	svc := NewService(ServiceDeps{
+		LiveKit:     lk,
+		CallState:   cs,
+		Presence:    pr,
+		Broadcaster: br,
+		Messages:    ms,
+		Users:       ur,
+	})
+
+	got, err := svc.GetActiveCallForUser(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "get active call for user")
+}
+
+// TestGetActiveCallForUser_AfterEndedReturnsNil exercises the typical
+// reconciliation flow: a user who already ended a call must NOT see a
+// stale entry on the next mount — the cleanup must be observable
+// through this read.
+func TestGetActiveCallForUser_AfterEndedReturnsNil(t *testing.T) {
+	svc, _, _, pr, _, _ := setupService()
+	initiatorID := uuid.New()
+	recipientID := uuid.New()
+	pr.online[recipientID] = true
+
+	result, err := svc.Initiate(context.Background(), InitiateInput{
+		ConversationID: uuid.New(),
+		InitiatorID:    initiatorID,
+		RecipientID:    recipientID,
+		Type:           calldomain.TypeAudio,
+	})
+	require.NoError(t, err)
+
+	_, err = svc.Accept(context.Background(), result.CallID, recipientID)
+	require.NoError(t, err)
+
+	require.NoError(t, svc.End(context.Background(), EndInput{
+		CallID:   result.CallID,
+		UserID:   initiatorID,
+		Duration: 30,
+	}))
+
+	got, err := svc.GetActiveCallForUser(context.Background(), initiatorID)
+	require.NoError(t, err)
+	assert.Nil(t, got, "ended call must not appear in reconciliation read")
 }
 
 func TestFormatDuration(t *testing.T) {

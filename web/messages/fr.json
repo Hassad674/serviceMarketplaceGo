@@ -1512,7 +1512,9 @@
     "you": "Vous",
     "recipientOffline": "Le destinataire est hors ligne",
     "recipientBusy": "Le destinataire est en appel",
-    "unknownCaller": "Appelant inconnu"
+    "unknownCaller": "Appelant inconnu",
+    "orphanCallTitle": "Tu as un appel en cours non terminé",
+    "orphanCallDescription": "On dirait qu'un appel précédent n'a pas été raccroché correctement. Termine-le pour pouvoir en passer un nouveau."
   },
   "kycBanner": {
     "pendingTitle": "Configurez vos informations de paiement",

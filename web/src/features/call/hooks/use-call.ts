@@ -7,6 +7,7 @@ import {
   acceptCall as acceptCallApi,
   declineCall as declineCallApi,
   endCall as endCallApi,
+  endCallBeacon,
 } from "../api/call-api"
 import type { CallState, CallType, CallViewMode, ActiveCall, IncomingCall, CallEventPayload } from "../types"
 
@@ -287,6 +288,37 @@ export function useCall() {
       }
     }
   }, [cleanup, startDurationTimer])
+
+  // pagehide hangup — fires a synchronous, fire-and-forget beacon to
+  // POST /calls/{id}/end whenever the tab is closing while a call is
+  // in flight. Closes the "user is already in a call" bug for the
+  // brutal-tab-close scenario: without this, the Redis call:user:{id}
+  // entry would survive until its 30-min TTL and any new call attempt
+  // would be rejected with ErrUserBusy.
+  //
+  // We choose `pagehide` over `beforeunload` because:
+  //  - beforeunload is unreliable on mobile Safari and bfcache pages
+  //  - pagehide is the modern lifecycle event fired in every reload
+  //    / close path (https://developer.mozilla.org/docs/Web/API/Window/pagehide_event)
+  //
+  // navigator.sendBeacon is the only API guaranteed to deliver during
+  // pagehide. It is fire-and-forget — we do NOT await it. If the
+  // browser refuses (no network, payload too large), the backend's
+  // 30-minute Redis TTL still reaps the orphan eventually.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const handler = () => {
+      const currentState = stateRef.current
+      const call = activeCallRef.current
+      if (!call) return
+      if (currentState !== "active" && currentState !== "ringing_outgoing") return
+      endCallBeacon(call.callId, durationRef.current)
+    }
+    window.addEventListener("pagehide", handler)
+    return () => {
+      window.removeEventListener("pagehide", handler)
+    }
+  }, [])
 
   // Cleanup on unmount
   useEffect(() => {

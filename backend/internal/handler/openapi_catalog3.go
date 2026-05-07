@@ -238,6 +238,10 @@ func catalogueCall(c map[string]routeSpec) {
 		AuthRequired: true, RequestBody: jsonRequestBody("InitiateCallRequest"),
 		SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	c["GET /api/v1/calls/me/active"] = routeSpec{
+		Tags: []string{"call"}, Summary: "Read the caller's active call (reconciliation)",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
 	c["POST /api/v1/calls/{id}/accept"] = routeSpec{
 		Tags: []string{"call"}, Summary: "Accept a call",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",

@@ -11,6 +11,7 @@ import {
 import dynamic from "next/dynamic"
 import { CallContext } from "@/shared/hooks/use-call-context"
 import type { CallEventPayload, CallType } from "../types"
+import { useReconcileCallOnMount } from "../hooks/use-reconcile-call-on-mount"
 
 // CallSlot is the perf-conscious entry point for the call feature.
 //
@@ -76,6 +77,13 @@ const CallRuntime = dynamic<CallRuntimeProps>(
 
 export function CallSlot({ registerCallEventHandler, children }: CallSlotProps) {
   const [armed, setArmed] = useState(false)
+
+  // Reconcile any orphan Redis call:user:{id} entry on mount. Runs
+  // BEFORE the user touches the UI so a stale "user is already in a
+  // call" 409 cannot block their next outgoing call. The hook itself
+  // is gated on the authenticated cookie — CallSlot is only mounted
+  // inside the dashboard shell (auth-protected) so we always opt-in.
+  useReconcileCallOnMount({ enabled: true })
 
   // pendingStartCall / pendingIncomingEvent are one-shot handoffs that
   // get reset to null once `CallRuntime` consumes them. Without this

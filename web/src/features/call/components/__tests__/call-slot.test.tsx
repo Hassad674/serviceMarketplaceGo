@@ -22,6 +22,14 @@ import { useContext, useEffect } from "react"
 import { CallContext } from "@/shared/hooks/use-call-context"
 import type { CallEventPayload } from "../../types"
 
+// Reconciliation hook is mocked because the production hook depends
+// on TanStack Query + sonner + next-intl — none of which are wired
+// into this test's render. The slot's contract under test does not
+// include reconciliation behaviour (covered by its own test file).
+vi.mock("../../hooks/use-reconcile-call-on-mount", () => ({
+  useReconcileCallOnMount: () => ({ data: null, isLoading: false }),
+}))
+
 // Spy that captures the props passed into the lazy CallRuntime so the
 // test can assert what the slot forwards.
 const runtimeRenderSpy = vi.fn()
