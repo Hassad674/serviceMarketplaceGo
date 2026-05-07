@@ -30,6 +30,7 @@ import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
 import { Portrait } from "@/shared/components/ui/portrait"
+import { UserAvatar } from "@/shared/components/ui/user-avatar"
 import { LogoutConfirmDialog } from "@/shared/components/layouts/logout-confirm-dialog"
 
 type NavItem = {
@@ -222,7 +223,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         {/* User info */}
         <div className={cn("mx-3 mb-2 rounded-xl bg-background", collapsed ? "p-2" : "p-3")}>
           <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
-            <Portrait id={portraitId} size={36} alt="" />
+            <UserAvatar portraitId={portraitId} size={36} alt="" />
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">

@@ -17,6 +17,7 @@ import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Portrait } from "@/shared/components/ui/portrait"
+import { UserAvatar } from "@/shared/components/ui/user-avatar"
 import { LogoutConfirmDialog } from "@/shared/components/layouts/logout-confirm-dialog"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -123,7 +124,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
               onClick={() => setDropdownOpen((prev) => !prev)}
               className="flex items-center gap-2 rounded-full p-1 transition-all duration-200 hover:bg-background"
             >
-              <Portrait id={portraitId} size={32} alt="" />
+              <UserAvatar portraitId={portraitId} size={32} alt="" />
               <ChevronDown
                 className={cn(
                   "hidden h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 sm:block",
