@@ -83,6 +83,16 @@ type StripeSubscriptionService interface {
 	// update their payment method and view invoices without us
 	// reimplementing those screens.
 	CreatePortalSession(ctx context.Context, customerID string, returnURL string) (url string, err error)
+
+	// CancelSubscription cancels a Stripe subscription immediately
+	// (no period-end deferral). Used by the duplicate-subscription
+	// reconciliation path: when the org somehow ends up with two
+	// active Stripe subscriptions, the older one is cancelled in
+	// favour of the newer one (the user clicked "Subscribe" again
+	// and expects the new one to be live). Stripe is the source of
+	// truth — this call also stops future invoices and refund/credit
+	// behaviour follows the account settings.
+	CancelSubscription(ctx context.Context, stripeSubscriptionID string) error
 }
 
 // CreateCheckoutSessionInput groups the parameters Stripe Embedded
@@ -100,6 +110,16 @@ type CreateCheckoutSessionInput struct {
 	// string "{CHECKOUT_SESSION_ID}" — Stripe substitutes it with the
 	// real session id so the return page can correlate.
 	ReturnURL string
+	// IdempotencyKey is forwarded to Stripe via the `Idempotency-Key`
+	// HTTP header. Stripe caches the response keyed on this string for
+	// 24 hours and replays it verbatim on retries — so a double-tap on
+	// "Subscribe" or a network retry can no longer create two
+	// Checkout sessions / two subscriptions for the same org. Empty
+	// string disables the header (caller's responsibility to keep the
+	// key stable across retries when set). Recommended format:
+	// `subscription-create-{orgID}-{minute_truncated}` so two clicks
+	// inside the same minute collapse to one session.
+	IdempotencyKey string
 }
 
 // ScheduledCycleChange is what the adapter returns after wiring up a

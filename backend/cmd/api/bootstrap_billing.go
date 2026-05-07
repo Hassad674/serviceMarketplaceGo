@@ -74,6 +74,7 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 		Stripe:         deps.StripeSvc,
 		PaymentInfoSvc: deps.PaymentInfoSvc,
 		StripeHandler:  stripeHandler,
+		Audit:          deps.Infra.AuditRepo,
 	})
 	stripeHandler = subscription.StripeHandler
 	subscriptionAppSvc := subscription.AppSvc

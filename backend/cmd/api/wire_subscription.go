@@ -30,6 +30,13 @@ type subscriptionDeps struct {
 	Stripe         service.StripeService
 	PaymentInfoSvc *paymentapp.Service
 	StripeHandler  *handler.StripeHandler // re-bound on output when subscription wires itself in
+	// Audit is the optional append-only audit sink. The subscription
+	// service uses it to record duplicate-detection events
+	// (`subscription.duplicate_detected`) when a user attempts to
+	// resubscribe while an open sub already exists, or when a
+	// duplicate webhook lands and triggers the replace-old flow.
+	// Nil-safe: the service falls back to slog warnings only.
+	Audit repository.AuditRepository
 }
 
 // subscriptionWiring carries the products of the Premium subscription
@@ -93,6 +100,14 @@ func wireSubscription(deps subscriptionDeps) subscriptionWiring {
 	// org. Hook is best-effort — a failure here logs but does not
 	// block the subscription from being persisted.
 	appSvc.SetFeeWaiver(deps.PaymentInfoSvc)
+
+	// Wire the audit sink so duplicate-subscription detections (subscribe
+	// 409 + webhook replace) are queryable from audit_logs alongside
+	// the slog stream. Nil-safe at the service level — passing nil
+	// disables DB persistence, slog still warns.
+	if deps.Audit != nil {
+		appSvc.SetAuditLogger(deps.Audit)
+	}
 
 	stripeHandler := deps.StripeHandler
 	if stripeHandler != nil {

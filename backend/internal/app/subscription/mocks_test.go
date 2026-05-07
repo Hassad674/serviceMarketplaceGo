@@ -112,10 +112,12 @@ type mockStripe struct {
 	releaseScheduleFn                 func(ctx context.Context, scheduleID string) error
 	previewCycleChangeFn              func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.InvoicePreview, error)
 	createPortalSessionFn             func(ctx context.Context, customerID, returnURL string) (string, error)
+	cancelSubscriptionFn              func(ctx context.Context, stripeSubID string) error
 
 	lastCreateCheckoutInput *service.CreateCheckoutSessionInput // captured for assertions
 	lastEnrichSnapshot      *service.BillingProfileStripeSnapshot
 	enrichCallCount         int
+	cancelSubscriptionCalls []string // captured Stripe sub ids passed to CancelSubscription
 }
 
 func (m *mockStripe) EnsureCustomer(ctx context.Context, userID, email, name string) (string, error) {
@@ -224,4 +226,12 @@ func (m *mockStripe) CreatePortalSession(ctx context.Context, customerID, return
 		return m.createPortalSessionFn(ctx, customerID, returnURL)
 	}
 	return "https://portal.stripe.test/" + customerID, nil
+}
+
+func (m *mockStripe) CancelSubscription(ctx context.Context, stripeSubID string) error {
+	m.cancelSubscriptionCalls = append(m.cancelSubscriptionCalls, stripeSubID)
+	if m.cancelSubscriptionFn != nil {
+		return m.cancelSubscriptionFn(ctx, stripeSubID)
+	}
+	return nil
 }
