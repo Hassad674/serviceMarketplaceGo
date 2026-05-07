@@ -1078,6 +1078,8 @@
     "messaging_w21_titleAccent": "conversations.",
     "messaging_w21_emptyTitle": "No conversations yet.",
     "messaging_w21_emptyBody": "Your exchanges with freelances, agencies and clients will appear here as soon as the first message arrives.",
+    "messaging_w21_unselectedTitle": "Select a conversation.",
+    "messaging_w21_unselectedBody": "Pick an exchange from the list on the left to open it and resume the discussion.",
     "messaging_w21_filterAll": "All",
     "messaging_w21_filterUnread": "Unread",
     "messaging_w21_filterArchived": "Archived",
