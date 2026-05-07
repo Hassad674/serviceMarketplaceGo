@@ -127,11 +127,16 @@ export function MessageInput({
             file.name,
             file.type,
           )
-          await fetch(upload_url, {
+          // fetch() does not throw on HTTP 4xx/5xx — without this guard a
+          // failed upload would still call onSendFile with a broken URL.
+          const uploadRes = await fetch(upload_url, {
             method: "PUT",
             body: file,
             headers: { "Content-Type": file.type },
           })
+          if (!uploadRes.ok) {
+            throw new Error(`upload failed: ${uploadRes.status}`)
+          }
           onSendFile(file.name, {
             url: public_url,
             filename: file.name,
@@ -158,7 +163,12 @@ export function MessageInput({
       const ext = voiceExtFromMime(blob.type)
       const filename = `voice-${Date.now()}.${ext}`
       const { upload_url, public_url } = await getPresignedURL(filename, blob.type)
-      await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
+      // fetch() does not throw on HTTP 4xx/5xx — guard so we never
+      // produce a voice message pointing at a failed upload URL.
+      const uploadRes = await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
+      if (!uploadRes.ok) {
+        throw new Error(`upload failed: ${uploadRes.status}`)
+      }
       onSendVoice(t("voiceMessage"), {
         url: public_url,
         duration: capturedDuration,

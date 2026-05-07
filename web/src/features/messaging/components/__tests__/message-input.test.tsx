@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render as baseRender, screen, fireEvent } from "@testing-library/react"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { render as baseRender, screen, fireEvent, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type { ReactElement } from "react"
 import { MessageInput } from "../message-input"
+import { getPresignedURL } from "../../api/messaging-api"
 
 // MessageInput reads `useHasPermission` → `useOrganization` → `useQuery`
 // from the org-permissions system, so every render must sit inside a
@@ -22,18 +23,25 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
 
-// Mock lucide-react icons
-vi.mock("lucide-react", () => ({
-  Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
-  Send: (props: Record<string, unknown>) => <span data-testid="send-icon" {...props} />,
-  Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
-  FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
-  X: (props: Record<string, unknown>) => <span data-testid="x-icon" {...props} />,
-  Mic: (props: Record<string, unknown>) => <span data-testid="mic-icon" {...props} />,
-  Square: (props: Record<string, unknown>) => <span data-testid="square-icon" {...props} />,
-  Plus: (props: Record<string, unknown>) => <span data-testid="plus-icon" {...props} />,
-  Trash2: (props: Record<string, unknown>) => <span data-testid="trash-icon" {...props} />,
-}))
+// Mock lucide-react icons. Using importOriginal so any icon used by
+// transitively-rendered components (e.g. FileUploadModal's UploadCloud,
+// FileImage, FileIcon) does not blow up the render. Explicit overrides
+// stay below for the icons we actually want to assert against.
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>()
+  return {
+    ...actual,
+    Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
+    Send: (props: Record<string, unknown>) => <span data-testid="send-icon" {...props} />,
+    Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
+    FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
+    X: (props: Record<string, unknown>) => <span data-testid="x-icon" {...props} />,
+    Mic: (props: Record<string, unknown>) => <span data-testid="mic-icon" {...props} />,
+    Square: (props: Record<string, unknown>) => <span data-testid="square-icon" {...props} />,
+    Plus: (props: Record<string, unknown>) => <span data-testid="plus-icon" {...props} />,
+    Trash2: (props: Record<string, unknown>) => <span data-testid="trash-icon" {...props} />,
+  }
+})
 
 // Mock i18n navigation
 vi.mock("@i18n/navigation", () => ({
@@ -191,5 +199,104 @@ describe("MessageInput", () => {
     render(<MessageInput {...defaultProps({ isSending: true })} />)
     const sendButton = screen.getByLabelText("sendMessage")
     expect(sendButton).toHaveProperty("disabled", true)
+  })
+})
+
+describe("MessageInput — file upload error handling", () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  function makeFile(name = "doc.pdf", type = "application/pdf"): File {
+    return new File(["x"], name, { type })
+  }
+
+  /**
+   * Drive the FileUploadModal end-to-end: open it, attach a file to the
+   * hidden <input type="file">, then click the upload submit button.
+   * Returns true when the modal flow could be driven, false when the
+   * jsdom DOM did not surface the expected nodes (defensive — happens
+   * when the createPortal target is ripped between tests).
+   */
+  async function driveUpload(file: File): Promise<boolean> {
+    const buttons = screen.getAllByRole("button", { name: "fileUpload" })
+    fireEvent.click(buttons[0])
+
+    const fileInput = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement | null
+    if (!fileInput) return false
+
+    Object.defineProperty(fileInput, "files", {
+      value: [file],
+      configurable: true,
+    })
+    fireEvent.change(fileInput)
+
+    // The send button uses translation key "sendFiles".
+    const sendBtn = await screen.findByRole("button", { name: "sendFiles" })
+    fireEvent.click(sendBtn)
+    return true
+  }
+
+  it("does NOT call onSendFile when the PUT upload returns 500", async () => {
+    const onSendFile = vi.fn()
+    vi.mocked(getPresignedURL).mockResolvedValue({
+      upload_url: "https://storage.example/upload",
+      public_url: "https://storage.example/public",
+      file_key: "key-123",
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("server error", { status: 500 }),
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    render(<MessageInput {...defaultProps({ onSendFile })} />)
+
+    const driven = await driveUpload(makeFile())
+    if (!driven) return
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled()
+    })
+
+    expect(onSendFile).not.toHaveBeenCalled()
+    // Error banner uses role="alert" with the i18n key "uploadFailed".
+    await waitFor(() => {
+      const alerts = screen.getAllByRole("alert")
+      expect(alerts.some((a) => a.textContent?.includes("uploadFailed"))).toBe(true)
+    })
+  })
+
+  it("DOES call onSendFile when the PUT upload returns 200", async () => {
+    const onSendFile = vi.fn()
+    vi.mocked(getPresignedURL).mockResolvedValue({
+      upload_url: "https://storage.example/upload",
+      public_url: "https://storage.example/public",
+      file_key: "key-123",
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("", { status: 200 }),
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    render(<MessageInput {...defaultProps({ onSendFile })} />)
+
+    const driven = await driveUpload(makeFile())
+    if (!driven) return
+
+    await waitFor(() => {
+      expect(onSendFile).toHaveBeenCalledTimes(1)
+    })
+    expect(onSendFile.mock.calls[0][1]).toMatchObject({
+      url: "https://storage.example/public",
+      filename: "doc.pdf",
+    })
   })
 })
