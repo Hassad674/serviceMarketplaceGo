@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../receipt/presentation/screens/receipts_tab.dart';
 import '../../domain/entities/invoice.dart';
 import '../providers/invoicing_providers.dart';
 import '../widgets/current_month_aggregate_card.dart';
@@ -14,11 +15,22 @@ import '../widgets/invoice_list_item.dart';
 /// a Soleil ivoire list of invoices. Pagination keeps the explicit
 /// "Voir plus" pill the existing test pins.
 ///
+/// Hosts a Material 3 [TabBar] with two tabs:
+///   1. "Mes factures" — legacy invoices view (subscription invoices,
+///      monthly commission invoices, credits).
+///   2. "Reçus" — transaction receipts (Contra-like, snapshot-based).
+///      Composed via the receipt feature's exported [ReceiptsTab]
+///      widget. The cross-feature import is explicitly allowed at the
+///      composition layer (the invoices screen is the closest mobile
+///      equivalent to a web `app/` page).
+///
 /// Behavior preservation:
 ///   - Riverpod providers (`invoicesProvider`, `currentMonthProvider`)
-///     unchanged, only the visual chrome around them is ported.
+///     unchanged, only the tab chrome is added on top.
 ///   - Cursors / load-more flow / error+empty branches identical to
-///     the legacy implementation.
+///     the legacy implementation — the existing widget tests asserting
+///     "Aucune facture archivée", "Voir plus" and the aggregate card
+///     keep passing because the first tab is selected by default.
 class InvoicesScreen extends ConsumerStatefulWidget {
   const InvoicesScreen({super.key});
 
@@ -26,16 +38,33 @@ class InvoicesScreen extends ConsumerStatefulWidget {
   ConsumerState<InvoicesScreen> createState() => _InvoicesScreenState();
 }
 
-class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
-  // Cursors fetched so far. The first entry is `null` (initial page);
-  // each successful page push appends its `nextCursor` (when non-null)
-  // so subsequent watches resolve all cached pages.
+class _InvoicesScreenState extends ConsumerState<InvoicesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  // Cursors fetched so far for the invoices tab. The first entry is
+  // `null` (initial page); each successful page push appends its
+  // `nextCursor` (when non-null) so subsequent watches resolve all
+  // cached pages.
   final List<String?> _cursors = [null];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -51,24 +80,100 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _EditorialHeader(),
-              const SizedBox(height: 20),
-              const CurrentMonthAggregateCard(),
-              const SizedBox(height: 20),
-              _PaginatedList(
-                cursors: _cursors,
-                onLoadMore: (cursor) {
-                  setState(() => _cursors.add(cursor));
-                },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: _EditorialHeader(),
+            ),
+            _BillingTabs(
+              controller: _tabController,
+              dividerColor:
+                  appColors?.border ?? theme.dividerColor,
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _InvoicesTab(
+                    cursors: _cursors,
+                    onLoadMore: (cursor) {
+                      setState(() => _cursors.add(cursor));
+                    },
+                  ),
+                  const ReceiptsTab(),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _BillingTabs extends StatelessWidget {
+  const _BillingTabs({
+    required this.controller,
+    required this.dividerColor,
+  });
+
+  final TabController controller;
+  final Color dividerColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: dividerColor),
+        ),
+      ),
+      child: TabBar(
+        controller: controller,
+        labelColor: colorScheme.primary,
+        unselectedLabelColor:
+            appColors?.subtleForeground ?? colorScheme.onSurfaceVariant,
+        indicatorColor: colorScheme.primary,
+        indicatorWeight: 2,
+        labelStyle: SoleilTextStyles.bodyEmphasis,
+        unselectedLabelStyle: SoleilTextStyles.body,
+        tabs: const [
+          Tab(text: 'Mes factures'),
+          Tab(text: 'Reçus'),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvoicesTab extends StatelessWidget {
+  const _InvoicesTab({
+    required this.cursors,
+    required this.onLoadMore,
+  });
+
+  final List<String?> cursors;
+  final ValueChanged<String> onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const CurrentMonthAggregateCard(),
+          const SizedBox(height: 20),
+          _PaginatedList(
+            cursors: cursors,
+            onLoadMore: onLoadMore,
+          ),
+        ],
       ),
     );
   }
@@ -115,7 +220,8 @@ class _EditorialHeader extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           "Retrouve les factures que la plateforme émet à ton organisation : "
-          "abonnement Premium, commissions mensuelles et avoirs éventuels.",
+          "abonnement Premium, commissions mensuelles et avoirs éventuels. "
+          "Les reçus de chaque transaction sont archivés dans l'onglet dédié.",
           style: SoleilTextStyles.bodyLarge.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),

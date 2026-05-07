@@ -6979,6 +6979,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back to freelance mode'**
   String get mobileDashboard_switchToFreelance;
+
+  /// Label of the second tab in the billing screen — switches from invoices to receipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipts'**
+  String get receiptsTabTitle;
+
+  /// Label of the first tab in the billing screen.
+  ///
+  /// In en, this message translates to:
+  /// **'My invoices'**
+  String get invoicesTabTitle;
+
+  /// Title of the empty state on the receipts tab.
+  ///
+  /// In en, this message translates to:
+  /// **'No receipts yet'**
+  String get receiptsEmptyTitle;
+
+  /// Subtitle of the empty state on the receipts tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Your payments automatically generate receipts that will appear here as soon as the first transaction settles.'**
+  String get receiptsEmptySubtitle;
+
+  /// Pill rendered on a receipt row when the snapshot is unavailable (legacy data).
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy receipt'**
+  String get receiptsLegacyBadge;
+
+  /// Detail-screen notice when snapshot_available is false.
+  ///
+  /// In en, this message translates to:
+  /// **'This receipt predates the snapshot feature — the parties\' billing details are not available. The PDF can still be downloaded.'**
+  String get receiptsLegacyNotice;
+
+  /// AppBar title of the receipt detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt'**
+  String get receiptDetailTitle;
+
+  /// Primary CTA on the receipt detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Download PDF'**
+  String get receiptDownloadPdf;
+
+  /// Snackbar shown while the receipt PDF is being fetched.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading receipt…'**
+  String get receiptDownloadPdfInProgress;
+
+  /// Snackbar shown when the receipt PDF download fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not download the PDF.'**
+  String get receiptDownloadPdfError;
+
+  /// Section header for the client billing snapshot on a receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get receiptPartyClient;
+
+  /// Section header for the provider billing snapshot on a receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get receiptPartyProvider;
+
+  /// Section header for the referrer billing snapshot on a receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Referrer'**
+  String get receiptPartyReferrer;
 }
 
 class _AppLocalizationsDelegate
