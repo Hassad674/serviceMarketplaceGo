@@ -52,7 +52,7 @@ export function AgencyProfilePage() {
 
   if (error || !profile) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
+      <div className="mx-auto w-full max-w-5xl rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
         <p className="text-sm text-destructive">{t("loadError")}</p>
       </div>
     )
@@ -63,7 +63,7 @@ export function AgencyProfilePage() {
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <AgencyProfileHeader
         profile={profile}
         displayName={displayName}
