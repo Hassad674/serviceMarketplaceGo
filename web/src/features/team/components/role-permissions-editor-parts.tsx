@@ -122,7 +122,7 @@ export function PermissionRow({
               }`
             : effectiveGranted
               ? "bg-[var(--primary)]"
-              : "bg-[var(--border-strong)]"
+              : "bg-muted-foreground/40"
         }`}
       >
         <span

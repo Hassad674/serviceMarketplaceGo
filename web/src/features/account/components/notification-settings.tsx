@@ -85,7 +85,7 @@ function Toggle({
         "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
         checked
           ? "bg-primary"
-          : "bg-[var(--border-strong)]",
+          : "bg-muted-foreground/40",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >

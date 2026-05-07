@@ -162,7 +162,7 @@ function SwitchToggle({
         "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200",
         "focus:outline-none focus:ring-2 focus:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        checked ? "bg-primary" : "bg-border-strong",
+        checked ? "bg-primary" : "bg-muted-foreground/40",
       )}
     >
       <span
