@@ -36,6 +36,15 @@ const R2_ORIGINS = [
   "https://*.r2.dev",
 ] as const
 
+// City autocomplete uses two public geocoding APIs from the browser
+// (no backend proxy). BAN — French national addresses
+// (api-adresse.data.gouv.fr) — for FR cities, Photon
+// (photon.komoot.io) — international fallback.
+const CITY_AUTOCOMPLETE_ORIGINS = [
+  "https://api-adresse.data.gouv.fr",
+  "https://photon.komoot.io",
+] as const
+
 const DEV_HTTP_FALLBACKS = [
   "http://localhost:8083",
   "http://localhost:9000",
@@ -88,6 +97,7 @@ function buildConnectOrigins(env: CSPEnv, isProduction: boolean): string[] {
   const origins = new Set<string>()
   STRIPE_ORIGINS.forEach((o) => origins.add(o))
   R2_ORIGINS.forEach((o) => origins.add(o))
+  CITY_AUTOCOMPLETE_ORIGINS.forEach((o) => origins.add(o))
 
   if (env.NEXT_PUBLIC_API_URL) {
     const apiUrl = parseEnvUrl("NEXT_PUBLIC_API_URL", env.NEXT_PUBLIC_API_URL)
