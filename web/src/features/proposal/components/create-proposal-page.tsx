@@ -42,6 +42,7 @@ export function CreateProposalPage() {
 
   const recipientId = searchParams.get("to") ?? ""
   const conversationId = searchParams.get("conversation") ?? ""
+  const recipientNameParam = searchParams.get("name") ?? ""
   const modifyId = searchParams.get("modify")
 
   const [formData, setFormData] = useState<ProposalFormData>(() => ({
@@ -49,7 +50,7 @@ export function CreateProposalPage() {
     recipientId,
     conversationId,
   }))
-  const [recipientName, setRecipientName] = useState("")
+  const [recipientName, setRecipientName] = useState(recipientNameParam)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
@@ -64,7 +65,10 @@ export function CreateProposalPage() {
   const isSubmitting =
     createMutation.isPending || modifyMutation.isPending || isUploading
 
-  // Pre-fill form when modifying an existing proposal
+  // Pre-fill form when modifying an existing proposal. The fetched
+  // proposal carries client_name/provider_name from the backend, so
+  // we resolve the recipient name without ever falling back to the
+  // raw user id.
   useEffect(() => {
     if (!modifyId) return
     getProposal(modifyId)
@@ -76,21 +80,32 @@ export function CreateProposalPage() {
           amount: (p.amount / 100).toString(),
           deadline: p.deadline ? p.deadline.split("T")[0] : "",
         }))
+        const resolvedName =
+          recipientId === p.client_id ? p.client_name : p.provider_name
+        if (resolvedName) {
+          setRecipientName(resolvedName)
+        }
       })
       .catch(() => {
         setSubmitError(t("fetchError"))
       })
-  }, [modifyId, t])
+  }, [modifyId, recipientId, t])
 
-  // Sync query params into form data when they change.
+  // Sync query params into form data when they change. The displayed
+  // recipient name comes from the `name` query param when available
+  // (messaging entry points pass it explicitly); we only fall back to
+  // a truncated id when no name is provided AND modify-mode is not
+  // active (modify mode resolves the name from the fetched proposal).
   const [lastQueryKey, setLastQueryKey] = useState(
-    `${recipientId}|${conversationId}`,
+    `${recipientId}|${conversationId}|${recipientNameParam}`,
   )
-  const queryKey = `${recipientId}|${conversationId}`
+  const queryKey = `${recipientId}|${conversationId}|${recipientNameParam}`
   if (queryKey !== lastQueryKey) {
     setLastQueryKey(queryKey)
     setFormData((prev) => ({ ...prev, recipientId, conversationId }))
-    if (recipientId) {
+    if (recipientNameParam) {
+      setRecipientName(recipientNameParam)
+    } else if (recipientId && !modifyId) {
       setRecipientName(`User ${recipientId.slice(0, 8)}`)
     }
   }

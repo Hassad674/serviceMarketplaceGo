@@ -38,6 +38,7 @@ interface ReplyTarget {
 interface MessageInputProps {
   conversationId: string
   otherUserId: string
+  otherUserName?: string
   onSend: (content: string, replyToId?: string) => void
   onSendFile: (content: string, metadata: { url: string; filename: string; size: number; mime_type: string }) => void
   onSendVoice?: (content: string, metadata: { url: string; duration: number; size: number; mime_type: string }) => void
@@ -50,6 +51,7 @@ interface MessageInputProps {
 export function MessageInput({
   conversationId,
   otherUserId,
+  otherUserName,
   onSend,
   onSendFile,
   onSendVoice,
@@ -113,7 +115,14 @@ export function MessageInput({
   }
 
   function handleProposal() {
-    router.push(`/projects/new?to=${otherUserId}&conversation=${conversationId}`)
+    const params = new URLSearchParams({
+      to: otherUserId,
+      conversation: conversationId,
+    })
+    if (otherUserName) {
+      params.set("name", otherUserName)
+    }
+    router.push(`/projects/new?${params.toString()}`)
     setMobileMenuOpen(false)
   }
 

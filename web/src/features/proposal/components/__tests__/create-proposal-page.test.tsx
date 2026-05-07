@@ -98,6 +98,10 @@ vi.mock("../../api/proposal-api", () => ({
     description: "Existing description",
     amount: 250000,
     deadline: "2026-06-15T00:00:00Z",
+    client_id: "recipient-1",
+    provider_id: "user-self",
+    client_name: "Acme Corp",
+    provider_name: "Jane Freelance",
   }),
 }))
 
@@ -232,5 +236,36 @@ describe("CreateProposalPage", () => {
     render(<CreateProposalPage />)
 
     expect(screen.getByTestId("proposal-preview")).toBeDefined()
+  })
+
+  it("uses the `name` query param as the displayed recipient name", () => {
+    mockSearchParams.set("name", "Alice Smith")
+
+    render(<CreateProposalPage />)
+
+    expect(screen.getByText("Alice Smith")).toBeDefined()
+  })
+
+  it("renders the empty placeholder when no name query param and not modifying", () => {
+    // No `name` set, only `to=recipient-1` from beforeEach. The
+    // legacy `User <id>` fallback only runs when the query params
+    // change after mount; on initial mount the recipient field shows
+    // the em-dash placeholder until the name resolves.
+    render(<CreateProposalPage />)
+
+    expect(screen.getByText("—")).toBeDefined()
+  })
+
+  it("resolves recipient name from client_name when modifying and recipientId matches client_id", async () => {
+    mockSearchParams.set("modify", "proposal-123")
+    mockSearchParams.set("to", "recipient-1") // matches mocked client_id
+    mockSearchParams.delete("name")
+
+    render(<CreateProposalPage />)
+
+    // After the proposal fetch resolves, the participant name from
+    // the backend (client_name) is rendered — never a `User XXX`
+    // placeholder.
+    await screen.findByText("Acme Corp")
   })
 })

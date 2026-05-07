@@ -78,9 +78,12 @@ export function ConversationHeader({
     .toUpperCase()
 
   function handleStartProject() {
-    router.push(
-      `/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`,
-    )
+    const params = new URLSearchParams({
+      to: conversation.other_user_id,
+      conversation: conversation.id,
+      name: conversation.other_org_name,
+    })
+    router.push(`/projects/new?${params.toString()}`)
   }
 
   const canViewProfile = true

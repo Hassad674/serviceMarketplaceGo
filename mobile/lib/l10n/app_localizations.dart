@@ -2048,6 +2048,18 @@ abstract class AppLocalizations {
   /// **'Recipient'**
   String get proposalRecipient;
 
+  /// No description provided for @proposalClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get proposalClient;
+
+  /// No description provided for @proposalProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get proposalProvider;
+
   /// No description provided for @proposalFrom.
   ///
   /// In en, this message translates to:
@@ -6193,6 +6205,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export your data or permanently delete your account.'**
   String get accountSectionDataAndDeletionDesc;
+
+  /// No description provided for @accountExportDataAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Export my data'**
+  String get accountExportDataAction;
+
+  /// No description provided for @accountExportDataPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your export…'**
+  String get accountExportDataPreparing;
+
+  /// No description provided for @accountExportDataSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Export ready. Choose where to save it.'**
+  String get accountExportDataSuccess;
+
+  /// No description provided for @accountExportDataError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not export your data. Please try again.'**
+  String get accountExportDataError;
 
   /// No description provided for @accountComingSoon.
   ///

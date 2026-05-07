@@ -1039,6 +1039,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proposalRecipient => 'Recipient';
 
   @override
+  String get proposalClient => 'Client';
+
+  @override
+  String get proposalProvider => 'Provider';
+
+  @override
   String get proposalFrom => 'Proposal from';
 
   @override
@@ -3344,6 +3350,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get accountSectionDataAndDeletionDesc =>
       'Export your data or permanently delete your account.';
+
+  @override
+  String get accountExportDataAction => 'Export my data';
+
+  @override
+  String get accountExportDataPreparing => 'Preparing your export…';
+
+  @override
+  String get accountExportDataSuccess =>
+      'Export ready. Choose where to save it.';
+
+  @override
+  String get accountExportDataError =>
+      'Could not export your data. Please try again.';
 
   @override
   String get accountComingSoon => 'Coming soon';

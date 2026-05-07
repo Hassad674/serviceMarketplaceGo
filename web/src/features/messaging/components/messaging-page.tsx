@@ -328,6 +328,7 @@ export function MessagingPage() {
               <MessageInput
                 conversationId={activeId ?? ""}
                 otherUserId={activeConversation?.other_user_id ?? ""}
+                otherUserName={activeConversation?.other_org_name}
                 onSend={handleSend}
                 onSendFile={handleSendFile}
                 onSendVoice={handleSendVoice}
