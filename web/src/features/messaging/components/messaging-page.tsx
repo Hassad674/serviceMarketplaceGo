@@ -341,7 +341,10 @@ export function MessagingPage() {
             )}
           </>
         ) : (
-          <EmptyState label={t("noConversations")} />
+          <EmptyState
+            variant={conversations.length === 0 ? "noConversations" : "unselected"}
+            label={t("noConversations")}
+          />
         )}
       </div>
 
@@ -372,8 +375,24 @@ export function MessagingPage() {
   )
 }
 
-function EmptyState({ label }: { label: string }) {
+type EmptyStateVariant = "noConversations" | "unselected"
+
+function EmptyState({
+  variant,
+  label,
+}: {
+  variant: EmptyStateVariant
+  label: string
+}) {
   const t = useTranslations("messaging")
+  const titleKey =
+    variant === "noConversations"
+      ? "messaging_w21_emptyTitle"
+      : "messaging_w21_unselectedTitle"
+  const bodyKey =
+    variant === "noConversations"
+      ? "messaging_w21_emptyBody"
+      : "messaging_w21_unselectedBody"
   return (
     <div className="flex flex-1 items-center justify-center bg-background">
       <div className="mx-4 max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center shadow-[0_4px_24px_rgba(42,31,21,0.04)]">
@@ -381,12 +400,14 @@ function EmptyState({ label }: { label: string }) {
           <MessageSquare className="h-7 w-7" strokeWidth={1.5} />
         </span>
         <h2 className="mt-5 font-serif text-[22px] font-medium leading-tight text-foreground">
-          {t("messaging_w21_emptyTitle")}
+          {t(titleKey)}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t("messaging_w21_emptyBody")}
+          {t(bodyKey)}
         </p>
-        <p className="mt-4 text-xs text-muted-foreground">{label}</p>
+        {variant === "noConversations" ? (
+          <p className="mt-4 text-xs text-muted-foreground">{label}</p>
+        ) : null}
       </div>
     </div>
   )
