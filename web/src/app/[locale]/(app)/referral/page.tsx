@@ -50,7 +50,7 @@ export default function ReferralPage() {
 
   if (user && user.role !== "provider") {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
+      <div className="mx-auto w-full max-w-5xl rounded-xl border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           {tReferrer("providerOnly")}
         </p>
@@ -60,7 +60,7 @@ export default function ReferralPage() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
+      <div className="mx-auto w-full max-w-5xl rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
         <p className="text-sm text-destructive">{t("loadError")}</p>
       </div>
     )
@@ -72,7 +72,7 @@ export default function ReferralPage() {
     : ""
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <ReferrerPublicProfile
         profile={profile}
         displayName={displayName}
@@ -138,7 +138,7 @@ export default function ReferralPage() {
 
 function ReferralSkeleton() {
   return (
-    <div className="space-y-6" role="status" aria-live="polite">
+    <div className="mx-auto w-full max-w-5xl space-y-6" role="status" aria-live="polite">
       <div className="h-32 rounded-xl border border-border bg-muted/40 animate-shimmer" />
       <div className="h-40 rounded-xl border border-border bg-muted/40 animate-shimmer" />
       <div className="h-64 rounded-xl border border-border bg-muted/40 animate-shimmer" />
