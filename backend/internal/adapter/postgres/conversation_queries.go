@@ -7,6 +7,22 @@ const queryFindExistingConversation = `
 	WHERE cp1.user_id = $1 AND cp2.user_id = $2
 	LIMIT 1`
 
+// queryConversationExistsBetween mirrors queryFindExistingConversation but
+// only returns a boolean. Used by the referral feature to detect whether
+// two parties are already in business relation before allowing an
+// apporteur to introduce them — no need to load the conversation id.
+//
+// Order-insensitive: callers pass userA and userB in any order; the check
+// runs both directions via a UNION ALL with EXISTS so the planner can
+// short-circuit on the first match.
+const queryConversationExistsBetween = `
+	SELECT EXISTS (
+		SELECT 1
+		FROM conversation_participants cp1
+		JOIN conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
+		WHERE cp1.user_id = $1 AND cp2.user_id = $2
+	)`
+
 const queryInsertConversation = `
 	INSERT INTO conversations (id, created_at, updated_at)
 	VALUES ($1, $2, $3)`

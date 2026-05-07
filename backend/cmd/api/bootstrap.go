@@ -382,6 +382,8 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		FreelanceProfile: freelanceProfileRepo,
 		Proposal:         proposalSvc,
 		Payment:          paymentInfoSvc,
+		Conversations:    infra.MessageRepo,
+		Audits:           infra.AuditRepo,
 	})
 	referralSvc := referral.Service
 	referralHandler := referral.Handler
