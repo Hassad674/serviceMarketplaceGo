@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/audit"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -53,6 +54,19 @@ type Service struct {
 	// main.go because the payment service is built before subscription.
 	// Nil = no waiver applied; activation just records the subscription.
 	feeWaiver service.ActiveRecordsFeeWaiver
+
+	// auditLogger is the OPTIONAL append-only audit sink. Wired
+	// post-construction so the subscription feature stays removable
+	// (deleting it from main.go MUST not require touching audit). Nil
+	// is supported — the service falls back to slog warnings, which
+	// are still observable but not queryable from the audit_logs table.
+	// Used for: duplicate subscription detection (subscribe / webhook
+	// reconciliation).
+	auditLogger repository.AuditRepository
+
+	// now is injected so tests can pin the clock for the
+	// idempotency-key minute bucket. Production wires time.Now.
+	now func() time.Time
 }
 
 // PlanLookupKeys maps the four (plan, cycle) combinations to the Stripe
@@ -109,6 +123,7 @@ func NewService(deps ServiceDeps) *Service {
 		stripe:     deps.Stripe,
 		lookupKeys: deps.LookupKeys,
 		urls:       deps.URLs,
+		now:        time.Now,
 	}
 }
 
@@ -130,6 +145,24 @@ func (s *Service) SetBillingProfileReader(r service.BillingProfileSnapshotReader
 // records.
 func (s *Service) SetFeeWaiver(w service.ActiveRecordsFeeWaiver) {
 	s.feeWaiver = w
+}
+
+// SetAuditLogger wires the optional append-only audit sink so duplicate
+// subscription detections (Subscribe + webhook reconciliation) leave a
+// queryable trail beyond slog. Safe to call with nil — the service
+// falls back to slog warnings only.
+func (s *Service) SetAuditLogger(a repository.AuditRepository) {
+	s.auditLogger = a
+}
+
+// SetClock overrides the time source used to build idempotency keys.
+// Tests inject a deterministic clock to assert that two Subscribe
+// calls within the same minute reuse the same Stripe Idempotency-Key.
+// Production must NOT call this — NewService wires time.Now.
+func (s *Service) SetClock(now func() time.Time) {
+	if now != nil {
+		s.now = now
+	}
 }
 
 // SubscribeInput is the payload of the POST /api/v1/subscriptions endpoint.
@@ -171,8 +204,17 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 
 	// Reject if the org already has an open subscription. The DB unique
 	// index is the last line of defence; checking here returns a clean
-	// domain error instead of a SQL constraint violation.
+	// domain error instead of a SQL constraint violation. The audit
+	// hook (best-effort) leaves a permanent trail so the SOC can
+	// correlate "user got 409 on subscribe" with later duplicate-charge
+	// support tickets.
 	if existing, err := s.subs.FindOpenByOrganization(ctx, in.OrganizationID); err == nil && existing != nil {
+		s.recordDuplicateAttempt(ctx, duplicateAttempt{
+			OrganizationID: in.OrganizationID,
+			ActorUserID:    in.ActorUserID,
+			Existing:       existing,
+			Stage:          "subscribe_blocked",
+		})
 		return nil, domain.ErrAlreadySubscribed
 	} else if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return nil, fmt.Errorf("subscribe: probe existing subscription: %w", err)
@@ -234,12 +276,115 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 		PriceID:           priceID,
 		CancelAtPeriodEnd: !in.AutoRenew,
 		ReturnURL:         s.urls.CheckoutReturn,
+		// Stripe Idempotency-Key: collapses double-clicks and network
+		// retries into a single Checkout session. The minute-bucket
+		// lets a legitimate "I really do want to retry, the previous
+		// attempt failed" attempt go through within ~60s.
+		IdempotencyKey: s.subscribeIdempotencyKey(in.OrganizationID, in.Plan, in.BillingCycle),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("subscribe: create checkout session: %w", err)
 	}
 
 	return &SubscribeOutput{ClientSecret: clientSecret}, nil
+}
+
+// subscribeIdempotencyKey builds the Stripe Idempotency-Key for a
+// Subscribe call. Combines the org id, plan, cycle and the current
+// minute (UTC, truncated). Two calls within the same minute on the same
+// (org, plan, cycle) collapse to one Stripe Checkout session — Stripe
+// caches the response for 24h on this key. Different minutes produce
+// different keys so a user retrying after a real failure is not
+// blocked.
+//
+// Format: `subscription-create-{orgID}-{plan}-{cycle}-{unixMinute}`.
+// Plan + cycle are included so a user who first opens the modal on
+// monthly and then switches to annual within the same minute still
+// gets a fresh session — Stripe would otherwise return the original
+// monthly session.
+func (s *Service) subscribeIdempotencyKey(orgID uuid.UUID, plan domain.Plan, cycle domain.BillingCycle) string {
+	minute := s.now().UTC().Truncate(time.Minute).Unix()
+	return fmt.Sprintf("subscription-create-%s-%s-%s-%d", orgID.String(), plan, cycle, minute)
+}
+
+// duplicateAttempt groups the call-site context the audit hook needs.
+// Modelled as a struct so the helper stays within the project's 4-arg
+// per function limit and so adding a new field in the future doesn't
+// ripple across every call site.
+type duplicateAttempt struct {
+	OrganizationID uuid.UUID
+	ActorUserID    uuid.UUID // uuid.Nil when no human triggered the path (webhook)
+	Existing       *domain.Subscription
+	Stage          string // "subscribe_blocked" | "webhook_replace"
+}
+
+// recordDuplicateAttempt is the best-effort audit hook for the two
+// duplicate-detection paths: Subscribe (a user clicks subscribe again
+// while already on Premium) and RegisterFromCheckout (a webhook lands
+// for an org that already has an active sub — typically because a
+// duplicate Checkout session slipped past Stripe's idempotency due to
+// a wrongly-configured CLI or test environment).
+//
+// Always emits a structured slog warning. Additionally inserts an
+// audit_logs row when an AuditRepository is wired (production path).
+// Failures inside the audit insert are logged and swallowed — the
+// caller's main flow MUST not depend on audit availability.
+func (s *Service) recordDuplicateAttempt(ctx context.Context, in duplicateAttempt) {
+	existingID := ""
+	existingStatus := ""
+	existingStripeSubID := ""
+	if in.Existing != nil {
+		existingID = in.Existing.ID.String()
+		existingStatus = string(in.Existing.Status)
+		existingStripeSubID = in.Existing.StripeSubscriptionID
+	}
+
+	slog.Warn("subscription: duplicate detected",
+		"audit_action", "subscription.duplicate_detected",
+		"stage", in.Stage,
+		"organization_id", in.OrganizationID,
+		"actor_user_id", in.ActorUserID,
+		"existing_subscription_id", existingID,
+		"existing_status", existingStatus,
+		"existing_stripe_subscription_id", existingStripeSubID,
+	)
+
+	if s.auditLogger == nil {
+		return
+	}
+
+	var actorPtr *uuid.UUID
+	if in.ActorUserID != uuid.Nil {
+		copied := in.ActorUserID
+		actorPtr = &copied
+	}
+	var resourceID *uuid.UUID
+	if in.Existing != nil {
+		copied := in.Existing.ID
+		resourceID = &copied
+	}
+
+	entry, err := audit.NewEntry(audit.NewEntryInput{
+		UserID:       actorPtr,
+		Action:       audit.Action("subscription.duplicate_detected"),
+		ResourceType: audit.ResourceType("subscription"),
+		ResourceID:   resourceID,
+		Metadata: map[string]any{
+			"stage":                           in.Stage,
+			"organization_id":                 in.OrganizationID.String(),
+			"existing_subscription_status":    existingStatus,
+			"existing_stripe_subscription_id": existingStripeSubID,
+		},
+	})
+	if err != nil {
+		slog.Warn("subscription: audit build failed",
+			"audit_action", "subscription.duplicate_detected", "error", err)
+		return
+	}
+	if err := s.auditLogger.Log(ctx, entry); err != nil {
+		slog.Warn("subscription: audit insert failed",
+			"audit_action", "subscription.duplicate_detected", "error", err)
+	}
 }
 
 // GetStatus returns the org's current open subscription, or

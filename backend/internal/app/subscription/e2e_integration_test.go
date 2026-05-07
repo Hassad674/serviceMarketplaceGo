@@ -195,6 +195,7 @@ func (e *e2eStripe) PreviewCycleChange(_ context.Context, _ string, _ string, pr
 func (e *e2eStripe) CreatePortalSession(_ context.Context, customerID, _ string) (string, error) {
 	return "https://portal.stripe.test/" + customerID, nil
 }
+func (e *e2eStripe) CancelSubscription(_ context.Context, _ string) error { return nil }
 
 // e2ePaymentStripe implements the smaller StripeService surface the
 // payment feature consumes. The test only exercises CreatePaymentIntent.

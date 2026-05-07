@@ -266,6 +266,25 @@ func (s *Service) HandleSubscriptionSnapshot(
 // Checkout session converts. Called by the webhook handler on
 // customer.subscription.created — that event carries the internal
 // organization id (via metadata) AND the final Stripe subscription object.
+//
+// Race protection: if the org already has an open subscription on file,
+// we treat this event as a duplicate (typically caused by a misconfigured
+// Stripe CLI hitting the wrong account, or a Checkout session that
+// slipped past the idempotency key). Strategy: REPLACE — cancel the
+// older Stripe subscription so the user is not double-charged, mark the
+// older row canceled in our DB, then register the new sub. This mirrors
+// user intent: when they clicked "Subscribe" again, they expected the
+// new sub to be the active one. The alternative (reject the new) would
+// leave the user thinking they have Premium when in fact the duplicate
+// was thrown away.
+//
+// We never refund here — Stripe's account-level refund settings handle
+// that. The duplicate detection is logged via the audit hook so support
+// can correlate with billing tickets if a refund is needed.
+//
+// Idempotency: if the SAME stripe sub id replays (Stripe webhook retry
+// after a 5xx), Create errors with a unique-key violation on
+// stripe_subscription_id; the caller treats that as success.
 func (s *Service) RegisterFromCheckout(
 	ctx context.Context,
 	organizationID uuid.UUID,
@@ -274,6 +293,18 @@ func (s *Service) RegisterFromCheckout(
 	stripeCustomerID string,
 	snap service.SubscriptionSnapshot,
 ) error {
+	// Reconciliation against an existing open subscription. We only act
+	// when the existing row references a DIFFERENT Stripe subscription
+	// — replays of the same event are a no-op so the webhook handler
+	// can safely retry (idempotent end-state).
+	existing, lookupErr := s.subs.FindOpenByOrganization(ctx, organizationID)
+	if lookupErr != nil && !errors.Is(lookupErr, domain.ErrNotFound) {
+		return fmt.Errorf("register: probe existing subscription: %w", lookupErr)
+	}
+	if existing != nil && existing.StripeSubscriptionID != snap.ID {
+		s.replaceDuplicate(ctx, organizationID, existing)
+	}
+
 	sub, err := domain.NewSubscription(domain.NewSubscriptionInput{
 		OrganizationID:       organizationID,
 		Plan:                 plan,
@@ -324,6 +355,61 @@ func (s *Service) ResolveActorOrganization(ctx context.Context, actorUserID uuid
 		return uuid.Nil, domain.ErrInvalidOrganization
 	}
 	return *u.OrganizationID, nil
+}
+
+// replaceDuplicate handles the "an org already has an open subscription
+// when a NEW customer.subscription.created lands" race. The chosen
+// strategy is REPLACE: cancel the older Stripe subscription immediately,
+// mark the local row canceled, then let the caller persist the new one.
+// Mirrors user intent (a fresh checkout means they expect the new sub
+// to be live) and preserves modularity (we never call back into the
+// webhook handler).
+//
+// Best-effort: every step logs+continues on failure. The new
+// subscription registration is the priority — leaving the old row
+// hanging is recoverable manually, while failing to insert the new row
+// leaves the user without Premium they just paid for.
+func (s *Service) replaceDuplicate(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	existing *domain.Subscription,
+) {
+	if existing == nil {
+		return
+	}
+
+	s.recordDuplicateAttempt(ctx, duplicateAttempt{
+		OrganizationID: organizationID,
+		ActorUserID:    uuid.Nil, // webhook path has no human actor
+		Existing:       existing,
+		Stage:          "webhook_replace",
+	})
+
+	if existing.StripeSubscriptionID != "" {
+		if cErr := s.stripe.CancelSubscription(ctx, existing.StripeSubscriptionID); cErr != nil {
+			slog.Warn("subscription: cancel duplicate stripe sub failed",
+				"organization_id", organizationID,
+				"stripe_subscription_id", existing.StripeSubscriptionID,
+				"error", cErr)
+			// fall through — still mark the local row canceled so the
+			// new sub can be inserted (the partial unique index is
+			// what would otherwise block Create).
+		}
+	}
+
+	if mErr := existing.MarkCanceled(); mErr != nil && !errors.Is(mErr, domain.ErrInvalidTransition) {
+		slog.Warn("subscription: mark duplicate canceled failed",
+			"organization_id", organizationID,
+			"subscription_id", existing.ID,
+			"error", mErr)
+		return
+	}
+	if uErr := s.subs.Update(ctx, existing); uErr != nil {
+		slog.Warn("subscription: persist duplicate cancellation failed",
+			"organization_id", organizationID,
+			"subscription_id", existing.ID,
+			"error", uErr)
+	}
 }
 
 // lookupKeyFor maps a (plan, cycle) pair to the Stripe lookup key. Defined
