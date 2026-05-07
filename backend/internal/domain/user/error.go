@@ -31,6 +31,17 @@ var (
 	// maps this to HTTP 422 with code "display_name_inappropriate" so
 	// the frontend can show the message in context.
 	ErrDisplayNameInappropriate = errors.New("display name inappropriate")
+
+	// ErrSameEmail is returned by the change-email flow when the
+	// supplied new email is identical (case-insensitively) to the
+	// caller's current email. Mapped to HTTP 400 with code "same_email"
+	// so the frontend can show a contextual hint.
+	ErrSameEmail = errors.New("new email must differ from current email")
+
+	// ErrSamePassword is returned by the change-password flow when the
+	// new password matches the user's current password. Mapped to HTTP
+	// 400 with code "same_password".
+	ErrSamePassword = errors.New("new password must differ from current password") // #nosec G101 -- error message, not a credential
 )
 
 // AccountStatusError carries the suspension/ban reason alongside the sentinel.

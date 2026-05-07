@@ -46,6 +46,12 @@ func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.H
 			r.Post("/web-session", deps.Auth.WebSession)
 			r.Post("/logout", deps.Auth.Logout)
 			r.Put("/referrer-enable", deps.Auth.EnableReferrer)
+			// Account self-service: rotate credentials. Both endpoints
+			// invalidate the caller's session_version on success — the
+			// existing access token will be rejected on its next
+			// authenticated request, forcing a fresh login.
+			r.Post("/change-email", deps.Auth.ChangeEmail)
+			r.Post("/change-password", deps.Auth.ChangePassword)
 		})
 	})
 }

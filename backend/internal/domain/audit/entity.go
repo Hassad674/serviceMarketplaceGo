@@ -50,6 +50,12 @@ const (
 	// breadcrumb the SOC needs to start an investigation.
 	ActionTokenReuseDetected Action = "auth.token_reuse_detected" // #nosec G101 -- audit action label, not a credential
 
+	// Account self-service. Emitted by the auth service when an
+	// authenticated user updates their own credential fields via
+	// /auth/change-email and /auth/change-password.
+	ActionChangeEmail    Action = "auth.change_email"
+	ActionChangePassword Action = "auth.change_password" // #nosec G101 -- audit action label, not a credential
+
 	// Team / organization
 	ActionRolePermissionsChanged Action = "team.role_permissions_changed"
 	ActionMemberRoleChanged      Action = "team.member_role_changed"

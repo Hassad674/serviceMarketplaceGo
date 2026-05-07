@@ -17,11 +17,11 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 ///      shown but disabled with a "Bientôt disponible" pill. Building
 ///      the toggle list would require introducing a new Riverpod
 ///      provider, which is out of scope for this design batch.
-///   2. Adresse email — read-only display of the authenticated email.
-///      The "change email" flow is also a future feature, hence the
-///      "Bientôt disponible" pill on the new-email field, mirroring
-///      the web counterpart.
-///   3. Mot de passe — placeholder, same rationale as web.
+///   2. Adresse email — read-only display + CTA routing to
+///      [ChangeEmailScreen]. Backend bumps the session version on
+///      success, so that flow logs the user out and routes to /login.
+///   3. Mot de passe — CTA routing to [ChangePasswordScreen]. Same
+///      session-version semantics as the email change.
 ///   4. Données et suppression — entry points to the existing
 ///      [DeleteAccountScreen] / [CancelDeletionScreen] flows
 ///      (already wired backend-side).
@@ -66,10 +66,10 @@ class AccountScreen extends ConsumerWidget {
                 icon: Icons.email_outlined,
                 title: l10n.accountSectionEmail,
                 description: l10n.accountSectionEmailDesc,
-                child: _CurrentEmailRow(
+                child: _EmailSectionBody(
                   label: l10n.accountCurrentEmail,
                   email: email,
-                  comingSoon: l10n.accountComingSoon,
+                  changeEmailCta: l10n.accountChangeEmailCta,
                 ),
               ),
               const SizedBox(height: 16),
@@ -77,7 +77,15 @@ class AccountScreen extends ConsumerWidget {
                 icon: Icons.lock_outline,
                 title: l10n.accountSectionPassword,
                 description: l10n.accountSectionPasswordDesc,
-                child: _ComingSoonPill(label: l10n.accountComingSoon),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push(RoutePaths.accountChangePassword),
+                    icon: const Icon(Icons.password_outlined, size: 18),
+                    label: Text(l10n.accountChangePasswordCta),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               _AccountSection(
@@ -223,19 +231,19 @@ class _ComingSoonPill extends StatelessWidget {
   }
 }
 
-/// Read-only display of the current email + "coming soon" pill for the
-/// not-yet-implemented change-email flow. Mirrors the web layout:
-/// labelled value, then a pill below.
-class _CurrentEmailRow extends StatelessWidget {
-  const _CurrentEmailRow({
+/// Read-only display of the current email + CTA routing to the
+/// [ChangeEmailScreen]. Mirrors the web layout: labelled value, then
+/// a button below.
+class _EmailSectionBody extends StatelessWidget {
+  const _EmailSectionBody({
     required this.label,
     required this.email,
-    required this.comingSoon,
+    required this.changeEmailCta,
   });
 
   final String label;
   final String email;
-  final String comingSoon;
+  final String changeEmailCta;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +269,14 @@ class _CurrentEmailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _ComingSoonPill(label: comingSoon),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () => context.push(RoutePaths.accountChangeEmail),
+            icon: const Icon(Icons.alternate_email_outlined, size: 18),
+            label: Text(changeEmailCta),
+          ),
+        ),
       ],
     );
   }

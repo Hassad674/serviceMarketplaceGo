@@ -162,11 +162,16 @@ export function ChatWidgetPanel({
           file.name,
           file.type,
         )
-        await fetch(upload_url, {
+        // fetch() does not throw on HTTP 4xx/5xx — guard so we never
+        // dispatch a file message pointing at a failed upload URL.
+        const uploadRes = await fetch(upload_url, {
           method: "PUT",
           body: file,
           headers: { "Content-Type": file.type },
         })
+        if (!uploadRes.ok) {
+          throw new Error(`upload failed: ${uploadRes.status}`)
+        }
         sendMessageMut.mutate({
           content: file.name,
           type: "file",

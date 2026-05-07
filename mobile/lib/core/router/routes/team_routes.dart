@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../features/account/presentation/screens/account_screen.dart';
 import '../../../features/account/presentation/screens/cancel_deletion_screen.dart';
+import '../../../features/account/presentation/screens/change_email_screen.dart';
+import '../../../features/account/presentation/screens/change_password_screen.dart';
 import '../../../features/account/presentation/screens/delete_account_screen.dart';
 import '../../../features/client_profile/presentation/screens/client_profile_screen.dart';
 import '../../../features/notification/presentation/screens/notification_screen.dart';
@@ -55,5 +57,13 @@ List<RouteBase> buildTeamShellRoutes() => [
       GoRoute(
         path: RoutePaths.accountCancelDeletion,
         builder: (context, state) => const CancelDeletionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.accountChangeEmail,
+        builder: (context, state) => const ChangeEmailScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.accountChangePassword,
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
     ];

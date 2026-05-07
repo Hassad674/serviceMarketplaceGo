@@ -355,7 +355,12 @@ function WidgetMessageInput({
       const ext = voiceExtFromMime(blob.type)
       const filename = `voice-${Date.now()}.${ext}`
       const { upload_url, public_url } = await getPresignedURL(filename, blob.type)
-      await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
+      // fetch() does not throw on HTTP 4xx/5xx — guard so we never
+      // produce a voice message pointing at a failed upload URL.
+      const uploadRes = await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
+      if (!uploadRes.ok) {
+        throw new Error(`upload failed: ${uploadRes.status}`)
+      }
       onSendVoice(t("voiceMessage"), {
         url: public_url,
         duration: capturedDuration,

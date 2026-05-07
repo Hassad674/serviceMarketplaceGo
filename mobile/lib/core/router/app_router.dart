@@ -110,6 +110,10 @@ class RoutePaths {
   static const String account = '/account';
   static const String accountDelete = '/account/delete';
   static const String accountCancelDeletion = '/account/cancel-deletion';
+  // Credential rotation — both bump the server-side session version on
+  // success, so the mobile flow logs out + redirects back to /login.
+  static const String accountChangeEmail = '/account/change-email';
+  static const String accountChangePassword = '/account/change-password';
 }
 
 // ---------------------------------------------------------------------------

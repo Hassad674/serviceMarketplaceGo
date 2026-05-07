@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
+import { buildCSP } from "./src/shared/lib/csp";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -57,32 +58,23 @@ const nextConfig: NextConfig = {
   // beyond the backend default so the browser side gets the same
   // protection as the API side.
   async headers() {
-    // F.6 W5: 'unsafe-eval' is needed by Next/Turbopack's HMR runtime
-    // in development (it eval()s module factories on every fast-refresh
-    // cycle), but the compiled production bundle ships only static
-    // code. We split the script-src directive by NODE_ENV so production
-    // ships the tighter CSP without 'unsafe-eval' — closing one of the
-    // two CSP escapes flagged by the F.5 audit. 'unsafe-inline' is kept
-    // until we wire nonces (tracked as a separate follow-up).
     const isProduction = process.env.NODE_ENV === "production";
-    const scriptSrc = isProduction
-      ? "script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com"
-      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com";
-
-    const csp = [
-      "default-src 'self'",
-      scriptSrc,
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.r2.dev http://localhost:9000 http://192.168.1.156:9000 https://*.stripe.com",
-      "media-src 'self' blob: https://*.r2.cloudflarestorage.com https://*.r2.dev http://localhost:9000 http://192.168.1.156:9000",
-      "font-src 'self' data:",
-      "connect-src 'self' https://*.stripe.com https://api.stripe.com https://*.r2.cloudflarestorage.com https://*.r2.dev http://localhost:8083 https://*.livekit.cloud wss://*.livekit.cloud ws://localhost:8083 wss://localhost:8083",
-      "frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com",
-      "frame-ancestors 'none'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; ");
+    // CSP is env-driven so rotating the backend / LiveKit / R2 domains
+    // only requires a Vercel env var update, never a code deploy. In
+    // production, missing required env vars (NEXT_PUBLIC_WS_URL,
+    // NEXT_PUBLIC_LIVEKIT_URL) cause buildCSP to throw — fail-fast at
+    // build/start instead of a silent runtime CSP block in the browser.
+    // See web/src/shared/lib/csp.ts for the contract.
+    const csp = buildCSP(
+      {
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+        NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+        NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+        NEXT_PUBLIC_LIVEKIT_URL: process.env.NEXT_PUBLIC_LIVEKIT_URL,
+        NEXT_PUBLIC_STORAGE_URL: process.env.NEXT_PUBLIC_STORAGE_URL,
+      },
+      isProduction,
+    );
 
     return [
       {

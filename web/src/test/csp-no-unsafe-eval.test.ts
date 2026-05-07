@@ -6,42 +6,42 @@
  * escape is unnecessary. A future contributor reverting the split or
  * adding 'unsafe-eval' to the production list will trip this test.
  *
- * We parse next.config.ts as plain text rather than dynamically
- * importing it: vitest's jsdom environment cannot transpile and run
- * the Next-flavoured config in-process, and a textual check is
- * sufficient to catch a regression — the script-src directive is
- * authored by hand, not by reflection.
+ * Since the CSP is now env-driven (web/src/shared/lib/csp.ts), this
+ * test imports `buildCSP` directly and exercises both branches with
+ * representative env vars. It also asserts that next.config.ts still
+ * declares a single Content-Security-Policy header so a future refactor
+ * cannot accidentally drop the directive entirely.
  */
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { buildCSP } from "@/shared/lib/csp"
 
 const NEXT_CONFIG_PATH = resolve(__dirname, "..", "..", "next.config.ts")
 
-function readNextConfig(): string {
-  return readFileSync(NEXT_CONFIG_PATH, "utf-8")
+const PROD_ENV = {
+  NEXT_PUBLIC_API_URL: "https://api.example.app",
+  NEXT_PUBLIC_WS_URL: "wss://api.example.app",
+  NEXT_PUBLIC_LIVEKIT_URL: "wss://project.livekit.cloud",
 }
 
-function extractScriptSrcLines(src: string): { production: string; development: string } {
-  // The current file authors the script-src directive as two literal
-  // strings inside a NODE_ENV ternary. We capture both branches with
-  // a regex that tolerates whitespace + line breaks.
-  const productionMatch = src.match(/isProduction\s*\?\s*"([^"]*script-src[^"]*)"/)
-  const developmentMatch = src.match(/:\s*"([^"]*script-src[^"]*'unsafe-eval'[^"]*)"/)
-  if (!productionMatch || !developmentMatch) {
-    throw new Error(
-      `Failed to parse script-src branches from next.config.ts. ` +
-        `If the structure was refactored, update this test to read the new shape.`,
-    )
+function getDirective(csp: string, name: string): string {
+  const directive = csp
+    .split(";")
+    .map((d) => d.trim())
+    .find((d) => d.startsWith(`${name} `) || d === name)
+  if (!directive) {
+    throw new Error(`CSP directive ${name} not found in: ${csp}`)
   }
-  return { production: productionMatch[1], development: developmentMatch[1] }
+  return directive
 }
 
 describe("CSP unsafe-eval split (F.6 W5)", () => {
   it("production script-src must NOT contain 'unsafe-eval'", () => {
-    const { production } = extractScriptSrcLines(readNextConfig())
-    expect(production).not.toContain("'unsafe-eval'")
-    expect(production).toContain("script-src")
+    const csp = buildCSP(PROD_ENV, true)
+    const scriptSrc = getDirective(csp, "script-src")
+    expect(scriptSrc).not.toContain("'unsafe-eval'")
+    expect(scriptSrc).toContain("script-src")
   })
 
   it("production script-src keeps 'unsafe-inline' (until nonces ship)", () => {
@@ -49,25 +49,28 @@ describe("CSP unsafe-eval split (F.6 W5)", () => {
     // replaced with a per-request nonce. Keeping it in this test pins
     // the current invariant so the next contributor who tightens the
     // dev CSP doesn't accidentally drop 'unsafe-inline' from prod.
-    const { production } = extractScriptSrcLines(readNextConfig())
-    expect(production).toContain("'unsafe-inline'")
+    const csp = buildCSP(PROD_ENV, true)
+    const scriptSrc = getDirective(csp, "script-src")
+    expect(scriptSrc).toContain("'unsafe-inline'")
   })
 
   it("development script-src keeps 'unsafe-eval' for Turbopack HMR", () => {
-    const { development } = extractScriptSrcLines(readNextConfig())
-    expect(development).toContain("'unsafe-eval'")
+    const csp = buildCSP({}, false)
+    const scriptSrc = getDirective(csp, "script-src")
+    expect(scriptSrc).toContain("'unsafe-eval'")
   })
 
   it("Stripe origin survives in both environments", () => {
-    const { production, development } = extractScriptSrcLines(readNextConfig())
-    expect(production).toContain("https://js.stripe.com")
-    expect(development).toContain("https://js.stripe.com")
+    const prod = getDirective(buildCSP(PROD_ENV, true), "script-src")
+    const dev = getDirective(buildCSP({}, false), "script-src")
+    expect(prod).toContain("https://js.stripe.com")
+    expect(dev).toContain("https://js.stripe.com")
   })
 
   it("config still applies a single Content-Security-Policy header", () => {
     // Sanity: ensure no future refactor splits the header into
-    // multiple, non-additive declarations.
-    const src = readNextConfig()
+    // multiple, non-additive declarations or removes it altogether.
+    const src = readFileSync(NEXT_CONFIG_PATH, "utf-8")
     const occurrences = src.match(/Content-Security-Policy/g) ?? []
     expect(occurrences.length).toBeGreaterThanOrEqual(1)
   })

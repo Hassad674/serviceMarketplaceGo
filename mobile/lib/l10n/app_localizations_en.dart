@@ -3358,6 +3358,102 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountDeleteAccountAction => 'Delete my account';
 
   @override
+  String get accountChangeEmailCta => 'Change my email';
+
+  @override
+  String get accountChangePasswordCta => 'Change my password';
+
+  @override
+  String get accountChangeEmailTitle => 'Change my email';
+
+  @override
+  String get accountChangeEmailSubtitle =>
+      'Confirm your current password and enter your new email address.';
+
+  @override
+  String get accountChangePasswordTitle => 'Change my password';
+
+  @override
+  String get accountChangePasswordSubtitle =>
+      'Confirm your current password, then choose a new one.';
+
+  @override
+  String get accountCurrentPassword => 'Current password';
+
+  @override
+  String get accountCurrentPasswordHint => '••••••••';
+
+  @override
+  String get accountNewEmail => 'New email';
+
+  @override
+  String get accountNewEmailHint => 'new@email.com';
+
+  @override
+  String get accountNewPassword => 'New password';
+
+  @override
+  String get accountConfirmPassword => 'Confirm password';
+
+  @override
+  String get accountPasswordHint =>
+      'At least 10 characters with one uppercase, one lowercase, one digit and one special character.';
+
+  @override
+  String get accountChangeEmailSuccess =>
+      'Email updated. Sign in again with your new address.';
+
+  @override
+  String get accountChangePasswordSuccess =>
+      'Password updated. Sign in again with your new password.';
+
+  @override
+  String get accountErrorEmailRequired => 'Email address required.';
+
+  @override
+  String get accountErrorInvalidEmail => 'Invalid email address.';
+
+  @override
+  String get accountErrorSameEmail => 'This is already your current email.';
+
+  @override
+  String get accountErrorEmailAlreadyExists => 'This email is already in use.';
+
+  @override
+  String get accountErrorPasswordRequired => 'Password required.';
+
+  @override
+  String get accountErrorWeakPassword =>
+      'Password too weak. Need 10+ characters with one uppercase, one lowercase, one digit and one special character.';
+
+  @override
+  String get accountErrorSamePassword =>
+      'The new password must be different from the previous one.';
+
+  @override
+  String get accountErrorPasswordMismatch => 'Passwords do not match.';
+
+  @override
+  String get accountErrorInvalidCredentials => 'Current password is incorrect.';
+
+  @override
+  String get accountErrorSessionInvalid =>
+      'Session expired. Please sign in again.';
+
+  @override
+  String get accountErrorNetwork =>
+      'Cannot reach the server. Try again in a moment.';
+
+  @override
+  String get accountErrorGeneric => 'Something went wrong. Please try again.';
+
+  @override
+  String get passwordShow => 'Show password';
+
+  @override
+  String get passwordHide => 'Hide password';
+
+  @override
   String get createJob_m09_title => 'New job';
 
   @override
