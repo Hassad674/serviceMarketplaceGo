@@ -76,7 +76,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
       _submitting = true;
       _error = null;
     });
-    final created = await createReferral(
+    final outcome = await createReferral(
       ref,
       providerId: _provider!.userId,
       clientId: _client!.userId,
@@ -87,14 +87,20 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
       snapshotToggles: _toggles,
     );
     if (!mounted) return;
-    if (created == null) {
+    if (!outcome.isSuccess) {
       setState(() {
         _submitting = false;
-        _error = 'Could not create the intro. Please try again.';
+        // Anti-fraud gate: the backend refuses an intro between two
+        // parties that already share a 1:1 conversation. Surface a
+        // tailored line so the apporteur understands the rejection
+        // rather than seeing the generic "could not create" copy.
+        _error = outcome.isAlreadyInRelation
+            ? "These two parties are already in relation — you can't introduce them."
+            : 'Could not create the intro. Please try again.';
       });
       return;
     }
-    context.go('/referrals/${created.id}');
+    context.go('/referrals/${outcome.referral!.id}');
   }
 
   @override

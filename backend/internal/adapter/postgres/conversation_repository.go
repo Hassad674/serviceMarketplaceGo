@@ -328,6 +328,27 @@ func scanConversationSummaries(rows *sql.Rows, limit int) ([]repository.Conversa
 	return results, nextCursor, nil
 }
 
+// AreInRelation returns true when a 1:1 conversation already exists
+// between userA and userB, in any order. Used by the referral feature
+// to enforce the anti-fraud invariant that an apporteur cannot earn a
+// commission for introducing two parties that already know each other.
+//
+// The query is order-insensitive: both (a, b) and (b, a) hit the same
+// pair of conversation_participants rows joined on conversation_id.
+// Returning a boolean (rather than the conversation row) keeps the
+// adapter surface narrow — the caller only needs the existence signal.
+func (r *ConversationRepository) AreInRelation(ctx context.Context, userA, userB uuid.UUID) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, queryConversationExistsBetween, userA, userB).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check conversation exists between users: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *ConversationRepository) IsParticipant(ctx context.Context, conversationID, userID uuid.UUID) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

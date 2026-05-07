@@ -1908,6 +1908,7 @@
     },
     "errors": {
       "couplesLocked": "An active referral already exists for this couple.",
+      "alreadyInRelation": "These two parties are already in relation — you can't introduce them.",
       "notAuthorized": "You are not authorized to perform this action.",
       "invalidTransition": "This action is not available in the current state."
     }

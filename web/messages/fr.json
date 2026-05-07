@@ -1908,6 +1908,7 @@
     },
     "errors": {
       "couplesLocked": "Une mise en relation est déjà active pour ce couple.",
+      "alreadyInRelation": "Ces deux parties sont déjà en relation — tu ne peux pas les présenter.",
       "notAuthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
       "invalidTransition": "Cette action n'est pas disponible dans l'état actuel."
     }

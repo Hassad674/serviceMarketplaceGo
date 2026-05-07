@@ -396,6 +396,8 @@ func handleReferralError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "forbidden", err.Error())
 	case errors.Is(err, referral.ErrCoupleLocked):
 		res.Error(w, http.StatusConflict, "referral_couple_locked", err.Error())
+	case errors.Is(err, referral.ErrPartiesAlreadyInRelation):
+		res.Error(w, http.StatusConflict, "already_in_relation", err.Error())
 	case errors.Is(err, referral.ErrSelfReferral),
 		errors.Is(err, referral.ErrSameOrganization),
 		errors.Is(err, referral.ErrInvalidProviderRole),
