@@ -40,7 +40,13 @@ func SecurityHeaders(cfg *config.Config) func(http.Handler) http.Handler {
 			// CSP and the auditor itself has been a source of XSS bugs.
 			h.Set("X-XSS-Protection", "0")
 			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+			// Microphone + camera are allowed for same-origin only (used by
+			// voice messages and LiveKit calls). Geolocation stays fully
+			// disabled — the app does not use it. An empty allowlist for
+			// microphone/camera (the original `()` value) silently blocks
+			// getUserMedia without showing the browser permission prompt,
+			// which broke voice messages and call audio in 2026-04-30.
+			h.Set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
 
 			if isProd {
 				// 1 year HSTS with subdomain coverage. We deliberately
