@@ -285,7 +285,11 @@ func (r *InvoiceRepository) CreateCreditNote(ctx context.Context, cn *invoicing.
 
 // FindInvoiceByID returns the invoice with all of its items. Returns
 // invoicing.ErrNotFound when no row matches.
+//
+// SYSTEM-ACTOR: callers must tag their context (admin / webhook).
+// User-facing flows (PDF download) must use FindInvoiceByIDForOrg.
 func (r *InvoiceRepository) FindInvoiceByID(ctx context.Context, id uuid.UUID) (*invoicing.Invoice, error) {
+	warnIfNotSystemActor(ctx, "InvoiceRepository.FindInvoiceByID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

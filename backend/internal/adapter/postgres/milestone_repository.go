@@ -195,7 +195,11 @@ func (r *MilestoneRepository) GetByID(ctx context.Context, id uuid.UUID) (*miles
 // behaviour. Two concurrent callers that both fetch version V will
 // both reach Update; the one that lands first bumps the version, the
 // loser gets ErrConcurrentUpdate.
+// GetByIDWithVersion is the optimistic-lock read used right before
+// Update. SYSTEM-ACTOR: callers tag their ctx after passing the
+// parent proposal ownership check (see proposal/dispute services).
 func (r *MilestoneRepository) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	warnIfNotSystemActor(ctx, "MilestoneRepository.GetByIDWithVersion")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -213,7 +217,12 @@ func (r *MilestoneRepository) GetByIDWithVersion(ctx context.Context, id uuid.UU
 // ListByProposal returns every milestone of a proposal, ordered by
 // ascending sequence. Used to render the milestone tracker, compute the
 // macro status, and recompute the proposal.amount cache.
+// ListByProposal returns every milestone of a proposal.
+// SYSTEM-ACTOR: callers tag their ctx (scheduler, recompute helpers,
+// dispute cancellation flow). User-facing callers must use
+// ListByProposalForOrg instead.
 func (r *MilestoneRepository) ListByProposal(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error) {
+	warnIfNotSystemActor(ctx, "MilestoneRepository.ListByProposal")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -241,7 +250,11 @@ func (r *MilestoneRepository) ListByProposal(ctx context.Context, proposalID uui
 // by ascending sequence. Returns milestone.ErrMilestoneNotFound if every
 // milestone is terminal — the caller uses that as a signal that the
 // proposal has no work left to do.
+// GetCurrentActive returns the next non-terminal milestone.
+// SYSTEM-ACTOR: callers tag their ctx after verifying caller's
+// access to the parent proposal.
 func (r *MilestoneRepository) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
+	warnIfNotSystemActor(ctx, "MilestoneRepository.GetCurrentActive")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -447,11 +460,18 @@ func (r *MilestoneRepository) DeleteDeliverable(ctx context.Context, id uuid.UUI
 // ListByProposals resolves a batch of proposals in one round trip and
 // groups the results by proposal_id. Used by list endpoints to fan out
 // milestone summaries without generating N+1 queries.
+// ListByProposals batches the milestone lookup across many proposals
+// — INHERENTLY cross-tenant when the input mixes proposals from
+// different orgs. SYSTEM-ACTOR: callers (proposal list endpoints,
+// referral aggregator) must tag their ctx after restricting the
+// input ids to the org's own proposals via an upstream RLS-isolated
+// listing.
 func (r *MilestoneRepository) ListByProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
 	if len(proposalIDs) == 0 {
 		return map[uuid.UUID][]*milestone.Milestone{}, nil
 	}
 
+	warnIfNotSystemActor(ctx, "MilestoneRepository.ListByProposals")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 

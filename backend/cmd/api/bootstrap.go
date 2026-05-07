@@ -98,7 +98,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		RateLimiter:      infra.MessagingRateLimiter,
 	})
 
-	proposalRepos := wireProposalRepos(proposalReposDeps{Cfg: cfg, DB: infra.DB})
+	proposalRepos := wireProposalRepos(proposalReposDeps{Cfg: cfg, DB: infra.DB, TxRunner: infra.TxRunner})
 	proposalRepo := proposalRepos.ProposalRepo
 	milestoneRepo := proposalRepos.MilestoneRepo
 	paymentRecordRepo := proposalRepos.PaymentRecordRepo
@@ -154,6 +154,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		Ctx:         notifWorkerCtx,
 		Cfg:         cfg,
 		DB:          infra.DB,
+		TxRunner:    infra.TxRunner,
 		Redis:       infra.Redis,
 		SourceID:    infra.SourceID,
 		Email:       infra.EmailSvc,
@@ -488,6 +489,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		Ctx:            disputeCtx,
 		Cfg:            cfg,
 		DB:             infra.DB,
+		TxRunner:       infra.TxRunner,
 		Proposals:      proposalRepo,
 		Milestones:     milestoneRepo,
 		Users:          infra.UserRepo,

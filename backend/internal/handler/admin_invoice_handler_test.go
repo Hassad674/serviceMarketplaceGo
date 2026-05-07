@@ -55,6 +55,9 @@ func (r *adminInvoiceFakeRepo) FindInvoiceByID(_ context.Context, id uuid.UUID) 
 	}
 	return nil, domain.ErrNotFound
 }
+func (r *adminInvoiceFakeRepo) FindInvoiceByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.Invoice, error) {
+	return r.FindInvoiceByID(ctx, id)
+}
 func (r *adminInvoiceFakeRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*domain.Invoice, error) {
 	return nil, domain.ErrNotFound
 }

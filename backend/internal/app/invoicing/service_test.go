@@ -92,6 +92,9 @@ func (m *mockInvoiceRepo) FindInvoiceByID(ctx context.Context, id uuid.UUID) (*i
 	}
 	return nil, invoicing.ErrNotFound
 }
+func (m *mockInvoiceRepo) FindInvoiceByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*invoicing.Invoice, error) {
+	return m.FindInvoiceByID(ctx, id)
+}
 func (m *mockInvoiceRepo) FindInvoiceByStripeEventID(ctx context.Context, eventID string) (*invoicing.Invoice, error) {
 	if m.findByEventIDFn != nil {
 		return m.findByEventIDFn(ctx, eventID)

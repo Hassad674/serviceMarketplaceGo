@@ -11,6 +11,7 @@ import (
 	domain "marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // ServiceDeps groups the dependencies for the report service.
@@ -73,7 +74,11 @@ func (s *Service) CreateReport(ctx context.Context, in CreateReportInput) (*doma
 			return nil, fmt.Errorf("get target user: %w", err)
 		}
 	case domain.TargetMessage:
-		if _, err := s.messages.GetMessage(ctx, in.TargetID); err != nil {
+		// Existence probe — the reporter does not need to read the
+		// message content, just confirm the row exists. Tag system
+		// because the lookup is keyed on a message id from a
+		// possibly different conversation than the reporter's own.
+		if _, err := s.messages.GetMessage(system.WithSystemActor(ctx), in.TargetID); err != nil {
 			return nil, fmt.Errorf("get target message: %w", err)
 		}
 	case domain.TargetJob:

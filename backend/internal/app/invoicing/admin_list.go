@@ -10,6 +10,7 @@ import (
 
 	"marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/system"
 )
 
 // AdminListInvoices returns a page of invoices and credit notes across
@@ -58,7 +59,8 @@ func (s *Service) AdminGetInvoicePDF(ctx context.Context, id uuid.UUID, isCredit
 		pdfKey = cn.PDFR2Key
 		number = cn.Number
 	} else {
-		inv, err := s.invoices.FindInvoiceByID(ctx, id)
+		// Admin path — must read across all tenants by design.
+		inv, err := s.invoices.FindInvoiceByID(system.WithSystemActor(ctx), id)
 		if err != nil {
 			if errors.Is(err, invoicing.ErrNotFound) {
 				return "", invoicing.ErrNotFound

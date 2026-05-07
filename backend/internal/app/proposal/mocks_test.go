@@ -260,6 +260,14 @@ func (m *mockMilestoneRepo) ListByProposal(ctx context.Context, proposalID uuid.
 	return existing, nil
 }
 
+// ListByProposalForOrg ignores the org param in the mock — the unit
+// tests cover the org-routing layer at the adapter level
+// (rls_caller_audit_test.go). The mock falls back to the legacy
+// ListByProposal so test fixtures keep working.
+func (m *mockMilestoneRepo) ListByProposalForOrg(ctx context.Context, proposalID, _ uuid.UUID) ([]*milestone.Milestone, error) {
+	return m.ListByProposal(ctx, proposalID)
+}
+
 func (m *mockMilestoneRepo) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
 	if m.getCurrentActiveFn != nil {
 		return m.getCurrentActiveFn(ctx, proposalID)

@@ -176,7 +176,7 @@ func (r *TxRunner) RunInTxWithTenantSerializable(ctx context.Context, orgID, use
 	if fn == nil {
 		return fmt.Errorf("tx runner: fn is required")
 	}
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := r.beginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("tx runner: begin: %w", err)
 	}

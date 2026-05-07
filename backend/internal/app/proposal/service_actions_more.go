@@ -11,6 +11,7 @@ import (
 
 	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/system"
 )
 
 // CompleteProposal approves AND releases the proposal's current active
@@ -33,7 +34,7 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return err
 	}
 
-	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	current, err := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return fmt.Errorf("get current milestone: %w", err)
 	}
@@ -120,7 +121,7 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 			providerBody,
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
 
-		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
+		if next, nextErr := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
 			// Re-use the existing proposal_payment_requested message
 			// type so the client sees the same "Pay now" CTA in the
 			// conversation that appeared after the initial accept.
@@ -151,7 +152,7 @@ func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionIn
 		return err
 	}
 
-	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	current, err := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return fmt.Errorf("get current milestone: %w", err)
 	}

@@ -60,6 +60,13 @@ func (m *mockRepo) ListByProposal(ctx context.Context, proposalID uuid.UUID) ([]
 	return nil, nil
 }
 
+// ListByProposalForOrg delegates to ListByProposal — the org param is
+// the routing hook used in the real adapter; the mock does not model
+// the RLS layer and the unit tests cover only the in-memory state.
+func (m *mockRepo) ListByProposalForOrg(ctx context.Context, proposalID, _ uuid.UUID) ([]*domain.Milestone, error) {
+	return m.ListByProposal(ctx, proposalID)
+}
+
 func (m *mockRepo) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*domain.Milestone, error) {
 	if m.getCurrentActiveFn != nil {
 		return m.getCurrentActiveFn(ctx, proposalID)

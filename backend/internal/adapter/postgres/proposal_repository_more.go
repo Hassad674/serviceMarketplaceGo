@@ -13,7 +13,13 @@ import (
 	"marketplace-backend/pkg/cursor"
 )
 
+// Deprecated: GetLatestVersion has no app-layer callers as of the RLS
+// hardening pass (2026-05-07). Under prod NOSUPERUSER NOBYPASSRLS this
+// query returns ErrProposalNotFound for every caller because no tenant
+// context is set. Reintroduce as GetLatestVersionForOrg(orgID) when a
+// real consumer needs it.
 func (r *ProposalRepository) GetLatestVersion(ctx context.Context, rootProposalID uuid.UUID) (*proposal.Proposal, error) {
+	warnIfNotSystemActor(ctx, "ProposalRepository.GetLatestVersion")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -28,7 +34,13 @@ func (r *ProposalRepository) GetLatestVersion(ctx context.Context, rootProposalI
 	return p, nil
 }
 
+// Deprecated: ListByConversation has no app-layer callers as of the RLS
+// hardening pass (2026-05-07). Under prod NOSUPERUSER NOBYPASSRLS this
+// query returns an empty slice for every caller because no tenant
+// context is set. Reintroduce as ListByConversationForOrg(orgID) when
+// a real consumer needs it.
 func (r *ProposalRepository) ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*proposal.Proposal, error) {
+	warnIfNotSystemActor(ctx, "ProposalRepository.ListByConversation")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -200,13 +212,39 @@ func (r *ProposalRepository) CreateDocument(ctx context.Context, doc *proposal.P
 // any stake in the proposal — either as the client-side org (denormalized
 // in proposals.organization_id since phase 4) or as the provider-side org
 // (resolved via users.organization_id on the proposal's provider_id).
+//
+// CRITICAL auth check: ALWAYS runs inside RunInTxWithTenant when a
+// txRunner is wired so the proposals RLS policy fires. The orgID
+// argument doubles as the tenant context — if the org has no stake,
+// the policy filters the row, the EXISTS sub-query returns false,
+// and the caller receives "not authorized" (the safe default). A
+// caller that bypasses the tenant tx and runs as
+// `marketplace_scheduler` would receive `true` for any proposal
+// regardless of org — but the warn guard surfaces that drift in
+// the dashboard. Under `marketplace_app` the SAFE-DEFAULT holds.
 func (r *ProposalRepository) IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var exists bool
-	if err := r.db.QueryRowContext(ctx, queryIsOrgAuthorizedForProposal, proposalID, orgID).Scan(&exists); err != nil {
-		return false, fmt.Errorf("is org authorized for proposal: %w", err)
+	doRead := func(runner sqlQuerier) error {
+		if err := runner.QueryRowContext(ctx, queryIsOrgAuthorizedForProposal, proposalID, orgID).Scan(&exists); err != nil {
+			return fmt.Errorf("is org authorized for proposal: %w", err)
+		}
+		return nil
+	}
+
+	if r.txRunner != nil {
+		if err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		}); err != nil {
+			return false, err
+		}
+		return exists, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return false, err
 	}
 	return exists, nil
 }
@@ -214,13 +252,34 @@ func (r *ProposalRepository) IsOrgAuthorizedForProposal(ctx context.Context, pro
 // SumPaidByClientOrganization aggregates the total amount (in cents)
 // the given organization has spent as the client across paid-or-later
 // proposals. See querySumPaidByClientOrg for the SQL predicate.
+//
+// orgID doubles as the tenant context: under prod NOSUPERUSER
+// NOBYPASSRLS the proposals RLS policy admits rows where the caller's
+// org is on either side, so the SUM only counts proposals the caller
+// already has access to.
 func (r *ProposalRepository) SumPaidByClientOrganization(ctx context.Context, orgID uuid.UUID) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var total int64
-	if err := r.db.QueryRowContext(ctx, querySumPaidByClientOrg, orgID).Scan(&total); err != nil {
-		return 0, fmt.Errorf("sum paid by client organization: %w", err)
+	doRead := func(runner sqlQuerier) error {
+		if err := runner.QueryRowContext(ctx, querySumPaidByClientOrg, orgID).Scan(&total); err != nil {
+			return fmt.Errorf("sum paid by client organization: %w", err)
+		}
+		return nil
+	}
+
+	if r.txRunner != nil {
+		if err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		}); err != nil {
+			return 0, err
+		}
+		return total, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return 0, err
 	}
 	return total, nil
 }
@@ -229,6 +288,9 @@ func (r *ProposalRepository) SumPaidByClientOrganization(ctx context.Context, or
 // completed deals as the client, capped at limit rows (1..100). The
 // result is ordered by completed_at DESC and by id DESC as a tie-
 // breaker — stable output across identical timestamps.
+//
+// orgID doubles as the tenant context — see SumPaidByClientOrganization
+// for the rationale.
 func (r *ProposalRepository) ListCompletedByClientOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]*proposal.Proposal, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -237,13 +299,35 @@ func (r *ProposalRepository) ListCompletedByClientOrganization(ctx context.Conte
 		limit = 20
 	}
 
-	rows, err := r.db.QueryContext(ctx, queryListCompletedByClientOrg, orgID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list completed by client organization: %w", err)
-	}
-	defer rows.Close()
+	var results []*proposal.Proposal
+	doRead := func(runner sqlQuerier) error {
+		rows, err := runner.QueryContext(ctx, queryListCompletedByClientOrg, orgID, limit)
+		if err != nil {
+			return fmt.Errorf("list completed by client organization: %w", err)
+		}
+		defer rows.Close()
 
-	return scanProposalList(rows)
+		out, sErr := scanProposalList(rows)
+		if sErr != nil {
+			return sErr
+		}
+		results = out
+		return nil
+	}
+
+	if r.txRunner != nil {
+		if err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		}); err != nil {
+			return nil, err
+		}
+		return results, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 func (r *ProposalRepository) CountAll(ctx context.Context) (total int, active int, err error) {

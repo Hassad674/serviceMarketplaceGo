@@ -85,6 +85,7 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 	if stripeHandler != nil {
 		invoicing := wireInvoicing(invoicingDeps{
 			DB:              deps.Infra.DB,
+			TxRunner:        deps.Infra.TxRunner,
 			Redis:           deps.Infra.Redis,
 			Email:           deps.Infra.EmailSvc,
 			Storage:         deps.Infra.StorageSvc,

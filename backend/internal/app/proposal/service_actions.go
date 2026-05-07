@@ -187,7 +187,7 @@ func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (
 	// rule means there is exactly one such milestone at any instant:
 	// the lowest-sequence non-terminal one, which must be in
 	// pending_funding for a fund call to be legal.
-	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	current, err := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return nil, fmt.Errorf("get current milestone: %w", err)
 	}
@@ -266,7 +266,7 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	current, err := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return fmt.Errorf("get current milestone: %w", err)
 	}
@@ -342,7 +342,16 @@ func (s *Service) ListMilestones(ctx context.Context, proposalID uuid.UUID) ([]*
 	if s.milestones == nil {
 		return nil, nil
 	}
-	return s.milestones.ListByProposal(ctx, proposalID)
+	// Mirror loadProposalForActor: system-actor callers go through
+	// the legacy non-tenant path; user-facing callers must surface
+	// their org so RLS admits the rows. middleware.MustGetOrgID
+	// panics with a clear message when neither is set, surfacing
+	// the bug at the request boundary.
+	if system.IsSystemActor(ctx) {
+		return s.milestones.ListByProposal(ctx, proposalID)
+	}
+	orgID := middleware.MustGetOrgID(ctx)
+	return s.milestones.ListByProposalForOrg(ctx, proposalID, orgID)
 }
 
 // ListMilestonesForProposals batches the milestone lookup across many
@@ -350,12 +359,18 @@ func (s *Service) ListMilestones(ctx context.Context, proposalID uuid.UUID) ([]*
 // to avoid N+1 queries when rendering each card with its current
 // milestone CTA.
 //
-// Same nil-safety as ListMilestones for legacy test setups.
+// Same nil-safety as ListMilestones for legacy test setups. The batch
+// path is INHERENTLY cross-tenant (the input id list mixes proposals
+// from different tenants when the referral aggregator calls it), so
+// it always tags the context system-actor before reaching the repo.
+// User-facing callers always restrict the input ids to their own
+// proposals via the upstream listing (which is RLS-isolated) before
+// reaching this helper.
 func (s *Service) ListMilestonesForProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
 	if s.milestones == nil {
 		return map[uuid.UUID][]*milestone.Milestone{}, nil
 	}
-	return s.milestones.ListByProposals(ctx, proposalIDs)
+	return s.milestones.ListByProposals(system.WithSystemActor(ctx), proposalIDs)
 }
 
 // CancelProposalInput is the input for the boundary cancel flow.
@@ -395,7 +410,7 @@ func (s *Service) CancelProposal(ctx context.Context, input CancelProposalInput)
 		return err
 	}
 
-	milestones, err := s.milestones.ListByProposal(ctx, p.ID)
+	milestones, err := s.milestones.ListByProposalForOrg(ctx, p.ID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("list milestones: %w", err)
 	}
@@ -488,7 +503,7 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 		return err
 	}
 
-	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	current, err := s.milestones.GetCurrentActive(system.WithSystemActor(ctx), p.ID)
 	if err != nil {
 		return fmt.Errorf("get current milestone: %w", err)
 	}

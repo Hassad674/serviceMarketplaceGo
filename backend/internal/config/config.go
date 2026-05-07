@@ -33,6 +33,13 @@ type Config struct {
 	Port             string
 	Env              string
 	DatabaseURL      string
+	// DatabaseAdminURL is the privileged (BYPASSRLS) connection string
+	// used by the system-actor pool — schedulers, webhooks, GDPR purge,
+	// admin overrides. Optional. When empty, wireInfrastructure falls
+	// back to DatabaseURL with a WARN log so the rollout from the
+	// single-pool model can ship without a hard dependency on the new
+	// env var. See backend/docs/rls-rollout.md for the production rotation.
+	DatabaseAdminURL string
 	RedisURL         string
 	JWTSecret        string
 	JWTAccessExpiry  time.Duration
@@ -114,6 +121,7 @@ func Load() *Config {
 		Port:             getEnv("PORT", "8080"),
 		Env:              getEnv("ENV", "development"),
 		DatabaseURL:      getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5434/marketplace?sslmode=disable"),
+		DatabaseAdminURL: getEnv("DATABASE_URL_ADMIN", ""),
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6380"),
 		JWTSecret:        getEnv("JWT_SECRET", "dev-secret-change-me"),
 		JWTAccessExpiry:  parseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m")),

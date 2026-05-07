@@ -13,6 +13,7 @@ import (
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 	"marketplace-backend/pkg/sanitize"
 )
 
@@ -310,7 +311,12 @@ func (s *Service) GetMessagesSinceSeq(ctx context.Context, userID, conversationI
 		return nil, err
 	}
 
-	return s.messages.GetMessagesSinceSeq(ctx, conversationID, sinceSeq, 50)
+	// requireOrgAuthorized has already passed — the caller holds
+	// the conversation. Tag the WebSocket re-sync read system-actor
+	// so the messages RLS policy admits the rows on the BYPASSRLS
+	// pool. The downside (cross-tenant leak risk) is mitigated by
+	// the auth check above.
+	return s.messages.GetMessagesSinceSeq(system.WithSystemActor(ctx), conversationID, sinceSeq, 50)
 }
 
 type EditMessageInput struct {
@@ -320,7 +326,12 @@ type EditMessageInput struct {
 }
 
 func (s *Service) EditMessage(ctx context.Context, input EditMessageInput) (*message.Message, error) {
-	msg, err := s.messages.GetMessage(ctx, input.MessageID)
+	// Resolve the editor's org so the GetMessageForCaller lookup
+	// uses the right tenant context. Solo providers (no org) fall
+	// back to userID-only routing — the messages RLS policy admits
+	// them via the participant escape hatch.
+	orgID, _ := s.resolveUserOrgID(ctx, input.UserID)
+	msg, err := s.messages.GetMessageForCaller(ctx, input.MessageID, orgID, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("get message: %w", err)
 	}
@@ -347,7 +358,11 @@ func (s *Service) EditMessage(ctx context.Context, input EditMessageInput) (*mes
 
 	msg.Edit(input.Content)
 
-	if err := s.messages.UpdateMessage(ctx, msg); err != nil {
+	// UpdateMessage writes against an RLS-protected row. Owner has
+	// already been verified above so the system tag is safe — the
+	// alternative is a tenant tx that re-queries the conversation
+	// org for every edit, which the audit fix targets in a follow-up.
+	if err := s.messages.UpdateMessage(system.WithSystemActor(ctx), msg); err != nil {
 		return nil, fmt.Errorf("update message: %w", err)
 	}
 
@@ -363,7 +378,8 @@ type DeleteMessageInput struct {
 }
 
 func (s *Service) DeleteMessage(ctx context.Context, input DeleteMessageInput) error {
-	msg, err := s.messages.GetMessage(ctx, input.MessageID)
+	orgID, _ := s.resolveUserOrgID(ctx, input.UserID)
+	msg, err := s.messages.GetMessageForCaller(ctx, input.MessageID, orgID, input.UserID)
 	if err != nil {
 		return fmt.Errorf("get message: %w", err)
 	}
@@ -382,7 +398,8 @@ func (s *Service) DeleteMessage(ctx context.Context, input DeleteMessageInput) e
 
 	msg.SoftDelete()
 
-	if err := s.messages.UpdateMessage(ctx, msg); err != nil {
+	// Same system-tag rationale as EditMessage above.
+	if err := s.messages.UpdateMessage(system.WithSystemActor(ctx), msg); err != nil {
 		return fmt.Errorf("update message: %w", err)
 	}
 

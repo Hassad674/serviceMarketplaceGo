@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/invoicing"
+	"marketplace-backend/internal/system"
 )
 
 // IssueMonthlyConsolidatedInput groups the fields the monthly batch /
@@ -112,7 +113,7 @@ func (s *Service) IssueMonthlyConsolidated(ctx context.Context, in IssueMonthlyC
 	// 3. Released-and-uninvoiced payment records. Empty list →
 	// nothing to consolidate; this is normal for orgs that did not
 	// transact in the period.
-	records, err := s.invoices.ListReleasedPaymentRecordsForOrg(ctx, in.OrganizationID, periodStart, periodEndExclusive)
+	records, err := s.invoices.ListReleasedPaymentRecordsForOrg(system.WithSystemActor(ctx), in.OrganizationID, periodStart, periodEndExclusive)
 	if err != nil {
 		return nil, fmt.Errorf("invoicing: list released payment records: %w", err)
 	}
@@ -184,7 +185,7 @@ func (s *Service) GetCurrentMonthAggregate(ctx context.Context, organizationID u
 	periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	periodEnd := periodStart.AddDate(0, 1, 0)
 
-	records, err := s.invoices.ListReleasedPaymentRecordsForOrg(ctx, organizationID, periodStart, periodEnd)
+	records, err := s.invoices.ListReleasedPaymentRecordsForOrg(system.WithSystemActor(ctx), organizationID, periodStart, periodEnd)
 	if err != nil {
 		return CurrentMonthAggregate{}, fmt.Errorf("invoicing: list released payment records: %w", err)
 	}

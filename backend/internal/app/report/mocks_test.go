@@ -161,6 +161,9 @@ func (m *mockMessageRepo) GetMessage(ctx context.Context, id uuid.UUID) (*messag
 	now := time.Now()
 	return &messagedomain.Message{ID: id, CreatedAt: now}, nil
 }
+func (m *mockMessageRepo) GetMessageForCaller(ctx context.Context, id, _, _ uuid.UUID) (*messagedomain.Message, error) {
+	return m.GetMessage(ctx, id)
+}
 func (m *mockMessageRepo) ListMessages(_ context.Context, _ repository.ListMessagesParams) ([]*messagedomain.Message, string, error) {
 	return nil, "", nil
 }

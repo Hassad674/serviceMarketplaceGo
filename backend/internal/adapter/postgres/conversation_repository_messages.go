@@ -97,7 +97,16 @@ func createMessageInTx(ctx context.Context, tx *sql.Tx, msg *message.Message) er
 	return nil
 }
 
+// GetMessage returns a message WITHOUT installing tenant context.
+//
+// SYSTEM-ACTOR: callers must tag their context — under prod
+// NOSUPERUSER NOBYPASSRLS the messages RLS policy filters every row
+// when no app.current_org_id / app.current_user_id is set, so
+// untagged callers receive ErrMessageNotFound. User-facing flows
+// (Edit / Delete / DeliverMessage / reply preview) must use
+// GetMessageForCaller instead.
 func (r *ConversationRepository) GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error) {
+	warnIfNotSystemActor(ctx, "ConversationRepository.GetMessage")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -243,7 +252,11 @@ func scanMessageList(rows *sql.Rows, limit int) ([]*message.Message, string, err
 	return results, nextCursor, nil
 }
 
+// GetMessagesSinceSeq is the WS reconnect re-sync path.
+// SYSTEM-ACTOR: caller (messaging.GetMessagesSinceSeq) tags the ctx
+// after passing the conversation auth check.
 func (r *ConversationRepository) GetMessagesSinceSeq(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error) {
+	warnIfNotSystemActor(ctx, "ConversationRepository.GetMessagesSinceSeq")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -277,7 +290,11 @@ func (r *ConversationRepository) GetMessagesSinceSeq(ctx context.Context, conver
 	return results, nil
 }
 
+// ListMessagesSinceTime is the dispute AI summary feeder.
+// SYSTEM-ACTOR: only legitimate caller is the dispute service's
+// loadPostMissionMessages, which tags its ctx system-actor.
 func (r *ConversationRepository) ListMessagesSinceTime(ctx context.Context, conversationID uuid.UUID, since time.Time, limit int) ([]*message.Message, error) {
+	warnIfNotSystemActor(ctx, "ConversationRepository.ListMessagesSinceTime")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -308,7 +325,11 @@ func (r *ConversationRepository) ListMessagesSinceTime(ctx context.Context, conv
 	return results, nil
 }
 
+// UpdateMessage applies an Edit / SoftDelete to an existing row.
+// SYSTEM-ACTOR: caller (messaging.EditMessage / DeleteMessage) tags
+// the ctx after verifying the sender owns the row.
 func (r *ConversationRepository) UpdateMessage(ctx context.Context, msg *message.Message) error {
+	warnIfNotSystemActor(ctx, "ConversationRepository.UpdateMessage")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -330,7 +351,11 @@ func (r *ConversationRepository) UpdateMessage(ctx context.Context, msg *message
 	return nil
 }
 
+// UpdateMessageStatus is the recipient-side "I have it now" marker.
+// SYSTEM-ACTOR: messaging.DeliverMessage tags the ctx after verifying
+// the recipient is a participant of the conversation.
 func (r *ConversationRepository) UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error {
+	warnIfNotSystemActor(ctx, "ConversationRepository.UpdateMessageStatus")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 

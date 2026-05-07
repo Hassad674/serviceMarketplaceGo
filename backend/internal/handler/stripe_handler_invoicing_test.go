@@ -156,6 +156,9 @@ func (f *handlerFakeInvoiceRepo) ReserveNumber(_ context.Context, _ invoicing.Co
 func (f *handlerFakeInvoiceRepo) FindInvoiceByID(_ context.Context, _ uuid.UUID) (*invoicing.Invoice, error) {
 	return nil, invoicing.ErrNotFound
 }
+func (f *handlerFakeInvoiceRepo) FindInvoiceByIDForOrg(_ context.Context, _, _ uuid.UUID) (*invoicing.Invoice, error) {
+	return nil, invoicing.ErrNotFound
+}
 func (f *handlerFakeInvoiceRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*invoicing.Invoice, error) {
 	return nil, invoicing.ErrNotFound
 }
