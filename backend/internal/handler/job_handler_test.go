@@ -17,11 +17,24 @@ import (
 	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/port/repository"
 )
 
 func newTestJobHandler(jobRepo *mockJobRepo, userRepo *mockUserRepo) *JobHandler {
 	svc := jobapp.NewService(jobapp.ServiceDeps{Jobs: jobRepo, Users: userRepo})
 	return NewJobHandler(svc)
+}
+
+// newTestJobApplicationHandler wires the JobApplicationHandler with the
+// JobView mock so /jobs/open tests can exercise the social-proof
+// counts path end-to-end (handler → service → batch helper).
+func newTestJobApplicationHandler(jobRepo *mockJobRepo, viewRepo *mockJobViewRepo) *JobApplicationHandler {
+	svc := jobapp.NewService(jobapp.ServiceDeps{
+		Jobs:     jobRepo,
+		Users:    &mockUserRepo{},
+		JobViews: viewRepo,
+	})
+	return NewJobApplicationHandler(svc)
 }
 
 func TestJobHandler_CreateJob(t *testing.T) {
@@ -320,4 +333,128 @@ func TestJobHandler_CloseJob(t *testing.T) {
 			}
 		})
 	}
+}
+
+// --- ListOpenJobs (public marketplace feed with social-proof counts) ---
+
+// jobOpenItem mirrors the JobResponse subset the handler surfaces on
+// /jobs/open. Defined inline (not imported from dto/response) so the
+// test asserts the wire-format JSON, not the Go struct shape.
+type jobOpenItem struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	Status          string `json:"status"`
+	TotalApplicants *int   `json:"total_applicants,omitempty"`
+	NewApplicants   *int   `json:"new_applicants,omitempty"` // must NEVER appear
+}
+
+type jobOpenListResponse struct {
+	Data       []jobOpenItem `json:"data"`
+	NextCursor string        `json:"next_cursor"`
+	HasMore    bool          `json:"has_more"`
+}
+
+func TestJobApplicationHandler_ListOpenJobs_ResponseShape(t *testing.T) {
+	creatorID := uuid.New()
+	j1 := testJob(creatorID)
+	j2 := testJob(creatorID)
+	j3 := testJob(creatorID) // zero applicants — must serialise as 0
+
+	jobRepo := &mockJobRepo{
+		listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*jobdomain.Job, string, error) {
+			return []*jobdomain.Job{j1, j2, j3}, "", nil
+		},
+	}
+	viewRepo := &mockJobViewRepo{
+		getApplicationCountsBatchFn: func(_ context.Context, ids []uuid.UUID, viewer uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error) {
+			// Public feed has no per-user "since I last looked" — viewer
+			// must be uuid.Nil here. Pin the contract.
+			assert.Equal(t, uuid.Nil, viewer, "public feed must NOT leak a per-user viewer id to the count batch")
+			assert.Len(t, ids, 3)
+			return map[uuid.UUID]repository.ApplicationCounts{
+				j1.ID: {Total: 7, NewCount: 2},
+				j2.ID: {Total: 0, NewCount: 0},
+				// j3 absent — handler must surface 0
+			}, nil
+		},
+	}
+	h := newTestJobApplicationHandler(jobRepo, viewRepo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/open", nil)
+	rec := httptest.NewRecorder()
+	h.ListOpenJobs(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	rawBody := rec.Body.Bytes()
+
+	var got jobOpenListResponse
+	require.NoError(t, json.Unmarshal(rawBody, &got))
+	require.Len(t, got.Data, 3)
+
+	// Every item exposes total_applicants (zero is a valid public value).
+	for i, item := range got.Data {
+		require.NotNil(t, item.TotalApplicants, "item %d must expose total_applicants", i)
+	}
+	assert.Equal(t, j1.ID.String(), got.Data[0].ID)
+	assert.Equal(t, 7, *got.Data[0].TotalApplicants)
+	assert.Equal(t, j2.ID.String(), got.Data[1].ID)
+	assert.Equal(t, 0, *got.Data[1].TotalApplicants)
+	assert.Equal(t, j3.ID.String(), got.Data[2].ID)
+	assert.Equal(t, 0, *got.Data[2].TotalApplicants)
+
+	// Critical privacy invariant: the public feed must NEVER expose
+	// new_applicants — that semantic is owner-only ("new since I last
+	// looked at my own job's candidatures").
+	for i, item := range got.Data {
+		assert.Nil(t, item.NewApplicants, "item %d must NOT expose new_applicants on the public feed", i)
+	}
+
+	// Confirm raw JSON keys: belt-and-braces guard against silent
+	// renames or accidental field exposure.
+	var rawDecode struct {
+		Data []map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rawBody, &rawDecode))
+	for i, item := range rawDecode.Data {
+		_, hasTotal := item["total_applicants"]
+		assert.True(t, hasTotal, "item %d JSON must contain total_applicants key", i)
+		_, hasNew := item["new_applicants"]
+		assert.False(t, hasNew, "item %d JSON must NOT contain new_applicants key", i)
+	}
+}
+
+func TestJobApplicationHandler_ListOpenJobs_EmptyList(t *testing.T) {
+	jobRepo := &mockJobRepo{
+		listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*jobdomain.Job, string, error) {
+			return []*jobdomain.Job{}, "", nil
+		},
+	}
+	h := newTestJobApplicationHandler(jobRepo, &mockJobViewRepo{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/open", nil)
+	rec := httptest.NewRecorder()
+	h.ListOpenJobs(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// Empty data must serialise as `[]`, never `null`.
+	body := rec.Body.String()
+	assert.Contains(t, body, `"data":[]`, "empty list must serialise as `data:[]`, not `data:null`")
+}
+
+func TestJobApplicationHandler_ListOpenJobs_RepoError(t *testing.T) {
+	jobRepo := &mockJobRepo{
+		listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*jobdomain.Job, string, error) {
+			return nil, "", assert.AnError
+		},
+	}
+	h := newTestJobApplicationHandler(jobRepo, &mockJobViewRepo{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/open", nil)
+	rec := httptest.NewRecorder()
+	h.ListOpenJobs(rec, req)
+
+	// Generic 500 — the handler must NOT leak the internal error string.
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

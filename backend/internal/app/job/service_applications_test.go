@@ -13,6 +13,7 @@ import (
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 )
 
 func newTestApplyService() (*Service, *mockJobRepo, *mockJobApplicationRepo, *mockUserRepo, *mockProfileRepo, *mockMsgSender) {
@@ -428,6 +429,136 @@ func TestApplyToJob_KYCBlocked(t *testing.T) {
 		JobID: j.ID, ApplicantID: applicantID, Message: "test",
 	})
 	assert.ErrorIs(t, err, user.ErrKYCRestricted)
+}
+
+// --- ListOpenJobs (public marketplace feed with social-proof counts) ---
+
+func newTestListOpenService(jr *mockJobRepo, jv *mockJobViewRepo) *Service {
+	return NewService(ServiceDeps{
+		Jobs:         jr,
+		Applications: &mockJobApplicationRepo{},
+		Users:        &mockUserRepo{},
+		JobViews:     jv,
+	})
+}
+
+func TestListOpenJobs_EmptyResult(t *testing.T) {
+	jr := &mockJobRepo{listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*domain.Job, string, error) {
+		return []*domain.Job{}, "", nil
+	}}
+	jv := &mockJobViewRepo{}
+	svc := newTestListOpenService(jr, jv)
+
+	jobs, cursor, err := svc.ListOpenJobs(context.Background(), repository.JobListFilters{}, "", 20)
+	require.NoError(t, err)
+	assert.Empty(t, jobs)
+	assert.Empty(t, cursor)
+	// No batch call when the page is empty — the batch helper would
+	// otherwise fire with an empty slice and waste a query.
+	assert.Equal(t, 0, jv.batchCalls, "batch must not fire on empty page")
+}
+
+func TestListOpenJobs_WithCounts(t *testing.T) {
+	creatorID := uuid.New()
+	j1 := openJob(creatorID)
+	j2 := openJob(creatorID)
+	j3 := openJob(creatorID) // no applicants — must default to 0
+
+	jr := &mockJobRepo{listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*domain.Job, string, error) {
+		return []*domain.Job{j1, j2, j3}, "next_cursor_xyz", nil
+	}}
+	jv := &mockJobViewRepo{
+		getApplicationCountsBatchFn: func(_ context.Context, _ []uuid.UUID, _ uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error) {
+			return map[uuid.UUID]repository.ApplicationCounts{
+				j1.ID: {Total: 12, NewCount: 4},
+				j2.ID: {Total: 1, NewCount: 1},
+				// j3 absent on purpose — service must surface 0, not panic.
+			}, nil
+		},
+	}
+	svc := newTestListOpenService(jr, jv)
+
+	jobs, cursor, err := svc.ListOpenJobs(context.Background(), repository.JobListFilters{}, "", 20)
+	require.NoError(t, err)
+	assert.Equal(t, "next_cursor_xyz", cursor)
+	require.Len(t, jobs, 3)
+
+	// Counts mapped per job.
+	assert.Equal(t, j1.ID, jobs[0].Job.ID)
+	assert.Equal(t, 12, jobs[0].TotalApplicants)
+	assert.Equal(t, j2.ID, jobs[1].Job.ID)
+	assert.Equal(t, 1, jobs[1].TotalApplicants)
+
+	// Edge case: missing entry in the count map → 0, not panic.
+	assert.Equal(t, j3.ID, jobs[2].Job.ID)
+	assert.Equal(t, 0, jobs[2].TotalApplicants)
+
+	// new_applicants must NEVER be exposed on the public feed.
+	for _, jc := range jobs {
+		assert.Equal(t, 0, jc.NewApplicants, "new_applicants must stay zero on /jobs/open")
+	}
+}
+
+func TestListOpenJobs_BatchedNotN1(t *testing.T) {
+	// The whole point of swapping per-job count queries for the batch
+	// helper is to keep the public feed N+1-free. This test pins that
+	// invariant: regardless of the page size, exactly ONE batch call
+	// fires — and it carries every job ID on the page.
+	creatorID := uuid.New()
+	page := make([]*domain.Job, 0, 25)
+	for i := 0; i < 25; i++ {
+		page = append(page, openJob(creatorID))
+	}
+
+	jr := &mockJobRepo{listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*domain.Job, string, error) {
+		return page, "", nil
+	}}
+	jv := &mockJobViewRepo{}
+	svc := newTestListOpenService(jr, jv)
+
+	_, _, err := svc.ListOpenJobs(context.Background(), repository.JobListFilters{}, "", 25)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, jv.batchCalls, "must fire exactly one batch call (no N+1)")
+	assert.Len(t, jv.lastBatchIDs, 25, "batch must cover every job on the page")
+	// Public feed has no per-user "since I last looked" semantic — we
+	// pass uuid.Nil so the LEFT JOIN sentinel kicks in and the total
+	// count stays accurate.
+	assert.Equal(t, uuid.Nil, jv.lastViewerID, "public feed batch must use uuid.Nil viewer")
+}
+
+func TestListOpenJobs_NilJobViewRepo_GracefulZero(t *testing.T) {
+	// Legacy test setups that don't wire JobView repo must still get a
+	// usable list — counts gracefully default to 0 instead of crashing.
+	creatorID := uuid.New()
+	j := openJob(creatorID)
+	jr := &mockJobRepo{listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*domain.Job, string, error) {
+		return []*domain.Job{j}, "", nil
+	}}
+	svc := NewService(ServiceDeps{
+		Jobs:         jr,
+		Applications: &mockJobApplicationRepo{},
+		Users:        &mockUserRepo{},
+		// JobViews intentionally nil
+	})
+
+	jobs, _, err := svc.ListOpenJobs(context.Background(), repository.JobListFilters{}, "", 20)
+	require.NoError(t, err)
+	require.Len(t, jobs, 1)
+	assert.Equal(t, 0, jobs[0].TotalApplicants)
+}
+
+func TestListOpenJobs_RepoErrorPropagated(t *testing.T) {
+	wantErr := assert.AnError
+	jr := &mockJobRepo{listOpenFn: func(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*domain.Job, string, error) {
+		return nil, "", wantErr
+	}}
+	svc := newTestListOpenService(jr, &mockJobViewRepo{})
+
+	jobs, cursor, err := svc.ListOpenJobs(context.Background(), repository.JobListFilters{}, "", 20)
+	assert.ErrorIs(t, err, wantErr)
+	assert.Nil(t, jobs)
+	assert.Empty(t, cursor)
 }
 
 func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {

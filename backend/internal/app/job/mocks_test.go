@@ -112,6 +112,48 @@ func (m *mockJobRepo) ListOpen(ctx context.Context, filters repository.JobListFi
 	return []*domain.Job{}, "", nil
 }
 
+// --- mockJobViewRepo ---
+//
+// Tracks viewer-scoped per-job application counts. The job feature's
+// `ListOpenJobs` and `ListOrgJobsWithCounts` paths drive the same
+// `GetApplicationCountsBatch` helper — this mock backs both.
+
+type mockJobViewRepo struct {
+	upsertFn               func(ctx context.Context, jobID, userID uuid.UUID) error
+	getApplicationCountsFn func(ctx context.Context, jobID, userID uuid.UUID) (int, int, error)
+	getApplicationCountsBatchFn func(ctx context.Context, jobIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error)
+
+	batchCalls    int            // counter to assert single-call (no N+1)
+	lastViewerID  uuid.UUID      // captured for assertions on /jobs/open semantics
+	lastBatchIDs  []uuid.UUID    // captured to verify batch covers full page
+}
+
+func (m *mockJobViewRepo) Upsert(ctx context.Context, jobID, userID uuid.UUID) error {
+	if m.upsertFn != nil {
+		return m.upsertFn(ctx, jobID, userID)
+	}
+	return nil
+}
+
+func (m *mockJobViewRepo) GetApplicationCounts(ctx context.Context, jobID, userID uuid.UUID) (int, int, error) {
+	if m.getApplicationCountsFn != nil {
+		return m.getApplicationCountsFn(ctx, jobID, userID)
+	}
+	return 0, 0, nil
+}
+
+func (m *mockJobViewRepo) GetApplicationCountsBatch(ctx context.Context, jobIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error) {
+	m.batchCalls++
+	m.lastViewerID = userID
+	m.lastBatchIDs = jobIDs
+	if m.getApplicationCountsBatchFn != nil {
+		return m.getApplicationCountsBatchFn(ctx, jobIDs, userID)
+	}
+	return map[uuid.UUID]repository.ApplicationCounts{}, nil
+}
+
+var _ repository.JobViewRepository = (*mockJobViewRepo)(nil)
+
 // --- mockJobApplicationRepo ---
 
 type mockJobApplicationRepo struct {

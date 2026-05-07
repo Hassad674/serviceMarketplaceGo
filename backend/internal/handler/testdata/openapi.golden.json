@@ -1297,6 +1297,17 @@
           "title": {
             "type": "string"
           },
+          "total_applicants": {
+            "oneOf": [
+              {
+                "format": "int32",
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "updated_at": {
             "type": "string"
           },

@@ -268,9 +268,49 @@ func (s *Service) ContactApplicant(ctx context.Context, jobID, ownerID, applican
 	return convID, nil
 }
 
-// ListOpenJobs returns open jobs matching the given filters.
-func (s *Service) ListOpenJobs(ctx context.Context, filters repository.JobListFilters, cursorStr string, limit int) ([]*domain.Job, string, error) {
-	return s.jobs.ListOpen(ctx, filters, cursorStr, limit)
+// ListOpenJobs returns open jobs matching the given filters, enriched
+// with the public application count (social proof on the marketplace
+// feed). new_applicants is intentionally NOT computed: that state is
+// owner-only ("new since I last viewed") and has no meaning for a
+// candidate browsing the public feed.
+//
+// The count is fetched via the same batch helper used by /jobs/mine,
+// so this list endpoint stays N+1-free regardless of page size.
+// When the optional JobView repository is not wired (e.g. legacy unit
+// tests), the counts gracefully default to zero — the feed still
+// renders, just without the social-proof badge.
+func (s *Service) ListOpenJobs(ctx context.Context, filters repository.JobListFilters, cursorStr string, limit int) ([]JobWithCounts, string, error) {
+	jobs, nextCursor, err := s.jobs.ListOpen(ctx, filters, cursorStr, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(jobs) == 0 || s.jobViews == nil {
+		result := make([]JobWithCounts, len(jobs))
+		for i, j := range jobs {
+			result[i] = JobWithCounts{Job: j}
+		}
+		return result, nextCursor, nil
+	}
+
+	ids := make([]uuid.UUID, len(jobs))
+	for i, j := range jobs {
+		ids[i] = j.ID
+	}
+	// uuid.Nil for the viewer slot: the LEFT JOIN on job_views falls
+	// through to the 1970 sentinel, so total stays accurate; the
+	// new_count column is discarded below.
+	counts, err := s.jobViews.GetApplicationCountsBatch(ctx, ids, uuid.Nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("get application counts: %w", err)
+	}
+
+	result := make([]JobWithCounts, len(jobs))
+	for i, j := range jobs {
+		c := counts[j.ID]
+		// Deliberately skip c.NewCount — public feed exposes total only.
+		result[i] = JobWithCounts{Job: j, TotalApplicants: c.Total}
+	}
+	return result, nextCursor, nil
 }
 
 // HasApplied checks if the user has already applied to the given job.

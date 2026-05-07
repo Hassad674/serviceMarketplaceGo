@@ -26,6 +26,14 @@ type JobResponse struct {
 	IsIndefinite     bool     `json:"is_indefinite"`
 	DescriptionType  string   `json:"description_type"`
 	VideoURL         *string  `json:"video_url,omitempty"`
+	// TotalApplicants is the public count of candidatures on the job,
+	// served as social proof on the marketplace feed (/jobs/open).
+	// The field is intentionally optional: endpoints that do not
+	// compute the count (single GET, owner list via /jobs/mine which
+	// already exposes both total + new via JobWithCountsResponse)
+	// omit it so the response shape stays focused. Never expose
+	// new_applicants here — that semantic is owner-only.
+	TotalApplicants *int `json:"total_applicants,omitempty"`
 }
 
 type JobListResponse struct {
@@ -102,6 +110,26 @@ func NewJobListResponse(jobs []*job.Job, nextCursor string) JobListResponse {
 	data := make([]JobResponse, len(jobs))
 	for i, j := range jobs {
 		data[i] = NewJobResponse(j)
+	}
+	return JobListResponse{
+		Data:       data,
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	}
+}
+
+// NewOpenJobListResponse builds the public marketplace feed response.
+// Each item carries a non-nil total_applicants counter (zero is a
+// legitimate value — "be the first to apply" UX). new_applicants is
+// intentionally omitted: it is owner-only state ("new since I last
+// looked") that has no meaning for a candidate browsing the feed.
+func NewOpenJobListResponse(jobs []jobapp.JobWithCounts, nextCursor string) JobListResponse {
+	data := make([]JobResponse, len(jobs))
+	for i, jc := range jobs {
+		jr := NewJobResponse(jc.Job)
+		total := jc.TotalApplicants
+		jr.TotalApplicants = &total
+		data[i] = jr
 	}
 	return JobListResponse{
 		Data:       data,

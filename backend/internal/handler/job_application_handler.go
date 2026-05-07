@@ -182,7 +182,7 @@ func (h *JobApplicationHandler) ListOpenJobs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewJobListResponse(jobs, nextCursor))
+	res.JSON(w, http.StatusOK, response.NewOpenJobListResponse(jobs, nextCursor))
 }
 
 func (h *JobApplicationHandler) GetCredits(w http.ResponseWriter, r *http.Request) {

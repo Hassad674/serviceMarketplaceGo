@@ -392,6 +392,7 @@ type mockJobRepo struct {
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*job.Job, error)
 	updateFn        func(ctx context.Context, j *job.Job) error
 	listByOrgFn     func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error)
+	listOpenFn      func(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*job.Job, string, error)
 }
 
 func (m *mockJobRepo) Create(ctx context.Context, j *job.Job) error {
@@ -422,7 +423,10 @@ func (m *mockJobRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, c
 	return []*job.Job{}, "", nil
 }
 
-func (m *mockJobRepo) ListOpen(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*job.Job, string, error) {
+func (m *mockJobRepo) ListOpen(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*job.Job, string, error) {
+	if m.listOpenFn != nil {
+		return m.listOpenFn(ctx, filters, cursor, limit)
+	}
 	return []*job.Job{}, "", nil
 }
 
@@ -443,6 +447,30 @@ func (m *mockJobRepo) GetAdmin(_ context.Context, _ uuid.UUID) (*repository.Admi
 func (m *mockJobRepo) CountAll(_ context.Context) (int, int, error) {
 	return 0, 0, nil
 }
+
+// --- mockJobViewRepo ---
+//
+// Backs the JobView port for handler tests that exercise the public
+// /jobs/open feed (social-proof counts).
+
+type mockJobViewRepo struct {
+	getApplicationCountsBatchFn func(ctx context.Context, jobIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error)
+}
+
+func (m *mockJobViewRepo) Upsert(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockJobViewRepo) GetApplicationCounts(_ context.Context, _, _ uuid.UUID) (int, int, error) {
+	return 0, 0, nil
+}
+
+func (m *mockJobViewRepo) GetApplicationCountsBatch(ctx context.Context, jobIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]repository.ApplicationCounts, error) {
+	if m.getApplicationCountsBatchFn != nil {
+		return m.getApplicationCountsBatchFn(ctx, jobIDs, userID)
+	}
+	return map[uuid.UUID]repository.ApplicationCounts{}, nil
+}
+
+var _ repository.JobViewRepository = (*mockJobViewRepo)(nil)
 
 // --- mockStorageService ---
 
