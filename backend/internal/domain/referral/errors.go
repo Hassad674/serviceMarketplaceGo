@@ -18,6 +18,12 @@ var (
 	ErrInvalidProviderRole = errors.New("provider party must be a provider or an agency")
 	ErrInvalidClientRole = errors.New("client party must be an enterprise or an agency")
 
+	// Anti-fraud — the provider and client party are already in business
+	// relation (an existing 1:1 conversation links them). An apporteur
+	// cannot earn a commission for introducing two parties that already
+	// know each other.
+	ErrPartiesAlreadyInRelation = errors.New("provider and client party are already in relation")
+
 	// Term validation
 	ErrRateOutOfRange     = errors.New("commission rate must be between 0 and 50 percent")
 	ErrDurationOutOfRange = errors.New("exclusivity duration must be between 1 and 24 months")

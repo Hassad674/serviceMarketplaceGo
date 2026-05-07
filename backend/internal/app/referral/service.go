@@ -46,6 +46,17 @@ type ServiceDeps struct {
 	StripeAccounts   StripeAccountResolver
 	OrgMembers       OrgMemberResolver
 	ProposalSummaries ProposalSummaryResolver
+	// Relationships detects whether the two parties an apporteur is
+	// trying to introduce already share a 1:1 conversation. Anti-fraud
+	// gate enforced at create time. Optional: when nil, the check is
+	// skipped (legacy unit-test behaviour); production wiring always
+	// passes a non-nil checker so the gate fires.
+	Relationships RelationshipChecker
+	// Audits is the append-only audit log repository. Optional: when
+	// nil, audit emission is silently skipped — production wiring
+	// always passes a non-nil repository so anti-fraud attempts are
+	// recorded for forensic review.
+	Audits repository.AuditRepository
 }
 
 // Service is the referral feature's application service. It implements the
@@ -62,6 +73,8 @@ type Service struct {
 	stripeAccounts   StripeAccountResolver
 	orgMembers       OrgMemberResolver
 	proposalSummaries ProposalSummaryResolver
+	relationships    RelationshipChecker
+	audits           repository.AuditRepository
 }
 
 // Compile-time assertions that the Service satisfies the five exposed ports.
@@ -86,5 +99,7 @@ func NewService(deps ServiceDeps) *Service {
 		stripeAccounts:   deps.StripeAccounts,
 		orgMembers:       deps.OrgMembers,
 		proposalSummaries: deps.ProposalSummaries,
+		relationships:    deps.Relationships,
+		audits:           deps.Audits,
 	}
 }

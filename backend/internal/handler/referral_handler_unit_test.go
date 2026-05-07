@@ -623,6 +623,18 @@ func TestHandleReferralError_CoupleLocked_409(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
 
+// TestHandleReferralError_AlreadyInRelation_409 documents the
+// anti-fraud gate: when CreateIntro refuses an apporteur because the
+// two parties already share a 1:1 conversation, the handler maps the
+// domain error to 409 Conflict with the machine-readable
+// "already_in_relation" code so frontends can show a tailored message.
+func TestHandleReferralError_AlreadyInRelation_409(t *testing.T) {
+	rec := httptest.NewRecorder()
+	handleReferralError(rec, referral.ErrPartiesAlreadyInRelation)
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "already_in_relation")
+}
+
 func TestHandleReferralError_ValidationErrors_400(t *testing.T) {
 	cases := []error{
 		referral.ErrSelfReferral,

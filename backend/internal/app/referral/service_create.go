@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/domain/user"
 )
@@ -44,8 +46,19 @@ type SnapshotToggles struct {
 // and notifies the provider that they have an intro to review. The client is
 // NOT notified at this stage — they enter the flow only after the provider
 // has agreed (Modèle A: bilateral apporteur ↔ provider negotiation first).
+//
+// Anti-fraud gate: before any persistence, CreateIntro verifies the provider
+// party and the client party are not already in business relation (i.e. they
+// do not share a 1:1 conversation). An apporteur cannot earn a commission for
+// introducing two parties that already know each other on the platform —
+// the attempt is rejected with ErrPartiesAlreadyInRelation and recorded in
+// the audit log.
 func (s *Service) CreateIntro(ctx context.Context, input CreateIntroInput) (*referral.Referral, error) {
 	if err := s.validateActorRoles(ctx, input.ReferrerID, input.ProviderID, input.ClientID); err != nil {
+		return nil, err
+	}
+
+	if err := s.guardAgainstExistingRelation(ctx, input); err != nil {
 		return nil, err
 	}
 
@@ -190,3 +203,75 @@ func applyProviderToggles(in referral.ProviderSnapshot, toggles *SnapshotToggles
 // requested user has no profile yet. It is non-fatal: the snapshot just stays
 // empty for that section.
 var ErrSnapshotProfileMissing = errors.New("snapshot profile missing")
+
+// guardAgainstExistingRelation enforces the anti-fraud invariant that the
+// provider party and the client party of an intro must not already share
+// a 1:1 conversation. When the relationship checker is unwired (typical
+// in unit tests that do not exercise messaging), the gate is silently
+// skipped — production wiring always passes a non-nil checker.
+//
+// On a positive match, the attempt is recorded in the audit log
+// (best-effort, non-blocking) and ErrPartiesAlreadyInRelation is
+// returned so the handler can map it to 409 Conflict. Infrastructure
+// failures from the checker fail open: a transient DB error must NOT
+// block legitimate apporteurs from creating intros, and the apporteur
+// would simply retry. The audit pipeline still observes the attempt
+// when the gate fires.
+func (s *Service) guardAgainstExistingRelation(ctx context.Context, input CreateIntroInput) error {
+	if s.relationships == nil {
+		return nil
+	}
+	related, err := s.relationships.AreInRelation(ctx, input.ProviderID, input.ClientID)
+	if err != nil {
+		// Fail open on infrastructure errors — log loudly so SREs see
+		// the signal, but do not block a legitimate intro on a
+		// transient checker failure. The CoupleLocked invariant on the
+		// repo still prevents double-creation of the same active
+		// referral, so this fallback cannot enable fraud silently.
+		slog.Warn("referral.CreateIntro: relationship checker failed, allowing intro",
+			"referrer_id", input.ReferrerID,
+			"provider_id", input.ProviderID,
+			"client_id", input.ClientID,
+			"error", err)
+		return nil
+	}
+	if !related {
+		return nil
+	}
+	s.recordBlockedIntroAttempt(ctx, input)
+	return referral.ErrPartiesAlreadyInRelation
+}
+
+// recordBlockedIntroAttempt writes an audit row for the rejected
+// CreateIntro call. Best-effort: a failure to persist the audit row
+// must not block returning the domain error to the caller — the
+// caller's experience comes first. A nil audit repository (typical in
+// unit tests) is silently tolerated.
+func (s *Service) recordBlockedIntroAttempt(ctx context.Context, input CreateIntroInput) {
+	if s.audits == nil {
+		return
+	}
+	referrerID := input.ReferrerID
+	entry, err := audit.NewEntry(audit.NewEntryInput{
+		UserID:       &referrerID,
+		Action:       audit.ActionReferralBlockedAlreadyInRelation,
+		ResourceType: audit.ResourceTypeReferral,
+		Metadata: map[string]any{
+			"provider_id": input.ProviderID.String(),
+			"client_id":   input.ClientID.String(),
+			"reason":      "parties_already_share_conversation",
+		},
+	})
+	if err != nil {
+		slog.Warn("referral.audit: build entry failed",
+			"action", audit.ActionReferralBlockedAlreadyInRelation,
+			"error", err)
+		return
+	}
+	if err := s.audits.Log(ctx, entry); err != nil {
+		slog.Warn("referral.audit: insert failed",
+			"action", audit.ActionReferralBlockedAlreadyInRelation,
+			"error", err)
+	}
+}
+

@@ -2,6 +2,7 @@ package referral_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -11,22 +12,26 @@ import (
 	"github.com/stretchr/testify/require"
 
 	referralapp "marketplace-backend/internal/app/referral"
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
 )
 
 // testFixture bundles the service + all its mocks for use in individual tests.
 type testFixture struct {
-	svc      *referralapp.Service
-	repo     *fakeReferralRepo
-	users    *fakeUserRepo
-	msgs     *fakeMessageSender
-	notifier *fakeNotifier
-	stripe   *fakeStripe
-	reversal *fakeReversalService
-	accounts *fakeStripeAccountResolver
+	svc           *referralapp.Service
+	repo          *fakeReferralRepo
+	users         *fakeUserRepo
+	msgs          *fakeMessageSender
+	notifier      *fakeNotifier
+	stripe        *fakeStripe
+	reversal      *fakeReversalService
+	accounts      *fakeStripeAccountResolver
+	relationships *fakeRelationshipChecker
+	audits        *fakeAuditRepo
 }
 
 func newTestFixture(t *testing.T, accountID string) *testFixture {
@@ -41,6 +46,8 @@ func newTestFixture(t *testing.T, accountID string) *testFixture {
 	snap := &fakeSnapshotLoader{
 		provider: referral.ProviderSnapshot{Region: "IDF"},
 	}
+	relationships := newFakeRelationshipChecker()
+	audits := newFakeAuditRepo()
 
 	svc := referralapp.NewService(referralapp.ServiceDeps{
 		Referrals:        repo,
@@ -51,17 +58,21 @@ func newTestFixture(t *testing.T, accountID string) *testFixture {
 		Reversals:        reversal,
 		SnapshotProfiles: snap,
 		StripeAccounts:   accounts,
+		Relationships:    relationships,
+		Audits:           audits,
 	})
 
 	return &testFixture{
-		svc:      svc,
-		repo:     repo,
-		users:    users,
-		msgs:     msgs,
-		notifier: notifier,
-		stripe:   stripe,
-		reversal: reversal,
-		accounts: accounts,
+		svc:           svc,
+		repo:          repo,
+		users:         users,
+		msgs:          msgs,
+		notifier:      notifier,
+		stripe:        stripe,
+		reversal:      reversal,
+		accounts:      accounts,
+		relationships: relationships,
+		audits:        audits,
 	}
 }
 
@@ -129,6 +140,112 @@ func TestCreateIntro_ReferrerNotEnabled(t *testing.T) {
 		IntroMessageClient:   "c",
 	})
 	require.ErrorIs(t, err, referral.ErrReferrerRequired)
+}
+
+func TestCreateIntro_RejectsWhenPartiesAlreadyInRelation(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+
+	// Provider and client already share a 1:1 conversation — the
+	// anti-fraud gate must refuse the intro before any persistence.
+	f.relationships.markRelated(provID, cliID)
+
+	_, err := f.svc.CreateIntro(context.Background(), referralapp.CreateIntroInput{
+		ReferrerID:           refID,
+		ProviderID:           provID,
+		ClientID:             cliID,
+		RatePct:              5,
+		DurationMonths:       6,
+		IntroMessageProvider: "p",
+		IntroMessageClient:   "c",
+	})
+	require.ErrorIs(t, err, referral.ErrPartiesAlreadyInRelation)
+
+	// No referral row was persisted, no notifications sent.
+	rows, _, _ := f.repo.ListByReferrer(context.Background(), refID, repository.ReferralListFilter{})
+	assert.Empty(t, rows, "no referral must be created when the gate rejects")
+	assert.Equal(t, 0, f.notifier.typeCount(string(notification.TypeReferralIntroCreated)),
+		"no notifications must fire when the gate rejects")
+
+	// Audit row recorded with the right action + metadata.
+	entries := f.audits.entriesOfAction(audit.ActionReferralBlockedAlreadyInRelation)
+	require.Len(t, entries, 1, "exactly one audit row for the blocked attempt")
+	require.NotNil(t, entries[0].UserID, "the apporteur must be attributed as the actor")
+	assert.Equal(t, refID, *entries[0].UserID)
+	assert.Equal(t, audit.ResourceTypeReferral, entries[0].ResourceType)
+	assert.Equal(t, provID.String(), entries[0].Metadata["provider_id"])
+	assert.Equal(t, cliID.String(), entries[0].Metadata["client_id"])
+	assert.Equal(t, "parties_already_share_conversation", entries[0].Metadata["reason"])
+}
+
+func TestCreateIntro_RelationshipCheckOrderInsensitive(t *testing.T) {
+	// markRelated stores the unordered pair; the gate must reject the
+	// intro regardless of which side was registered first. Doubles as a
+	// regression test for the fakeRelationshipChecker keying.
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+	f.relationships.markRelated(cliID, provID) // reversed order
+
+	_, err := f.svc.CreateIntro(context.Background(), referralapp.CreateIntroInput{
+		ReferrerID:           refID,
+		ProviderID:           provID,
+		ClientID:             cliID,
+		RatePct:              5,
+		DurationMonths:       6,
+		IntroMessageProvider: "p",
+		IntroMessageClient:   "c",
+	})
+	require.ErrorIs(t, err, referral.ErrPartiesAlreadyInRelation)
+}
+
+func TestCreateIntro_AllowsWhenNoExistingRelation(t *testing.T) {
+	// Sanity check: when the parties have NO conversation, the gate
+	// must let the intro through. Distinct from the existing happy
+	// path — this one explicitly asserts the gate observed the call.
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+
+	r, err := f.svc.CreateIntro(context.Background(), referralapp.CreateIntroInput{
+		ReferrerID:           refID,
+		ProviderID:           provID,
+		ClientID:             cliID,
+		RatePct:              5,
+		DurationMonths:       6,
+		IntroMessageProvider: "p",
+		IntroMessageClient:   "c",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, referral.StatusPendingProvider, r.Status)
+	assert.Equal(t, 1, f.relationships.calls,
+		"the gate must be probed exactly once per CreateIntro call")
+	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralBlockedAlreadyInRelation),
+		"no audit row when the intro is allowed")
+}
+
+func TestCreateIntro_RelationshipCheckerErrorFailsOpen(t *testing.T) {
+	// An infrastructure failure on the checker MUST NOT block legitimate
+	// apporteurs. The intro proceeds and the CoupleLocked invariant on
+	// the repo still prevents double-creation of the same active
+	// referral, so failing open does not enable fraud silently.
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+	f.relationships.forceErr = fmt.Errorf("simulated db outage")
+
+	r, err := f.svc.CreateIntro(context.Background(), referralapp.CreateIntroInput{
+		ReferrerID:           refID,
+		ProviderID:           provID,
+		ClientID:             cliID,
+		RatePct:              5,
+		DurationMonths:       6,
+		IntroMessageProvider: "p",
+		IntroMessageClient:   "c",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	// No audit row — the gate didn't actively block; it failed open.
+	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralBlockedAlreadyInRelation),
+		"failing open must not record a 'blocked' audit row")
 }
 
 func TestCreateIntro_InvalidProviderRole(t *testing.T) {

@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../data/referral_repository_impl.dart';
 import '../../domain/entities/referral_entity.dart';
 import '../../domain/repositories/referral_repository.dart';
@@ -60,7 +62,37 @@ final referralCommissionsProvider =
 // invalidate the relevant providers on success so the UI refreshes
 // immediately (parity with the web TanStack Query invalidate pattern).
 
-Future<Referral?> createReferral(
+/// Sentinel error code surfaced by the backend's anti-fraud gate when an
+/// apporteur tries to introduce two parties that already share a 1:1
+/// conversation. Exposed here so the screen can display a tailored
+/// message rather than a generic "could not create" line.
+const String referralAlreadyInRelationCode = 'already_in_relation';
+
+/// CreateReferralResult carries the outcome of [createReferral] in a
+/// shape that lets the caller distinguish "success", "anti-fraud
+/// rejection", and "unknown failure" without inspecting raw exceptions.
+class CreateReferralResult {
+  const CreateReferralResult._({this.referral, this.errorCode});
+
+  /// The referral row created by the backend, when the call succeeded.
+  final Referral? referral;
+
+  /// Machine-readable error code returned by the backend, when the call
+  /// failed. `null` on success or on unstructured failures.
+  final String? errorCode;
+
+  bool get isSuccess => referral != null;
+  bool get isAlreadyInRelation =>
+      errorCode == referralAlreadyInRelationCode;
+
+  factory CreateReferralResult.success(Referral r) =>
+      CreateReferralResult._(referral: r);
+
+  factory CreateReferralResult.failure({String? code}) =>
+      CreateReferralResult._(errorCode: code);
+}
+
+Future<CreateReferralResult> createReferral(
   WidgetRef ref, {
   required String providerId,
   required String clientId,
@@ -82,9 +114,14 @@ Future<Referral?> createReferral(
       snapshotToggles: snapshotToggles,
     );
     ref.invalidate(myReferralsProvider);
-    return created;
+    return CreateReferralResult.success(created);
+  } on DioException catch (e) {
+    final apiErr = ApiException.fromDioException(e);
+    return CreateReferralResult.failure(code: apiErr.code);
+  } on ApiException catch (e) {
+    return CreateReferralResult.failure(code: e.code);
   } catch (_) {
-    return null;
+    return CreateReferralResult.failure();
   }
 }
 

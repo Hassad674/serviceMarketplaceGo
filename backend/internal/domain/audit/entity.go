@@ -81,6 +81,13 @@ const (
 	// its PDF.
 	ActionReceiptView        Action = "receipt.view"
 	ActionReceiptPDFDownload Action = "receipt.pdf_download"
+
+	// Referral (apport d'affaires) anti-fraud. Emitted by the referral
+	// service when an apporteur attempts to introduce two parties that
+	// already share a 1:1 conversation — the intro is rejected and the
+	// attempt is recorded so platform admins can audit suspicious
+	// commission-farming patterns.
+	ActionReferralBlockedAlreadyInRelation Action = "referral.blocked_already_in_relation"
 )
 
 // ResourceType is the kind of resource the audit entry refers to.
@@ -95,6 +102,7 @@ const (
 	ResourceTypeInvitation   ResourceType = "invitation"
 	ResourceTypeRole         ResourceType = "role"
 	ResourceTypeReceipt      ResourceType = "receipt"
+	ResourceTypeReferral     ResourceType = "referral"
 )
 
 // Entry is a single audit log row. Construct via NewEntry — the struct
