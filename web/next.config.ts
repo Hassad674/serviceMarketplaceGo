@@ -85,7 +85,12 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-XSS-Protection", value: "0" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Microphone + camera are allowed for same-origin only (voice
+          // messages, LiveKit calls). Geolocation stays fully disabled —
+          // the app does not use it. An empty allowlist `()` silently
+          // blocks getUserMedia (no browser permission prompt), which
+          // broke voice + video on 2026-04-30.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
           // HSTS in production only — match backend behaviour. Vercel
           // serves only over HTTPS so it's safe to keep on at all
           // times when NODE_ENV=production.

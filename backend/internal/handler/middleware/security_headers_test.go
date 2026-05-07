@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,7 +43,7 @@ func TestSecurityHeaders_AllHeadersSet(t *testing.T) {
 				{"X-Xss-Protection", "0"},
 				{"Strict-Transport-Security", "max-age=31536000; includeSubDomains"},
 				{"Referrer-Policy", "strict-origin-when-cross-origin"},
-				{"Permissions-Policy", "camera=(), microphone=(), geolocation=()"},
+				{"Permissions-Policy", "camera=(self), microphone=(self), geolocation=()"},
 			}
 			for _, tc := range tests {
 				assert.Equal(t, tc.want, rec.Header().Get(tc.header),
@@ -126,4 +127,89 @@ func TestSecurityHeaders_NilConfigPanics(t *testing.T) {
 	assert.Panics(t, func() {
 		_ = SecurityHeaders(nil)
 	}, "constructor must panic when given a nil *config.Config")
+}
+
+// TestSecurityHeaders_PermissionsPolicy_AllowsMicrophoneCamera is the
+// invariant that documents the intent of the Permissions-Policy header
+// and prevents the 2026-04-30 regression from coming back.
+//
+// Background: between 2026-04-30 and 2026-05-07 the header shipped as
+// `camera=(), microphone=(), geolocation=()`. An empty allowlist `()`
+// blocks getUserMedia for ALL origins (including same-origin) and the
+// browser refuses to show the permission prompt, silently breaking
+// voice messages AND LiveKit calls. The fix is `(self)` — same-origin
+// is allowed, third parties remain blocked.
+//
+// This test asserts the SEMANTIC invariants — not a string match —
+// so a future contributor can re-order directives or add a new one
+// without breaking the test, but cannot accidentally re-introduce an
+// empty allowlist on microphone or camera.
+func TestSecurityHeaders_PermissionsPolicy_AllowsMicrophoneCamera(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	cfg := &config.Config{Env: "production"}
+	handler := SecurityHeaders(cfg)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	policy := rec.Header().Get("Permissions-Policy")
+	assert.NotEmpty(t, policy, "Permissions-Policy header must be set")
+
+	directives := parsePermissionsPolicy(t, policy)
+
+	// microphone MUST allow at least same-origin. An empty allowlist
+	// `()` would silently block getUserMedia (no browser prompt) and
+	// break voice messages + LiveKit calls.
+	mic, ok := directives["microphone"]
+	assert.True(t, ok, "Permissions-Policy must declare a microphone directive")
+	assert.NotEqual(t, "()", mic,
+		"microphone allowlist must NOT be empty — `()` blocks getUserMedia "+
+			"silently. Use `(self)` to allow same-origin (voice messages, LiveKit).")
+	assert.Contains(t, mic, "self",
+		"microphone directive must include `self` so getUserMedia works on the app's own origin")
+
+	// camera: same invariant as microphone (LiveKit video).
+	cam, ok := directives["camera"]
+	assert.True(t, ok, "Permissions-Policy must declare a camera directive")
+	assert.NotEqual(t, "()", cam,
+		"camera allowlist must NOT be empty — `()` blocks getUserMedia "+
+			"silently. Use `(self)` to allow same-origin (LiveKit calls).")
+	assert.Contains(t, cam, "self",
+		"camera directive must include `self` so getUserMedia works on the app's own origin")
+
+	// geolocation: explicitly closed. The app does not request the
+	// user's location and we want to keep the attack surface minimal.
+	geo, ok := directives["geolocation"]
+	assert.True(t, ok, "Permissions-Policy must declare a geolocation directive")
+	assert.Equal(t, "()", geo,
+		"geolocation must remain disabled — the app does not use it. "+
+			"If you add a feature that needs it, update this test alongside the policy.")
+}
+
+// parsePermissionsPolicy splits the header value into directive ->
+// allowlist pairs. The header format is a comma-separated list of
+// `directive=allowlist` entries where the allowlist is either `*`,
+// `()`, or `(origin1 origin2 ...)`. We keep the allowlist verbatim
+// (including parentheses) so the test can assert on its full shape.
+func parsePermissionsPolicy(t *testing.T, header string) map[string]string {
+	t.Helper()
+	out := make(map[string]string)
+	for _, entry := range strings.Split(header, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		eq := strings.Index(entry, "=")
+		if eq < 0 {
+			t.Fatalf("malformed Permissions-Policy directive %q (missing `=`)", entry)
+		}
+		name := strings.TrimSpace(entry[:eq])
+		value := strings.TrimSpace(entry[eq+1:])
+		out[name] = value
+	}
+	return out
 }

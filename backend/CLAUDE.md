@@ -1619,4 +1619,4 @@ r.Use(middleware.RateLimit)
 | `X-XSS-Protection` | `0` | Disables legacy browser XSS auditor which can introduce vulnerabilities. CSP is the modern replacement. |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS for 1 year on all subdomains. Browsers will refuse HTTP connections. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Sends full URL for same-origin requests, only origin for cross-origin. Prevents leaking paths to third parties. |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Explicitly disables browser APIs the app does not use. Reduces attack surface from compromised dependencies. |
+| `Permissions-Policy` | `camera=(self), microphone=(self), geolocation=()` | Allows microphone and camera for same-origin (used by voice messages and LiveKit calls); disables geolocation entirely (not used). An empty allowlist `()` silently blocks `getUserMedia` without showing the browser permission prompt — never use it for camera/microphone. |
