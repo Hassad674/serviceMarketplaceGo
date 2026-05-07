@@ -159,6 +159,7 @@ func (s *subHandlerStripe) PreviewCycleChange(_ context.Context, _ string, _ str
 func (s *subHandlerStripe) CreatePortalSession(_ context.Context, customerID, _ string) (string, error) {
 	return "https://portal.stripe.test/" + customerID, nil
 }
+func (s *subHandlerStripe) CancelSubscription(_ context.Context, _ string) error { return nil }
 
 // ---------- harness ----------
 

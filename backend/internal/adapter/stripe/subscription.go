@@ -144,12 +144,43 @@ func (s *SubscriptionService) CreateCheckoutSession(ctx context.Context, in port
 		params.SubscriptionData.Metadata["cancel_at_period_end"] = "true"
 	}
 	params.Context = ctx
+	if in.IdempotencyKey != "" {
+		// Forwarded to Stripe as the `Idempotency-Key` HTTP header.
+		// Stripe replays the same Checkout session response for any
+		// retry sharing this key within 24h — guards against
+		// double-click and network retries collapsing into duplicate
+		// subscriptions.
+		params.IdempotencyKey = stripe.String(in.IdempotencyKey)
+	}
 
 	sess, err := session.New(params)
 	if err != nil {
 		return "", fmt.Errorf("create checkout session: %w", err)
 	}
 	return sess.ClientSecret, nil
+}
+
+// CancelSubscription cancels a Stripe subscription immediately. Used
+// by the duplicate-subscription reconciliation path in the webhook
+// handler when an org receives a second `customer.subscription.created`
+// while it already has an open subscription on file.
+//
+// We do NOT pass `at_period_end` — the cancellation is immediate so
+// Stripe stops future invoices straight away. Refund/credit handling
+// follows the account-level settings; we never attempt a manual refund
+// from this path because the duplicate sub is supposed to never have
+// been charged in the first place (idempotency key + DB unique index
+// are the primary defences; this is the last line).
+func (s *SubscriptionService) CancelSubscription(ctx context.Context, stripeSubID string) error {
+	if stripeSubID == "" {
+		return errors.New("cancel subscription: stripe subscription id is required")
+	}
+	params := &stripe.SubscriptionCancelParams{}
+	params.Context = ctx
+	if _, err := stripesub.Cancel(stripeSubID, params); err != nil {
+		return fmt.Errorf("cancel subscription: %w", err)
+	}
+	return nil
 }
 
 // EnrichCustomerWithBillingProfile pushes the org's billing profile
