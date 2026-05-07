@@ -128,8 +128,21 @@ func (s *Service) IssueMonthlyConsolidated(ctx context.Context, in IssueMonthlyC
 
 	// 5. Project payment_records into invoice lines. One line per
 	// record; line amount is the commission (PlatformFeeCents).
+	// Records with PlatformFeeCents == 0 are skipped — they belong to
+	// Premium subscribers whose commissions are waived (the monthly
+	// Premium subscription invoice already covers them). Including
+	// them would produce a 0 € invoice that is legally meaningless
+	// and confusing to recipients. The skipped records never get
+	// linked to an invoice_item, but the period filter
+	// (transferred_at >= start AND < end) ensures they are NEVER
+	// re-considered in a later month — only a re-run for the same
+	// (org, year, month) could see them again, and that path returns
+	// (nil, nil) without producing a duplicate.
 	items := make([]invoicing.InvoiceItem, 0, len(records))
 	for _, rec := range records {
+		if rec.PlatformFeeCents <= 0 {
+			continue
+		}
 		short := rec.MilestoneID.String()
 		if len(short) > 8 {
 			short = short[:8]
@@ -142,6 +155,13 @@ func (s *Service) IssueMonthlyConsolidated(ctx context.Context, in IssueMonthlyC
 			MilestoneID:     ptrUUID(rec.MilestoneID),
 			PaymentRecordID: ptrUUID(rec.ID),
 		})
+	}
+	if len(items) == 0 {
+		// Every record in the period was Premium-waived (fee = 0).
+		// Nothing to consolidate — return (nil, nil) like the empty
+		// period case.
+		logger.Info("invoicing: all released records had zero platform fee (premium), nothing to consolidate")
+		return nil, nil
 	}
 
 	// 6. Build the draft. Service period is the invoiced month —

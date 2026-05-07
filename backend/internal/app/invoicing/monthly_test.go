@@ -183,6 +183,100 @@ func TestIssueMonthlyConsolidated_InvalidMonth_Rejected(t *testing.T) {
 	}
 }
 
+// TestIssueMonthlyConsolidated_AllPremiumWaived_ReturnsNilNil ensures
+// that when every released record in the period has a zero platform
+// fee (the Premium-waiver path), the service returns (nil, nil) — no
+// 0 € invoice is issued. The Premium subscription invoice already
+// covers the period, so consolidating zero-fee records would produce
+// a meaningless artifact and confuse Premium recipients.
+func TestIssueMonthlyConsolidated_AllPremiumWaived_ReturnsNilNil(t *testing.T) {
+	svc, invRepo, profileRepo, pdf, storage, deliverer, _ := newSvc(t)
+	orgID := uuid.New()
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+	periodStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	// Three released records, all Premium-waived (PlatformFeeCents = 0).
+	premiumRecords := []repository.ReleasedPaymentRecord{
+		{
+			ID:                  uuid.New(),
+			MilestoneID:         uuid.New(),
+			ProposalID:          uuid.New(),
+			ProposalAmountCents: 100_00,
+			PlatformFeeCents:    0,
+			Currency:            "EUR",
+			TransferredAt:       periodStart.Add(2 * 24 * time.Hour),
+		},
+		{
+			ID:                  uuid.New(),
+			MilestoneID:         uuid.New(),
+			ProposalID:          uuid.New(),
+			ProposalAmountCents: 200_00,
+			PlatformFeeCents:    0,
+			Currency:            "EUR",
+			TransferredAt:       periodStart.Add(7 * 24 * time.Hour),
+		},
+	}
+	invRepo.listReleasedForOrgFn = func(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
+		return premiumRecords, nil
+	}
+
+	out, err := svc.IssueMonthlyConsolidated(context.Background(), monthlyInput(orgID))
+
+	require.NoError(t, err)
+	assert.Nil(t, out, "premium-only month must return (nil, nil) — no 0 € invoice")
+	assert.Empty(t, invRepo.persistedInvoices, "no invoice persisted when every record is premium-waived")
+	assert.Equal(t, 0, pdf.calls, "no PDF generated for an empty consolidation")
+	assert.Equal(t, 0, storage.uploadCalls, "no upload for an empty consolidation")
+	assert.Equal(t, 0, deliverer.calls, "no email sent for an empty consolidation")
+}
+
+// TestIssueMonthlyConsolidated_MixedPremiumAndPaidRecords_OnlyBillsPaid
+// covers an org that paid Premium AFTER some milestones were already
+// released at the standard fee. The batch must invoice only the
+// non-zero-fee records — the Premium-waived rows are silently skipped.
+func TestIssueMonthlyConsolidated_MixedPremiumAndPaidRecords_OnlyBillsPaid(t *testing.T) {
+	svc, invRepo, profileRepo, pdf, _, _, _ := newSvc(t)
+	orgID := uuid.New()
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+	periodStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	paidRecord := repository.ReleasedPaymentRecord{
+		ID:                  uuid.New(),
+		MilestoneID:         uuid.New(),
+		ProposalID:          uuid.New(),
+		ProposalAmountCents: 500_00,
+		PlatformFeeCents:    25_00, // 25 € — the user's exact bug report scenario
+		Currency:            "EUR",
+		TransferredAt:       periodStart.Add(3 * 24 * time.Hour),
+	}
+	premiumRecord := repository.ReleasedPaymentRecord{
+		ID:                  uuid.New(),
+		MilestoneID:         uuid.New(),
+		ProposalID:          uuid.New(),
+		ProposalAmountCents: 300_00,
+		PlatformFeeCents:    0, // Premium-waived
+		Currency:            "EUR",
+		TransferredAt:       periodStart.Add(20 * 24 * time.Hour),
+	}
+	invRepo.listReleasedForOrgFn = func(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
+		return []repository.ReleasedPaymentRecord{paidRecord, premiumRecord}, nil
+	}
+
+	out, err := svc.IssueMonthlyConsolidated(context.Background(), monthlyInput(orgID))
+
+	require.NoError(t, err)
+	require.NotNil(t, out, "mixed period with at least one paid record must produce an invoice")
+	require.Len(t, out.Items, 1, "premium-waived line must be skipped")
+	assert.Equal(t, paidRecord.PlatformFeeCents, out.Items[0].AmountCents)
+	require.NotNil(t, out.Items[0].PaymentRecordID)
+	assert.Equal(t, paidRecord.ID, *out.Items[0].PaymentRecordID,
+		"the surviving line must be the paid one, not the premium-waived one")
+	assert.Equal(t, int64(25_00), out.AmountInclTaxCents, "total = 25 € (the paid commission)")
+	assert.Equal(t, 1, pdf.calls)
+}
+
 func TestGetCurrentMonthAggregate_SumsCorrectly(t *testing.T) {
 	svc, invRepo, _, _, _, _, _ := newSvc(t)
 	orgID := uuid.New()

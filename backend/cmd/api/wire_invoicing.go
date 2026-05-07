@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 
@@ -14,6 +15,7 @@ import (
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 	"marketplace-backend/pkg/confighelpers"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -25,7 +27,13 @@ import (
 // the email + storage adapters, and the org/user repos for the billing
 // profile flows.
 type invoicingDeps struct {
-	DB              *sql.DB
+	// Ctx is the long-lived context used by the monthly-consolidation
+	// scheduler goroutine. Cancelled by the graceful-shutdown sequence
+	// so the goroutine winds down deterministically. The caller must
+	// pass a derived ctx that is added to the WorkerCancels bag.
+	Ctx context.Context
+
+	DB *sql.DB
 	// TxRunner is the routed transaction runner from
 	// wireInfrastructure. Forwarded to the InvoiceRepository so
 	// invoice writes use the right pool.
@@ -141,7 +149,36 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 		deps.SubscriptionSvc.SetBillingProfileReader(invoicingSvc)
 	}
 
-	slog.Info("invoicing feature enabled (subscription path + me/billing-profile + me/invoices)")
+	// Monthly-consolidation scheduler — issues the consolidated
+	// commission invoice on the 1st of each month between 02:00 and
+	// 04:00 UTC. Runs in-process: V1 ships with a single API instance
+	// and the Redis-backed RunMarker is idempotent on retry, so no
+	// distributed coordination is required. The CLI binary
+	// `cmd/invoice-monthly-run` remains the manual fallback for ad-hoc
+	// re-runs and Phase 4 backfill.
+	//
+	// The scheduler's tick reaches into ListReleasedPaymentRecordsForOrg,
+	// which warns when ctx is not tagged as a system actor (RLS bypass);
+	// tag the goroutine context here so the warning never fires.
+	if deps.Ctx != nil && deps.Organizations != nil && deps.Redis != nil {
+		runMarker := redisadapter.NewRunMarker(deps.Redis, redisadapter.DefaultInvoicingRunMarkerTTL)
+		scheduler := invoicingapp.NewScheduler(invoicingapp.SchedulerDeps{
+			Service: invoicingSvc,
+			Orgs:    deps.Organizations,
+			Marker:  runMarker,
+		})
+		scheduler.Start(system.WithSystemActor(deps.Ctx))
+		slog.Info("invoicing scheduler started",
+			"interval", invoicingapp.DefaultSchedulerInterval,
+			"window", "day=1, 02:00-04:00 UTC")
+	} else {
+		slog.Warn("invoicing scheduler not started — missing ctx / orgs / redis dep",
+			"has_ctx", deps.Ctx != nil,
+			"has_orgs", deps.Organizations != nil,
+			"has_redis", deps.Redis != nil)
+	}
+
+	slog.Info("invoicing feature enabled (subscription path + me/billing-profile + me/invoices + monthly scheduler)")
 
 	return invoicingWiring{
 		BillingProfile:  handler.NewBillingProfileHandler(invoicingSvc),

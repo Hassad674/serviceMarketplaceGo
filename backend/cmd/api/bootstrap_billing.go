@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"marketplace-backend/internal/adapter/postgres"
 	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -18,6 +20,12 @@ import (
 // under the project's 600-line ceiling without losing any
 // behaviour-preservation guarantees.
 type billingFeatureDeps struct {
+	// InvoicingCtx is the long-lived context handed to the monthly
+	// invoicing scheduler. Cancelled at graceful shutdown so the
+	// goroutine winds down. May be nil — wireInvoicing logs and skips
+	// the scheduler when missing.
+	InvoicingCtx context.Context
+
 	Cfg               *config.Config
 	Infra             infrastructure
 	StripeSvc         service.StripeService
@@ -85,6 +93,7 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 	var adminInvoiceHandler *handler.AdminInvoiceHandler
 	if stripeHandler != nil {
 		invoicing := wireInvoicing(invoicingDeps{
+			Ctx:             deps.InvoicingCtx,
 			DB:              deps.Infra.DB,
 			TxRunner:        deps.Infra.TxRunner,
 			Redis:           deps.Infra.Redis,
