@@ -45,6 +45,15 @@ type referralDeps struct {
 	FreelanceProfile *postgres.FreelanceProfileRepository
 	Proposal         *proposalapp.Service
 	Payment          *paymentapp.Service
+	// Conversations is the messaging/conversation persistence adapter
+	// queried by the relationship checker — the referral service uses
+	// it to refuse intros between two parties that already share a
+	// 1:1 conversation (anti-fraud commission gate).
+	Conversations *postgres.ConversationRepository
+	// Audits is the append-only audit log repository. The referral
+	// service writes a row here every time the anti-fraud gate
+	// blocks an intro.
+	Audits repository.AuditRepository
 }
 
 // wireReferral brings up the apport d'affaires feature. The whole
@@ -74,6 +83,14 @@ func wireReferral(deps referralDeps) referralWiring {
 		// against the referral_attributions table — defence-in-depth
 		// against cross-tenant proposal lookups via WithSystemActor.
 		ProposalSummaries: referralapp.NewProposalRepoSummaryResolver(deps.Proposals, deps.Milestones, referralRepo),
+		// Anti-fraud gate: refuse an intro when the provider party and
+		// the client party already share a 1:1 conversation. The
+		// adapter is the conversation postgres repository — wired here
+		// (and not via a setter) because the dependency cycle the
+		// referral / proposal / payment trio fights does not extend
+		// to messaging.
+		Relationships: referralapp.NewConversationRelationshipChecker(deps.Conversations),
+		Audits:        deps.Audits,
 	})
 	// Setter-based wiring to avoid import cycles between
 	// proposal/payment/embedded.

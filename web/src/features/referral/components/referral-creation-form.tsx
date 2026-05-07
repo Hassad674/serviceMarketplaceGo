@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { Loader2, Send } from "lucide-react"
 
 import { useCreateReferral } from "../hooks/use-referrals"
@@ -12,6 +13,7 @@ import {
   type ProviderPickerSelection,
 } from "./provider-picker"
 
+import { ApiError } from "@/shared/lib/api-client"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Select } from "@/shared/components/ui/select"
@@ -38,6 +40,7 @@ const DEFAULT_TOGGLES: SnapshotToggles = {
 export function ReferralCreationForm() {
   const router = useRouter()
   const create = useCreateReferral()
+  const tErrors = useTranslations("referral.errors")
 
   const [provider, setProvider] = useState<ProviderPickerSelection | null>(null)
   const [client, setClient] = useState<ClientPickerSelection | null>(null)
@@ -87,6 +90,16 @@ export function ReferralCreationForm() {
       const created = await create.mutateAsync(payload)
       router.push(`/referrals/${created.id}`)
     } catch (err) {
+      // Anti-fraud commission gate: the backend returns 409 with the
+      // machine-readable code "already_in_relation" when the provider
+      // and client already share a 1:1 conversation. Surface a clear
+      // i18n message instead of the raw backend phrasing so the
+      // apporteur understands the rejection without needing to read
+      // English error envelopes.
+      if (err instanceof ApiError && err.code === "already_in_relation") {
+        setSubmitError(tErrors("alreadyInRelation"))
+        return
+      }
       setSubmitError(
         err instanceof Error
           ? err.message

@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -29,6 +30,7 @@ var (
 	_ service.NotificationSender    = (*fakeNotifier)(nil)
 	_ service.StripeService         = (*fakeStripe)(nil)
 	_ service.StripeTransferReversalService = (*fakeReversalService)(nil)
+	_ repository.AuditRepository    = (*fakeAuditRepo)(nil)
 )
 
 // fakeReferralRepo is an in-memory stand-in for repository.ReferralRepository.
@@ -564,6 +566,76 @@ type fakeStripeAccountResolver struct {
 
 func (f *fakeStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, userID uuid.UUID) (string, error) {
 	return f.accountID, nil
+}
+
+// fakeRelationshipChecker is a programmable RelationshipChecker for the
+// anti-fraud gate tests. Tests pre-seed pairs of user ids that are
+// considered "already in relation" — the gate then refuses any
+// CreateIntro for that pair. Order-insensitive: (a,b) and (b,a) hit the
+// same key.
+type fakeRelationshipChecker struct {
+	mu       sync.Mutex
+	related  map[string]struct{}
+	calls    int
+	forceErr error
+}
+
+func newFakeRelationshipChecker() *fakeRelationshipChecker {
+	return &fakeRelationshipChecker{related: map[string]struct{}{}}
+}
+
+func (f *fakeRelationshipChecker) markRelated(a, b uuid.UUID) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.related[convPairKey(a, b)] = struct{}{}
+}
+
+func (f *fakeRelationshipChecker) AreInRelation(ctx context.Context, a, b uuid.UUID) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	if f.forceErr != nil {
+		return false, f.forceErr
+	}
+	_, ok := f.related[convPairKey(a, b)]
+	return ok, nil
+}
+
+// fakeAuditRepo records every audit entry so tests can assert the
+// anti-fraud blocked attempt was persisted with the right action +
+// metadata.
+type fakeAuditRepo struct {
+	mu      sync.Mutex
+	entries []*audit.Entry
+}
+
+func newFakeAuditRepo() *fakeAuditRepo { return &fakeAuditRepo{} }
+
+func (f *fakeAuditRepo) Log(ctx context.Context, entry *audit.Entry) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.entries = append(f.entries, entry)
+	return nil
+}
+
+func (f *fakeAuditRepo) ListByResource(ctx context.Context, _ audit.ResourceType, _ uuid.UUID, _ string, _ int) ([]*audit.Entry, string, error) {
+	return nil, "", nil
+}
+
+func (f *fakeAuditRepo) ListByUser(ctx context.Context, _ uuid.UUID, _ string, _ int) ([]*audit.Entry, string, error) {
+	return nil, "", nil
+}
+
+func (f *fakeAuditRepo) entriesOfAction(action audit.Action) []*audit.Entry {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]*audit.Entry, 0)
+	for _, e := range f.entries {
+		if e.Action == action {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // _ unused to silence "imported but not used" in the test package when a test

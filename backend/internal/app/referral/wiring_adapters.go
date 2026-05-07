@@ -272,6 +272,48 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 	return out, nil
 }
 
+// ─── RelationshipChecker adapters ─────────────────────────────────────────
+
+// ConversationExistsBetween is the narrow read interface
+// ConversationRelationshipChecker depends on. Defined locally so the
+// adapter only knows about the single method it actually uses, instead
+// of pulling the wide MessageRepository contract. Any concrete repo
+// that exposes AreInRelation(ctx, userA, userB) is a drop-in.
+type ConversationExistsBetween interface {
+	AreInRelation(ctx context.Context, userA, userB uuid.UUID) (bool, error)
+}
+
+// ConversationRelationshipChecker resolves the "are these two users
+// already in business relation?" predicate by checking for an existing
+// 1:1 conversation row. Used by the referral service's anti-fraud gate
+// at intro creation time.
+//
+// Returns false (and no error) when the underlying conversation repo is
+// nil — supports build configurations where messaging is not wired
+// (e.g. minimal smoke tests). Production wiring always passes a non-nil
+// repository.
+type ConversationRelationshipChecker struct {
+	conversations ConversationExistsBetween
+}
+
+// NewConversationRelationshipChecker wires the adapter. Safe with nil
+// conversations: the checker degrades to "not in relation" rather than
+// erroring, so a misconfigured wiring at startup does not 500 every
+// CreateIntro call.
+func NewConversationRelationshipChecker(conversations ConversationExistsBetween) *ConversationRelationshipChecker {
+	return &ConversationRelationshipChecker{conversations: conversations}
+}
+
+// AreInRelation returns true when a 1:1 conversation already links
+// userA and userB. Order-insensitive: the underlying SQL query
+// matches both directions.
+func (c *ConversationRelationshipChecker) AreInRelation(ctx context.Context, userA, userB uuid.UUID) (bool, error) {
+	if c == nil || c.conversations == nil {
+		return false, nil
+	}
+	return c.conversations.AreInRelation(ctx, userA, userB)
+}
+
 // ─── OrgMemberResolver adapters ───────────────────────────────────────────
 
 // OrgDirectoryMemberResolver resolves the list of user ids that share an
