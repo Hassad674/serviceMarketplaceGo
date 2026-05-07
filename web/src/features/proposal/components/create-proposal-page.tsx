@@ -325,9 +325,16 @@ export function CreateProposalPage() {
             onSubmit={handleSubmit}
             className="min-w-0 flex-1 space-y-6"
           >
-            {/* Brief section */}
+            {/* Brief section — recipient + payment-mode toggle come before
+                title/description so the user picks the mode first. */}
             <FormSection eyebrow={t("proposalFlow_create_sectionBrief")}>
               <RecipientField name={recipientName} />
+
+              <PaymentModeToggle
+                value={formData.paymentMode}
+                onChange={(mode) => updateField("paymentMode", mode)}
+                disabled={isSubmitting}
+              />
 
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="proposal-title" required>
@@ -378,14 +385,10 @@ export function CreateProposalPage() {
               </div>
             </FormSection>
 
-            {/* Payment section */}
+            {/* Payment section — mode-specific input(s) only. The toggle
+                lives in the Brief section above. In milestone mode the
+                global amount input is hidden (per-milestone amounts replace it). */}
             <FormSection eyebrow={t("proposalFlow_create_sectionPayment")}>
-              <PaymentModeToggle
-                value={formData.paymentMode}
-                onChange={(mode) => updateField("paymentMode", mode)}
-                disabled={isSubmitting}
-              />
-
               {formData.paymentMode === "one_time" ? (
                 <div className="space-y-2" id="payment-mode-panel-one_time">
                   <Label htmlFor="proposal-amount" required>
