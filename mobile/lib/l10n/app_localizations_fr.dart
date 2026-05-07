@@ -3798,4 +3798,45 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get mobileDashboard_switchToFreelance => 'Revenir au mode freelance';
+
+  @override
+  String get receiptsTabTitle => 'Reçus';
+
+  @override
+  String get invoicesTabTitle => 'Mes factures';
+
+  @override
+  String get receiptsEmptyTitle => 'Aucun reçu pour l\'instant';
+
+  @override
+  String get receiptsEmptySubtitle =>
+      'Tes paiements génèrent automatiquement des reçus que tu pourras retrouver ici dès la première transaction.';
+
+  @override
+  String get receiptsLegacyBadge => 'Reçu antérieur';
+
+  @override
+  String get receiptsLegacyNotice =>
+      'Ce reçu est antérieur à la fonctionnalité de snapshot — les détails de facturation des parties ne sont pas disponibles. Le PDF reste téléchargeable.';
+
+  @override
+  String get receiptDetailTitle => 'Reçu';
+
+  @override
+  String get receiptDownloadPdf => 'Télécharger le PDF';
+
+  @override
+  String get receiptDownloadPdfInProgress => 'Téléchargement du reçu…';
+
+  @override
+  String get receiptDownloadPdfError => 'Impossible de télécharger le PDF.';
+
+  @override
+  String get receiptPartyClient => 'Client';
+
+  @override
+  String get receiptPartyProvider => 'Prestataire';
+
+  @override
+  String get receiptPartyReferrer => 'Apporteur';
 }

@@ -3772,4 +3772,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileDashboard_switchToFreelance => 'Back to freelance mode';
+
+  @override
+  String get receiptsTabTitle => 'Receipts';
+
+  @override
+  String get invoicesTabTitle => 'My invoices';
+
+  @override
+  String get receiptsEmptyTitle => 'No receipts yet';
+
+  @override
+  String get receiptsEmptySubtitle =>
+      'Your payments automatically generate receipts that will appear here as soon as the first transaction settles.';
+
+  @override
+  String get receiptsLegacyBadge => 'Legacy receipt';
+
+  @override
+  String get receiptsLegacyNotice =>
+      'This receipt predates the snapshot feature — the parties\' billing details are not available. The PDF can still be downloaded.';
+
+  @override
+  String get receiptDetailTitle => 'Receipt';
+
+  @override
+  String get receiptDownloadPdf => 'Download PDF';
+
+  @override
+  String get receiptDownloadPdfInProgress => 'Downloading receipt…';
+
+  @override
+  String get receiptDownloadPdfError => 'Could not download the PDF.';
+
+  @override
+  String get receiptPartyClient => 'Client';
+
+  @override
+  String get receiptPartyProvider => 'Provider';
+
+  @override
+  String get receiptPartyReferrer => 'Referrer';
 }
