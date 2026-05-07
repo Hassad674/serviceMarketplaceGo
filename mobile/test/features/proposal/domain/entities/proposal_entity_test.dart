@@ -36,6 +36,8 @@ void main() {
       expect(proposal.documents, isEmpty);
       expect(proposal.acceptedAt, isNull);
       expect(proposal.paidAt, isNull);
+      expect(proposal.clientName, isNull);
+      expect(proposal.providerName, isNull);
     });
 
     test('amountInEuros converts centimes to euros', () {
@@ -110,6 +112,8 @@ void main() {
         'version': 2,
         'client_id': 'user-2',
         'provider_id': 'user-1',
+        'client_name': 'Acme Corp',
+        'provider_name': 'Jane Freelance',
         'documents': [
           {
             'id': 'doc-1',
@@ -139,11 +143,59 @@ void main() {
       expect(proposal.version, 2);
       expect(proposal.clientId, 'user-2');
       expect(proposal.providerId, 'user-1');
+      expect(proposal.clientName, 'Acme Corp');
+      expect(proposal.providerName, 'Jane Freelance');
       expect(proposal.documents.length, 1);
       expect(proposal.documents[0].filename, 'spec.pdf');
       expect(proposal.acceptedAt, '2026-03-28T12:00:00Z');
       expect(proposal.paidAt, isNull);
       expect(proposal.createdAt, '2026-03-27T10:00:00Z');
+    });
+
+    test('fromJson reads client_name and provider_name from backend', () {
+      final json = {
+        'id': 'p-1',
+        'conversation_id': 'c-1',
+        'sender_id': 's-1',
+        'recipient_id': 'r-1',
+        'title': 'Test',
+        'description': 'Test',
+        'amount': 1000,
+        'status': 'pending',
+        'client_id': 'c-1',
+        'provider_id': 'p-1',
+        'client_name': 'Bouygues Immobilier',
+        'provider_name': 'Sophie Dupont',
+        'created_at': '2026-03-27T10:00:00Z',
+      };
+
+      final proposal = ProposalEntity.fromJson(json);
+
+      expect(proposal.clientName, 'Bouygues Immobilier');
+      expect(proposal.providerName, 'Sophie Dupont');
+    });
+
+    test(
+        'fromJson leaves clientName/providerName null when backend omits them',
+        () {
+      final json = {
+        'id': 'p-1',
+        'conversation_id': 'c-1',
+        'sender_id': 's-1',
+        'recipient_id': 'r-1',
+        'title': 'Test',
+        'description': 'Test',
+        'amount': 1000,
+        'status': 'pending',
+        'client_id': 'c-1',
+        'provider_id': 'p-1',
+        'created_at': '2026-03-27T10:00:00Z',
+      };
+
+      final proposal = ProposalEntity.fromJson(json);
+
+      expect(proposal.clientName, isNull);
+      expect(proposal.providerName, isNull);
     });
 
     test('fromJson handles missing optional fields', () {

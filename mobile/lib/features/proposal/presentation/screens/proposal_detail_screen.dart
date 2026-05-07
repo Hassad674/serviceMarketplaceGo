@@ -115,6 +115,8 @@ class _ProposalDetailBody extends ConsumerWidget {
             title: proposal.title,
             status: status,
             version: proposal.version,
+            clientName: proposal.clientName,
+            providerName: proposal.providerName,
           ),
           const SizedBox(height: 20),
 

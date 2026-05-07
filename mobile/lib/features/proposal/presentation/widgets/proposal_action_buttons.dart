@@ -157,12 +157,17 @@ class ProposalActionButtons extends ConsumerWidget {
     try {
       final full = await repo.getProposal(proposal.id);
       if (context.mounted) {
+        // Resolve the OTHER side's display name from the proposal so
+        // the modify screen never has to fall back to `User <id>`.
+        final recipientName = full.recipientId == full.clientId
+            ? (full.clientName ?? '')
+            : (full.providerName ?? '');
         GoRouter.of(context).push(
           '/projects/new',
           extra: {
             'recipientId': full.recipientId,
             'conversationId': full.conversationId,
-            'recipientName': '',
+            'recipientName': recipientName,
             'existingProposal': full,
           },
         );

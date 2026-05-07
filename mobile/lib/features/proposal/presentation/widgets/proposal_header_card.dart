@@ -5,18 +5,28 @@ import '../../../../l10n/app_localizations.dart';
 import '../../types/proposal.dart';
 
 /// Soleil v2 — Header card for the proposal detail screen.
-/// Big icon plate + Fraunces title + Soleil status pill.
+/// Big icon plate + Fraunces title + Soleil status pill, plus an
+/// optional one-line participants caption (Client / Prestataire) when
+/// the backend has surfaced both display names.
 class ProposalHeaderCard extends StatelessWidget {
   const ProposalHeaderCard({
     super.key,
     required this.title,
     required this.status,
     required this.version,
+    this.clientName,
+    this.providerName,
   });
 
   final String title;
   final ProposalStatus status;
   final int version;
+  // Backend-resolved participant names (`client_name`/`provider_name`
+  // on `ProposalResponse`). Optional because older messages and
+  // legacy fixtures may omit them; rendering is suppressed when both
+  // are null/empty so we never display `User <id>` placeholders.
+  final String? clientName;
+  final String? providerName;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +34,9 @@ class ProposalHeaderCard extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final (label, bgColor, fgColor) = _statusStyle(status, l10n, theme, appColors);
+    final hasClientName = (clientName ?? '').trim().isNotEmpty;
+    final hasProviderName = (providerName ?? '').trim().isNotEmpty;
+    final showParticipants = hasClientName || hasProviderName;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -92,6 +105,22 @@ class ProposalHeaderCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (showParticipants) ...[
+                  const SizedBox(height: 12),
+                  _ParticipantLine(
+                    label: l10n.proposalClient,
+                    name: hasClientName ? clientName! : '—',
+                    appColors: appColors,
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 4),
+                  _ParticipantLine(
+                    label: l10n.proposalProvider,
+                    name: hasProviderName ? providerName! : '—',
+                    appColors: appColors,
+                    theme: theme,
+                  ),
+                ],
               ],
             ),
           ),
@@ -134,5 +163,52 @@ class ProposalHeaderCard extends StatelessWidget {
         ),
       ProposalStatus.completed => (l10n.projectStatusCompleted, corailSoft, corail),
     };
+  }
+}
+
+/// One row of the participants caption: a tabac role label followed by
+/// the encre display name. Sized to nest tightly inside the header
+/// card column without dwarfing the title.
+class _ParticipantLine extends StatelessWidget {
+  const _ParticipantLine({
+    required this.label,
+    required this.name,
+    required this.appColors,
+    required this.theme,
+  });
+
+  final String label;
+  final String name;
+  final AppColors? appColors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final mutedColor = appColors?.subtleForeground ??
+        theme.colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        Text(
+          label,
+          style: SoleilTextStyles.mono.copyWith(
+            color: mutedColor,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            name,
+            overflow: TextOverflow.ellipsis,
+            style: SoleilTextStyles.body.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

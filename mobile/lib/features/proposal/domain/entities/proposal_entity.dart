@@ -18,6 +18,8 @@ class ProposalEntity {
     required this.version,
     required this.clientId,
     required this.providerId,
+    this.clientName,
+    this.providerName,
     this.documents = const [],
     this.activeDisputeId,
     this.lastDisputeId,
@@ -42,6 +44,12 @@ class ProposalEntity {
   final int version;
   final String clientId;
   final String providerId;
+  // Display names enriched by the backend in `ProposalResponse`. They
+  // are the source of truth for participant labels in the UI; the
+  // `User <id>` fallback in [CreateProposalScreen] only kicks in when
+  // these are absent (e.g. before the proposal fetch resolves).
+  final String? clientName;
+  final String? providerName;
   final List<ProposalDocumentEntity> documents;
   final String? activeDisputeId;
   // Most recent dispute ever opened on this proposal, regardless of its
@@ -90,6 +98,8 @@ class ProposalEntity {
       version: json['version'] as int? ?? 1,
       clientId: json['client_id'] as String,
       providerId: json['provider_id'] as String,
+      clientName: json['client_name'] as String?,
+      providerName: json['provider_name'] as String?,
       documents: docs,
       activeDisputeId: json['active_dispute_id'] as String?,
       lastDisputeId: json['last_dispute_id'] as String?,

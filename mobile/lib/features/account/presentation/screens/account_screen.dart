@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/gdpr_repository_impl.dart';
 
 /// AccountScreen — Soleil v2 mobile mirror of the web /account page.
 ///
@@ -95,6 +100,8 @@ class AccountScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const _ExportDataButton(),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () => context.push(
                         RoutePaths.accountCancelDeletion,
@@ -195,6 +202,97 @@ class _AccountSection extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+/// Signature for the platform-specific "share these bytes as a file"
+/// hook used by [_ExportDataButton]. Splitting this out lets widget
+/// tests stub the share sheet (which depends on `share_plus` +
+/// `path_provider` platform channels that throw in unit-test mode)
+/// while keeping production wired to the real plugins.
+typedef ExportShareSink = Future<void> Function(
+  List<int> bytes,
+  String filename,
+);
+
+Future<void> _defaultExportShareSink(List<int> bytes, String filename) async {
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/$filename');
+  await file.writeAsBytes(bytes, flush: true);
+  await Share.shareXFiles(
+    [XFile(file.path, mimeType: 'application/zip', name: filename)],
+  );
+}
+
+/// Riverpod seam used by [_ExportDataButton]. Production resolves to
+/// [_defaultExportShareSink]; widget tests override it with a fake
+/// that records the bytes and never touches the file system.
+final exportShareSinkProvider = Provider<ExportShareSink>(
+  (_) => _defaultExportShareSink,
+);
+
+/// Mobile mirror of the web "Télécharger mes données" button. Pulls
+/// the export ZIP through [GDPRRepositoryImpl.exportMyData], persists
+/// it to the temp dir, then hands it off to the system share sheet
+/// (`share_plus`) so the user can save it to Files / iCloud / Drive.
+///
+/// Stateful only for the local loading flag — the underlying call is
+/// idempotent and re-entrancy is prevented via [_isExporting].
+class _ExportDataButton extends ConsumerStatefulWidget {
+  const _ExportDataButton();
+
+  @override
+  ConsumerState<_ExportDataButton> createState() => _ExportDataButtonState();
+}
+
+class _ExportDataButtonState extends ConsumerState<_ExportDataButton> {
+  bool _isExporting = false;
+
+  Future<void> _onPressed() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final repo = ref.read(gdprRepositoryProvider);
+      final share = ref.read(exportShareSinkProvider);
+      final bytes = await repo.exportMyData();
+      final filename =
+          'marketplace-export-${DateTime.now().toUtc().millisecondsSinceEpoch}.zip';
+      await share(bytes, filename);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.accountExportDataSuccess)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.accountExportDataError)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final label = _isExporting
+        ? l10n.accountExportDataPreparing
+        : l10n.accountExportDataAction;
+    return OutlinedButton.icon(
+      onPressed: _isExporting ? null : _onPressed,
+      icon: _isExporting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download_outlined, size: 18),
+      label: Text(label),
     );
   }
 }
