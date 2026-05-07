@@ -1,5 +1,6 @@
 .PHONY: run build test test-unit test-integration migrate-up migrate-down migrate-status seed seed-stripe mock lint tidy tidy-check clean dev \
-	reindex-bulk snapshot-typesense drift-check seed-search cover-backend fuzz-search perf-search
+	reindex-bulk snapshot-typesense drift-check seed-search cover-backend fuzz-search perf-search \
+	invoice-monthly-run invoice-backfill
 
 # Run API server with .env loaded
 run:
@@ -143,6 +144,34 @@ fuzz-search:
 	go test ./internal/app/search/ -run=NONE -fuzz=FuzzCursorDecodeNoPanic$$ -fuzztime=30s
 	go test ./internal/app/search/ -run=NONE -fuzz=FuzzCursorMonotonic$$ -fuzztime=15s
 	go test ./internal/handler/ -run=NONE -fuzz=FuzzParseFilterInput$$ -fuzztime=30s
+
+# Monthly invoice consolidation — manual one-shot. The same code path
+# the in-process scheduler runs on the 1st of each month between 02:00
+# and 04:00 UTC, exposed as a CLI for ad-hoc re-runs (e.g. a missed
+# window after a long downtime, or a single-org re-bill). Idempotent:
+# a second invocation for the same (org, year, month) returns the
+# already-issued invoice via the synthetic stripe_event_id dedup.
+#   make invoice-monthly-run ARGS="-year=2026 -month=4"
+#   make invoice-monthly-run ARGS="-year=2026 -month=4 -org=<uuid>"
+#   make invoice-monthly-run ARGS="-year=2026 -month=4 -dry-run"
+invoice-monthly-run:
+	set -a && [ -f .env ] && . ./.env; set +a; go run ./cmd/invoice-monthly-run $(ARGS)
+
+# Backfill the consolidated commission invoice for the CURRENT month.
+# Designed for the 2026-05 rollout: orgs that transacted before the
+# scheduler was wired in production never got their April invoice.
+# The CLI's idempotency makes this safe to call repeatedly.
+#   make invoice-backfill YEAR=2026 MONTH=4
+#   make invoice-backfill YEAR=2026 MONTH=4 ORG=<uuid>
+#   make invoice-backfill YEAR=2026 MONTH=4 DRY=1
+invoice-backfill:
+	@if [ -z "$(YEAR)" ] || [ -z "$(MONTH)" ]; then \
+		echo "ERROR: YEAR and MONTH are required. Example: make invoice-backfill YEAR=2026 MONTH=4" >&2; \
+		exit 2; \
+	fi
+	set -a && [ -f .env ] && . ./.env; set +a; \
+		go run ./cmd/invoice-monthly-run -year=$(YEAR) -month=$(MONTH) \
+		$(if $(ORG),-org=$(ORG),) $(if $(DRY),-dry-run,)
 
 # Baseline load test against the local backend. Requires k6 installed
 # (brew install k6 or https://grafana.com/docs/k6). Uses 50 VUs for

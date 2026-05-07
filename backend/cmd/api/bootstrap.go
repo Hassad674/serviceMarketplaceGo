@@ -454,7 +454,15 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	jobAppHandler := jobsWire.JobAppHandler
 	reviewHandler := reviewServiceWire.Handler
 
+	// invoicingSchedulerCtx scopes the in-process monthly-consolidation
+	// scheduler goroutine. Cancelled by WorkerCancels at graceful
+	// shutdown so the goroutine returns from its select before the
+	// process exits.
+	invoicingSchedulerCtx, invoicingSchedulerCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns + WorkerCancels, invoked at graceful shutdown
+	app.closeFns = append(app.closeFns, invoicingSchedulerCancel)
+
 	billing := wireBillingFeatures(billingFeatureDeps{
+		InvoicingCtx:      invoicingSchedulerCtx,
 		Cfg:               cfg,
 		Infra:             infra,
 		StripeSvc:         stripeSvc,
@@ -589,6 +597,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		kycCancel,
 		disputeCancel,
 		gdprCancel,
+		invoicingSchedulerCancel,
 		infraCancel,
 	}
 
