@@ -8,22 +8,26 @@ import (
 	"marketplace-backend/internal/handler/middleware"
 )
 
-// mountAdminRoutes wires the entire /admin sub-tree. Gated by THREE
+// mountAdminRoutes wires the entire /admin sub-tree. Gated by TWO
 // layered middlewares — defense-in-depth, every layer can independently
 // refuse the request:
 //
 //  1. `auth` — must produce a valid identity. 401 otherwise.
-//  2. `RequireRole("admin")` — primary role gate. 403 if the JWT/session
-//     does not carry the `admin` role string. SEC-FINAL-03.
-//  3. `RequireAdmin` — secondary `is_admin` flag gate. 403 if the
-//     boolean is false (covers the case where a future migration
-//     changes the role taxonomy but leaves the flag as the
-//     authoritative source).
+//  2. `RequireAdmin` — `is_admin` flag gate. 403 if the boolean is
+//     false on the authenticated user. This is the authoritative
+//     access control for /admin: `is_admin` is orthogonal to the
+//     marketplace role (agency / enterprise / provider) so an admin
+//     can simultaneously hold a marketplace identity without the two
+//     scopes interfering.
 //
-// The two role checks are intentional: a single-source check would
-// fail open if an admin's role string drifts (rename, capitalization,
-// etc.). With both checks an attacker would need to compromise both
-// the role and the flag — the defense is multiplicative.
+// Earlier revisions also chained `RequireRole("admin")` as a "primary
+// role gate" before `RequireAdmin`. That gate was incompatible with
+// the schema: the `users.role` check constraint only allows
+// {agency, enterprise, provider} (see the domain `user.Role` enum and
+// the role check constraint in migrations). No user could ever satisfy
+// `role='admin'`, which made every /admin endpoint return 403 — the
+// admin SPA was effectively unreachable. The flag-only check via
+// `RequireAdmin` is the correct, minimal authorization here.
 //
 // The block is split into focused helpers so each admin domain
 // (users, conversations, jobs, reviews, moderation, media, disputes,
@@ -34,7 +38,6 @@ func mountAdminRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) htt
 	}
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(auth)
-		r.Use(middleware.RequireRole("admin"))
 		r.Use(middleware.RequireAdmin())
 		r.Use(middleware.NoCache)
 		mountAdminUsersRoutes(r, deps)
