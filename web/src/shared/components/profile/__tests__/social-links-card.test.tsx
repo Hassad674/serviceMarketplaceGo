@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import messages from "@/../messages/en.json"
 import {
@@ -54,7 +54,7 @@ describe("SocialLinksCard", () => {
     expect(container.querySelector(".animate-shimmer")).not.toBeNull()
   })
 
-  it("opens the editor when edit button is clicked", () => {
+  it("opens the editor modal when the edit button is clicked", () => {
     renderCard({
       links: sampleLinks,
       editor: {
@@ -63,11 +63,16 @@ describe("SocialLinksCard", () => {
         onDelete: vi.fn(),
       },
     })
+    // Modal closed initially: no dialog in the DOM.
+    expect(screen.queryByRole("dialog")).toBeNull()
+
     fireEvent.click(
       screen.getByRole("button", { name: messages.profile.editSocialLinks }),
     )
+    // Modal opened: dialog is portalled into document.body.
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
     expect(
-      screen.getByRole("textbox", { name: messages.profile.github }),
+      screen.getByText(messages.profile.socialLinksModalTitle),
     ).toBeInTheDocument()
   })
 
@@ -83,48 +88,5 @@ describe("SocialLinksCard", () => {
     expect(
       screen.queryByRole("button", { name: messages.profile.editSocialLinks }),
     ).toBeNull()
-  })
-
-  it("calls onUpsert for filled inputs and onDelete for cleared inputs on save", async () => {
-    const onUpsert = vi.fn().mockResolvedValue(undefined)
-    const onDelete = vi.fn().mockResolvedValue(undefined)
-
-    renderCard({
-      links: sampleLinks,
-      editor: { canEdit: true, onUpsert, onDelete },
-    })
-
-    fireEvent.click(
-      screen.getByRole("button", { name: messages.profile.editSocialLinks }),
-    )
-
-    const githubInput = screen.getByRole("textbox", {
-      name: messages.profile.github,
-    }) as HTMLInputElement
-    const linkedinInput = screen.getByRole("textbox", {
-      name: messages.profile.linkedin,
-    }) as HTMLInputElement
-    const websiteInput = screen.getByRole("textbox", {
-      name: messages.profile.website,
-    }) as HTMLInputElement
-
-    // Keep github, clear linkedin (should delete), add website (should upsert).
-    fireEvent.change(githubInput, {
-      target: { value: "https://github.com/u" },
-    })
-    fireEvent.change(linkedinInput, { target: { value: "" } })
-    fireEvent.change(websiteInput, {
-      target: { value: "https://example.com" },
-    })
-
-    fireEvent.click(
-      screen.getByRole("button", { name: messages.common.save }),
-    )
-
-    await waitFor(() => {
-      expect(onUpsert).toHaveBeenCalledWith("github", "https://github.com/u")
-      expect(onUpsert).toHaveBeenCalledWith("website", "https://example.com")
-      expect(onDelete).toHaveBeenCalledWith("linkedin")
-    })
   })
 })

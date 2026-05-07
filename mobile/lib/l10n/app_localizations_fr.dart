@@ -3146,6 +3146,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get socialLinkWebsite => 'Site web';
 
   @override
+  String get socialLinksUrlInvalid => 'URL invalide';
+
+  @override
+  String get socialLinkErrorLinkedin => 'Doit être une URL linkedin.com';
+
+  @override
+  String get socialLinkErrorInstagram => 'Doit être une URL instagram.com';
+
+  @override
+  String get socialLinkErrorYoutube =>
+      'Doit être une URL youtube.com ou youtu.be';
+
+  @override
+  String get socialLinkErrorTwitter => 'Doit être une URL twitter.com ou x.com';
+
+  @override
+  String get socialLinkErrorGithub => 'Doit être une URL github.com';
+
+  @override
   String get clientProfileTitle => 'Profil client';
 
   @override

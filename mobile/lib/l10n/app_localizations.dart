@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -5804,6 +5804,42 @@ abstract class AppLocalizations {
   /// **'Website'**
   String get socialLinkWebsite;
 
+  /// No description provided for @socialLinksUrlInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid URL'**
+  String get socialLinksUrlInvalid;
+
+  /// No description provided for @socialLinkErrorLinkedin.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be a linkedin.com URL'**
+  String get socialLinkErrorLinkedin;
+
+  /// No description provided for @socialLinkErrorInstagram.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be an instagram.com URL'**
+  String get socialLinkErrorInstagram;
+
+  /// No description provided for @socialLinkErrorYoutube.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be a youtube.com or youtu.be URL'**
+  String get socialLinkErrorYoutube;
+
+  /// No description provided for @socialLinkErrorTwitter.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be a twitter.com or x.com URL'**
+  String get socialLinkErrorTwitter;
+
+  /// No description provided for @socialLinkErrorGithub.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be a github.com URL'**
+  String get socialLinkErrorGithub;
+
   /// No description provided for @clientProfileTitle.
   ///
   /// In en, this message translates to:
@@ -6972,8 +7008,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import {
   Edit2,
-  Loader2,
   Linkedin,
   Instagram,
   Youtube,
@@ -16,7 +15,7 @@ import type { LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
+import { SocialLinksEditorModal } from "./social-links-editor-modal"
 // Shape of a single link used by the shared card. Kept minimal so
 // every persona feature can re-use the card without having to expose
 // its full API response shape.
@@ -60,9 +59,9 @@ const PLATFORMS: PlatformMeta[] = [
 
 // SocialLinksCard renders a persona's social link set. When `editor`
 // is supplied and `editor.canEdit` is true it shows an edit button
-// that swaps the display for a form — otherwise it stays read-only.
-// Collapses to nothing when read-only and empty, so public viewers
-// see no orphan card.
+// that opens the shared SocialLinksEditorModal — otherwise it stays
+// read-only. Collapses to nothing when read-only and empty, so public
+// viewers see no orphan card.
 export function SocialLinksCard({
   links,
   isLoading = false,
@@ -70,43 +69,7 @@ export function SocialLinksCard({
 }: SocialLinksCardProps) {
   const t = useTranslations("profile")
   const canEdit = Boolean(editor?.canEdit)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-
-  const startEditing = useCallback(() => {
-    const initial: Record<string, string> = {}
-    for (const link of links) {
-      initial[link.platform] = link.url
-    }
-    setDraft(initial)
-    setEditing(true)
-  }, [links])
-
-  const cancelEditing = useCallback(() => {
-    setDraft({})
-    setEditing(false)
-  }, [])
-
-  const handleSave = useCallback(async () => {
-    if (!editor) return
-    setSaving(true)
-    try {
-      const existingPlatforms = new Set(links.map((l) => l.platform))
-      for (const platform of PLATFORMS.map((p) => p.key)) {
-        const url = draft[platform]?.trim()
-        const hadBefore = existingPlatforms.has(platform)
-        if (url) {
-          await editor.onUpsert(platform, url)
-        } else if (hadBefore) {
-          await editor.onDelete(platform)
-        }
-      }
-    } finally {
-      setSaving(false)
-      setEditing(false)
-    }
-  }, [draft, editor, links])
+  const [modalOpen, setModalOpen] = useState(false)
 
   if (isLoading) {
     return <SocialLinksSkeleton />
@@ -119,39 +82,45 @@ export function SocialLinksCard({
   }
 
   return (
-    <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground">
-          {t("socialLinks")}
-        </h2>
-        {!editing && canEdit ? (
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={startEditing}
-            aria-label={t("editSocialLinks")}
-            className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-          >
-            <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
-          </Button>
-        ) : null}
-      </div>
+    <>
+      <section className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground">
+            {t("socialLinks")}
+          </h2>
+          {canEdit ? (
+            <Button
+              variant="ghost"
+              size="auto"
+              type="button"
+              onClick={() => setModalOpen(true)}
+              aria-label={t("editSocialLinks")}
+              className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            >
+              <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
 
-      {editing ? (
-        <SocialLinksEditorForm
-          draft={draft}
-          setDraft={setDraft}
-          saving={saving}
-          onSave={handleSave}
-          onCancel={cancelEditing}
+        {links.length > 0 ? (
+          <SocialLinksDisplay links={links} />
+        ) : (
+          <p className="text-sm text-muted-foreground italic">
+            {t("noSocialLinks")}
+          </p>
+        )}
+      </section>
+
+      {editor && canEdit ? (
+        <SocialLinksEditorModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          links={links}
+          onUpsert={editor.onUpsert}
+          onDelete={editor.onDelete}
         />
-      ) : links.length > 0 ? (
-        <SocialLinksDisplay links={links} />
-      ) : (
-        <p className="text-sm text-muted-foreground italic">
-          {t("noSocialLinks")}
-        </p>
-      )}
-    </section>
+      ) : null}
+    </>
   )
 }
 
@@ -192,86 +161,6 @@ function SocialLinksDisplay({ links }: { links: SocialLinkEntry[] }) {
           </a>
         )
       })}
-    </div>
-  )
-}
-
-// ---- Editor mode ----
-
-interface SocialLinksEditorFormProps {
-  draft: Record<string, string>
-  setDraft: (draft: Record<string, string>) => void
-  saving: boolean
-  onSave: () => void
-  onCancel: () => void
-}
-
-function SocialLinksEditorForm({
-  draft,
-  setDraft,
-  saving,
-  onSave,
-  onCancel,
-}: SocialLinksEditorFormProps) {
-  const t = useTranslations("profile")
-  const tCommon = useTranslations("common")
-
-  return (
-    <div className="space-y-4">
-      {PLATFORMS.map((meta) => {
-        const Icon = meta.icon
-        return (
-          <div key={meta.key} className="space-y-1">
-            <label
-              htmlFor={`social-${meta.key}`}
-              className="text-sm font-medium text-foreground flex items-center gap-2"
-            >
-              <Icon className={`h-4 w-4 ${meta.color}`} aria-hidden="true" />
-              {t(
-                meta.key as
-                  | "linkedin"
-                  | "instagram"
-                  | "youtube"
-                  | "twitter"
-                  | "github"
-                  | "website",
-              )}
-            </label>
-            <Input
-              id={`social-${meta.key}`}
-              type="url"
-              value={draft[meta.key] || ""}
-              onChange={(e) =>
-                setDraft({ ...draft, [meta.key]: e.target.value })
-              }
-              placeholder={t("enterUrl")}
-              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-150"
-            />
-          </div>
-        )
-      })}
-
-      <div className="flex justify-end gap-2 pt-2">
-        <Button variant="ghost" size="auto"
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 disabled:opacity-50"
-        >
-          {tCommon("cancel")}
-        </Button>
-        <Button variant="ghost" size="auto"
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="bg-primary text-primary-foreground rounded-md h-9 px-4 text-sm font-medium hover:opacity-90 transition-opacity duration-150 disabled:opacity-50 inline-flex items-center gap-2"
-        >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-          ) : null}
-          {tCommon("save")}
-        </Button>
-      </div>
     </div>
   )
 }

@@ -43,6 +43,55 @@ const _platformKeys = [
   'website',
 ];
 
+/// Hostname allowlist regex per platform. `null` for free-form URLs
+/// (the `website` field accepts any valid URL).
+final Map<String, RegExp?> _hostnameRegex = {
+  'linkedin': RegExp(r'(^|\.)linkedin\.com$', caseSensitive: false),
+  'instagram': RegExp(r'(^|\.)instagram\.com$', caseSensitive: false),
+  'youtube':
+      RegExp(r'(^|\.)(youtube\.com|youtu\.be)$', caseSensitive: false),
+  'twitter':
+      RegExp(r'(^|\.)(twitter\.com|x\.com)$', caseSensitive: false),
+  'github': RegExp(r'(^|\.)github\.com$', caseSensitive: false),
+  'website': null,
+};
+
+/// Resolve the localized validation error for a given platform key.
+/// Returns `null` when the value is empty (optional field) or when
+/// the value is a valid URL whose host matches the platform regex.
+String? validateSocialLinkUrl(
+  String key,
+  String rawValue,
+  AppLocalizations l10n,
+) {
+  final value = rawValue.trim();
+  if (value.isEmpty) return null;
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.hasScheme ||
+      !uri.isAbsolute ||
+      uri.host.isEmpty) {
+    return l10n.socialLinksUrlInvalid;
+  }
+  final regex = _hostnameRegex[key];
+  if (regex == null) return null;
+  if (regex.hasMatch(uri.host)) return null;
+  switch (key) {
+    case 'linkedin':
+      return l10n.socialLinkErrorLinkedin;
+    case 'instagram':
+      return l10n.socialLinkErrorInstagram;
+    case 'youtube':
+      return l10n.socialLinkErrorYoutube;
+    case 'twitter':
+      return l10n.socialLinkErrorTwitter;
+    case 'github':
+      return l10n.socialLinkErrorGithub;
+    default:
+      return l10n.socialLinksUrlInvalid;
+  }
+}
+
 List<_PlatformMeta> _buildPlatforms(BuildContext context) {
   final cs = Theme.of(context).colorScheme;
   return [
@@ -309,6 +358,7 @@ class _SocialLinksEditorSheet extends StatefulWidget {
 
 class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
   late final Map<String, TextEditingController> _controllers;
+  late final Map<String, String?> _errors;
   bool _saving = false;
 
   @override
@@ -318,6 +368,14 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
       for (final key in _platformKeys)
         key: TextEditingController(text: widget.initial[key] ?? ''),
     };
+    _errors = <String, String?>{
+      for (final key in _platformKeys) key: null,
+    };
+    // Listen so the save button enables/disables and stale errors clear
+    // as the user types — same UX as the web modal.
+    for (final entry in _controllers.entries) {
+      entry.value.addListener(() => _onChanged(entry.key));
+    }
   }
 
   @override
@@ -328,17 +386,57 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
     super.dispose();
   }
 
-  Future<void> _save() async {
-    setState(() => _saving = true);
+  void _onChanged(String key) {
     final l10n = AppLocalizations.of(context)!;
+    final next = _controllers[key]!.text;
+    setState(() {
+      _errors[key] = validateSocialLinkUrl(key, next, l10n);
+    });
+  }
+
+  bool get _isDirty {
+    for (final key in _platformKeys) {
+      final next = _controllers[key]!.text.trim();
+      final before = (widget.initial[key] ?? '').trim();
+      if (next != before) return true;
+    }
+    return false;
+  }
+
+  bool get _hasErrors => _errors.values.any((e) => e != null);
+
+  bool get _canSave => !_saving && _isDirty && !_hasErrors;
+
+  Future<void> _save() async {
+    // Final pass: revalidate everything before submit, in case the user
+    // hits Save without ever typing in a field that was pre-filled.
+    final l10n = AppLocalizations.of(context)!;
+    final nextErrors = <String, String?>{
+      for (final key in _platformKeys)
+        key: validateSocialLinkUrl(
+          key,
+          _controllers[key]!.text,
+          l10n,
+        ),
+    };
+    if (nextErrors.values.any((e) => e != null)) {
+      setState(() {
+        _errors
+          ..clear()
+          ..addAll(nextErrors);
+      });
+      return;
+    }
+
+    setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
       for (final key in _platformKeys) {
         final next = _controllers[key]!.text.trim();
-        final had = (widget.initial[key] ?? '').isNotEmpty;
-        if (next.isNotEmpty) {
+        final before = (widget.initial[key] ?? '').trim();
+        if (next.isNotEmpty && next != before) {
           await widget.editor.onUpsert(key, next);
-        } else if (had) {
+        } else if (next.isEmpty && before.isNotEmpty) {
           await widget.editor.onDelete(key);
         }
       }
@@ -377,22 +475,38 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
             ),
             const SizedBox(height: 20),
             for (final meta in _buildPlatforms(context)) ...[
-              _EditorField(meta: meta, controller: _controllers[meta.key]!),
+              _EditorField(
+                meta: meta,
+                controller: _controllers[meta.key]!,
+                errorText: _errors[meta.key],
+              ),
               const SizedBox(height: 12),
             ],
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(l10n.save),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed:
+                        _saving ? null : () => Navigator.pop(context),
+                    child: Text(l10n.cancel),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _canSave ? _save : null,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.save),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -402,9 +516,14 @@ class _SocialLinksEditorSheetState extends State<_SocialLinksEditorSheet> {
 }
 
 class _EditorField extends StatelessWidget {
-  const _EditorField({required this.meta, required this.controller});
+  const _EditorField({
+    required this.meta,
+    required this.controller,
+    this.errorText,
+  });
   final _PlatformMeta meta;
   final TextEditingController controller;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -417,6 +536,7 @@ class _EditorField extends StatelessWidget {
         hintText: l10n.socialLinkEnterUrl,
         prefixIcon: Icon(meta.icon, color: meta.color, size: 20),
         border: const OutlineInputBorder(),
+        errorText: errorText,
       ),
     );
   }
