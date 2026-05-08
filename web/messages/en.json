@@ -881,6 +881,7 @@
     },
     "referrer": {
       "publicTitleSuffix": "Business referrer",
+      "priceFromLabel": "Commission",
       "publicDescription": "{name}, business referrer{title, select, empty {} other { — {title}}}. Profile on Marketplace Service.",
       "loadError": "Could not load this referrer profile. Please try again.",
       "notFoundTitle": "Referrer profile not found",

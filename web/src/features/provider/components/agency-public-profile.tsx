@@ -7,23 +7,18 @@ import { ProjectHistorySection } from "@/shared/components/profile/project-histo
 import { LocationDisplayCard } from "@/shared/components/profile/location-display-card"
 import { LanguagesDisplayCard } from "@/shared/components/profile/languages-display-card"
 import { PricingDisplayCard } from "@/shared/components/profile/pricing-display-card"
-import {
-  ProfileIdentityHeader,
-  type ProfileIdentityHeaderProps,
-} from "@/shared/components/ui/profile-identity-header"
+import { ExpertiseDisplay } from "@/shared/components/profile/expertise-display"
 import type { Profile } from "../api/profile-api"
-import { ExpertiseDisplay } from "./expertise-display"
+import { AgencyProfileHeader } from "./agency-profile-header"
 import { SkillsDisplay } from "./skills-display"
 import { PublicPortfolioSection } from "./portfolio-grid"
 
-// AgencyPublicProfile renders the public /agencies/[id] surface with
-// the same card order, shells and spacing as FreelancePublicProfile.
-// Product scope stays agency-flavored (portfolio section lives here,
-// skills card is dedicated, expertise uses the agency taxonomy) but
-// the visual shell is harmonized — identity header, about, video,
-// pricing/location/languages display cards, project history — all
-// pulled from shared/components/profile so the two surfaces drift in
-// lockstep from now on.
+// AgencyPublicProfile renders the public /agencies/[id] surface. It
+// uses the same Soleil v2 shell as FreelancePublicProfile so an
+// agency profile reads as a first-class prestataire card — same
+// hero, same card spacing, same section ordering. The agency-only
+// surfaces (skills card, portfolio) sit at the same nesting level as
+// the freelance equivalents so the two pages drift in lockstep.
 export interface AgencyPublicProfileProps {
   profile: Profile
   orgId: string
@@ -36,21 +31,14 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
   const t = useTranslations("profile")
   const tSkills = useTranslations("profile.skillsDisplay")
 
-  const identity: ProfileIdentityHeaderProps["identity"] = {
-    photoUrl: profile.photo_url,
-    displayName,
-    title: profile.title,
-    availabilityStatus: profile.availability_status,
-    // PERF-W-08: this header is the LCP element on the public agency
-    // profile — opt the photo into next/image priority loading.
-    photoPriority: true,
-  }
-
-  const directPricing = pickDirectPricing(profile)
-
   return (
-    <div className="space-y-6">
-      <ProfileIdentityHeader identity={identity} rating={rating} />
+    <div className="mx-auto w-full max-w-5xl space-y-5">
+      <AgencyProfileHeader
+        profile={profile}
+        displayName={displayName}
+        rating={rating}
+        photoPriority
+      />
 
       <ProfileAboutCard
         content={profile.about}
@@ -59,38 +47,10 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
         readOnly
       />
 
-      <ProfileVideoCard
-        videoUrl={profile.presentation_video_url}
-        labels={{
-          title: t("videoTitle"),
-          emptyLabel: t("noVideo"),
-          emptyDescription: t("addVideoDescAgency"),
-        }}
-        readOnly
-      />
-
-      <ExpertiseDisplay
-        domains={profile.expertise_domains}
-        orgType="agency"
-      />
-
-      {profile.skills && profile.skills.length > 0 ? (
-        <section
-          aria-labelledby="agency-skills-display-title"
-          className="bg-card border border-border rounded-xl p-6 shadow-sm"
-        >
-          <h2
-            id="agency-skills-display-title"
-            className="text-lg font-semibold text-foreground mb-3"
-          >
-            {tSkills("sectionTitle")}
-          </h2>
-          <SkillsDisplay skills={profile.skills} />
-        </section>
-      ) : null}
+      <ExpertiseDisplay domains={profile.expertise_domains ?? []} />
 
       <PricingDisplayCard
-        pricing={directPricing}
+        pricing={pickDirectPricing(profile)}
         titleKey="directSectionTitle"
       />
 
@@ -106,6 +66,32 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
         conversational={profile.languages_conversational ?? []}
       />
 
+      {profile.skills && profile.skills.length > 0 ? (
+        <section
+          aria-labelledby="agency-skills-display-title"
+          className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
+        >
+          <h2
+            id="agency-skills-display-title"
+            className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground mb-3"
+          >
+            {tSkills("sectionTitle")}
+          </h2>
+          <SkillsDisplay skills={profile.skills} />
+        </section>
+      ) : null}
+
+      <ProfileVideoCard
+        videoUrl={profile.presentation_video_url}
+        labels={{
+          title: t("videoTitle"),
+          emptyLabel: t("noVideo"),
+          emptyDescription: t("addVideoDescAgency"),
+        }}
+        readOnly
+        showWhenEmpty
+      />
+
       <PublicPortfolioSection orgId={orgId} />
 
       <ProjectHistorySection orgId={orgId} readOnly />
@@ -113,12 +99,10 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
   )
 }
 
-// pickDirectPricing adapts the legacy agency pricing shape (an array
-// of rows keyed by `kind`) to the single-row contract the shared
-// PricingDisplayCard expects. Agencies only advertise a direct rate
-// on the public page — referral commissions are a persona-scoped
-// feature that lives on the referrer profile, not here. Returns null
-// when no direct row exists so the card hides itself.
+// pickDirectPricing collapses the legacy agency pricing rows onto the
+// single-row contract the shared PricingDisplayCard expects. Only the
+// direct rate appears on the agency card — referral commissions live
+// on the apporteur surface.
 function pickDirectPricing(profile: Profile) {
   const row = profile.pricing?.find((p) => p.kind === "direct")
   if (!row) return null

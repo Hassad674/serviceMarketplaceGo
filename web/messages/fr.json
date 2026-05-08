@@ -881,6 +881,7 @@
     },
     "referrer": {
       "publicTitleSuffix": "Apporteur d'affaires",
+      "priceFromLabel": "Commission",
       "publicDescription": "{name}, apporteur d'affaires{title, select, empty {} other { — {title}}}. Profil sur Marketplace Service.",
       "loadError": "Impossible de charger ce profil d'apporteur d'affaires. Réessaie dans un instant.",
       "notFoundTitle": "Profil d'apporteur introuvable",

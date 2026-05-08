@@ -29,13 +29,13 @@ import { LanguagesSection } from "@/features/provider/components/languages-secti
 import { SkillsSection } from "@/features/skill/components/skills-section"
 import { ProfileCompletionBar } from "@/features/profile-completion/components/profile-completion-bar"
 
-// Agency editable profile page — uses the legacy /api/v1/profile
-// endpoints via the restored provider hooks. Visual shell is now
-// harmonized with the freelance editable page: shared profile
-// header, ProfileAboutCard and ProfileVideoCard shells, plus the
-// same card spacing so the two surfaces drift in lockstep. Hook
-// wiring stays legacy on purpose — agencies have not been migrated
-// to the split-profile backend yet.
+// AgencyProfilePage is the editable /profile view for agency orgs.
+// Visual shell mirrors the freelance editable page one-for-one — same
+// max-w-5xl wrapper, editing-mode hint, completion bar, Soleil v2
+// hero header, and section spacing — so the two prestataire personas
+// render as a unified "prestataire" profile surface. Hook wiring stays
+// legacy on purpose; the agency aggregate has not been migrated to
+// the split-profile backend yet.
 export function AgencyProfilePage() {
   const { data: user } = useUser()
   const { data: org } = useOrganization()
@@ -64,7 +64,10 @@ export function AgencyProfilePage() {
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-5">
+      <p className="font-serif text-[13px] italic text-muted-foreground">
+        {t("editingMode")}
+      </p>
       <ProfileCompletionBar variant="page" />
       <AgencyProfileHeader
         profile={profile}
@@ -87,24 +90,6 @@ export function AgencyProfilePage() {
         }
       />
 
-      <AvailabilitySection
-        orgType="agency"
-        referrerEnabled={false}
-        variant="direct"
-        readOnly={!canEditProfile}
-      />
-
-      <PricingSection
-        variant="direct"
-        orgType="agency"
-        referrerEnabled={false}
-        readOnly={!canEditProfile}
-      />
-
-      <LocationSection orgType="agency" readOnly={!canEditProfile} />
-
-      <LanguagesSection orgType="agency" readOnly={!canEditProfile} />
-
       <ProfileAboutCard
         content={profile.about ?? ""}
         label={t("aboutAgency")}
@@ -119,6 +104,36 @@ export function AgencyProfilePage() {
         saving={updateProfile.isPending}
         readOnly={!canEditProfile}
       />
+
+      <ExpertiseEditor
+        domains={profile.expertise_domains}
+        orgType="agency"
+        readOnly={!canEditProfile}
+        onSave={async (next) => {
+          await expertiseUpdate.mutateAsync(next)
+        }}
+        saving={expertiseUpdate.isPending}
+      />
+
+      <PricingSection
+        variant="direct"
+        orgType="agency"
+        referrerEnabled={false}
+        readOnly={!canEditProfile}
+      />
+
+      <AvailabilitySection
+        orgType="agency"
+        referrerEnabled={false}
+        variant="direct"
+        readOnly={!canEditProfile}
+      />
+
+      <LocationSection orgType="agency" readOnly={!canEditProfile} />
+
+      <LanguagesSection orgType="agency" readOnly={!canEditProfile} />
+
+      <SkillsSection orgType="agency" readOnly={!canEditProfile} />
 
       <ProfileVideoCard
         videoUrl={profile.presentation_video_url ?? ""}
@@ -141,18 +156,6 @@ export function AgencyProfilePage() {
         }
         readOnly={!canEditProfile}
       />
-
-      <ExpertiseEditor
-        domains={profile.expertise_domains}
-        orgType="agency"
-        readOnly={!canEditProfile}
-        onSave={async (next) => {
-          await expertiseUpdate.mutateAsync(next)
-        }}
-        saving={expertiseUpdate.isPending}
-      />
-
-      <SkillsSection orgType="agency" readOnly={!canEditProfile} />
 
       <SocialLinksSection />
 

@@ -1,15 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { UploadModal } from "@/shared/components/upload-modal"
-import {
-  ProfileIdentityHeader,
-  type ProfileIdentityHeaderProps,
-} from "@/shared/components/ui/profile-identity-header"
+import { PrestataireProfileHeader } from "@/shared/components/profile/prestataire-profile-header"
 import type { ReferrerProfile } from "../api/referrer-profile-api"
-
-const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 
 interface ReferrerProfileHeaderProps {
   profile: ReferrerProfile
@@ -21,71 +14,44 @@ interface ReferrerProfileHeaderProps {
     uploadingPhoto?: boolean
   }
   /**
-   * When true, the underlying ProfileIdentityHeader marks the photo
-   * as a high-priority image (LCP). Public profile pages opt in.
+   * When true, the underlying header marks the photo as a high-priority
+   * image (LCP). Public profile pages opt in.
    */
   photoPriority?: boolean
 }
 
-// ReferrerProfileHeader wires the shared identity header with the
-// referrer-specific badge ("Apporteur d'affaire") so the public
-// viewer immediately understands which persona they are looking at.
+// ReferrerProfileHeader is a thin adapter over the shared
+// PrestataireProfileHeader. Same visual shell as freelance/agency,
+// plus the apporteur badge under the name and a "Commission" rail
+// label so the headline rate stays meaningful.
 export function ReferrerProfileHeader(props: ReferrerProfileHeaderProps) {
   const { profile, displayName, rating, editable, photoPriority } = props
-  const t = useTranslations("profile")
-  const tUpload = useTranslations("upload")
+  const tReferrer = useTranslations("profile.referrer")
   const tSidebar = useTranslations("sidebar")
-  const [photoModalOpen, setPhotoModalOpen] = useState(false)
-
-  const identity: ProfileIdentityHeaderProps["identity"] = {
-    photoUrl: profile.photo_url,
-    displayName,
-    title: profile.title,
-    availabilityStatus: profile.availability_status,
-    photoPriority,
-  }
-
-  const badge: ProfileIdentityHeaderProps["badge"] = {
-    label: tSidebar("businessReferrer"),
-  }
-
-  const editableProps: ProfileIdentityHeaderProps["editable"] = editable
-    ? {
-        onEditPhoto: editable.onUploadPhoto
-          ? () => setPhotoModalOpen(true)
-          : undefined,
-        onEditTitle: editable.onSaveTitle,
-      }
-    : undefined
-
-  async function handlePhotoUpload(file: File) {
-    if (!editable?.onUploadPhoto) return
-    await editable.onUploadPhoto(file)
-    setPhotoModalOpen(false)
-  }
 
   return (
-    <>
-      <ProfileIdentityHeader
-        identity={identity}
-        rating={rating}
-        badge={badge}
-        editable={editableProps}
-      />
-      {editable?.onUploadPhoto ? (
-        <UploadModal
-          open={photoModalOpen}
-          onClose={() => setPhotoModalOpen(false)}
-          onUpload={handlePhotoUpload}
-          accept="image/*"
-          maxSize={PHOTO_MAX_SIZE}
-          title={tUpload("addPhoto")}
-          description={tUpload("imageFormats", {
-            imageType: t("photo").toLowerCase(),
-          })}
-          uploading={editable.uploadingPhoto ?? false}
-        />
-      ) : null}
-    </>
+    <PrestataireProfileHeader
+      header={{
+        kind: "referrer",
+        identity: {
+          photoUrl: profile.photo_url,
+          displayName,
+          title: profile.title,
+          availabilityStatus: profile.availability_status,
+          organizationId: profile.organization_id,
+          city: profile.city,
+          countryCode: profile.country_code,
+          languagesProfessional: profile.languages_professional,
+        },
+        pricing: {
+          value: profile.pricing,
+          fromLabel: tReferrer("priceFromLabel"),
+        },
+        rating,
+        badge: { label: tSidebar("businessReferrer") },
+        editable,
+        photoPriority,
+      }}
+    />
   )
 }
