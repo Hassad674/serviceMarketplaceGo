@@ -92,6 +92,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               width={48}
               height={48}
               className="h-12 w-12 rounded-full object-cover"
+              unoptimized
             />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-pink text-sm font-semibold text-white">
