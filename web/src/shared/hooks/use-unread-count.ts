@@ -22,7 +22,12 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: unreadCountQueryKey(uid),
     queryFn: () => apiClient<Get<"/api/v1/messaging/unread-count"> & UnreadCountResponse>("/api/v1/messaging/unread-count"),
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    // The websocket already pushes `unread_count` events in real time
+    // (see useGlobalWS). Polling is only a fallback; bumping from
+    // 60 s → 120 s halves the read traffic this hook contributes to
+    // the global IP rate limit — see PERF-FIX-W-IDLE-CPU.
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
+    refetchIntervalInBackground: false,
   })
 }

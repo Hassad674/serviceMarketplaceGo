@@ -26,21 +26,30 @@ export const sharedReferralKeys = {
 
 /**
  * Shared `useReferral` hook (P9). Used by `ReferralSystemMessage`,
- * which the messaging feature embeds in conversation timelines. Polls
- * every 5 s while the row is in a pending state so the inline card
- * reflects the other party's response without a manual refresh.
+ * which the messaging feature embeds in conversation timelines.
+ *
+ * Polling cadence is intentionally moderate (15 s) — the WebSocket
+ * already fans out referral state transitions in real time on the
+ * active page, so polling here is only a fallback for the rare case
+ * where the socket is briefly down. The previous 5 s interval was
+ * the dominant contributor to the global rate-limit (100 req/min)
+ * being tripped during normal browsing — see PERF-FIX-W-IDLE-CPU.
+ *
+ * Polling stops as soon as the row leaves any `pending_*` state and
+ * pauses while the tab is hidden.
  */
 export function useReferral(id: string | undefined) {
   return useQuery<Referral>({
     queryKey: id ? sharedReferralKeys.detail(id) : ["referrals", "detail", "noop"],
     queryFn: () => getReferral(id!),
     enabled: Boolean(id),
-    staleTime: 5 * 1000,
+    staleTime: 15 * 1000,
     refetchInterval: (query) => {
       const status = query.state.data?.status
       if (!status) return false
-      return status.startsWith("pending_") ? 5000 : false
+      return status.startsWith("pending_") ? 15_000 : false
     },
+    refetchIntervalInBackground: false,
   })
 }
 

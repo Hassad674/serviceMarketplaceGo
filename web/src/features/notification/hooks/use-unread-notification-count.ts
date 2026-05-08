@@ -17,8 +17,12 @@ export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: unreadNotifCountKey(uid),
     queryFn: getUnreadNotificationCount,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    // The websocket pushes `notification_unread_count` events live, so
+    // polling is only a fallback. 120 s polling halves the contribution
+    // to the global IP rate limit — see PERF-FIX-W-IDLE-CPU.
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    refetchIntervalInBackground: false,
     select: (data) => data.data.count,
   })
 }
