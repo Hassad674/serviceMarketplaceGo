@@ -46,7 +46,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	seedAdmin(ctx, userRepo, hasher)
+	if !strings.EqualFold(os.Getenv("SEED_SKILLS_ONLY"), "true") {
+		seedAdmin(ctx, userRepo, hasher)
+	}
 	seedCuratedSkills(ctx, db)
 }
 
