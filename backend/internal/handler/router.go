@@ -221,16 +221,65 @@ func mountGlobalMiddleware(r chi.Router, deps RouterDeps) {
 	r.Use(middleware.SecurityHeaders(deps.Config))
 	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
 
-	// SEC-11: global per-IP throttle (100/min). Routes that need a
-	// tighter or per-user policy stack additional limiter middlewares
-	// inside the route definition (mutations: 30/min/user, uploads:
-	// 10/min/user). Auth-class throttling is handled by the dedicated
-	// BruteForceService inside the auth handler, NOT here, so the
-	// /auth/login + /auth/forgot-password endpoints have their own
-	// per-email cap.
+	// SEC-11: global per-IP throttle. Default cap is 100 req/min as
+	// documented in CLAUDE.md, but PERF-FIX-W-IDLE-CPU made it
+	// env-overridable via RATE_LIMIT_GLOBAL_PER_MINUTE so a busy
+	// localhost session (multiple browser tabs, polling hooks) can
+	// keep iterating without tripping the cap on every poll.
+	// Production keeps the default unless explicitly overridden.
+	// Routes that need a tighter or per-user policy stack additional
+	// limiter middlewares inside the route definition (mutations:
+	// 30 req/min/user, uploads: 10 req/min/user). Auth-class
+	// throttling is handled by the dedicated BruteForceService
+	// inside the auth handler.
+	//
+	// PERF-FIX-W-IDLE-CPU: /health and /ready are exempted from the
+	// throttle. They are unauthenticated, stateless probes — there
+	// is no abuse vector to throttle, and a developer (or k8s
+	// kube-proxy) needs them to return 200 even when /api/v1/* is
+	// rate-limited.
 	if deps.RateLimiter != nil {
-		r.Use(deps.RateLimiter.Middleware(middleware.DefaultGlobalPolicy, deps.RateLimiter.IPKey()))
+		r.Use(deps.RateLimiter.Middleware(
+			GlobalRateLimitPolicy(deps.Config),
+			ExemptHealthIPKey(deps.RateLimiter),
+		))
 	}
+}
+
+// ExemptHealthIPKey wraps RateLimiter.IPKey() so that /health and
+// /ready short-circuit the limiter (returning ok=false skips the
+// Redis hop entirely). PERF-FIX-W-IDLE-CPU.
+func ExemptHealthIPKey(rl *middleware.RateLimiter) func(r *http.Request) (string, bool) {
+	inner := rl.IPKey()
+	return func(r *http.Request) (string, bool) {
+		switch r.URL.Path {
+		case "/health", "/ready":
+			return "", false
+		}
+		return inner(r)
+	}
+}
+
+// GlobalRateLimitPolicy returns the per-IP throttling policy with an
+// optional env override (RATE_LIMIT_GLOBAL_PER_MINUTE). cfg may be
+// nil in tests; we fall back to middleware.DefaultGlobalPolicy.
+// PERF-FIX-W-IDLE-CPU.
+func GlobalRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultGlobalPolicy
+	if cfg != nil && cfg.RateLimitGlobalPerMinute > 0 {
+		policy.Limit = cfg.RateLimitGlobalPerMinute
+	}
+	return policy
+}
+
+// MutationRateLimitPolicy mirrors GlobalRateLimitPolicy for the
+// per-user mutation throttle (RATE_LIMIT_MUTATION_PER_MINUTE).
+func MutationRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultMutationPolicy
+	if cfg != nil && cfg.RateLimitMutationPerMinute > 0 {
+		policy.Limit = cfg.RateLimitMutationPerMinute
+	}
+	return policy
 }
 
 // mountTopLevelHealth registers the unversioned liveness / readiness
@@ -267,7 +316,7 @@ func mountV1Middleware(r chi.Router, deps RouterDeps) {
 		return
 	}
 	r.Use(deps.RateLimiter.Middleware(
-		middleware.DefaultMutationPolicy,
+		MutationRateLimitPolicy(deps.Config),
 		middleware.MutationOnly(middleware.UserOrIPKey(deps.RateLimiter)),
 	))
 }

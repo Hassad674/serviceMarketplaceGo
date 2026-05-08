@@ -102,6 +102,22 @@ type Config struct {
 	// r.RemoteAddr directly.
 	TrustedProxies string
 
+	// RateLimitGlobalPerMinute, RateLimitMutationPerMinute,
+	// RateLimitUploadPerMinute let an operator override the per-IP
+	// (global) and per-user (mutation/upload) caps without code
+	// changes. Defaults preserve the documented production values
+	// (100 / 30 / 10 per minute). In a heavy localhost session a
+	// single developer can comfortably trip the 100/min cap when
+	// several browser tabs are open and every TanStack Query
+	// polling hook fires at once — the dev .env can bump these to
+	// keep iterating. Production keeps the defaults. A value of 0
+	// means "use default" so empty env vars degrade gracefully to
+	// the constants in middleware.DefaultGlobalPolicy etc.
+	// PERF-FIX-W-IDLE-CPU.
+	RateLimitGlobalPerMinute   int
+	RateLimitMutationPerMinute int
+	RateLimitUploadPerMinute   int
+
 	// NotificationWorkerConcurrency is the number of parallel
 	// processors the notification delivery worker spawns. Defaults
 	// to 5 (BUG-16). Override via NOTIFICATION_WORKER_CONCURRENCY
@@ -164,6 +180,15 @@ func Load() *Config {
 		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
 		OpenAIEmbeddingsModel: getEnv("OPENAI_EMBEDDINGS_MODEL", "text-embedding-3-small"),
 		TrustedProxies:        getEnv("TRUSTED_PROXIES", ""),
+
+		// PERF-FIX-W-IDLE-CPU: env-driven rate-limit caps.
+		// 0 means "fall back to middleware.DefaultXxxPolicy".
+		// Production should leave these unset so the documented
+		// 100 / 30 / 10 caps stay in force; local dev can bump them
+		// in .env when iterating across multiple tabs.
+		RateLimitGlobalPerMinute:   parseInt(getEnv("RATE_LIMIT_GLOBAL_PER_MINUTE", "0"), 0),
+		RateLimitMutationPerMinute: parseInt(getEnv("RATE_LIMIT_MUTATION_PER_MINUTE", "0"), 0),
+		RateLimitUploadPerMinute:   parseInt(getEnv("RATE_LIMIT_UPLOAD_PER_MINUTE", "0"), 0),
 
 		// BUG-16: parallel notification worker pool size. Zero means
 		// "fall back to the package default" (currently 5).
