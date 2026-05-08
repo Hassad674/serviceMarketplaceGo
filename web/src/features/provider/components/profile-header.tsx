@@ -106,6 +106,7 @@ export function ProfileHeader({
                     height={96}
                     onError={() => setPhotoError(true)}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
@@ -131,6 +132,7 @@ export function ProfileHeader({
                     height={96}
                     onError={() => setPhotoError(true)}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
