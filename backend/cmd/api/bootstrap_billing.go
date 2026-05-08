@@ -32,6 +32,10 @@ type billingFeatureDeps struct {
 	StripeKYCReader   service.StripeKYCSnapshotReader
 	NotifSvc          *notifapp.Service
 	ProposalSvc       *proposalapp.Service
+	// ProposalHandler is the composition facade we re-bind with the
+	// invoicing gate inside wireInvoicing. Optional — when nil, the
+	// proposal payment flow keeps its prior un-gated behaviour.
+	ProposalHandler   *handler.ProposalHandler
 	PaymentInfoSvc    *paymentapp.Service
 	ReferralSvc       *referralapp.Service
 	PendingEventsRepo *postgres.PendingEventRepository
@@ -104,6 +108,7 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 			StripeKYC:       deps.StripeKYCReader,
 			StripeHandler:   stripeHandler,
 			WalletHandler:   walletHandler,
+			ProposalHandler: deps.ProposalHandler,
 			SubscriptionSvc: subscriptionAppSvc,
 		})
 		billingProfileHandler = invoicing.BillingProfile

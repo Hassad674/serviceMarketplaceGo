@@ -471,6 +471,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		StripeKYCReader:   stripeKYCReader,
 		NotifSvc:          notifSvc,
 		ProposalSvc:       proposalSvc,
+		ProposalHandler:   proposalHandler,
 		PaymentInfoSvc:    paymentInfoSvc,
 		ReferralSvc:       referralSvc,
 		PendingEventsRepo: pendingEventsRepo,

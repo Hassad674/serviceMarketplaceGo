@@ -63,6 +63,32 @@ vi.mock("@stripe/react-stripe-js", () => ({
   useElements: () => ({}),
 }))
 
+// Mock the billing-profile inline modal so the page-level tests don't
+// have to stand up a QueryClientProvider just to render its form.
+// The modal renders a tiny stub that exposes its open state and the
+// onSaved callback so tests can verify the retry-on-save chain.
+vi.mock("@/shared/components/billing-profile/billing-profile-inline-modal", () => ({
+  BillingProfileInlineModal: ({
+    open,
+    onSaved,
+    onClose,
+  }: {
+    open: boolean
+    onSaved: () => void
+    onClose: () => void
+  }) =>
+    open ? (
+      <div data-testid="billing-modal">
+        <button data-testid="billing-modal-save" onClick={onSaved}>
+          save
+        </button>
+        <button data-testid="billing-modal-close" onClick={onClose}>
+          close
+        </button>
+      </div>
+    ) : null,
+}))
+
 // Lucide icons render as inert spans — keeps the DOM uncluttered.
 vi.mock("lucide-react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("lucide-react")>()
@@ -300,6 +326,93 @@ describe("PaymentSimulation", () => {
 
     expect(await screen.findByText(baseProposal.title)).toBeInTheDocument()
     expect(replaceFn).not.toHaveBeenCalled()
+  })
+
+  it("renders the billing-incomplete CTA + opens the inline modal on 412 billing_profile_incomplete", async () => {
+    // The backend gate (handler-level) returns a 412 when the client
+    // organization has not yet filled in its billing profile. The page
+    // MUST NOT show the generic "init failed" UI — instead it shows the
+    // billing-incomplete copy and the inline modal carrying the reusable
+    // billing-profile form.
+    getProposalMock.mockResolvedValue(baseProposal)
+    initiatePaymentMock.mockRejectedValue(
+      new ApiError(
+        412,
+        "billing_profile_incomplete",
+        "Complète tes infos de facturation",
+        {
+          error: {
+            code: "billing_profile_incomplete",
+            message: "Complète tes infos de facturation",
+          },
+          missing_fields: [
+            { field: "legal_name", reason: "required" },
+            { field: "tax_id", reason: "required" },
+          ],
+        },
+      ),
+    )
+
+    await renderPaymentSimulation()
+
+    await waitFor(() => {
+      expect(screen.getByText("billingIncompleteTitle")).toBeInTheDocument()
+    })
+    // Generic init-failed copy MUST be absent — the user is not lost,
+    // they just need to fill a form.
+    expect(screen.queryByText("paymentInitFailed")).not.toBeInTheDocument()
+    expect(screen.queryByText("proposalNotFound")).not.toBeInTheDocument()
+
+    // The inline modal opens immediately — that's what the user
+    // sees first, the static page content is just the fallback when
+    // they dismiss it.
+    expect(screen.getByTestId("billing-modal")).toBeInTheDocument()
+
+    // The dedicated CTA is on screen so the user can re-open the modal
+    // even after dismissing it the first time.
+    expect(
+      screen.getByRole("button", { name: /billingIncompleteCta/i }),
+    ).toBeInTheDocument()
+  })
+
+  it("retries the payment intent after the inline modal saves the profile", async () => {
+    // The end-to-end chain: backend rejects with 412, the modal opens,
+    // the form saves successfully, the parent retries InitiatePayment
+    // and lands on the Stripe payment layout. The mocked modal exposes
+    // a "save" button that invokes onSaved synchronously.
+    getProposalMock.mockResolvedValue(baseProposal)
+
+    // Toggle the implementation on a flag instead of a counter so the
+    // test survives React strict-mode's effect double-invoke (a counter
+    // would race with the shadow render and the wrong mode would be
+    // active by the time the user clicks save). Same pattern as the
+    // legacy "retry button" test above.
+    let mode: "fail" | "succeed" = "fail"
+    initiatePaymentMock.mockImplementation(() =>
+      mode === "fail"
+        ? Promise.reject(
+            new ApiError(
+              412,
+              "billing_profile_incomplete",
+              "Complète tes infos de facturation",
+              {
+                error: { code: "billing_profile_incomplete", message: "x" },
+                missing_fields: [],
+              },
+            ),
+          )
+        : Promise.resolve(stripePaymentData),
+    )
+
+    await renderPaymentSimulation()
+
+    const saveBtn = await screen.findByTestId("billing-modal-save")
+    mode = "succeed"
+    fireEvent.click(saveBtn)
+
+    // After the modal save, the page transitions through to the
+    // Stripe layout — the proposal title appears.
+    expect(await screen.findByText(baseProposal.title)).toBeInTheDocument()
   })
 
   it("renders proposalNotFound when initiatePayment itself returns 404 (proposal vanished mid-flow)", async () => {

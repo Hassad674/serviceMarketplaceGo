@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/features/invoicing/data/exceptions/billing_profile_incomplete_exception.dart';
 import 'package:marketplace_mobile/features/proposal/data/proposal_repository_impl.dart';
 import 'package:marketplace_mobile/features/proposal/domain/repositories/proposal_repository.dart';
 
@@ -185,6 +187,73 @@ void main() {
       await repo.simulatePayment('prop-1');
 
       expect(called, true);
+    });
+
+    test('translates 412 billing_profile_incomplete into a typed exception',
+        () async {
+      // Backend gate: when the client organization has not yet filled
+      // in its billing identity, the handler refuses InitiatePayment
+      // with 412 + a structured envelope. The repository must surface
+      // a typed [BillingProfileIncompleteException] so the screen
+      // can pop the inline form sheet — without the typed exception
+      // the screen has no way to disambiguate from a generic 4xx.
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/pay'] = (_) async {
+        throw DioException(
+          requestOptions: RequestOptions(path: '/api/v1/proposals/prop-1/pay'),
+          response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 412,
+            data: {
+              'error': {
+                'code': 'billing_profile_incomplete',
+                'message': 'Complète tes infos de facturation',
+              },
+              'missing_fields': [
+                {'field': 'legal_name', 'reason': 'required'},
+                {'field': 'tax_id', 'reason': 'required'},
+              ],
+            },
+          ),
+        );
+      };
+
+      Object? caught;
+      try {
+        await repo.simulatePayment('prop-1');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isA<BillingProfileIncompleteException>());
+      final typed = caught as BillingProfileIncompleteException;
+      expect(typed.missingFields, hasLength(2));
+      expect(typed.missingFields.first.field, 'legal_name');
+    });
+
+    test('forwards non-gate DioExceptions unchanged', () async {
+      // A 500 must NOT be misclassified as a gate. The repository
+      // rethrows so existing screen-level error handlers keep
+      // working.
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/pay'] = (_) async {
+        throw DioException(
+          requestOptions: RequestOptions(path: '/api/v1/proposals/prop-1/pay'),
+          response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 500,
+            data: {'error': 'internal_error', 'message': 'boom'},
+          ),
+        );
+      };
+
+      Object? caught;
+      try {
+        await repo.simulatePayment('prop-1');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isA<DioException>());
+      expect(caught, isNot(isA<BillingProfileIncompleteException>()));
     });
   });
 

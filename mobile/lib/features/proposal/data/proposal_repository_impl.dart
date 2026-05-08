@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../invoicing/data/repositories/invoicing_repository_impl.dart'
+    show tryDecodeBillingProfileIncomplete;
 import '../domain/entities/proposal_entity.dart';
 import '../domain/repositories/proposal_repository.dart';
 
@@ -79,14 +82,32 @@ class ProposalRepositoryImpl implements ProposalRepository {
 
   @override
   Future<void> simulatePayment(String id) async {
-    await apiClient.post('/api/v1/proposals/$id/pay');
+    try {
+      await apiClient.post('/api/v1/proposals/$id/pay');
+    } on DioException catch (e) {
+      // Backend gate: rejects with 412 + code billing_profile_incomplete
+      // when the client organization has not yet filled in its billing
+      // identity. Translate the raw DioException into a typed
+      // exception so the screen can pop the inline form sheet.
+      final gate = tryDecodeBillingProfileIncomplete(e);
+      if (gate != null) throw gate;
+      rethrow;
+    }
   }
 
   @override
   Future<void> fundMilestone(String proposalId, String milestoneId) async {
-    await apiClient.post(
-      '/api/v1/proposals/$proposalId/milestones/$milestoneId/fund',
-    );
+    try {
+      await apiClient.post(
+        '/api/v1/proposals/$proposalId/milestones/$milestoneId/fund',
+      );
+    } on DioException catch (e) {
+      // Same billing-profile gate as simulatePayment — milestone-mode
+      // funding obeys the same precondition.
+      final gate = tryDecodeBillingProfileIncomplete(e);
+      if (gate != null) throw gate;
+      rethrow;
+    }
   }
 
   @override
