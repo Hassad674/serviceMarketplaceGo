@@ -26,6 +26,12 @@ interface FreelanceProfileHeaderProps {
     onUploadPhoto?: (file: File) => Promise<void>
     uploadingPhoto?: boolean
   }
+  /**
+   * When true, marks the photo as a high-priority next/image. Public
+   * profile pages opt in because the photo is the LCP element; editable
+   * dashboard contexts leave it false (default) so Next.js lazy-loads.
+   */
+  photoPriority?: boolean
 }
 
 // FreelanceProfileHeader is the Soleil v2 hero of W-16: a warm cover
@@ -36,7 +42,7 @@ interface FreelanceProfileHeaderProps {
 // stays declarative; all data still flows from the upstream feature
 // hooks via the parent.
 export function FreelanceProfileHeader(props: FreelanceProfileHeaderProps) {
-  const { profile, displayName, rating, editable } = props
+  const { profile, displayName, rating, editable, photoPriority } = props
   const t = useTranslations("profile")
   const tFreelance = useTranslations("profile.freelance")
   const tUpload = useTranslations("upload")
@@ -79,6 +85,7 @@ export function FreelanceProfileHeader(props: FreelanceProfileHeaderProps) {
               editLabel={t("editPhoto", {
                 imageType: t("photo").toLowerCase(),
               })}
+              priority={photoPriority ?? false}
             />
 
             <div className="min-w-0 flex-1 space-y-3">
@@ -146,6 +153,7 @@ interface PortraitFrameProps {
   editable: boolean
   onEdit?: () => void
   editLabel: string
+  priority?: boolean
 }
 
 function PortraitFrame({
@@ -155,6 +163,7 @@ function PortraitFrame({
   editable,
   onEdit,
   editLabel,
+  priority,
 }: PortraitFrameProps) {
   const frameClass =
     "relative shrink-0 rounded-2xl bg-card p-1 shadow-[0_2px_12px_rgba(42,31,21,0.06)]"
@@ -165,6 +174,8 @@ function PortraitFrame({
       alt={photoAlt}
       width={PHOTO_SIZE_PX}
       height={PHOTO_SIZE_PX}
+      sizes="130px"
+      priority={priority}
       className="h-[130px] w-[130px] rounded-xl object-cover"
     />
   ) : (

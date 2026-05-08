@@ -1295,6 +1295,27 @@
     "noProjectsYet": "Aucun projet terminé pour le moment",
     "back": "Retour"
   },
+  "seo": {
+    "siteName": "Marketplace Service",
+    "footerLabel": "marketplace-service.com",
+    "anonymousReviewer": "Client vérifié",
+    "breadcrumbAriaLabel": "Fil d'Ariane",
+    "breadcrumbHome": "Accueil",
+    "breadcrumbAgencies": "Agences",
+    "breadcrumbFreelancers": "Freelances",
+    "breadcrumbReferrers": "Apporteurs d'affaires",
+    "ratingLine": "★ {rating} ({count, plural, one {# avis} other {# avis}})",
+    "ratingNoCount": "Profil sans avis",
+    "ogRoleFreelance": "Freelance",
+    "ogRoleAgency": "Agence",
+    "ogRoleReferrer": "Apporteur d'affaires",
+    "relatedHeadingFreelance": "Freelances similaires",
+    "relatedHeadingAgency": "Agences similaires",
+    "relatedHeadingReferrer": "Apporteurs similaires",
+    "relatedSubheading": "D'autres profils qui pourraient t'intéresser",
+    "relatedViewProfile": "Voir le profil",
+    "relatedCityFallback": "Localisation non précisée"
+  },
   "proposal": {
     "createProposal": "Créer une proposition",
     "proposalTitle": "Titre de la mission",

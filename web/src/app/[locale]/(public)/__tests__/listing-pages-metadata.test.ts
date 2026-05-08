@@ -55,8 +55,8 @@ async function callMetadata(modulePath: string, locale: string) {
   return mod.generateMetadata({ params })
 }
 
-describe("Public listing generateMetadata — PERF-W-02", () => {
-  it("agencies: builds title, description, canonical, OG, Twitter", async () => {
+describe("Public listing generateMetadata — PERF-W-02 + PERF-W-08", () => {
+  it("agencies: builds title, description, canonical, hreflang, OG, Twitter", async () => {
     fetchMock.mockResolvedValue({
       found: 42,
       documents: [],
@@ -78,13 +78,19 @@ describe("Public listing generateMetadata — PERF-W-02", () => {
 
     expect(md.title).toContain("agencies.title(42)")
     expect(md.description).toContain("agencies.description(42)")
-    expect(md.alternates.canonical).toBe("/agencies")
+    // canonical is now an absolute, locale-prefixed URL.
+    expect(md.alternates.canonical).toMatch(/\/en\/agencies$/)
+    // hreflang must declare every supported locale + x-default.
+    expect(md.alternates.languages.fr).toMatch(/\/fr\/agencies$/)
+    expect(md.alternates.languages.en).toMatch(/\/en\/agencies$/)
+    expect(md.alternates.languages["x-default"]).toMatch(/\/fr\/agencies$/)
     expect(md.openGraph.type).toBe("website")
     expect(md.openGraph.title).toContain("agencies.title")
+    expect(md.openGraph.locale).toBe("en_US")
     expect(md.twitter.card).toBe("summary")
   })
 
-  it("freelancers: builds title, description, canonical, OG, Twitter", async () => {
+  it("freelancers: builds title, description, canonical, hreflang, OG, Twitter", async () => {
     fetchMock.mockResolvedValue({
       found: 17,
       documents: [],
@@ -101,15 +107,19 @@ describe("Public listing generateMetadata — PERF-W-02", () => {
 
     const md = await callMetadata(
       "../freelancers/page",
-      "en",
+      "fr",
     )
 
     expect(md.title).toContain("freelancers.title(17)")
     expect(md.description).toContain("freelancers.description(17)")
-    expect(md.alternates.canonical).toBe("/freelancers")
+    expect(md.alternates.canonical).toMatch(/\/fr\/freelancers$/)
+    expect(md.alternates.languages.fr).toMatch(/\/fr\/freelancers$/)
+    expect(md.alternates.languages.en).toMatch(/\/en\/freelancers$/)
+    expect(md.alternates.languages["x-default"]).toMatch(/\/fr\/freelancers$/)
+    expect(md.openGraph.locale).toBe("fr_FR")
   })
 
-  it("referrers: builds title, description, canonical, OG, Twitter", async () => {
+  it("referrers: builds title, description, canonical, hreflang, OG, Twitter", async () => {
     fetchMock.mockResolvedValue({
       found: 8,
       documents: [],
@@ -130,7 +140,8 @@ describe("Public listing generateMetadata — PERF-W-02", () => {
     )
 
     expect(md.title).toContain("referrers.title(8)")
-    expect(md.alternates.canonical).toBe("/referrers")
+    expect(md.alternates.canonical).toMatch(/\/en\/referrers$/)
+    expect(md.alternates.languages["x-default"]).toMatch(/\/fr\/referrers$/)
   })
 
   it("falls back to count=0 when the fetcher returns null (graceful)", async () => {
@@ -144,6 +155,6 @@ describe("Public listing generateMetadata — PERF-W-02", () => {
     expect(md.title).toContain("agencies.title(0)")
     // canonical must always be set so a transient backend error
     // never strands the URL with no canonical.
-    expect(md.alternates.canonical).toBe("/agencies")
+    expect(md.alternates.canonical).toMatch(/\/en\/agencies$/)
   })
 })

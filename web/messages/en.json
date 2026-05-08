@@ -1295,6 +1295,27 @@
     "noProjectsYet": "No completed projects yet",
     "back": "Back"
   },
+  "seo": {
+    "siteName": "Marketplace Service",
+    "footerLabel": "marketplace-service.com",
+    "anonymousReviewer": "Verified client",
+    "breadcrumbAriaLabel": "Breadcrumb",
+    "breadcrumbHome": "Home",
+    "breadcrumbAgencies": "Agencies",
+    "breadcrumbFreelancers": "Freelancers",
+    "breadcrumbReferrers": "Business referrers",
+    "ratingLine": "★ {rating} ({count, plural, one {# review} other {# reviews}})",
+    "ratingNoCount": "No reviews yet",
+    "ogRoleFreelance": "Freelancer",
+    "ogRoleAgency": "Agency",
+    "ogRoleReferrer": "Business referrer",
+    "relatedHeadingFreelance": "Similar freelancers",
+    "relatedHeadingAgency": "Similar agencies",
+    "relatedHeadingReferrer": "Similar referrers",
+    "relatedSubheading": "Other profiles you might be interested in",
+    "relatedViewProfile": "View profile",
+    "relatedCityFallback": "Location not specified"
+  },
   "proposal": {
     "createProposal": "Create a proposal",
     "proposalTitle": "Mission title",

@@ -19,6 +19,14 @@ export interface ProfileIdentityHeaderProps {
     displayName: string
     title: string
     availabilityStatus?: AvailabilityStatus
+    /**
+     * When true, marks the photo as a high-priority image so Next.js
+     * preloads it instead of lazy-loading. Use this on public profile
+     * pages where the photo is the LCP (Largest Contentful Paint)
+     * element. Default false on dashboard / editable contexts where
+     * the photo is below the fold.
+     */
+    photoPriority?: boolean
   }
   rating?: {
     average: number
@@ -59,6 +67,7 @@ export function ProfileIdentityHeader(props: ProfileIdentityHeaderProps) {
           onEdit={editable?.onEditPhoto}
           onError={() => setPhotoError(true)}
           errored={photoError}
+          priority={identity.photoPriority ?? false}
         />
 
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -92,6 +101,7 @@ interface PhotoBlockProps {
   errored: boolean
   onError: () => void
   onEdit?: () => void
+  priority?: boolean
 }
 
 function PhotoBlock({
@@ -101,6 +111,7 @@ function PhotoBlock({
   errored,
   onError,
   onEdit,
+  priority,
 }: PhotoBlockProps) {
   const t = useTranslations("profile")
   const classes = cn(
@@ -113,11 +124,16 @@ function PhotoBlock({
   const inner =
     photoUrl && !errored ? (
       // 96×96 identity-header photo. Hosts declared in next.config.ts.
+      // `priority` is opted in by public profile pages (LCP element);
+      // editable dashboard contexts leave it false so Next.js lazy-
+      // loads the photo with the rest of the identity row.
       <Image
         src={photoUrl}
         alt={photoAlt}
         width={96}
         height={96}
+        sizes="96px"
+        priority={priority}
         onError={onError}
         className="w-full h-full object-cover"
       />

@@ -4,6 +4,10 @@ import { SearchPage } from "@/features/provider/components/search-page"
 import { fetchListingFirstPage } from "@/features/provider/api/search-server"
 import { buildItemList } from "@/features/provider/api/listing-jsonld"
 import { safeJsonLd } from "@/shared/lib/json-ld"
+import {
+  buildAlternates,
+  type SupportedLocale,
+} from "@/shared/lib/seo/alternates"
 
 // /agencies lists every organization of type `agency`. PERF-W-02:
 // the page is now an async Server Component that pre-fetches the
@@ -23,15 +27,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = t("agencies.title", { count })
   const description = t("agencies.description", { count })
+  const alternates = buildAlternates({
+    locale: locale as SupportedLocale,
+    path: "/agencies",
+  })
 
   return {
     title,
     description,
-    alternates: { canonical: "/agencies" },
+    alternates,
     openGraph: {
       type: "website",
       title,
       description,
+      url: alternates.canonical,
+      locale: locale === "fr" ? "fr_FR" : "en_US",
     },
     twitter: {
       card: "summary",
