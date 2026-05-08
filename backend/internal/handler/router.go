@@ -85,6 +85,16 @@ type RouterDeps struct {
 	// don't exercise permissions); production always wires it.
 	OrgOverridesResolver middleware.OrgOverridesResolver
 
+	// UserStateChecker is the read port used by the Auth middleware to
+	// fetch the LIVE (is_admin, status) pair on every authenticated
+	// request — overriding the snapshot baked into the session/JWT at
+	// login. Without this override, an `UPDATE users SET is_admin=true`
+	// issued outside the application code path (e.g. operator promotion
+	// via SQL) would not propagate until each user logs out and back
+	// in. Production wires this to a Redis-cached postgres reader (TTL
+	// 30s); tests pass nil to keep the legacy snapshot-trust behaviour.
+	UserStateChecker middleware.UserStateChecker
+
 	// Metrics is optional. When non-nil, a Prometheus-format scrape
 	// endpoint is exposed at GET /metrics (public, unauthenticated —
 	// bind this port to an internal-only network in production).
@@ -126,13 +136,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 	if deps.Config != nil {
 		failClosedInProd = deps.Config.IsProduction()
 	}
-	auth := middleware.AuthWithFailClosed(
-		deps.TokenService,
-		deps.SessionService,
-		deps.UserRepo,
-		deps.OrgOverridesResolver,
-		failClosedInProd,
-	)
+	auth := middleware.AuthFromDeps(middleware.AuthDeps{
+		TokenService:     deps.TokenService,
+		SessionService:   deps.SessionService,
+		SessionVersions:  deps.UserRepo,
+		UserState:        deps.UserStateChecker,
+		OrgOverrides:     deps.OrgOverridesResolver,
+		FailClosedInProd: failClosedInProd,
+	})
 	r := chi.NewRouter()
 
 	mountGlobalMiddleware(r, deps)

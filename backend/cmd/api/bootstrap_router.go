@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	redisadapter "marketplace-backend/internal/adapter/redis"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/handler/middleware"
@@ -243,10 +244,19 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Cfg:                   b.Cfg,
 		TokenService:          b.Infra.TokenSvc,
 		SessionService:        b.Infra.SessionSvc,
-		UserRepo:              b.Infra.UserRepo,
-		OrgOverridesResolver:  orgOverridesAdapter{repo: b.Infra.OrganizationRepo},
-		Metrics:               b.Metrics,
-		RateLimiter:           b.RateLimiter,
+		UserRepo:             b.Infra.UserRepo,
+		OrgOverridesResolver: orgOverridesAdapter{repo: b.Infra.OrganizationRepo},
+		// is_admin propagation fix — the auth middleware reads the live
+		// (is_admin, status) pair on every request and overrides the
+		// session/JWT snapshot. Postgres adapter behind a 30s Redis
+		// cache so the per-request DB cost is amortised.
+		UserStateChecker: redisadapter.NewCachedUserStateChecker(
+			b.Infra.Redis,
+			userStateAdapter{repo: b.Infra.UserRepo},
+			redisadapter.DefaultUserStateCacheTTL,
+		),
+		Metrics:     b.Metrics,
+		RateLimiter: b.RateLimiter,
 		// SEC-FINAL-02: idempotency middleware on the 6 critical
 		// mutation POSTs (proposals create + pay, jobs create,
 		// disputes open, auth/register, team invitations).

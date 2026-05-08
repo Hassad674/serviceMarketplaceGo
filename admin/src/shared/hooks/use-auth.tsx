@@ -54,29 +54,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasCookieSession, setHasCookieSession] = useState(false)
   const [isHydrating, setIsHydrating] = useState(true)
 
+  // Probe /auth/me on mount AND every time the tab becomes visible
+  // again. The visibility hook is the missing link in the
+  // is_admin propagation chain: when an operator promotes a user via
+  // SQL, the backend already serves the live is_admin within 30s
+  // (see middleware.UserStateChecker), but the admin SPA's local
+  // hasCookieSession is captured once at mount. Without a refresh,
+  // a logged-in non-admin who is promoted while keeping the tab open
+  // would still see the unauthorised UI until they reload. Re-probing
+  // on tab focus keeps the visible state in sync without forcing a
+  // full reload, and the cost is one cheap `/auth/me` round-trip per
+  // tab activation.
   useEffect(() => {
     let cancelled = false
 
-    async function restoreSession() {
+    async function restoreSession({ markHydrated }: { markHydrated: boolean }) {
       try {
         const me = await adminApi<MeResponse>("/api/v1/auth/me")
-        if (!cancelled && me.user?.is_admin) {
+        if (cancelled) return
+        if (me.user?.is_admin) {
           setHasCookieSession(true)
+        } else {
+          // The user lost admin rights (demotion, ban). Drop the
+          // cookie-session flag so AdminLayout redirects to /login
+          // on the next render. The api-client clears the bearer on
+          // 401 separately.
+          setHasCookieSession(false)
         }
       } catch {
         // 401 / network / 404 — fall through to logged-out state.
         // The api-client already redirects to /login on 401, so we
         // don't have to do it again here.
       } finally {
-        if (!cancelled) {
+        if (!cancelled && markHydrated) {
           setIsHydrating(false)
         }
       }
     }
 
-    restoreSession()
+    restoreSession({ markHydrated: true })
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        // Re-validate the cookie session whenever the tab is brought
+        // back to the foreground. Skip the hydration flag — we are
+        // already past the boot phase.
+        void restoreSession({ markHydrated: false })
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
     return () => {
       cancelled = true
+      document.removeEventListener("visibilitychange", onVisibilityChange)
     }
   }, [])
 
