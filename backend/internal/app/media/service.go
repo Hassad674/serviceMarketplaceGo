@@ -75,7 +75,15 @@ func NewService(deps ServiceDeps) *Service {
 
 // RecordUpload creates a media record and runs moderation asynchronously.
 // This method should be called in a goroutine after a successful upload.
+//
+// The caller-supplied parent context lets the upload handler propagate a
+// SIGTERM / shutdown signal into RecordUpload's downloads + Rekognition
+// calls (BUG-17 — the previous version dropped the parent ctx and used
+// `context.Background()`, so a hung downstream could not be cancelled
+// from the outside). We still apply a 60s safety cap on top so a
+// caller that passes context.Background() is bounded.
 func (s *Service) RecordUpload(
+	parentCtx context.Context,
 	uploaderID uuid.UUID,
 	fileURL string,
 	fileName string,
@@ -83,7 +91,10 @@ func (s *Service) RecordUpload(
 	fileSize int64,
 	mediaCtx mediadomain.Context,
 ) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
 
 	m, err := mediadomain.NewMedia(mediadomain.NewMediaInput{
@@ -109,7 +120,38 @@ func (s *Service) RecordUpload(
 		s.moderateImage(ctx, m)
 	case strings.HasPrefix(fileType, "video/"):
 		s.moderateVideo(ctx, m)
+	case strings.HasPrefix(fileType, "audio/"),
+		fileType == "application/pdf":
+		// Audio (voice messages) and PDF attachments have no automated
+		// moderation pipeline yet — Rekognition only inspects images
+		// and videos. Marking these `approved` immediately keeps the
+		// admin queue clean (otherwise rows stay in `pending` forever)
+		// AND lets the user-facing flows that gate on `approved`
+		// status proceed without a manual review step.
+		//
+		// Future phases can wire Transcribe → text-mod for audio and
+		// page-extract → image-mod for PDFs; until then this is the
+		// honest default. NB: any /report submission still flags the
+		// row through the human-report queue independently.
+		s.applyImplicitApproval(ctx, m)
 	}
+}
+
+// applyImplicitApproval marks media as auto-approved without running an
+// external moderation provider. Used for content types that have no
+// automated pipeline yet (audio, PDF) — see RecordUpload's switch.
+func (s *Service) applyImplicitApproval(ctx context.Context, m *mediadomain.Media) {
+	m.AutoApprove(0)
+	if err := s.media.Update(ctx, m); err != nil {
+		slog.Error("media moderation: update implicit approval",
+			"error", err, "media_id", m.ID, "file_type", m.FileType)
+		return
+	}
+	slog.Info("moderation: implicit approval (no automated pipeline)",
+		"media_id", m.ID,
+		"file_type", m.FileType,
+		"context", string(m.Context),
+		"decision", "approved")
 }
 
 func (s *Service) moderateImage(ctx context.Context, m *mediadomain.Media) {
@@ -181,6 +223,11 @@ func (s *Service) moderateVideo(ctx context.Context, m *mediadomain.Media) {
 
 // applyDecision translates a moderation result into a status change and
 // enforces the auto-reject threshold by deleting the source file from storage.
+//
+// Emits one structured log line per analyzed media so on-call can audit
+// the pipeline in production from logs alone — without it, a clean image's
+// path leaves no log trace and is indistinguishable from "moderation
+// never ran".
 func (s *Service) applyDecision(
 	ctx context.Context,
 	m *mediadomain.Media,
@@ -212,6 +259,17 @@ func (s *Service) applyDecision(
 		slog.Error("media moderation: update", "error", err, "media_id", m.ID)
 	}
 
+	slog.Info("moderation: media analyzed",
+		"media_id", m.ID,
+		"file_type", m.FileType,
+		"context", string(m.Context),
+		"safe", result.Safe,
+		"score", result.Score,
+		"labels", labelNames(result.Labels),
+		"decision", string(m.ModerationStatus),
+		"flag_threshold", s.flagThreshold,
+		"auto_reject_threshold", s.autoRejectThreshold)
+
 	// Notify admins of moderation results
 	s.notifyAdminMediaDecision(m)
 
@@ -219,6 +277,20 @@ func (s *Service) applyDecision(
 	if m.ModerationStatus == mediadomain.StatusRejected {
 		s.checkAutoSuspension(ctx, m, result)
 	}
+}
+
+// labelNames flattens the moderation labels into a comma-separated list
+// for compact, log-friendly output. Returns "" when no labels are
+// returned (the typical case for clean content).
+func labelNames(labels []mediadomain.ModerationLabel) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(labels))
+	for _, l := range labels {
+		names = append(names, l.Name)
+	}
+	return strings.Join(names, ",")
 }
 
 // checkAutoSuspension suspends users who repeatedly upload rejected content.
@@ -373,7 +445,10 @@ func (s *Service) FinalizeVideoJob(ctx context.Context, jobID string) error {
 
 // RecordUploadRaw satisfies the service.MediaRecorder interface using a plain
 // string context value, avoiding the need for callers to import the media domain.
+// The first argument is a parent context used to propagate cancellation /
+// shutdown into the moderation pipeline (BUG-17 follow-up).
 func (s *Service) RecordUploadRaw(
+	parentCtx context.Context,
 	uploaderID uuid.UUID,
 	fileURL string,
 	fileName string,
@@ -381,7 +456,8 @@ func (s *Service) RecordUploadRaw(
 	fileSize int64,
 	mediaCtx string,
 ) {
-	s.RecordUpload(uploaderID, fileURL, fileName, fileType, fileSize, mediadomain.Context(mediaCtx))
+	s.RecordUpload(parentCtx, uploaderID, fileURL, fileName, fileType, fileSize,
+		mediadomain.Context(mediaCtx))
 }
 
 // extractStorageKey removes the public URL prefix to get the storage key.

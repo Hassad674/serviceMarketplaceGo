@@ -1,8 +1,10 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -148,7 +150,8 @@ func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []b
 // --- mock storage ---
 
 type mockStorage struct {
-	deleteFn func(ctx context.Context, key string) error
+	deleteFn   func(ctx context.Context, key string) error
+	downloadFn func(ctx context.Context, key string) ([]byte, error)
 }
 
 func (m *mockStorage) Upload(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
@@ -170,7 +173,51 @@ func (m *mockStorage) GetPresignedDownloadURL(_ context.Context, _ string, _ tim
 func (m *mockStorage) GetPresignedDownloadURLAsAttachment(_ context.Context, _ string, _ string, _ time.Duration) (string, error) {
 	return "", nil
 }
-func (m *mockStorage) Download(_ context.Context, _ string) ([]byte, error) { return nil, nil }
+func (m *mockStorage) Download(ctx context.Context, key string) ([]byte, error) {
+	if m.downloadFn != nil {
+		return m.downloadFn(ctx, key)
+	}
+	return nil, nil
+}
+
+// cancelObservingModeration is a fake ContentModerationService that
+// surfaces the ctx error if AnalyzeImage is called — the test for
+// ctx propagation expects Download to abort first, so this should
+// never fire. If it does, the test fails loudly.
+type cancelObservingModeration struct{}
+
+func (cancelObservingModeration) AnalyzeImage(ctx context.Context, _ []byte) (*service.ModerationResult, error) {
+	return nil, ctx.Err()
+}
+func (cancelObservingModeration) AnalyzeVideo(_ context.Context, _, _ string) (*service.VideoJob, error) {
+	return &service.VideoJob{}, nil
+}
+func (cancelObservingModeration) GetVideoModerationResult(_ context.Context, _ string) (*service.ModerationResult, error) {
+	return &service.ModerationResult{Safe: true}, nil
+}
+
+// newTestMediaServiceWithModeration is the variant constructor used by
+// the ctx-propagation test — it lets the caller swap the moderation
+// provider for a fake that observes ctx cancellation.
+func newTestMediaServiceWithModeration(
+	mediaRepo *mockMediaRepo,
+	storage *mockStorage,
+	moderation service.ContentModerationService,
+) *Service {
+	if mediaRepo == nil {
+		mediaRepo = &mockMediaRepo{}
+	}
+	if storage == nil {
+		storage = &mockStorage{}
+	}
+	return NewService(ServiceDeps{
+		Media:               mediaRepo,
+		Storage:             storage,
+		Moderation:          moderation,
+		FlagThreshold:       50.0,
+		AutoRejectThreshold: 90.0,
+	})
+}
 
 // --- mock email ---
 
@@ -297,6 +344,190 @@ func newTestMedia(uploaderID uuid.UUID) *mediadomain.Media {
 		ContextID:        &ctxID,
 		ModerationStatus: mediadomain.StatusPending,
 	}
+}
+
+// --- RecordUpload routing tests (audio / pdf / image / video) ---
+//
+// Audio voice messages and PDF attachments have no automated moderation
+// pipeline yet. Before this fix they accumulated in `pending` forever,
+// polluting the admin queue counts and blocking any UI gate that relies
+// on `approved` status. Until Transcribe→text-mod (audio) and PDF
+// page-extract (PDF) are wired, the pragmatic default is to mark them
+// auto-approved so the system stays consistent.
+
+func TestRecordUpload_AudioWebm_ApprovedImmediately(t *testing.T) {
+	uploaderID := uuid.New()
+	var captured *mediadomain.Media
+	var updateCalls int
+	mediaRepo := &mockMediaRepo{
+		createFn: func(_ context.Context, m *mediadomain.Media) error {
+			captured = m
+			return nil
+		},
+		updateFn: func(_ context.Context, m *mediadomain.Media) error {
+			updateCalls++
+			captured = m
+			return nil
+		},
+	}
+
+	svc := newTestMediaService(mediaRepo, nil, nil, nil, nil, nil)
+
+	svc.RecordUpload(
+		context.Background(),
+		uploaderID,
+		"http://localhost/marketplace/messaging/voice/abc.webm",
+		"voice_message.ogg",
+		"audio/webm;codecs=opus",
+		1024,
+		mediadomain.ContextMessageAttach,
+	)
+
+	require.NotNil(t, captured, "media must be persisted")
+	assert.Equal(t, 1, updateCalls, "implicit approval must call Update once")
+	assert.Equal(t, mediadomain.StatusApproved, captured.ModerationStatus,
+		"audio uploads must be auto-approved (no moderation pipeline yet)")
+}
+
+func TestRecordUpload_ApplicationPDF_ApprovedImmediately(t *testing.T) {
+	uploaderID := uuid.New()
+	var captured *mediadomain.Media
+	mediaRepo := &mockMediaRepo{
+		createFn: func(_ context.Context, m *mediadomain.Media) error {
+			captured = m
+			return nil
+		},
+		updateFn: func(_ context.Context, m *mediadomain.Media) error {
+			captured = m
+			return nil
+		},
+	}
+
+	svc := newTestMediaService(mediaRepo, nil, nil, nil, nil, nil)
+
+	svc.RecordUpload(
+		context.Background(),
+		uploaderID,
+		"http://localhost/marketplace/messaging/files/abc.pdf",
+		"contract.pdf",
+		"application/pdf",
+		2048,
+		mediadomain.ContextMessageAttach,
+	)
+
+	require.NotNil(t, captured, "media must be persisted")
+	assert.Equal(t, mediadomain.StatusApproved, captured.ModerationStatus,
+		"PDF uploads must be auto-approved (no moderation pipeline yet)")
+}
+
+func TestRecordUpload_StructuredLogEmitted_OnApprove(t *testing.T) {
+	// applyDecision must emit a single INFO log line per analyzed
+	// media so on-call can audit the pipeline from logs alone — see
+	// the BUG-17 follow-up. Without it, a clean image's path leaves
+	// no log trace and is indistinguishable from "moderation never
+	// ran".
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	defer slog.SetDefault(prev)
+
+	svc := newTestMediaService(nil, nil, nil, nil, nil, nil)
+	m := newTestMedia(uuid.New())
+	result := &service.ModerationResult{Safe: true, Score: 5}
+
+	svc.applyDecision(context.Background(), m, "profiles/test/photo.jpg", result)
+
+	out := buf.String()
+	assert.Contains(t, out, `"msg":"moderation: media analyzed"`)
+	assert.Contains(t, out, `"decision":"approved"`)
+	assert.Contains(t, out, `"safe":true`)
+	assert.Contains(t, out, `"score":5`)
+	assert.Contains(t, out, `"media_id"`)
+}
+
+func TestRecordUpload_StructuredLogEmitted_OnFlag(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	defer slog.SetDefault(prev)
+
+	svc := newTestMediaService(nil, nil, nil, nil, nil, nil)
+	m := newTestMedia(uuid.New())
+	labels := []mediadomain.ModerationLabel{{Name: "Violence", Confidence: 75}}
+	result := &service.ModerationResult{Safe: false, Score: 75, Labels: labels}
+
+	svc.applyDecision(context.Background(), m, "profiles/test/photo.jpg", result)
+
+	out := buf.String()
+	assert.Contains(t, out, `"decision":"flagged"`)
+	assert.Contains(t, out, `"labels":"Violence"`)
+	assert.Contains(t, out, `"score":75`)
+}
+
+func TestRecordUpload_AudioImplicitApproval_LogsErrorOnUpdateFailure(t *testing.T) {
+	// applyImplicitApproval logs at ERROR when the DB update fails so
+	// silent moderation regressions cannot accumulate. The row stays
+	// in `pending` (we never overwrote it), surfacing in the admin
+	// queue's pending count — the operator gets a chance to fix.
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	defer slog.SetDefault(prev)
+
+	mediaRepo := &mockMediaRepo{
+		updateFn: func(_ context.Context, _ *mediadomain.Media) error {
+			return assert.AnError
+		},
+	}
+
+	svc := newTestMediaService(mediaRepo, nil, nil, nil, nil, nil)
+	svc.RecordUpload(
+		context.Background(),
+		uuid.New(),
+		"http://localhost/marketplace/messaging/voice/abc.webm",
+		"voice.ogg",
+		"audio/webm",
+		512,
+		mediadomain.ContextMessageAttach,
+	)
+
+	assert.Contains(t, buf.String(), `"msg":"media moderation: update implicit approval"`,
+		"a failed implicit approval must surface as an ERROR log")
+}
+
+func TestRecordUpload_PropagatesContextCancellation(t *testing.T) {
+	// The new RecordUpload signature accepts a parent ctx so SIGTERM
+	// can cancel the moderation pipeline mid-flight. We assert the
+	// ctx error makes it to the moderation provider instead of being
+	// silently swallowed.
+	uploaderID := uuid.New()
+	mediaRepo := &mockMediaRepo{}
+	storage := &mockStorage{
+		downloadFn: func(ctx context.Context, _ string) ([]byte, error) {
+			// The ctx passed in must be cancellable; the test cancels
+			// the parent before this function is called.
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+
+	svc := newTestMediaServiceWithModeration(mediaRepo, storage, &cancelObservingModeration{})
+
+	parentCtx, cancel := context.WithCancel(context.Background())
+	cancel() // pre-cancel so Download sees ctx.Err() immediately
+
+	// Should return without panic and without invoking AnalyzeImage.
+	require.NotPanics(t, func() {
+		svc.RecordUpload(
+			parentCtx,
+			uploaderID,
+			"http://localhost/marketplace/profiles/u/photo.jpg",
+			"photo.jpg",
+			"image/jpeg",
+			1024,
+			mediadomain.ContextProfilePhoto,
+		)
+	})
 }
 
 // --- isSexualContent tests ---

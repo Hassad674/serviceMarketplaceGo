@@ -171,6 +171,96 @@ func TestValidate_DevelopmentWithStrongSecretsLogsNothing(t *testing.T) {
 	assert.NotContains(t, buf.String(), "STORAGE_SECRET_KEY")
 }
 
+// --- Rekognition threshold invariant ---
+//
+// REKOGNITION_THRESHOLD doubles as AWS `MinConfidence` AND as the
+// "flag for human review" cutoff. REKOGNITION_AUTO_REJECT_THRESHOLD is
+// the auto-reject score. Inverting them (flag >= auto_reject) makes the
+// flagged bucket unreachable: every label returned by AWS is already
+// >= MinConfidence == FlagThreshold and therefore also >= AutoReject,
+// so applyDecision auto-rejects everything and silently deletes the
+// source file. We refuse to boot in this state — even in dev — because
+// the side-effect (deleted media) is user-visible and irreversible.
+
+// TestValidate_RekognitionThresholdInverted_Fails captures the
+// production regression observed on 2026-05-08: .env had
+// REKOGNITION_THRESHOLD=70 / REKOGNITION_AUTO_REJECT_THRESHOLD=60,
+// auto-rejecting every horror-film image instead of flagging it for
+// human review.
+func TestValidate_RekognitionThresholdInverted_Fails(t *testing.T) {
+	cfg := defaultProductionConfig()
+	cfg.RekognitionEnabled = true
+	cfg.RekognitionThreshold = 70
+	cfg.RekognitionAutoRejectThreshold = 60
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REKOGNITION_THRESHOLD")
+	assert.Contains(t, err.Error(), "REKOGNITION_AUTO_REJECT_THRESHOLD")
+}
+
+// TestValidate_RekognitionThresholdEqual_Fails — equality is also
+// degenerate: the flagged bucket has zero width, so 100% of labels go
+// straight to auto-reject. Treat as a misconfiguration.
+func TestValidate_RekognitionThresholdEqual_Fails(t *testing.T) {
+	cfg := defaultProductionConfig()
+	cfg.RekognitionEnabled = true
+	cfg.RekognitionThreshold = 80
+	cfg.RekognitionAutoRejectThreshold = 80
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REKOGNITION_THRESHOLD")
+}
+
+// TestValidate_RekognitionThresholdHealthy_Passes confirms the canonical
+// configuration (60 flag / 95 auto-reject) boots cleanly. This is the
+// invariant the .env / .env.example documents.
+func TestValidate_RekognitionThresholdHealthy_Passes(t *testing.T) {
+	cfg := defaultProductionConfig()
+	cfg.RekognitionEnabled = true
+	cfg.RekognitionThreshold = 60
+	cfg.RekognitionAutoRejectThreshold = 95
+
+	err := cfg.Validate()
+	assert.NoError(t, err)
+}
+
+// TestValidate_RekognitionDisabled_SkipsThresholdCheck — when the
+// feature flag is off (no AWS credentials configured) the thresholds
+// are inert and we skip the invariant check. This keeps fresh
+// checkouts (REKOGNITION_ENABLED=false) booting without ceremony.
+func TestValidate_RekognitionDisabled_SkipsThresholdCheck(t *testing.T) {
+	cfg := defaultProductionConfig()
+	cfg.RekognitionEnabled = false
+	cfg.RekognitionThreshold = 70
+	cfg.RekognitionAutoRejectThreshold = 60 // inverted, but feature off
+
+	err := cfg.Validate()
+	assert.NoError(t, err)
+}
+
+// TestValidate_RekognitionThresholdInverted_FailsInDev mirrors the
+// production guard — we refuse to boot even in development because the
+// resulting media deletions are irreversible and silent. The other
+// security warnings (JWT, storage keys) are tolerated in dev because
+// they're recoverable; a silently-deleted user upload is not.
+func TestValidate_RekognitionThresholdInverted_FailsInDev(t *testing.T) {
+	cfg := defaultDevelopmentConfig()
+	cfg.RekognitionEnabled = true
+	cfg.RekognitionThreshold = 70
+	cfg.RekognitionAutoRejectThreshold = 60
+	// Strong secrets so the dev tolerance for those rules is irrelevant.
+	cfg.JWTSecret = strings.Repeat("a", 64)
+	cfg.StorageSecretKey = "a-strong-secret"
+	cfg.StorageAccessKey = "a-strong-access-key"
+	cfg.GDPRAnonymizationSalt = "a-strong-gdpr-salt-32-bytes-or-more-12345"
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REKOGNITION_THRESHOLD")
+}
+
 // --- helpers ---
 
 // defaultProductionConfig returns a Config that would PASS validation

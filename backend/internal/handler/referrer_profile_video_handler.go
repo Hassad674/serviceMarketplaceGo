@@ -83,6 +83,7 @@ func (h *ReferrerProfileVideoHandler) Upload(w http.ResponseWriter, r *http.Requ
 
 	if h.mediaSvc != nil {
 		go h.mediaSvc.RecordUpload(
+			context.Background(),
 			userID, url, header.Filename, contentType, header.Size,
 			mediadomain.ContextReferrerVideo,
 		)

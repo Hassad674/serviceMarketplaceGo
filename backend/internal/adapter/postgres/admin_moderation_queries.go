@@ -265,6 +265,15 @@ func buildReviewSubQuery() string {
 		AND mr.reviewed_at IS NULL`
 }
 
+// buildMediaSubQuery returns the auto-moderation queue rows for media.
+//
+// We surface BOTH `flagged` (waiting for a human verdict) AND `rejected`
+// (auto-rejected at score ≥ AutoRejectThreshold). Without `rejected`,
+// auto-rejected uploads silently disappear from the admin UI — the
+// reviewer cannot audit false positives or restore mistakenly removed
+// content. Mapping `rejected` to display status `deleted` aligns the
+// media queue with the message/review queues which already use the
+// same vocabulary (`hidden`, `deleted`).
 func buildMediaSubQuery() string {
 	return `SELECT
 		md.id,
@@ -272,7 +281,10 @@ func buildMediaSubQuery() string {
 		'media'::text AS content_type,
 		md.id AS content_id,
 		md.file_name AS content_preview,
-		'pending'::text AS status,
+		CASE
+			WHEN md.moderation_status = 'rejected' THEN 'deleted'
+			ELSE 'pending'
+		END AS status,
 		md.moderation_score,
 		md.context::text AS reason,
 		md.uploader_id AS user_involved_id,
@@ -282,7 +294,7 @@ func buildMediaSubQuery() string {
 		md.created_at
 	FROM media md
 	JOIN users u ON u.id = md.uploader_id
-	WHERE md.moderation_status = 'flagged'`
+	WHERE md.moderation_status IN ('flagged', 'rejected')`
 }
 
 func moderationOrderBy(sort string) string {

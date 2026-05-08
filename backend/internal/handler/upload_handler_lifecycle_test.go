@@ -57,6 +57,10 @@ type fakeRecorder struct {
 type recordCall struct {
 	UploaderID uuid.UUID
 	MediaCtx   mediadomain.Context
+	// CtxErr captures the value of ctx.Err() at the moment the recorder
+	// records the call. Tests use this to assert that SIGTERM truly
+	// propagated through trackUpload's context chain (BUG-17 follow-up).
+	CtxErr error
 }
 
 func newFakeRecorder() *fakeRecorder {
@@ -64,6 +68,7 @@ func newFakeRecorder() *fakeRecorder {
 }
 
 func (f *fakeRecorder) RecordUpload(
+	ctx context.Context,
 	uploaderID uuid.UUID,
 	_ string,
 	_ string,
@@ -80,13 +85,22 @@ func (f *fakeRecorder) RecordUpload(
 	f.mu.Unlock()
 
 	if hang != nil {
-		<-hang
+		// Honour ctx cancellation: when the caller's context is
+		// cancelled (SIGTERM / shutdown), the recorder must abort
+		// immediately. Closes the BUG-17 ctx propagation gap.
+		select {
+		case <-hang:
+		case <-ctx.Done():
+		}
 	} else if d > 0 {
-		time.Sleep(d)
+		select {
+		case <-time.After(d):
+		case <-ctx.Done():
+		}
 	}
 
 	f.mu.Lock()
-	f.calls = append(f.calls, recordCall{UploaderID: uploaderID, MediaCtx: mediaCtx})
+	f.calls = append(f.calls, recordCall{UploaderID: uploaderID, MediaCtx: mediaCtx, CtxErr: ctx.Err()})
 	f.mu.Unlock()
 	select {
 	case f.done <- struct{}{}:
@@ -223,15 +237,22 @@ func TestTrackUpload_ShutdownContextCancelsTask(t *testing.T) {
 
 	h.trackUpload(context.Background(), sampleInput())
 
-	// Trigger shutdown. The goroutine's inner ctx must be cancelled.
+	// Trigger shutdown. The goroutine's inner ctx must be cancelled
+	// AND propagate into RecordUpload — the recorder's select{} on
+	// ctx.Done() unblocks without us closing rec.hang.
 	shutdownCancel()
 
-	// The goroutine itself blocks on rec.hang — release it so Stop
-	// can complete. The point of the test is that the cancellation
-	// PATH works, not that RecordUpload obeys ctx (it does not yet).
-	close(rec.hang)
-
+	// Stop must drain the goroutine cleanly because the recorder
+	// observed ctx.Done() and returned of its own accord.
 	require.NoError(t, h.Stop(context.Background()))
+
+	// And the recorded call captured the ctx error so we can prove
+	// the cancellation reached the recorder, not just the wrapper.
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	require.Len(t, rec.calls, 1)
+	assert.ErrorIs(t, rec.calls[0].CtxErr, context.Canceled,
+		"SIGTERM must cancel the ctx that flows into RecordUpload")
 }
 
 // --- 5. 20 concurrent uploads followed by Stop ---

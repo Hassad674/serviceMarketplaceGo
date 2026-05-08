@@ -231,6 +231,11 @@ func marshalMessageForWS(msg *message.Message) map[string]any {
 
 // recordMediaIfNeeded fires a background media record for file and voice messages
 // so that attachments sent in conversations appear in the admin media table.
+//
+// We pass `context.Background()` here because the goroutine outlives the
+// HTTP request that scheduled it: the request's ctx is cancelled as soon
+// as the response is flushed, which would tear down the moderation
+// pipeline mid-flight. The media app applies its own 60s cap on top.
 func (s *Service) recordMediaIfNeeded(msg *message.Message) {
 	if s.mediaRecorder == nil {
 		return
@@ -244,6 +249,7 @@ func (s *Service) recordMediaIfNeeded(msg *message.Message) {
 			return
 		}
 		go s.mediaRecorder.RecordUploadRaw(
+			context.Background(),
 			msg.SenderID, meta.URL, meta.Filename, meta.MimeType, meta.Size, "message_attachment",
 		)
 	case message.MessageTypeVoice:
@@ -253,6 +259,7 @@ func (s *Service) recordMediaIfNeeded(msg *message.Message) {
 			return
 		}
 		go s.mediaRecorder.RecordUploadRaw(
+			context.Background(),
 			msg.SenderID, meta.URL, "voice_message.ogg", meta.MimeType, meta.Size, "message_attachment",
 		)
 	}

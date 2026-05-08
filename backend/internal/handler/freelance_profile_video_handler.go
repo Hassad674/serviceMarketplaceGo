@@ -97,6 +97,7 @@ func (h *FreelanceProfileVideoHandler) Upload(w http.ResponseWriter, r *http.Req
 
 	if h.mediaSvc != nil {
 		go h.mediaSvc.RecordUpload(
+			context.Background(),
 			userID, url, header.Filename, contentType, header.Size,
 			mediadomain.ContextProfileVideo,
 		)
