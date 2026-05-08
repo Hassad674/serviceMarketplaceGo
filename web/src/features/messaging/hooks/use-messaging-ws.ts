@@ -11,7 +11,11 @@ import { proposalQueryKey } from "@/shared/lib/query-keys/proposal"
 
 const HEARTBEAT_INTERVAL = 30_000
 const TYPING_CLEAR_DELAY = 5_000
-const MAX_RECONNECT_DELAY = 30_000
+const MAX_RECONNECT_DELAY = 60_000
+// Floor reconnect delay — see PERF-FIX-W-IDLE-CPU. Prevents a
+// 429-driven close from bouncing a new upgrade against the same
+// rate-limit window. Mirrors `useGlobalWS`.
+const MIN_RECONNECT_DELAY = 2_000
 
 async function getWSUrl(): Promise<string> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
@@ -315,7 +319,9 @@ export function useMessagingWS(userId: string | undefined) {
 
   const connect = useCallback(async () => {
     if (!userId) return
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    // Guard against StrictMode double-mounts — see PERF-FIX-W-IDLE-CPU.
+    const state = wsRef.current?.readyState
+    if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return
 
     const url = await getWSUrl()
     const ws = new WebSocket(url)
@@ -352,12 +358,13 @@ export function useMessagingWS(userId: string | undefined) {
         heartbeatRef.current = null
       }
 
-      // Exponential backoff reconnect
+      // Exponential backoff with floor + jitter — see PERF-FIX-W-IDLE-CPU.
       const attempt = reconnectAttemptRef.current
-      const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RECONNECT_DELAY)
+      const base = Math.min(MIN_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY)
+      const jitter = Math.floor(Math.random() * 500)
       reconnectAttemptRef.current = attempt + 1
 
-      reconnectTimeoutRef.current = setTimeout(connect, delay)
+      reconnectTimeoutRef.current = setTimeout(connect, base + jitter)
     }
 
     ws.onerror = () => {

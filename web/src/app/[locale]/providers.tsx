@@ -36,12 +36,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 2 * 60 * 1000, // 2 minutes — prevents refetching on every component mount
             gcTime: 10 * 60 * 1000, // 10 minutes — keep unused cache entries longer
+            // PERF-FIX-W-IDLE-CPU: a single tab running ~10 polling
+            // hooks at once can hit the global IP rate limit (100
+            // req/min). When the backend returns 429 to *every*
+            // endpoint, retrying the same query just piles on. Treat
+            // every 4xx as terminal — only network errors and 5xx
+            // get the (single) retry. Mutations never retry.
             retry: (failureCount, error) => {
-              // Never retry 403 — permission errors are not transient
-              if (error instanceof ApiError && error.status === 403) return false
+              if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+                return false
+              }
               return failureCount < 1
             },
+            // Cap retry delay so a 5xx blip + recovery does not fire
+            // 12 retries inside the 60 s rate-limit window.
+            retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
             refetchOnWindowFocus: false, // avoid surprise refetches when switching tabs
+            refetchOnReconnect: false, // dev: WS reconnect storms drive this — opt in per-hook only
+          },
+          mutations: {
+            // Replays for create-style POSTs are owned by the
+            // Idempotency-Key middleware on the backend, not by
+            // client-side timer storms.
+            retry: false,
           },
         },
         queryCache: new QueryCache({

@@ -16,7 +16,12 @@ export function useConversations() {
   return useQuery({
     queryKey: conversationsQueryKey(uid),
     queryFn: () => listConversations(),
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    // WS-driven invalidation already keeps the list fresh; polling
+    // is a belt-and-braces refresh path. 120 s avoids tripping the
+    // global IP rate limit when paired with the rest of the
+    // dashboard hooks — see PERF-FIX-W-IDLE-CPU.
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
+    refetchIntervalInBackground: false,
   })
 }

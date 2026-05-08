@@ -8,7 +8,11 @@ import { unreadNotifCountKey } from "@/features/notification/hooks/use-unread-no
 import { notificationsQueryKey } from "@/features/notification/hooks/use-notifications"
 
 const HEARTBEAT_INTERVAL = 30_000
-const MAX_RECONNECT_DELAY = 30_000
+const MAX_RECONNECT_DELAY = 60_000
+// Floor reconnect delay so the very first reconnect after a clean
+// drop does not race the page-mount fetches and trip the global IP
+// rate limit. PERF-FIX-W-IDLE-CPU.
+const MIN_RECONNECT_DELAY = 2_000
 
 async function getWSUrl(): Promise<string> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
@@ -90,7 +94,13 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
 
   const connect = useCallback(async () => {
     if (!userId) return
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    // Guard against double-mounts (React StrictMode in dev re-runs
+    // every effect). Without checking CONNECTING, a freshly opened
+    // socket races the second mount's `connect()` call and we end
+    // up with two parallel websockets — which the backend then
+    // closes, triggering the reconnect storm. PERF-FIX-W-IDLE-CPU.
+    const state = wsRef.current?.readyState
+    if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return
 
     const url = await getWSUrl()
     const ws = new WebSocket(url)
@@ -162,10 +172,15 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
         clearInterval(heartbeatRef.current)
         heartbeatRef.current = null
       }
+      // Exponential backoff with floor + jitter. The floor protects
+      // the global IP rate limit on a 429-driven close; the jitter
+      // prevents every browser tab from reconnecting in lockstep
+      // after a backend restart. PERF-FIX-W-IDLE-CPU.
       const attempt = reconnectAttemptRef.current
-      const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RECONNECT_DELAY)
+      const base = Math.min(MIN_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY)
+      const jitter = Math.floor(Math.random() * 500)
       reconnectAttemptRef.current = attempt + 1
-      reconnectTimeoutRef.current = setTimeout(connect, delay)
+      reconnectTimeoutRef.current = setTimeout(connect, base + jitter)
     }
 
     ws.onerror = () => {
