@@ -166,6 +166,7 @@ function PortraitFrame({
       width={PHOTO_SIZE_PX}
       height={PHOTO_SIZE_PX}
       className="h-[130px] w-[130px] rounded-xl object-cover"
+      unoptimized
     />
   ) : (
     <Portrait
