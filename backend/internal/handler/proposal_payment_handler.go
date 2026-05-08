@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -8,8 +9,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	domaininv "marketplace-backend/internal/domain/invoicing"
 	paymentdomain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -17,6 +20,18 @@ import (
 
 	res "marketplace-backend/pkg/response"
 )
+
+// billingProfileGate is the narrow read-only contract the proposal
+// payment handler uses to prove the client organization has filled in
+// its billing profile BEFORE we trigger a Stripe PaymentIntent. Kept as
+// a small interface (Interface Segregation) so handler tests can drive
+// every branch with a 5-line fake without standing up the entire
+// invoicing service.
+//
+// The real *invoicingapp.Service satisfies it natively.
+type billingProfileGate interface {
+	IsBillingProfileComplete(ctx context.Context, organizationID uuid.UUID) (bool, []domaininv.MissingField, error)
+}
 
 // ProposalPaymentHandler owns the funding endpoints — the surface that
 // transitions a proposal from accepted to active by initiating a Stripe
@@ -34,14 +49,109 @@ import (
 //     verification). Nil when Stripe is not configured — the
 //     ConfirmPayment handler degrades to "trust the local record" with
 //     a logged warning, mirroring the pre-Phase-3 behaviour.
+//   - invoicingSvc: optional gate that blocks PayProposal / FundMilestone
+//     when the client organization has an incomplete billing profile.
+//     Nil = invoicing module disabled and the gate degrades open
+//     (invoicing is a removable feature and must never block the rest of
+//     the platform). Wired post-construction via WithInvoicing inside
+//     wireInvoicing — same builder pattern as WalletHandler.
 type ProposalPaymentHandler struct {
-	proposalSvc *proposalapp.Service
-	paymentSvc  *paymentapp.Service // nil if Stripe not configured
+	proposalSvc  *proposalapp.Service
+	paymentSvc   *paymentapp.Service // nil if Stripe not configured
+	invoicingSvc billingProfileGate  // nil if invoicing not configured
 }
 
 // NewProposalPaymentHandler wires the funding handler.
 func NewProposalPaymentHandler(svc *proposalapp.Service, paymentSvc *paymentapp.Service) *ProposalPaymentHandler {
 	return &ProposalPaymentHandler{proposalSvc: svc, paymentSvc: paymentSvc}
+}
+
+// WithInvoicing wires the billing-profile gate. Builder pattern keeps
+// the constructor signature stable so a worktree without invoicing wired
+// in still boots — and removing the invoicing feature is a single-line
+// edit in main.go. Same shape as WalletHandler.WithInvoicing.
+func (h *ProposalPaymentHandler) WithInvoicing(svc *invoicingapp.Service) *ProposalPaymentHandler {
+	if svc != nil {
+		h.invoicingSvc = svc
+	}
+	return h
+}
+
+// withBillingGate is the test seam that lets us inject a fake
+// billingProfileGate without standing up the real invoicing service.
+// Production code goes through WithInvoicing; tests use this directly.
+func (h *ProposalPaymentHandler) withBillingGate(g billingProfileGate) *ProposalPaymentHandler {
+	h.invoicingSvc = g
+	return h
+}
+
+// requireClientBillingComplete enforces the client organization has a
+// complete billing profile before initiating any payment. Returns false
+// (and writes the response) when the gate blocks the call. Returns true
+// to indicate the caller may proceed.
+//
+// Fail-open posture matches the wallet handler: when the invoicing
+// module is disabled (gate nil) or the probe itself errors, the request
+// is allowed through. The probe error is logged via slog.Warn so it
+// surfaces in observability dashboards. We never want a transient gate
+// failure to block real money flows on a near-final production app.
+//
+// Audit trail: every block writes a structured slog.Info line with
+// action `payment.blocked_billing_incomplete` so the security audit
+// pipeline can correlate (org_id, proposal_id, missing_fields). Slog is
+// the canonical audit channel at the handler layer in this codebase —
+// the audit_logs table is append-only via app services.
+func (h *ProposalPaymentHandler) requireClientBillingComplete(
+	w http.ResponseWriter,
+	r *http.Request,
+	orgID, proposalID uuid.UUID,
+) bool {
+	if h.invoicingSvc == nil {
+		return true
+	}
+	complete, missing, err := h.invoicingSvc.IsBillingProfileComplete(r.Context(), orgID)
+	if err != nil {
+		slog.Warn("proposal payment: billing profile gate probe failed, allowing through",
+			"org_id", orgID, "proposal_id", proposalID, "error", err)
+		return true
+	}
+	if complete {
+		return true
+	}
+	slog.Info("payment.blocked_billing_incomplete",
+		"org_id", orgID,
+		"proposal_id", proposalID,
+		"missing_fields_count", len(missing),
+	)
+	respondClientBillingProfileIncomplete(w, missing)
+	return false
+}
+
+// respondClientBillingProfileIncomplete writes the canonical 412
+// Precondition Required envelope when the client organization has not
+// yet filled in its billing profile. The shape mirrors the wallet
+// handler's billing_profile_incomplete response so the frontend can
+// reuse a single completion modal for both flows. The discriminator
+// `code` lets the modal differentiate the two surfaces.
+//
+// 412 (RFC 7232 §4.2 + RFC 6585 §3) is the right status because the
+// resource state is fine — the precondition that the caller must
+// supply complete billing info before triggering a charge is what
+// fails. The wallet handler historically uses 403 here; the user-
+// facing brief explicitly asked for 412 on this surface to better
+// match the semantics, and the discriminator code stays identical so
+// the existing UX stays consistent.
+func respondClientBillingProfileIncomplete(w http.ResponseWriter, missing []domaininv.MissingField) {
+	if missing == nil {
+		missing = []domaininv.MissingField{}
+	}
+	res.JSON(w, http.StatusPreconditionRequired, map[string]any{
+		"error": map[string]string{
+			"code":    "billing_profile_incomplete",
+			"message": "Complète tes informations de facturation avant de payer cette proposition.",
+		},
+		"missing_fields": missing,
+	})
 }
 
 // PayProposal handles POST /api/v1/proposals/{id}/pay. Legacy one-time
@@ -56,6 +166,21 @@ func (h *ProposalPaymentHandler) PayProposal(w http.ResponseWriter, r *http.Requ
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+
+	// Billing profile gate: a client paying a proposal must have a
+	// complete billing profile so the resulting receipt snapshot
+	// (PR #165) carries the legally required recipient identity. The
+	// gate runs BEFORE InitiatePayment so we never charge a card and
+	// then fail to issue a usable receipt. Authorization (caller's
+	// org owns the client side) is enforced inside InitiatePayment;
+	// since the gate uses the caller's org id from the JWT context,
+	// a non-client caller that would fail authorization downstream
+	// would only see a benign "your billing profile is incomplete"
+	// 412, not a confidential leak — the message is identical for
+	// every authenticated org.
+	if !h.requireClientBillingComplete(w, r, orgID, proposalID) {
 		return
 	}
 
@@ -155,6 +280,15 @@ func (h *ProposalPaymentHandler) FundMilestone(w http.ResponseWriter, r *http.Re
 	}
 	proposalID, milestoneID, ok := parseProposalAndMilestoneID(w, r)
 	if !ok {
+		return
+	}
+	// Same billing-profile gate as PayProposal — milestone-mode
+	// payments still require the client org's billing identity so
+	// the receipt snapshot is regeneratable. Run BEFORE the
+	// milestone-matches-current check so a user with an incomplete
+	// profile sees the "fix your billing first" 412 instead of an
+	// unrelated milestone-state 409.
+	if !h.requireClientBillingComplete(w, r, orgID, proposalID) {
 		return
 	}
 	if !validateMilestoneMatchesCurrent(w, r, h.proposalSvc, proposalID, milestoneID) {

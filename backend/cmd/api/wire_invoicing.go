@@ -46,6 +46,11 @@ type invoicingDeps struct {
 	StripeKYC       service.StripeKYCSnapshotReader
 	StripeHandler   *handler.StripeHandler
 	WalletHandler   *handler.WalletHandler
+	// ProposalHandler carries the proposal payment sub-handler that
+	// gets re-bound with the billing-profile gate. Optional — when
+	// nil the gate is skipped and the proposal payment flow keeps
+	// its prior fail-open behaviour.
+	ProposalHandler *handler.ProposalHandler
 	SubscriptionSvc *subscriptionapp.Service
 }
 
@@ -138,6 +143,19 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 
 	stripeHandler := deps.StripeHandler.WithInvoicing(invoicingSvc)
 	walletHandler := deps.WalletHandler.WithInvoicing(invoicingSvc)
+
+	// Proposal payment gate: a client paying a proposal must have a
+	// complete billing profile so the receipt snapshot (PR #165)
+	// carries the legally required recipient identity. Re-bind the
+	// proposal payment sub-handler with the invoicing service the
+	// same way we re-bind the wallet handler — fluent setter, no
+	// constructor changes. The proposal handler facade keeps a
+	// pointer to the same payment sub-handler so the in-place
+	// mutation propagates to every router wiring path (including
+	// the legacy ProposalHandler facade methods).
+	if deps.ProposalHandler != nil {
+		deps.ProposalHandler.Payment().WithInvoicing(invoicingSvc)
+	}
 
 	// Subscription pre-enriches the Stripe Customer with the billing
 	// profile snapshot before creating an Embedded Checkout session,

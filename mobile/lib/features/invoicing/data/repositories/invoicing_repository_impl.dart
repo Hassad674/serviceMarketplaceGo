@@ -163,15 +163,24 @@ class InvoicingRepositoryImpl implements InvoicingRepository {
 // through to their existing error path.
 // ---------------------------------------------------------------------------
 
-/// Translates a wallet/subscribe 403 into a typed
+/// Translates a wallet/subscribe/proposal-pay rejection into a typed
 /// [BillingProfileIncompleteException] when the response payload carries
 /// the `billing_profile_incomplete` code. Returns null otherwise so the
 /// caller can fall through to its generic error handling.
+///
+/// Both 403 (legacy wallet/subscribe surface) and 412 Precondition
+/// Required (proposal payment surface) are accepted: the discriminator
+/// stays the response code `billing_profile_incomplete`. Adding more
+/// statuses here is the single edit any new gated surface needs.
 BillingProfileIncompleteException? tryDecodeBillingProfileIncomplete(
   DioException error,
 ) {
   final response = error.response;
-  if (response == null || response.statusCode != 403) {
+  if (response == null) {
+    return null;
+  }
+  final status = response.statusCode;
+  if (status != 403 && status != 412) {
     return null;
   }
   final raw = response.data;

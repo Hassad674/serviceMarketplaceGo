@@ -433,6 +433,7 @@
     "projects": "Projects",
     "jobs": "Jobs",
     "paymentInfo": "Payment Info",
+    "billingProfile": "Billing Info",
     "wallet": "Wallet",
     "settings": "Settings",
     "roleAgency": "Agency",
@@ -1390,6 +1391,9 @@
     "paymentInitFailed": "Could not start the payment",
     "paymentInitFailedHint": "Something went wrong while preparing the payment. Please try again in a moment.",
     "paymentRetry": "Try again",
+    "billingIncompleteTitle": "Your billing info is incomplete",
+    "billingIncompleteHint": "Before you pay, complete the details that will appear on your receipt.",
+    "billingIncompleteCta": "Complete my info",
     "uploadError": "Failed to upload files. Please try again.",
     "detailTitle": "Proposal details",
     "description": "Description",
@@ -1985,5 +1989,9 @@
     "billingProfile_w20_cancelTitlePrefix": "Payment",
     "billingProfile_w20_cancelTitleAccent": "cancelled.",
     "billingProfile_w20_cancelBody": "No charge was made. You can retry at any time from the Premium badge at the top of the page."
+  },
+  "billingProfileInlineModal": {
+    "title": "Complete your billing details",
+    "subtitle": "Before you pay, we need these details to generate your official receipt. You can review and edit them later in your settings."
   }
 }

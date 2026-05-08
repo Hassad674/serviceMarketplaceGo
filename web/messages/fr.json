@@ -433,6 +433,7 @@
     "projects": "Projets",
     "jobs": "Offres d'emploi",
     "paymentInfo": "Infos paiement",
+    "billingProfile": "Infos de facturation",
     "wallet": "Portefeuille",
     "settings": "Paramètres",
     "roleAgency": "Agence",
@@ -1390,6 +1391,9 @@
     "paymentInitFailed": "Impossible de démarrer le paiement",
     "paymentInitFailedHint": "Une erreur est survenue lors de la préparation du paiement. Veuillez réessayer dans un instant.",
     "paymentRetry": "Réessayer",
+    "billingIncompleteTitle": "Tes infos de facturation sont incomplètes",
+    "billingIncompleteHint": "Avant de pouvoir payer, complète les informations qui apparaîtront sur ton reçu.",
+    "billingIncompleteCta": "Compléter mes infos",
     "uploadError": "L'envoi des fichiers a échoué. Veuillez réessayer.",
     "detailTitle": "Détails de la proposition",
     "description": "Description",
@@ -1985,5 +1989,9 @@
     "billingProfile_w20_cancelTitlePrefix": "Paiement",
     "billingProfile_w20_cancelTitleAccent": "annulé.",
     "billingProfile_w20_cancelBody": "Aucun prélèvement n'a été effectué. Tu peux réessayer à tout moment depuis le badge Premium en haut de page."
+  },
+  "billingProfileInlineModal": {
+    "title": "Complète tes infos de facturation",
+    "subtitle": "Avant de payer, on a besoin de ces informations pour générer ton reçu officiel. Tu pourras les retrouver et les modifier dans tes paramètres."
   }
 }
