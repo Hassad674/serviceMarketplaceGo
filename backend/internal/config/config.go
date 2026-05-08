@@ -285,6 +285,20 @@ func (c *Config) Validate() error {
 			devGDPRSaltFallback))
 	}
 
+	// Rekognition thresholds — INVARIANT: flag < auto-reject. Inverting
+	// the two makes every label end up auto-rejected (the "flagged for
+	// human review" bucket becomes unreachable) and the source file is
+	// silently deleted. We refuse to boot in production AND in dev
+	// because a misconfigured threshold has user-visible side-effects
+	// (deleted media) even on a developer's local machine.
+	if c.RekognitionEnabled && c.RekognitionThreshold > 0 &&
+		c.RekognitionAutoRejectThreshold > 0 &&
+		c.RekognitionThreshold >= c.RekognitionAutoRejectThreshold {
+		errs = append(errs, fmt.Sprintf(
+			"REKOGNITION_THRESHOLD (%.1f) must be strictly less than REKOGNITION_AUTO_REJECT_THRESHOLD (%.1f) — inverting them makes the 'flagged for review' bucket unreachable and auto-rejects every detected label",
+			c.RekognitionThreshold, c.RekognitionAutoRejectThreshold))
+	}
+
 	if len(errs) > 0 {
 		return errors.New("config validation failed: " + strings.Join(errs, "; "))
 	}

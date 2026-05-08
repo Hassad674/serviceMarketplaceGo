@@ -55,9 +55,12 @@ const uploadShutdownDrain = 30 * time.Second
 //
 // Carving out the interface lets BUG-17 tests inject a fake recorder
 // to assert that the goroutine ran exactly once per upload AND that
-// Stop() waits for it before returning.
+// Stop() waits for it before returning. The first parameter is the
+// caller-supplied context — RecordUpload now derives its bounded
+// sub-context from it so SIGTERM short-circuits the moderation work.
 type mediaRecorder interface {
 	RecordUpload(
+		ctx context.Context,
 		uploaderID uuid.UUID,
 		fileURL string,
 		fileName string,
@@ -241,13 +244,12 @@ func (h *UploadHandler) trackUpload(reqCtx context.Context, in trackUploadInput)
 			}
 		}()
 
-		// The media service uses its own context internally —
-		// passing one in keeps the public API unchanged today, the
-		// tracking + cancellation contract is enforced here at the
-		// goroutine boundary. Future work can plumb ctx through to
-		// RecordUploadCtx() if needed.
-		_ = ctx
+		// Pass the cancellable ctx through to RecordUpload so SIGTERM
+		// short-circuits the in-flight Rekognition + S3 work — closes
+		// the BUG-17 partial regression where the structured cancel
+		// chain was decorative.
 		h.recorder.RecordUpload(
+			ctx,
 			in.UploaderID, in.FileURL, "" /*fileName unused*/, in.FileType, in.FileSize, in.MediaCtx,
 		)
 	}()
