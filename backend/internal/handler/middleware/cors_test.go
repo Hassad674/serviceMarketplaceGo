@@ -190,6 +190,43 @@ func TestCORS_AllowHeadersIncludesIdempotencyKey(t *testing.T) {
 	}
 }
 
+// TestCORS_AdminPreflight_AllowCredentials pins the admin SPA contract:
+// when the admin origin (typically `http://localhost:5174` in dev,
+// `https://admin.<host>` in prod) is allow-listed, a CORS preflight
+// from that origin MUST come back with `Access-Control-Allow-Credentials:
+// true` so the browser is willing to send the httpOnly session cookie
+// on the subsequent `/auth/me` boot probe. Without this header, the
+// boot-time session restore silently fails and the SPA boots into a
+// logged-out state on every hard refresh — the bug fixed in
+// fix(admin): persist session via httpOnly cookie on token-mode login.
+func TestCORS_AdminPreflight_AllowCredentials(t *testing.T) {
+	origins := []string{"http://localhost:5174", "https://admin.example.com"}
+
+	for _, origin := range origins {
+		t.Run(origin, func(t *testing.T) {
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := CORS(origins)(next)
+			req := httptest.NewRequest(http.MethodOptions, "/api/v1/auth/me", nil)
+			req.Header.Set("Origin", origin)
+			req.Header.Set("Access-Control-Request-Method", "GET")
+			req.Header.Set("Access-Control-Request-Headers", "Authorization, Content-Type, X-Auth-Mode")
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusNoContent, rec.Code)
+			assert.Equal(t, origin, rec.Header().Get("Access-Control-Allow-Origin"))
+			assert.Equal(t, "true", rec.Header().Get("Access-Control-Allow-Credentials"),
+				"admin preflight MUST receive Allow-Credentials: true so the SPA can replay the session cookie on /auth/me")
+			assert.Contains(t, rec.Header().Get("Access-Control-Allow-Headers"), "X-Auth-Mode",
+				"Allow-Headers MUST include X-Auth-Mode so the SPA's login request is not blocked by preflight")
+		})
+	}
+}
+
 func TestCORS_NoOriginHeader(t *testing.T) {
 	origins := []string{"https://app.example.com"}
 

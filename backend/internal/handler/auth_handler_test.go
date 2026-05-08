@@ -282,6 +282,141 @@ func TestAuthHandler_Login_WebMode_SessionVersion(t *testing.T) {
 	assert.Equal(t, uid, capturedInput.UserID)
 }
 
+// TestAuthHandler_Login_TokenMode_SetsSessionCookie pins the admin SPA
+// reload-recovery contract: a login with `X-Auth-Mode: token` MUST
+// return the bearer in the JSON body AND set the httpOnly session_id +
+// non-httpOnly user_role cookies. The admin SPA stores the bearer in
+// memory only (SEC-FINAL-07) — without the cookie, every hard reload
+// boots into a logged-out state because the on-mount /auth/me probe
+// has nothing to authenticate with.
+//
+// Regression for the recurring "admin logout on refresh" bug — see
+// commit message of fix(admin): persist session via httpOnly cookie on
+// token-mode login.
+func TestAuthHandler_Login_TokenMode_SetsSessionCookie(t *testing.T) {
+	uid := uuid.New()
+	existingUser := &user.User{
+		ID: uid, Email: "admin@example.com", HashedPassword: "hashed_Password1!",
+		FirstName: "Admin", LastName: "User", DisplayName: "Admin User",
+		Role: user.RoleProvider, IsAdmin: true, SessionVersion: 7,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return existingUser, nil
+		},
+	}
+
+	var sessionCreated bool
+	var capturedInput service.CreateSessionInput
+	sessionSvc := &mockSessionService{
+		createFn: func(_ context.Context, input service.CreateSessionInput) (*service.Session, error) {
+			sessionCreated = true
+			capturedInput = input
+			return &service.Session{
+				ID:             "sess_admin_token_mode",
+				UserID:         input.UserID,
+				Role:           input.Role,
+				IsAdmin:        input.IsAdmin,
+				SessionVersion: input.SessionVersion,
+			}, nil
+		},
+	}
+
+	h := newTestAuthHandler(userRepo, &mockPasswordResetRepo{}, &mockHasher{},
+		&mockTokenService{}, sessionSvc, &mockEmailService{})
+
+	body, _ := json.Marshal(map[string]string{
+		"email": "admin@example.com", "password": "Password1!",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Auth-Mode", "token")
+	rec := httptest.NewRecorder()
+
+	h.Login(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// Body MUST still carry the bearer for the in-memory store path.
+	var body0 map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body0))
+	assert.NotEmpty(t, body0["access_token"], "token mode response body must carry access_token")
+	assert.NotEmpty(t, body0["refresh_token"], "token mode response body must carry refresh_token")
+
+	// Session MUST be created (admin SPA reload-recovery anchor).
+	assert.True(t, sessionCreated, "token mode must create a session for cookie-based reload recovery")
+	assert.Equal(t, uid, capturedInput.UserID)
+	assert.Equal(t, 7, capturedInput.SessionVersion,
+		"session must carry the user's current session_version (avoid revocation loop)")
+	assert.True(t, capturedInput.IsAdmin, "session must reflect the user's is_admin flag")
+
+	// Set-Cookie MUST include session_id with HttpOnly so the SPA can
+	// re-authenticate via /auth/me on hard reload without exposing the
+	// cookie to JavaScript (SEC-FINAL-07).
+	cookies := rec.Result().Cookies()
+	var sessionCookie, roleCookie *http.Cookie
+	for _, c := range cookies {
+		switch c.Name {
+		case "session_id":
+			sessionCookie = c
+		case "user_role":
+			roleCookie = c
+		}
+	}
+	require.NotNil(t, sessionCookie, "Set-Cookie must include session_id in token mode")
+	assert.Equal(t, "sess_admin_token_mode", sessionCookie.Value)
+	assert.True(t, sessionCookie.HttpOnly, "session_id MUST be httpOnly")
+	assert.Equal(t, "/", sessionCookie.Path)
+	assert.Greater(t, sessionCookie.MaxAge, 0, "session_id MUST have a positive Max-Age")
+
+	require.NotNil(t, roleCookie, "Set-Cookie must include user_role in token mode")
+	assert.Equal(t, "provider", roleCookie.Value)
+	assert.False(t, roleCookie.HttpOnly, "user_role is a UI hint and must remain JS-readable")
+}
+
+// TestAuthHandler_Register_TokenMode_SetsSessionCookie pins the same
+// reload-recovery contract on the registration path. Registration flows
+// through `sendAuthResponse` like Login does, so the admin SPA path
+// must also receive the cookie when an admin is provisioned via the
+// token-mode register call (rare but possible during onboarding).
+func TestAuthHandler_Register_TokenMode_SetsSessionCookie(t *testing.T) {
+	var sessionCreated bool
+	sessionSvc := &mockSessionService{
+		createFn: func(_ context.Context, input service.CreateSessionInput) (*service.Session, error) {
+			sessionCreated = true
+			return &service.Session{ID: "sess_register", UserID: input.UserID, Role: input.Role}, nil
+		},
+	}
+
+	h := newTestAuthHandler(&mockUserRepo{}, &mockPasswordResetRepo{}, &mockHasher{},
+		&mockTokenService{}, sessionSvc, &mockEmailService{})
+
+	body, _ := json.Marshal(map[string]string{
+		"email": "fresh@example.com", "password": "Password1!",
+		"first_name": "Fresh", "last_name": "Owner", "role": "provider",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Auth-Mode", "token")
+	rec := httptest.NewRecorder()
+
+	h.Register(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+	assert.True(t, sessionCreated, "register in token mode must create a session for SPA reload recovery")
+
+	var found bool
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "session_id" {
+			found = true
+			assert.True(t, c.HttpOnly, "session_id MUST be httpOnly")
+		}
+	}
+	assert.True(t, found, "register in token mode must set the session_id cookie")
+}
+
 func TestAuthHandler_Logout(t *testing.T) {
 	h := newTestAuthHandler(&mockUserRepo{}, &mockPasswordResetRepo{}, &mockHasher{},
 		&mockTokenService{}, &mockSessionService{}, &mockEmailService{})

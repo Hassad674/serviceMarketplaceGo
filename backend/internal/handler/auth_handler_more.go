@@ -144,8 +144,27 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// sendAuthResponse checks X-Auth-Mode header to decide between
-// session cookies (web) and token body (mobile).
+// sendAuthResponse uses the X-Auth-Mode header to decide what shape the
+// response BODY takes — but it ALWAYS creates a session and sets the
+// httpOnly session cookie. The cookie is the long-lived "you're logged
+// in" record; the bearer token (when returned in token mode) is a
+// short-lived convenience for in-memory clients (mobile + admin SPA).
+//
+// Why the cookie is also set in token mode (admin SPA bug fix):
+//
+// The admin SPA stores the bearer in memory only (SEC-FINAL-07) — a
+// hard reload drops it. To recover the session without forcing the
+// user to log in again, the SPA's `AuthProvider` probes
+// `GET /auth/me` with `credentials: "include"` on boot. That probe
+// only succeeds when the backend issued a session cookie at login.
+//
+// Before this fix, the token-mode branch RETURNED EARLY before any
+// session was created, so the SPA never received a Set-Cookie header
+// and every reload booted into a logged-out state. The legacy
+// "no cookie when token mode" behaviour had no security benefit
+// (Dio on mobile never reads Set-Cookie anyway, and the cookie is
+// httpOnly + Secure-in-prod so it cannot be exfiltrated by JS) and a
+// concrete cost: every admin reload kicked the user back to /login.
 func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, status int, output *auth.AuthOutput) {
 	// Resolve the freshly created/loaded org context for inclusion in the
 	// response payload. We re-query the org service rather than storing
@@ -159,16 +178,10 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 		}
 	}
 
-	// Mobile mode: return tokens in response body
-	if r.Header.Get("X-Auth-Mode") == "token" {
-		res.JSON(w, status, response.NewAuthResponseWithOrg(output.User, orgCtx, output.AccessToken, output.RefreshToken))
-		return
-	}
-
-	// Web mode: create session, set cookies, return user only.
-	// The session carries the fully-resolved effective permission
-	// set (static defaults + org overrides) so the RequirePermission
-	// middleware can honor customized roles without a DB round-trip.
+	// Always create the session + set cookies. The session carries the
+	// fully-resolved effective permission set (static defaults + org
+	// overrides) so the RequirePermission middleware can honor
+	// customized roles without a DB round-trip.
 	session, err := h.sessionSvc.Create(r.Context(), service.CreateSessionInput{
 		UserID:         output.User.ID,
 		Role:           output.User.Role.String(),
@@ -183,8 +196,20 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create session")
 		return
 	}
-
 	h.cookie.SetSession(w, session.ID, output.User.Role.String())
+
+	// Token mode: the response body carries the bearer (mobile +
+	// admin SPA store it in memory). The session cookie set above is
+	// the reload-recovery anchor for the admin SPA — mobile ignores
+	// the Set-Cookie header (Dio has no CookieJar wired) and uses the
+	// bearer exclusively, so the extra cookie is harmless.
+	if r.Header.Get("X-Auth-Mode") == "token" {
+		res.JSON(w, status, response.NewAuthResponseWithOrg(output.User, orgCtx, output.AccessToken, output.RefreshToken))
+		return
+	}
+
+	// Web mode: response body omits the tokens — the cookies above are
+	// the only credential the browser will replay on subsequent calls.
 	res.JSON(w, status, response.NewMeResponse(output.User, orgCtx))
 }
 
