@@ -6482,6 +6482,102 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get accountErrorGeneric;
 
+  /// No description provided for @accountSectionSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get accountSectionSecurity;
+
+  /// No description provided for @accountSectionSecurityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Here is your account\'s recent activity. If you spot a sign-in that does not look like yours, change your password.'**
+  String get accountSectionSecurityDesc;
+
+  /// No description provided for @accountSecurityRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get accountSecurityRecentActivity;
+
+  /// No description provided for @accountSecurityViewAll.
+  ///
+  /// In en, this message translates to:
+  /// **'View activity'**
+  String get accountSecurityViewAll;
+
+  /// No description provided for @accountSecurityLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get accountSecurityLoadMore;
+
+  /// No description provided for @accountSecurityLoadingMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get accountSecurityLoadingMore;
+
+  /// No description provided for @accountSecurityEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent activity to display.'**
+  String get accountSecurityEmpty;
+
+  /// No description provided for @accountSecurityError.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not load your activity. Please try again.'**
+  String get accountSecurityError;
+
+  /// No description provided for @accountSecurityRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get accountSecurityRetry;
+
+  /// No description provided for @accountSecurityUnknownDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown device'**
+  String get accountSecurityUnknownDevice;
+
+  /// No description provided for @accountSecurityActionLoginSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Successful sign-in'**
+  String get accountSecurityActionLoginSuccess;
+
+  /// No description provided for @accountSecurityActionLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get accountSecurityActionLogout;
+
+  /// No description provided for @accountSecurityActionTokenRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Session refresh'**
+  String get accountSecurityActionTokenRefresh;
+
+  /// No description provided for @accountSecurityActionPasswordResetRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset requested'**
+  String get accountSecurityActionPasswordResetRequest;
+
+  /// No description provided for @accountSecurityActionPasswordResetComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset completed'**
+  String get accountSecurityActionPasswordResetComplete;
+
+  /// No description provided for @accountSecurityActionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Security event'**
+  String get accountSecurityActionUnknown;
+
   /// No description provided for @passwordShow.
   ///
   /// In en, this message translates to:

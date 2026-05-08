@@ -539,7 +539,27 @@
       "sessionInvalid": "Your session expired. Please sign in again.",
       "generic": "Something went wrong. Try again in a moment."
     },
+    "securityTab": "Security",
     "dataAndDeletion": "Data & deletion",
+    "security": {
+      "title": "Security",
+      "subtitle": "Here is the recent activity on your account. If you notice a session that does not look like yours, change your password right away.",
+      "recentActivity": "Recent activity",
+      "loadMore": "Show more",
+      "loadingMore": "Loading...",
+      "empty": "No recent activity to display.",
+      "error": "We could not load your activity. Please try again in a moment.",
+      "retry": "Retry",
+      "unknownDevice": "Unknown device",
+      "actions": {
+        "loginSuccess": "Successful sign-in",
+        "logout": "Sign out",
+        "tokenRefresh": "Session refresh",
+        "passwordResetRequest": "Password reset requested",
+        "passwordResetComplete": "Password reset completed",
+        "unknown": "Security event"
+      }
+    },
     "gdpr": {
       "title": "Your data and account",
       "subtitle": "Download a copy of every datum we hold about you, or request the permanent deletion of your account.",

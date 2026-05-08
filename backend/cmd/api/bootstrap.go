@@ -540,6 +540,15 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	})
 	gdprHandler := gdpr.Handler
 
+	// Security activity — read-only feed of the caller's recent
+	// authentication audit events. Wired AFTER infra so the audit
+	// repository is fully initialised; the handler short-circuits
+	// when the audit repo is missing so this stays optional.
+	securityWire := wireSecurity(securityDeps{
+		AuditRepo: infra.AuditRepo,
+	})
+	securityHandler := securityWire.Handler
+
 	wsHandler := wireWSHandler(wsHandlerDeps{
 		Cfg:          cfg,
 		WSHub:        infra.WSHub,
@@ -582,6 +591,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			Dispute:         disputeHandler, AdminDispute: adminDisputeHandler,
 			GDPR:            gdprHandler, Skill: skillHandler, Referral: referralHandler,
 			Search:          searchHandler, AdminSearchStats: adminSearchStatsHandler,
+			Security: securityHandler,
 		}),
 		WSHandler:   wsHandler,
 		Cfg:         cfg,

@@ -3531,6 +3531,58 @@ class AppLocalizationsFr extends AppLocalizations {
   String get accountErrorGeneric => 'Une erreur est survenue. Réessaie.';
 
   @override
+  String get accountSectionSecurity => 'Sécurité';
+
+  @override
+  String get accountSectionSecurityDesc =>
+      'Voici l\'activité récente de ton compte. Si tu repères une connexion qui ne te ressemble pas, change ton mot de passe.';
+
+  @override
+  String get accountSecurityRecentActivity => 'Activité récente';
+
+  @override
+  String get accountSecurityViewAll => 'Voir l\'activité';
+
+  @override
+  String get accountSecurityLoadMore => 'Voir plus';
+
+  @override
+  String get accountSecurityLoadingMore => 'Chargement…';
+
+  @override
+  String get accountSecurityEmpty => 'Aucune activité récente à afficher.';
+
+  @override
+  String get accountSecurityError =>
+      'Impossible de charger l\'activité. Réessaie.';
+
+  @override
+  String get accountSecurityRetry => 'Réessayer';
+
+  @override
+  String get accountSecurityUnknownDevice => 'Appareil inconnu';
+
+  @override
+  String get accountSecurityActionLoginSuccess => 'Connexion réussie';
+
+  @override
+  String get accountSecurityActionLogout => 'Déconnexion';
+
+  @override
+  String get accountSecurityActionTokenRefresh => 'Renouvellement de session';
+
+  @override
+  String get accountSecurityActionPasswordResetRequest =>
+      'Demande de réinitialisation';
+
+  @override
+  String get accountSecurityActionPasswordResetComplete =>
+      'Mot de passe réinitialisé';
+
+  @override
+  String get accountSecurityActionUnknown => 'Évènement de sécurité';
+
+  @override
   String get passwordShow => 'Afficher le mot de passe';
 
   @override
