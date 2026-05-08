@@ -1203,6 +1203,25 @@ class AppLocalizationsFr extends AppLocalizations {
       'La mission est maintenant active. Redirection vers les projets...';
 
   @override
+  String get billingIncompleteTitle =>
+      'Tes infos de facturation sont incomplètes';
+
+  @override
+  String get billingIncompleteHint =>
+      'Avant de payer, complète les informations qui apparaîtront sur ton reçu.';
+
+  @override
+  String get billingIncompleteCta => 'Compléter mes infos';
+
+  @override
+  String get billingProfileInlineSheetTitle =>
+      'Complète tes infos de facturation';
+
+  @override
+  String get billingProfileInlineSheetSubtitle =>
+      'Avant de payer, on a besoin de ces informations pour générer ton reçu officiel. Tu pourras les retrouver et les modifier dans tes paramètres.';
+
+  @override
   String get noActiveProjects => 'Aucun projet actif';
 
   @override

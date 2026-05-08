@@ -20,6 +20,7 @@ import { cn, formatCurrency } from "@/shared/lib/utils"
 import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-api"
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
+import { BillingProfileInlineModal } from "@/shared/components/billing-profile/billing-profile-inline-modal"
 
 // Soleil v2 — Payment confirmation page (escrow). Soleil card with
 // editorial header, Geist Mono amount summary, corail "Confirmer" pill.
@@ -28,7 +29,27 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null
 
-type PaymentErrorKind = "not_found" | "init_failed" | null
+type PaymentErrorKind = "not_found" | "init_failed" | "billing_incomplete" | null
+
+// classifyPaymentError maps an InitiatePayment failure onto the
+// rendered error states. The 412 billing-profile gate is the sole
+// non-failure surface — every other 4xx/5xx falls back to the generic
+// "init_failed" retry view. Kept as a top-level pure function so the
+// effect body stays readable and the mapping is unit-testable in
+// isolation.
+function classifyPaymentError(err: unknown): PaymentErrorKind {
+  if (err instanceof ApiError) {
+    if (err.status === 404) return "not_found"
+    // 412 Precondition Required + the canonical
+    // billing_profile_incomplete code → the client org has not yet
+    // filled in its billing identity. The defensive branch (race
+    // condition with a sibling tab) lands here too.
+    if (err.status === 412 && err.code === "billing_profile_incomplete") {
+      return "billing_incomplete"
+    }
+  }
+  return "init_failed"
+}
 
 export function PaymentSimulation() {
   const t = useTranslations("proposal")
@@ -42,6 +63,11 @@ export function PaymentSimulation() {
   const [loading, setLoading] = useState(true)
   const [paid, setPaid] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
+  // billingModalOpen is the visibility flag for the inline form modal.
+  // It opens when the backend rejects InitiatePayment with 412 and
+  // closes either when the user dismisses or when the form's onSaved
+  // callback retries the payment intent.
+  const [billingModalOpen, setBillingModalOpen] = useState(false)
 
   useEffect(() => {
     if (!proposalId) return
@@ -49,11 +75,6 @@ export function PaymentSimulation() {
 
     setLoading(true)
     setErrorKind(null)
-
-    const classify = (err: unknown): PaymentErrorKind => {
-      if (err instanceof ApiError && err.status === 404) return "not_found"
-      return "init_failed"
-    }
 
     getProposal(proposalId)
       .then((p) => {
@@ -80,7 +101,11 @@ export function PaymentSimulation() {
       })
       .catch((err) => {
         if (cancelled) return
-        setErrorKind(classify(err))
+        const kind = classifyPaymentError(err)
+        setErrorKind(kind)
+        if (kind === "billing_incomplete") {
+          setBillingModalOpen(true)
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -93,6 +118,55 @@ export function PaymentSimulation() {
 
   if (!proposalId || errorKind === "not_found") {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
+  }
+
+  if (errorKind === "billing_incomplete") {
+    // Render the inline modal next to a static "fix your billing"
+    // page placeholder. When the user saves, retryNonce bumps and
+    // the effect re-runs initiatePayment with the same proposal id.
+    return (
+      <>
+        <CenteredMessage>
+          <AlertTriangle
+            className="mx-auto h-12 w-12 text-warning"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+          <p className="font-serif text-[18px] font-medium text-foreground">
+            {t("billingIncompleteTitle")}
+          </p>
+          <p className="text-[13.5px] text-muted-foreground">
+            {t("billingIncompleteHint")}
+          </p>
+          <Button
+            variant="ghost"
+            size="auto"
+            type="button"
+            onClick={() => setBillingModalOpen(true)}
+            className={cn(
+              "mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5",
+              "text-[13.5px] font-bold text-primary-foreground transition-all duration-200 ease-out",
+              "bg-primary hover:bg-primary-deep hover:shadow-[0_4px_14px_rgba(232,93,74,0.28)] active:scale-[0.98]",
+            )}
+          >
+            {t("billingIncompleteCta")}
+          </Button>
+        </CenteredMessage>
+        <BillingProfileInlineModal
+          open={billingModalOpen}
+          onClose={() => setBillingModalOpen(false)}
+          onSaved={() => {
+            // Close the modal and retry the payment-intent creation.
+            // setRetryNonce flips a state value referenced by the
+            // effect dependency array, so the entire load-then-init
+            // pipeline reruns from scratch.
+            setBillingModalOpen(false)
+            setErrorKind(null)
+            setRetryNonce((n) => n + 1)
+          }}
+        />
+      </>
+    )
   }
 
   if (errorKind === "init_failed") {

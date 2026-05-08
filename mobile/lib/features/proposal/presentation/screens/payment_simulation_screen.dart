@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../invoicing/data/exceptions/billing_profile_incomplete_exception.dart';
+import '../../../invoicing/presentation/widgets/billing_profile_inline_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
 
@@ -45,6 +47,18 @@ class _PaymentSimulationScreenState
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         GoRouter.of(context).go(RoutePaths.missions);
+      }
+    } on BillingProfileIncompleteException {
+      // Backend gate (412): the client organization has not yet
+      // filled in its billing identity. Open the inline form sheet
+      // so the user can fix it without leaving this screen, then
+      // retry the payment if the save was successful.
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      final saved = await showBillingProfileInlineSheet(context);
+      if (saved == true && mounted) {
+        // Re-enter the same flow now that the gate is open.
+        await _confirmPayment();
       }
     } catch (e) {
       if (!mounted) return;
