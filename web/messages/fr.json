@@ -539,7 +539,27 @@
       "sessionInvalid": "Ta session a expiré. Reconnecte-toi.",
       "generic": "Une erreur est survenue. Réessaie dans un instant."
     },
+    "securityTab": "Sécurité",
     "dataAndDeletion": "Données et suppression",
+    "security": {
+      "title": "Sécurité",
+      "subtitle": "Voici l'activité récente de ton compte. Si tu repères une connexion qui ne te ressemble pas, change ton mot de passe sans attendre.",
+      "recentActivity": "Activité récente",
+      "loadMore": "Voir plus",
+      "loadingMore": "Chargement...",
+      "empty": "Aucune activité récente à afficher.",
+      "error": "Impossible de charger l'activité. Réessaie dans un instant.",
+      "retry": "Réessayer",
+      "unknownDevice": "Appareil inconnu",
+      "actions": {
+        "loginSuccess": "Connexion réussie",
+        "logout": "Déconnexion",
+        "tokenRefresh": "Renouvellement de session",
+        "passwordResetRequest": "Demande de réinitialisation du mot de passe",
+        "passwordResetComplete": "Mot de passe réinitialisé",
+        "unknown": "Évènement de sécurité"
+      }
+    },
     "gdpr": {
       "title": "Vos données et votre compte",
       "subtitle": "Téléchargez une copie de toutes les données que nous détenons sur vous, ou demandez la suppression définitive de votre compte.",
