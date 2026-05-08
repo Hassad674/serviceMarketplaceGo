@@ -20,13 +20,18 @@ interface ReferrerProfileHeaderProps {
     onUploadPhoto?: (file: File) => Promise<void>
     uploadingPhoto?: boolean
   }
+  /**
+   * When true, the underlying ProfileIdentityHeader marks the photo
+   * as a high-priority image (LCP). Public profile pages opt in.
+   */
+  photoPriority?: boolean
 }
 
 // ReferrerProfileHeader wires the shared identity header with the
 // referrer-specific badge ("Apporteur d'affaire") so the public
 // viewer immediately understands which persona they are looking at.
 export function ReferrerProfileHeader(props: ReferrerProfileHeaderProps) {
-  const { profile, displayName, rating, editable } = props
+  const { profile, displayName, rating, editable, photoPriority } = props
   const t = useTranslations("profile")
   const tUpload = useTranslations("upload")
   const tSidebar = useTranslations("sidebar")
@@ -37,6 +42,7 @@ export function ReferrerProfileHeader(props: ReferrerProfileHeaderProps) {
     displayName,
     title: profile.title,
     availabilityStatus: profile.availability_status,
+    photoPriority,
   }
 
   const badge: ProfileIdentityHeaderProps["badge"] = {

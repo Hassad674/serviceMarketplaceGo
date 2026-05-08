@@ -71,6 +71,9 @@ export function ReferrerPublicProfile(props: ReferrerPublicProfileProps) {
               }
             : undefined
         }
+        // PERF-W-08: read-only public viewers paint this header above
+        // the fold — opt the photo into next/image priority loading.
+        photoPriority={readOnly}
       />
 
       <ProfileAboutCard
