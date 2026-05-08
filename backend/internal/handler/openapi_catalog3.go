@@ -201,6 +201,13 @@ func catalogueGDPR(c map[string]routeSpec) {
 	}
 }
 
+func catalogueSecurity(c map[string]routeSpec) {
+	c["GET /api/v1/me/security/activity"] = routeSpec{
+		Tags: []string{"security"}, Summary: "List my recent authentication activity",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
+}
+
 func catalogueSkill(c map[string]routeSpec) {
 	c["GET /api/v1/skills/catalog"] = routeSpec{
 		Tags: []string{"skill"}, Summary: "List the curated skill catalog",

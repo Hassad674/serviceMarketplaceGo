@@ -3486,6 +3486,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountErrorGeneric => 'Something went wrong. Please try again.';
 
   @override
+  String get accountSectionSecurity => 'Security';
+
+  @override
+  String get accountSectionSecurityDesc =>
+      'Here is your account\'s recent activity. If you spot a sign-in that does not look like yours, change your password.';
+
+  @override
+  String get accountSecurityRecentActivity => 'Recent activity';
+
+  @override
+  String get accountSecurityViewAll => 'View activity';
+
+  @override
+  String get accountSecurityLoadMore => 'Show more';
+
+  @override
+  String get accountSecurityLoadingMore => 'Loading…';
+
+  @override
+  String get accountSecurityEmpty => 'No recent activity to display.';
+
+  @override
+  String get accountSecurityError =>
+      'We could not load your activity. Please try again.';
+
+  @override
+  String get accountSecurityRetry => 'Retry';
+
+  @override
+  String get accountSecurityUnknownDevice => 'Unknown device';
+
+  @override
+  String get accountSecurityActionLoginSuccess => 'Successful sign-in';
+
+  @override
+  String get accountSecurityActionLogout => 'Sign out';
+
+  @override
+  String get accountSecurityActionTokenRefresh => 'Session refresh';
+
+  @override
+  String get accountSecurityActionPasswordResetRequest =>
+      'Password reset requested';
+
+  @override
+  String get accountSecurityActionPasswordResetComplete =>
+      'Password reset completed';
+
+  @override
+  String get accountSecurityActionUnknown => 'Security event';
+
+  @override
   String get passwordShow => 'Show password';
 
   @override

@@ -7,6 +7,7 @@ import { AccountNav } from "./account-nav"
 import { NotificationSettings } from "./notification-settings"
 import { EmailSettings } from "./email-settings"
 import { PasswordSettings } from "./password-settings"
+import { SecuritySettings } from "./security-settings"
 import { DeleteAccountCard } from "./delete-account-card"
 import { useUser } from "@/shared/hooks/use-user"
 import { DEFAULT_SECTION, VALID_SECTIONS } from "../types"
@@ -46,6 +47,7 @@ export function AccountSettingsPage() {
           {section === "notifications" && <NotificationSettings />}
           {section === "email" && <EmailSettings />}
           {section === "password" && <PasswordSettings />}
+          {section === "security" && <SecuritySettings />}
           {section === "data-and-deletion" && (
             <DeleteAccountCard
               pendingDeletionAt={user?.deleted_at ?? null}
