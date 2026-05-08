@@ -10,6 +10,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../security/presentation/widgets/security_activity_section.dart';
 import '../../data/gdpr_repository_impl.dart';
 
 /// AccountScreen — Soleil v2 mobile mirror of the web /account page.
@@ -91,6 +92,13 @@ class AccountScreen extends ConsumerWidget {
                     label: Text(l10n.accountChangePasswordCta),
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              _AccountSection(
+                icon: Icons.verified_user_outlined,
+                title: l10n.accountSectionSecurity,
+                description: l10n.accountSectionSecurityDesc,
+                child: const SecurityActivitySection(),
               ),
               const SizedBox(height: 16),
               _AccountSection(

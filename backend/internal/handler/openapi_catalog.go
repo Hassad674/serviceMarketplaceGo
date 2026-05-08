@@ -31,6 +31,7 @@ func buildCatalogue() map[string]routeSpec {
 	catalogueReferral(c)
 	catalogueDispute(c)
 	catalogueGDPR(c)
+	catalogueSecurity(c)
 	catalogueSkill(c)
 	catalogueUpload(c)
 	catalogueCall(c)
