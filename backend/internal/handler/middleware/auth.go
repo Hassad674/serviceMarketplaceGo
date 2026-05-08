@@ -44,6 +44,27 @@ type OrgOverridesResolver interface {
 	GetRoleOverrides(ctx context.Context, orgID uuid.UUID) (organization.RoleOverrides, error)
 }
 
+// AuthDeps groups the collaborators the auth middleware needs.
+// Bundling them keeps the public factory's signature stable as we
+// add same-layer checks (session_version, live user state, org
+// overrides) without violating the project's 4-parameter rule.
+//
+// All checker fields are optional in tests (nil-safe). Production
+// wiring always passes a non-nil checker for each.
+type AuthDeps struct {
+	TokenService    service.TokenService
+	SessionService  service.SessionService
+	SessionVersions SessionVersionChecker
+	UserState       UserStateChecker
+	OrgOverrides    OrgOverridesResolver
+	// FailClosedInProd routes a transient DB/Redis failure during
+	// the session_version OR user_state lookup to 503 instead of
+	// silently trusting the cookie/JWT snapshot. Set to true in
+	// production wiring; left false in dev/test so a contributor's
+	// broken local DB does not lock everyone out.
+	FailClosedInProd bool
+}
+
 // Auth validates an incoming request's credentials (session cookie
 // first, Bearer token second), injects the authenticated user context,
 // and enforces the session_version revocation check.
@@ -58,20 +79,30 @@ type OrgOverridesResolver interface {
 // time. In production, always pass a non-nil resolver so new
 // permissions added to the catalog after a deploy propagate to every
 // live session without requiring everyone to log out.
+//
+// Backwards-compatible thin shim around AuthFromDeps. Existing call
+// sites (tests + worktrees that haven't migrated yet) keep working
+// without churn. New production code paths use AuthFromDeps directly
+// so the live UserStateChecker can be wired in.
 func Auth(
 	tokenService service.TokenService,
 	sessionService service.SessionService,
 	sessionVersions SessionVersionChecker,
 	overridesResolver OrgOverridesResolver,
 ) func(http.Handler) http.Handler {
-	// Backwards-compatible factory — keeps every test-only call site
-	// working unchanged. New production code paths should use
-	// AuthWithFailClosed instead so a DB/Redis incident cannot
-	// bypass session-version revocation.
-	return AuthWithFailClosed(tokenService, sessionService, sessionVersions, overridesResolver, false)
+	return AuthFromDeps(AuthDeps{
+		TokenService:    tokenService,
+		SessionService:  sessionService,
+		SessionVersions: sessionVersions,
+		OrgOverrides:    overridesResolver,
+	})
 }
 
-// AuthWithFailClosed is the production-ready factory.
+// AuthWithFailClosed is the legacy production-ready factory. Kept for
+// backwards compatibility with existing test wiring. New code should
+// build an AuthDeps literal and call AuthFromDeps directly so the
+// live UserStateChecker is wired alongside the session-version
+// checker.
 //
 // F.5 S8 — when failClosedInProd is true, a transient lookup failure
 // (DB outage / Redis blip while resolving session_version) returns
@@ -87,108 +118,229 @@ func AuthWithFailClosed(
 	overridesResolver OrgOverridesResolver,
 	failClosedInProd bool,
 ) func(http.Handler) http.Handler {
+	return AuthFromDeps(AuthDeps{
+		TokenService:     tokenService,
+		SessionService:   sessionService,
+		SessionVersions:  sessionVersions,
+		OrgOverrides:     overridesResolver,
+		FailClosedInProd: failClosedInProd,
+	})
+}
+
+// AuthFromDeps is the canonical factory. It accepts the full AuthDeps
+// bundle so the call site is explicit about every collaborator and
+// new same-layer checks (live admin/status state) can be wired in
+// without breaking existing constructors.
+//
+// is_admin propagation fix: the middleware now consults
+// AuthDeps.UserState on every authenticated request and OVERRIDES the
+// is_admin / status snapshot baked into the session/JWT at login.
+// Without this override, a `UPDATE users SET is_admin = true` issued
+// outside the application code path (e.g. operator promotion via
+// SQL) would never reach the active sessions — they would keep
+// returning 403 on /admin endpoints until each user logs out and
+// back in. The 30-second Redis cache in the production checker
+// absorbs the per-request DB cost.
+func AuthFromDeps(deps AuthDeps) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Strategy 1: Session cookie (web clients)
 			if cookie, err := r.Cookie("session_id"); err == nil && cookie.Value != "" {
-				session, err := sessionService.Get(r.Context(), cookie.Value)
-				if err == nil {
-					switch verifySessionVersion(r.Context(), sessionVersions, session.UserID, session.SessionVersion) {
-					case sessionVersionMatch:
-						// continue
-					case sessionVersionUserGone:
-						// User row deleted (e.g. operator left their org). The
-						// session cookie is still present client-side but the
-						// backing account is gone — tell the client their
-						// session is invalid so it clears state and redirects
-						// to login. See R16 zombie-session fix.
-						response.Error(w, http.StatusUnauthorized, "session_invalid", "session is no longer valid — please sign in again")
-						return
-					case sessionVersionRevoked:
-						response.Error(w, http.StatusUnauthorized, "session_revoked", "session has been revoked — please sign in again")
-						return
-					case sessionVersionLookupFailed:
-						if failClosedInProd {
-							// F.5 S8: production fails CLOSED so an
-							// attacker cannot bypass session_version
-							// revocation by triggering a DB/Redis
-							// incident. The slog.Error breadcrumb in
-							// verifySessionVersion already logged the
-							// upstream cause.
-							response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
-								"authentication backend is degraded — retry shortly")
-							return
-						}
-						// Dev/test: trust the cookie's snapshot so a
-						// broken local DB does not lock everyone out.
-					}
-					ctx := context.WithValue(r.Context(), ContextKeyUserID, session.UserID)
-					ctx = context.WithValue(ctx, ContextKeyRole, session.Role)
-					ctx = context.WithValue(ctx, ContextKeyIsAdmin, session.IsAdmin)
-					if session.OrganizationID != nil {
-						ctx = context.WithValue(ctx, ContextKeyOrganizationID, *session.OrganizationID)
-					}
-					if session.OrgRole != "" {
-						ctx = context.WithValue(ctx, ContextKeyOrgRole, session.OrgRole)
-					}
-					ctx = injectLivePermissions(
-						ctx, overridesResolver,
-						session.OrganizationID, session.OrgRole, session.Permissions,
-					)
-					next.ServeHTTP(w, r.WithContext(ctx))
+				if handled := tryCookieAuth(w, r, cookie.Value, deps, next); handled {
 					return
 				}
 			}
 
-			// Strategy 2: Bearer token (mobile clients)
-			header := r.Header.Get("Authorization")
-			if header != "" {
-				parts := strings.SplitN(header, " ", 2)
-				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-					claims, err := tokenService.ValidateAccessToken(parts[1])
-					if err == nil {
-						switch verifySessionVersion(r.Context(), sessionVersions, claims.UserID, claims.SessionVersion) {
-						case sessionVersionMatch:
-							// continue
-						case sessionVersionUserGone:
-							response.Error(w, http.StatusUnauthorized, "session_invalid", "session is no longer valid — please sign in again")
-							return
-						case sessionVersionRevoked:
-							response.Error(w, http.StatusUnauthorized, "session_revoked", "token has been revoked — please sign in again")
-							return
-						case sessionVersionLookupFailed:
-							if failClosedInProd {
-								// F.5 S8: production fails CLOSED so an
-								// attacker cannot bypass session_version
-								// revocation via a DB/Redis incident.
-								response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
-									"authentication backend is degraded — retry shortly")
-								return
-							}
-							// Dev/test: trust the JWT's snapshot.
-						}
-						ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
-						ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
-						ctx = context.WithValue(ctx, ContextKeyIsAdmin, claims.IsAdmin)
-						if claims.OrganizationID != nil {
-							ctx = context.WithValue(ctx, ContextKeyOrganizationID, *claims.OrganizationID)
-						}
-						if claims.OrgRole != "" {
-							ctx = context.WithValue(ctx, ContextKeyOrgRole, claims.OrgRole)
-						}
-						ctx = injectLivePermissions(
-							ctx, overridesResolver,
-							claims.OrganizationID, claims.OrgRole, claims.Permissions,
-						)
-						next.ServeHTTP(w, r.WithContext(ctx))
-						return
-					}
+			// Strategy 2: Bearer token (mobile clients + admin SPA)
+			if header := r.Header.Get("Authorization"); header != "" {
+				if handled := tryBearerAuth(w, r, header, deps, next); handled {
+					return
 				}
 			}
 
 			response.Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
 		})
 	}
+}
+
+// tryCookieAuth attempts to authenticate via the session cookie. Returns
+// true when the request has been fully handled (either dispatched to
+// `next` or terminated with an error response). When false, the caller
+// keeps trying the next strategy (bearer).
+func tryCookieAuth(
+	w http.ResponseWriter, r *http.Request, sessionID string,
+	deps AuthDeps, next http.Handler,
+) bool {
+	session, err := deps.SessionService.Get(r.Context(), sessionID)
+	if err != nil {
+		// Cookie present but session lookup failed — fall through to
+		// the bearer path (typically a stale cookie + a fresh token).
+		return false
+	}
+
+	if !checkSessionVersion(w, r, deps, session.UserID, session.SessionVersion, "session has been revoked — please sign in again") {
+		return true
+	}
+	live, ok := checkUserState(w, r, deps, session.UserID, UserState{
+		IsAdmin: session.IsAdmin,
+		Status:  user.StatusActive,
+	})
+	if !ok {
+		return true
+	}
+
+	ctx := stampAuthContext(r.Context(), authStamp{
+		UserID:      session.UserID,
+		Role:        session.Role,
+		IsAdmin:     live.IsAdmin,
+		OrgID:       session.OrganizationID,
+		OrgRole:     session.OrgRole,
+		Permissions: session.Permissions,
+	}, deps.OrgOverrides)
+	next.ServeHTTP(w, r.WithContext(ctx))
+	return true
+}
+
+// tryBearerAuth attempts to authenticate via a Bearer token. Same
+// return contract as tryCookieAuth.
+func tryBearerAuth(
+	w http.ResponseWriter, r *http.Request, header string,
+	deps AuthDeps, next http.Handler,
+) bool {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return false
+	}
+	claims, err := deps.TokenService.ValidateAccessToken(parts[1])
+	if err != nil {
+		return false
+	}
+
+	if !checkSessionVersion(w, r, deps, claims.UserID, claims.SessionVersion, "token has been revoked — please sign in again") {
+		return true
+	}
+	live, ok := checkUserState(w, r, deps, claims.UserID, UserState{
+		IsAdmin: claims.IsAdmin,
+		Status:  user.StatusActive,
+	})
+	if !ok {
+		return true
+	}
+
+	ctx := stampAuthContext(r.Context(), authStamp{
+		UserID:      claims.UserID,
+		Role:        claims.Role,
+		IsAdmin:     live.IsAdmin,
+		OrgID:       claims.OrganizationID,
+		OrgRole:     claims.OrgRole,
+		Permissions: claims.Permissions,
+	}, deps.OrgOverrides)
+	next.ServeHTTP(w, r.WithContext(ctx))
+	return true
+}
+
+// checkSessionVersion runs the session_version revocation check and
+// writes the appropriate error response on failure. Returns true when
+// the request should keep flowing through the middleware, false when
+// it has been terminated and the caller must return.
+func checkSessionVersion(
+	w http.ResponseWriter, r *http.Request,
+	deps AuthDeps, userID uuid.UUID, carriedVersion int, revokedMsg string,
+) bool {
+	switch verifySessionVersion(r.Context(), deps.SessionVersions, userID, carriedVersion) {
+	case sessionVersionMatch:
+		return true
+	case sessionVersionUserGone:
+		response.Error(w, http.StatusUnauthorized, "session_invalid",
+			"session is no longer valid — please sign in again")
+		return false
+	case sessionVersionRevoked:
+		response.Error(w, http.StatusUnauthorized, "session_revoked", revokedMsg)
+		return false
+	case sessionVersionLookupFailed:
+		if deps.FailClosedInProd {
+			response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
+				"authentication backend is degraded — retry shortly")
+			return false
+		}
+		// Dev/test: trust the snapshot.
+		return true
+	default:
+		return true
+	}
+}
+
+// checkUserState consults the live UserState checker (for is_admin /
+// status) and writes the appropriate error response on failure.
+// Returns the authoritative UserState alongside a boolean signalling
+// whether the request should keep flowing.
+//
+// Why this is the central fix for the is_admin propagation bug: the
+// snapshot baked into session.IsAdmin / claims.IsAdmin is captured at
+// login time and never refreshed. By overlaying the live value here,
+// any toggle of users.is_admin (including direct SQL updates from an
+// operator console) propagates within at most the cache TTL — without
+// forcing the user to log out and back in.
+func checkUserState(
+	w http.ResponseWriter, r *http.Request,
+	deps AuthDeps, userID uuid.UUID, snapshot UserState,
+) (UserState, bool) {
+	live, outcome := resolveUserState(r.Context(), deps.UserState, userID, snapshot)
+	switch outcome {
+	case userStateOK:
+		return live, true
+	case userStateUserGone:
+		response.Error(w, http.StatusUnauthorized, "session_invalid",
+			"session is no longer valid — please sign in again")
+		return UserState{}, false
+	case userStateBanned:
+		response.Error(w, http.StatusForbidden, "account_banned",
+			"this account has been banned")
+		return UserState{}, false
+	case userStateLookupFailed:
+		if deps.FailClosedInProd {
+			response.Error(w, http.StatusServiceUnavailable, "auth_unavailable",
+				"authentication backend is degraded — retry shortly")
+			return UserState{}, false
+		}
+		// Dev/test: trust the snapshot.
+		return snapshot, true
+	default:
+		return snapshot, true
+	}
+}
+
+// authStamp groups the fields the middleware writes onto the request
+// context after a successful authentication. Bundling them keeps the
+// stamp helper under the 4-parameter ceiling.
+type authStamp struct {
+	UserID      uuid.UUID
+	Role        string
+	IsAdmin     bool
+	OrgID       *uuid.UUID
+	OrgRole     string
+	Permissions []string
+}
+
+// stampAuthContext writes the standard auth context keys onto ctx and
+// runs the live-permissions resolver. Centralising it here eliminates
+// the duplicate stamping logic that previously lived in both the
+// cookie and bearer code paths.
+func stampAuthContext(
+	ctx context.Context,
+	stamp authStamp,
+	overrides OrgOverridesResolver,
+) context.Context {
+	ctx = context.WithValue(ctx, ContextKeyUserID, stamp.UserID)
+	ctx = context.WithValue(ctx, ContextKeyRole, stamp.Role)
+	ctx = context.WithValue(ctx, ContextKeyIsAdmin, stamp.IsAdmin)
+	if stamp.OrgID != nil {
+		ctx = context.WithValue(ctx, ContextKeyOrganizationID, *stamp.OrgID)
+	}
+	if stamp.OrgRole != "" {
+		ctx = context.WithValue(ctx, ContextKeyOrgRole, stamp.OrgRole)
+	}
+	return injectLivePermissions(ctx, overrides, stamp.OrgID, stamp.OrgRole, stamp.Permissions)
 }
 
 // sessionVersionOutcome is the result of a session_version

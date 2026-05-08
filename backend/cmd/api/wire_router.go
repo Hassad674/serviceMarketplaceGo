@@ -132,6 +132,7 @@ type routerDepsBundle struct {
 	SessionService        service.SessionService
 	UserRepo              repository.UserRepository
 	OrgOverridesResolver  middleware.OrgOverridesResolver
+	UserStateChecker      middleware.UserStateChecker
 	Metrics               *handler.Metrics
 	RateLimiter           *middleware.RateLimiter
 	IdempotencyCache      middleware.IdempotencyCache
@@ -199,6 +200,7 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		SessionService:       b.SessionService,
 		UserRepo:             b.UserRepo,
 		OrgOverridesResolver: b.OrgOverridesResolver,
+		UserStateChecker:     b.UserStateChecker,
 		Metrics:              b.Metrics,
 		RateLimiter:          b.RateLimiter,
 		IdempotencyCache:     b.IdempotencyCache,

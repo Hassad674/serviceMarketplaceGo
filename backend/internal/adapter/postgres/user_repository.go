@@ -265,6 +265,35 @@ func (r *UserRepository) GetSessionVersion(ctx context.Context, userID uuid.UUID
 	return version, nil
 }
 
+// GetUserAuthState reads the live (is_admin, status) pair for a user.
+// Used by the auth middleware to override the snapshot baked into the
+// session/JWT at login — without this read, a UPDATE users SET
+// is_admin=true issued outside the application code path (operator
+// promotion via SQL, ban/suspend by support tooling, etc.) would only
+// take effect after the user logs out and back in. The middleware
+// fronts this call with a 30-second Redis cache so the per-request
+// cost is amortised across the cluster.
+//
+// The query is a single indexed lookup on the primary key, so even
+// without the cache the p95 stays well under 5ms.
+func (r *UserRepository) GetUserAuthState(ctx context.Context, userID uuid.UUID) (isAdmin bool, status user.UserStatus, err error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var rawStatus string
+	err = QueryRow(ctx, r.db,
+		`SELECT is_admin, status FROM users WHERE id = $1`,
+		userID,
+	).Scan(&isAdmin, &rawStatus)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, "", user.ErrUserNotFound
+		}
+		return false, "", fmt.Errorf("get user auth state: %w", err)
+	}
+	return isAdmin, user.UserStatus(rawStatus), nil
+}
+
 func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
