@@ -80,6 +80,7 @@ GET /api/v1/me/invoices mw=9
 GET /api/v1/me/invoices/{id}/pdf mw=9
 GET /api/v1/me/invoicing/current-month mw=9
 GET /api/v1/me/profile/completion mw=7
+GET /api/v1/me/security/activity mw=8
 GET /api/v1/messaging/conversations mw=9
 GET /api/v1/messaging/conversations/{id}/messages mw=9
 GET /api/v1/messaging/unread-count mw=9
