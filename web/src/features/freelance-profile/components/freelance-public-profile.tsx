@@ -93,6 +93,10 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
               }
             : undefined
         }
+        // PERF-W-08: read-only public viewers paint this header above
+        // the fold — opt the photo into next/image priority so it
+        // becomes the LCP element instead of a lazy-loaded image.
+        photoPriority={readOnly}
       />
 
       <ProfileAboutCard

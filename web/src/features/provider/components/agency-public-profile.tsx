@@ -41,6 +41,9 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
     displayName,
     title: profile.title,
     availabilityStatus: profile.availability_status,
+    // PERF-W-08: this header is the LCP element on the public agency
+    // profile — opt the photo into next/image priority loading.
+    photoPriority: true,
   }
 
   const directPricing = pickDirectPricing(profile)
