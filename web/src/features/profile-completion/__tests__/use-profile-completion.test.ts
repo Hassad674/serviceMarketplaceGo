@@ -36,11 +36,27 @@ beforeEach(() => {
 })
 
 describe("profileCompletionQueryKey", () => {
-  it("returns a user-scoped key", () => {
+  it("returns a user-scoped key with the default persona suffix", () => {
     expect(profileCompletionQueryKey("user-1")).toEqual([
       "user",
       "user-1",
       "profile-completion",
+      "default",
+    ])
+  })
+
+  it("appends the persona to the key when provided", () => {
+    expect(profileCompletionQueryKey("user-1", "referrer")).toEqual([
+      "user",
+      "user-1",
+      "profile-completion",
+      "referrer",
+    ])
+    expect(profileCompletionQueryKey("user-1", "freelance")).toEqual([
+      "user",
+      "user-1",
+      "profile-completion",
+      "freelance",
     ])
   })
 })
@@ -65,6 +81,60 @@ describe("useProfileCompletion", () => {
 
     expect(mockedApiClient).toHaveBeenCalledWith("/api/v1/me/profile/completion")
     expect(result.current.data?.percent).toBe(60)
+  })
+
+  it("forwards the persona override on the query string", async () => {
+    mockedUseCurrentUserId.mockReturnValue("user-3")
+    mockedApiClient.mockResolvedValue({
+      role: "provider",
+      persona: "referrer",
+      percent: 25,
+      total_sections: 8,
+      filled_sections: 2,
+      sections: [],
+    })
+
+    const { result } = renderHook(() => useProfileCompletion("referrer"), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mockedApiClient).toHaveBeenCalledWith(
+      "/api/v1/me/profile/completion?persona=referrer",
+    )
+    expect(result.current.data?.persona).toBe("referrer")
+  })
+
+  it("caches freelance and referrer reports under different keys", async () => {
+    mockedUseCurrentUserId.mockReturnValue("user-4")
+    mockedApiClient.mockImplementation(async (path: string) => ({
+      role: "provider",
+      persona: path.includes("referrer") ? "referrer" : "freelance",
+      percent: 0,
+      total_sections: 0,
+      filled_sections: 0,
+      sections: [],
+    }))
+
+    const wrapper = createWrapper()
+    const both = renderHook(
+      () => ({
+        free: useProfileCompletion(),
+        ref: useProfileCompletion("referrer"),
+      }),
+      { wrapper },
+    )
+
+    await waitFor(() => {
+      expect(both.result.current.free.isSuccess).toBe(true)
+      expect(both.result.current.ref.isSuccess).toBe(true)
+    })
+
+    // Both queries fire — they cache under different keys.
+    expect(mockedApiClient).toHaveBeenCalledTimes(2)
+    expect(both.result.current.free.data?.persona).toBe("freelance")
+    expect(both.result.current.ref.data?.persona).toBe("referrer")
   })
 
   it("disables the query when no user id is available", async () => {

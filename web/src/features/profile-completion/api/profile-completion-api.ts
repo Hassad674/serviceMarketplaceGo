@@ -27,9 +27,23 @@ export type ProfileCompletionReport = {
   sections: ProfileCompletionSection[]
 }
 
+// CompletionPersona is the optional override the caller passes when a
+// provider_personal user wants the apporteur checklist (rendered on
+// /referral) instead of the freelance one (rendered on /profile).
+// `undefined` means "auto-select from the org type".
+export type CompletionPersona = "freelance" | "referrer" | undefined
+
 // getMyProfileCompletion fetches the completion report for the
 // authenticated user's current organization. Backend resolves both
-// user_id and organization_id from the session — no params needed.
-export async function getMyProfileCompletion(): Promise<ProfileCompletionReport> {
-  return apiClient<ProfileCompletionReport>("/api/v1/me/profile/completion")
+// user_id and organization_id from the session — only the optional
+// persona override is forwarded as a query string. Unsupported
+// personas (e.g. referrer for an enterprise org) silently fall back
+// to the default persona on the server.
+export async function getMyProfileCompletion(
+  persona?: CompletionPersona,
+): Promise<ProfileCompletionReport> {
+  const path = persona
+    ? `/api/v1/me/profile/completion?persona=${encodeURIComponent(persona)}`
+    : "/api/v1/me/profile/completion"
+  return apiClient<ProfileCompletionReport>(path)
 }

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 
 import { useProfileCompletion } from "../hooks/use-profile-completion"
+import type { CompletionPersona } from "../api/profile-completion-api"
 import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { cn } from "@/shared/lib/utils"
 
@@ -23,6 +24,11 @@ type ProfileCompletionBarProps = {
   // hideWhenComplete suppresses the bar at 100%. Default false — the
   // page variant keeps the bar visible to celebrate the milestone.
   hideWhenComplete?: boolean
+  // persona scopes the report to a specific facet (used on /referral
+  // for the apporteur checklist). When omitted the backend
+  // auto-selects from the org type — provider_personal +
+  // freelance, agency + agency, enterprise + enterprise.
+  persona?: CompletionPersona
 }
 
 // profilePathFor maps the authenticated user's role + org type to the
@@ -31,7 +37,18 @@ type ProfileCompletionBarProps = {
 // now navigates straight to the profile shell — sections are edited
 // in place from there. Kept feature-local to avoid a cross-feature
 // import on the role-aware routing helper.
-function profilePathFor(role: string | undefined, orgType: string | undefined): string {
+//
+// The optional `persona` argument is honoured first: the apporteur
+// surface lives at `/referral`, distinct from the shared `/profile`
+// shell that hosts the freelance and agency editors.
+function profilePathFor(
+  role: string | undefined,
+  orgType: string | undefined,
+  persona: CompletionPersona,
+): string {
+  if (persona === "referrer") {
+    return "/referral"
+  }
   // Enterprise (client) orgs surface the dedicated client-profile shell.
   if (role === "enterprise" || orgType === "enterprise") {
     return "/client-profile"
@@ -46,13 +63,19 @@ function profilePathFor(role: string | undefined, orgType: string | undefined): 
 // corail progress fill. Clicking the bar navigates to the
 // authenticated user's own profile page so the user lands directly
 // where they can fill the missing sections — no intermediate modal,
-// no extra tap.
+// no extra tap. The optional `persona` prop scopes the report (and
+// the navigation target) to the apporteur surface for /referral.
 export function ProfileCompletionBar(props: ProfileCompletionBarProps) {
-  const { variant = "page", collapsed = false, hideWhenComplete = false } = props
+  const {
+    variant = "page",
+    collapsed = false,
+    hideWhenComplete = false,
+    persona,
+  } = props
   const t = useTranslations("profileCompletion")
   const { data: user } = useUser()
   const { data: org } = useOrganization()
-  const { data, isLoading } = useProfileCompletion()
+  const { data, isLoading } = useProfileCompletion(persona)
 
   if (isLoading || !data) return null
   if (hideWhenComplete && data.percent >= 100) return null
@@ -60,7 +83,7 @@ export function ProfileCompletionBar(props: ProfileCompletionBarProps) {
   const missingCount = data.total_sections - data.filled_sections
   const isComplete = data.percent >= 100
   const a11yLabel = t("a11yLabel", { percent: data.percent })
-  const profilePath = profilePathFor(user?.role, org?.type)
+  const profilePath = profilePathFor(user?.role, org?.type, persona)
 
   if (variant === "sidebar" && collapsed) {
     return (

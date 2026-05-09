@@ -34,7 +34,24 @@ describe("profile-completion-api", () => {
 
     expect(calls).toHaveLength(1)
     expect(calls[0].url).toContain("/api/v1/me/profile/completion")
+    expect(calls[0].url).not.toContain("persona=")
     expect(report.persona).toBe("freelance")
     expect(report.percent).toBe(50)
+  })
+
+  it("forwards the persona override on the query string", async () => {
+    await getMyProfileCompletion("referrer")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toContain(
+      "/api/v1/me/profile/completion?persona=referrer",
+    )
+  })
+
+  it("omits the query string when persona is undefined", async () => {
+    await getMyProfileCompletion(undefined)
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).not.toContain("persona=")
   })
 })

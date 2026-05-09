@@ -11,7 +11,6 @@ import {
   type UpdateFreelanceProfileInput,
 } from "../api/freelance-profile-api"
 import { freelanceProfileQueryKey } from "./use-freelance-profile"
-import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Core profile update: title / about / video_url. The backend returns
 // the refreshed aggregate so we can cache-seed without a second
@@ -26,7 +25,12 @@ export function useUpdateFreelanceProfile() {
       updateFreelanceProfile(input),
     onSuccess: (next) => {
       queryClient.setQueryData<FreelanceProfile>(key, next)
-      queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(uid) })
+      queryClient.invalidateQueries({
+        // Match every persona variant by invalidating the prefix so a
+        // shared field change refreshes both the freelance and the
+        // referrer reports without a second mutation.
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }
@@ -44,7 +48,12 @@ export function useUpdateFreelanceAvailability() {
       updateFreelanceAvailability(status),
     onSuccess: (next) => {
       queryClient.setQueryData<FreelanceProfile>(key, next)
-      queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(uid) })
+      queryClient.invalidateQueries({
+        // Match every persona variant by invalidating the prefix so a
+        // shared field change refreshes both the freelance and the
+        // referrer reports without a second mutation.
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }
@@ -59,7 +68,12 @@ export function useUpdateFreelanceExpertise() {
     mutationFn: (domains: string[]) => updateFreelanceExpertise(domains),
     onSuccess: (next) => {
       queryClient.setQueryData<FreelanceProfile>(key, next)
-      queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(uid) })
+      queryClient.invalidateQueries({
+        // Match every persona variant by invalidating the prefix so a
+        // shared field change refreshes both the freelance and the
+        // referrer reports without a second mutation.
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }

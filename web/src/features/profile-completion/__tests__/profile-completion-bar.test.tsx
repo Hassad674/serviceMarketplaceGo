@@ -181,4 +181,31 @@ describe("ProfileCompletionBar", () => {
     expect(pill.getAttribute("href")).toBe("/profile")
     expect(pill.textContent).toContain("50%")
   })
+
+  it("forwards the persona override to the API call (referrer mode)", async () => {
+    mockedApiClient.mockResolvedValue({
+      ...baseReport,
+      persona: "referrer",
+      total_sections: 8,
+      filled_sections: 2,
+      percent: 25,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <ProfileCompletionBar variant="page" persona="referrer" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText(/Profil rempli à 25%/)).toBeInTheDocument()
+    // The API hook is called with the referrer query string — the
+    // backend silently maps the persona to the apporteur checklist.
+    expect(mockedApiClient).toHaveBeenCalledWith(
+      "/api/v1/me/profile/completion?persona=referrer",
+    )
+  })
 })
