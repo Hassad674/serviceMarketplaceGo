@@ -8,6 +8,12 @@ import type { PublicProfileSummary, SearchType } from "@/shared/lib/search/searc
 const messages = {
   search: {
     noTitle: "No title",
+    badge: {
+      agency: "Agency",
+      enterprise: "Enterprise",
+      freelancer: "Freelancer",
+      referrer: "Referrer",
+    },
   },
   profile: {
     skillsDisplay: {
@@ -282,5 +288,31 @@ describe("ProviderCard", () => {
     const { container } = renderProviderCard(profile, "freelancer")
     // The signals row uses a unique MapPin icon; absence = no row.
     expect(container.querySelector(".lucide-map-pin")).toBeNull()
+  })
+
+  // Token guard — the card must use Soleil v2 semantic tokens
+  // (bg-card, border-border) instead of hardcoded gray hex/utilities.
+  // Keeping this assertion prevents a silent revert to dark/light
+  // gray-* utilities that bypass the design tokens.
+  it("uses Soleil v2 semantic tokens on the root link", () => {
+    const profile = createProfile()
+    renderProviderCard(profile, "freelancer")
+    const link = screen.getByRole("link")
+    expect(link.className).toMatch(/\bbg-card\b/)
+    expect(link.className).toMatch(/\bborder-border\b/)
+    expect(link.className).not.toMatch(/\bbg-white\b/)
+    expect(link.className).not.toMatch(/\bbg-gray-9\d{2}\b/)
+  })
+
+  // Hover behaviour parity with FreelanceProfileCard — both cards
+  // should communicate interactivity with the same Soleil v2 hover
+  // pattern (shadow-md, primary border tint, subtle lift).
+  it("matches the FreelanceProfileCard hover affordance", () => {
+    const profile = createProfile()
+    renderProviderCard(profile, "freelancer")
+    const link = screen.getByRole("link")
+    expect(link.className).toMatch(/hover:shadow-md/)
+    expect(link.className).toMatch(/hover:border-primary\/30/)
+    expect(link.className).toMatch(/hover:-translate-y-0\.5/)
   })
 })

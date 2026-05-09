@@ -997,6 +997,12 @@
     "findFreelancers": "Find Freelancers",
     "findAgencies": "Find Agencies",
     "findReferrers": "Find Referrers",
+    "badge": {
+      "agency": "Agency",
+      "enterprise": "Enterprise",
+      "freelancer": "Freelancer",
+      "referrer": "Referrer"
+    },
     "noResults": "No profiles found",
     "noResultsDesc": "Try adjusting your search criteria",
     "noTitle": "No title",
