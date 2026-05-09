@@ -3772,6 +3772,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Paiement sécurisé · escrow garanti par la plateforme';
 
   @override
+  String get proposalFlow_pay_billingIdentityCta =>
+      'Compléter mes infos de facturation';
+
+  @override
   String get proposalFlow_detail_eyebrowPending =>
       'ATELIER · PROPOSITION EN ATTENTE';
 

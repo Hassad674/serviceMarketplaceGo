@@ -1470,6 +1470,7 @@
   "proposalFlow_pay_titleAccent": "le paiement.",
   "proposalFlow_pay_subtitle": "Le montant est sécurisé en escrow et libéré une fois la mission validée.",
   "proposalFlow_pay_secureNotice": "Paiement sécurisé · escrow garanti par la plateforme",
+  "proposalFlow_pay_billingIdentityCta": "Compléter mes infos de facturation",
   "proposalFlow_detail_eyebrowPending": "ATELIER · PROPOSITION EN ATTENTE",
   "proposalFlow_detail_eyebrowAccepted": "ATELIER · PROPOSITION ACCEPTÉE",
   "proposalFlow_detail_eyebrowActive": "ATELIER · MISSION EN COURS",

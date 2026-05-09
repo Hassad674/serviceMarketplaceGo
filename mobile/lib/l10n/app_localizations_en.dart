@@ -3744,6 +3744,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Secured payment · escrow guaranteed by the platform';
 
   @override
+  String get proposalFlow_pay_billingIdentityCta => 'Complete my billing info';
+
+  @override
   String get proposalFlow_detail_eyebrowPending => 'ATELIER · PENDING PROPOSAL';
 
   @override
