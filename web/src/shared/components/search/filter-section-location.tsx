@@ -1,93 +1,93 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import type { SearchWorkMode } from "./search-filters"
+import { CountrySelect } from "@/shared/components/forms/country-select"
 import {
-  NumberInput,
-  PillButton,
-  SectionShell,
-  toggle,
-} from "./filter-primitives"
+  CityAutocomplete,
+  type CitySelection,
+} from "@/shared/components/forms/city-autocomplete"
+import { NumberInput, SectionShell } from "./filter-primitives"
 
-import { Input } from "@/shared/components/ui/input"
-const WORK_MODE_OPTIONS: readonly SearchWorkMode[] = [
-  "remote",
-  "on_site",
-  "hybrid",
-]
-
-// Combines the geographic filters (city + country + radius) with the
-// remote/on-site/hybrid work-mode toggle so the "where do you work"
-// concerns live next to each other. The parent still owns the state.
-
+/**
+ * FilterSectionLocation owns the geographic filters: country (single
+ * select with flag emoji), city (Photon-backed combobox), and an
+ * optional travel radius. Work mode lives in its own sibling section
+ * (filter-section-work-mode.tsx) so the sidebar can hide it
+ * independently for agency/referrer personas.
+ *
+ * The city combobox returns a `CitySelection` with lat/lon + canonical
+ * country code, but the search filter only needs `city` + `countryCode`
+ * as plain strings for Typesense — we pass them through directly and
+ * keep lat/lon informational. Picking a city in a different country
+ * also updates the country code so the two stay in sync.
+ */
 interface FilterSectionLocationProps {
   city: string
   countryCode: string
   radiusKm: number | null
-  workModes: SearchWorkMode[]
   onCityChange: (next: string) => void
   onCountryChange: (next: string) => void
   onRadiusChange: (next: number | null) => void
-  onWorkModesChange: (next: SearchWorkMode[]) => void
 }
 
 export function FilterSectionLocation({
   city,
   countryCode,
   radiusKm,
-  workModes,
   onCityChange,
   onCountryChange,
   onRadiusChange,
-  onWorkModesChange,
 }: FilterSectionLocationProps) {
   const t = useTranslations("search.filters")
-  const workModeLabels: Record<SearchWorkMode, string> = {
-    remote: t("remote"),
-    on_site: t("onSite"),
-    hybrid: t("hybrid"),
+
+  // The combobox commits a CitySelection on Enter/click and passes
+  // null when the user clears the input or switches country. We map
+  // both events back to the parent-owned (city, countryCode) pair —
+  // the search filter's contract only needs the strings.
+  const selection: CitySelection | null =
+    city.trim() === "" || countryCode.trim() === ""
+      ? null
+      : {
+          city,
+          countryCode,
+          // Lat/lon are not part of the persisted filter shape; the
+          // backend only matches on `city` + `country_code` strings.
+          // We thread harmless 0/0 here so the shared CitySelection
+          // type stays honoured downstream.
+          latitude: 0,
+          longitude: 0,
+        }
+
+  const handleCityChange = (next: CitySelection | null) => {
+    if (next === null) {
+      onCityChange("")
+      return
+    }
+    if (next.countryCode && next.countryCode !== countryCode) {
+      onCountryChange(next.countryCode)
+    }
+    onCityChange(next.city)
   }
+
   return (
-    <>
-      <SectionShell title={t("location")}>
-        <Input
-          type="text"
-          value={city}
-          onChange={(e) => onCityChange(e.target.value)}
-          placeholder={t("cityPlaceholder")}
-          aria-label={t("cityPlaceholder")}
-          className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
-        />
-        <Input
-          type="text"
-          value={countryCode}
-          onChange={(e) =>
-            onCountryChange(e.target.value.toUpperCase().slice(0, 2))
-          }
-          placeholder={t("countryPlaceholder")}
-          aria-label={t("countryPlaceholder")}
-          maxLength={2}
-          className="h-10 w-20 rounded-lg border border-border bg-background px-3 text-sm uppercase shadow-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
-        />
-        <NumberInput
-          placeholder={t("radiusPlaceholder")}
-          value={radiusKm}
-          onChange={onRadiusChange}
-          ariaLabel={t("radiusPlaceholder")}
-        />
-      </SectionShell>
-      <SectionShell title={t("workMode")}>
-        <div className="flex flex-wrap gap-2">
-          {WORK_MODE_OPTIONS.map((mode) => (
-            <PillButton
-              key={mode}
-              label={workModeLabels[mode]}
-              selected={workModes.includes(mode)}
-              onClick={() => onWorkModesChange(toggle(workModes, mode))}
-            />
-          ))}
-        </div>
-      </SectionShell>
-    </>
+    <SectionShell title={t("location")}>
+      <CountrySelect
+        value={countryCode}
+        onChange={onCountryChange}
+        placeholder={t("countryPlaceholder")}
+        ariaLabel={t("countryPlaceholder")}
+      />
+      <CityAutocomplete
+        value={selection}
+        countryCode={countryCode}
+        onChange={handleCityChange}
+      />
+      <NumberInput
+        placeholder={t("radiusPlaceholder")}
+        value={radiusKm}
+        onChange={onRadiusChange}
+        ariaLabel={t("radiusPlaceholder")}
+      />
+    </SectionShell>
   )
 }

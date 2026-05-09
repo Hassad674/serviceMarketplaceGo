@@ -41,15 +41,19 @@ describe("FilterSectionSkillsExpertise", () => {
     ).toBeInTheDocument()
   })
 
-  it("toggles a language on/off", () => {
+  it("commits a language pick from the combobox dropdown", () => {
     const { onLanguagesChange } = renderSection({ languages: [] })
-    fireEvent.click(screen.getByRole("button", { name: "FR" }))
+    const input = screen.getByLabelText(messages.search.filters.languages)
+    fireEvent.change(input, { target: { value: "Fren" } })
+    // Press Enter — the active dropdown row commits.
+    fireEvent.keyDown(input, { key: "Enter" })
     expect(onLanguagesChange).toHaveBeenCalledWith(["fr"])
   })
 
-  it("removes a language when already selected", () => {
+  it("removes a language by clicking its badge", () => {
     const { onLanguagesChange } = renderSection({ languages: ["fr", "en"] })
-    fireEvent.click(screen.getByRole("button", { name: "FR" }))
+    const removeBtn = screen.getByRole("button", { name: /Remove French/ })
+    fireEvent.click(removeBtn)
     expect(onLanguagesChange).toHaveBeenCalledWith(["en"])
   })
 

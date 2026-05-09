@@ -11,8 +11,13 @@ import {
 import { FilterSectionAvailability } from "./filter-section-availability"
 import { FilterSectionPricing } from "./filter-section-pricing"
 import { FilterSectionLocation } from "./filter-section-location"
+import { FilterSectionWorkMode } from "./filter-section-work-mode"
 import { FilterSectionSkillsExpertise } from "./filter-section-skills-expertise"
 import { FilterSectionRating } from "./filter-section-rating"
+import {
+  resolveFilterVisibility,
+  type SearchFilterVisibility,
+} from "./search-filter-config"
 
 import { Button } from "@/shared/components/ui/button"
 // SearchFilterSidebar renders the Malt-style left rail filter UI. It
@@ -45,6 +50,13 @@ interface SearchFilterSidebarProps {
    * them to the correct Typesense clause per persona.
    */
   persona?: SearchDocumentPersona
+  /**
+   * visibility controls which filter sub-sections render. When
+   * omitted it is derived from `persona` via `resolveFilterVisibility`
+   * — agencies hide work mode, referrers hide work mode + skills +
+   * pricing, freelances see everything.
+   */
+  visibility?: SearchFilterVisibility
 }
 
 export function SearchFilterSidebar({
@@ -54,10 +66,12 @@ export function SearchFilterSidebar({
   resultsCount,
   className,
   persona,
+  visibility,
 }: SearchFilterSidebarProps) {
   const t = useTranslations("search.filters")
   const tSearch = useTranslations("search")
   const hasFilters = !isEmptyFilters(filters)
+  const visible = visibility ?? resolveFilterVisibility(persona)
 
   const update = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     onChange({ ...filters, [key]: value })
@@ -81,41 +95,56 @@ export function SearchFilterSidebar({
         ) : null}
       </header>
 
-      <FilterSectionAvailability
-        value={filters.availability}
-        onChange={(v) => update("availability", v)}
-      />
-      <FilterSectionPricing
-        persona={persona}
-        min={filters.priceMin}
-        max={filters.priceMax}
-        onMinChange={(v) => update("priceMin", v)}
-        onMaxChange={(v) => update("priceMax", v)}
-      />
-      <FilterSectionLocation
-        city={filters.city}
-        countryCode={filters.countryCode}
-        radiusKm={filters.radiusKm}
-        workModes={filters.workModes}
-        onCityChange={(v) => update("city", v)}
-        onCountryChange={(v) => update("countryCode", v)}
-        onRadiusChange={(v) => update("radiusKm", v)}
-        onWorkModesChange={(v) => update("workModes", v)}
-      />
+      {visible.availability ? (
+        <FilterSectionAvailability
+          value={filters.availability}
+          onChange={(v) => update("availability", v)}
+        />
+      ) : null}
+      {visible.pricing ? (
+        <FilterSectionPricing
+          persona={persona}
+          min={filters.priceMin}
+          max={filters.priceMax}
+          onMinChange={(v) => update("priceMin", v)}
+          onMaxChange={(v) => update("priceMax", v)}
+        />
+      ) : null}
+      {visible.location ? (
+        <FilterSectionLocation
+          city={filters.city}
+          countryCode={filters.countryCode}
+          radiusKm={filters.radiusKm}
+          onCityChange={(v) => update("city", v)}
+          onCountryChange={(v) => update("countryCode", v)}
+          onRadiusChange={(v) => update("radiusKm", v)}
+        />
+      ) : null}
+      {visible.workMode ? (
+        <FilterSectionWorkMode
+          workModes={filters.workModes}
+          onWorkModesChange={(v) => update("workModes", v)}
+        />
+      ) : null}
       <FilterSectionSkillsExpertise
         languages={filters.languages}
         expertise={filters.expertise}
         skills={filters.skills}
+        showLanguages={visible.languages}
+        showExpertise={visible.expertise}
+        showSkills={visible.skills}
         onLanguagesChange={(v) => update("languages", v)}
         onExpertiseChange={(v) =>
           update("expertise", v as SearchFilters["expertise"])
         }
         onSkillsChange={(v) => update("skills", v)}
       />
-      <FilterSectionRating
-        value={filters.minRating}
-        onChange={(v) => update("minRating", v)}
-      />
+      {visible.rating ? (
+        <FilterSectionRating
+          value={filters.minRating}
+          onChange={(v) => update("minRating", v)}
+        />
+      ) : null}
 
       <footer className="sticky bottom-0 flex flex-col gap-2 bg-card pt-2">
         <Button variant="ghost" size="auto"

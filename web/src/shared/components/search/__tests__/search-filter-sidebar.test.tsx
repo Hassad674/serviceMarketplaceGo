@@ -46,11 +46,13 @@ describe("SearchFilterSidebar", () => {
     expect(screen.getByText(/42/)).toBeInTheDocument()
   })
 
-  it("renders every section header", () => {
-    renderSidebar()
+  it("renders every section header (freelance default — full visibility)", () => {
+    // Default sidebar (no persona) renders every section. Persona-
+    // specific visibility is covered by the dedicated test cases.
+    renderSidebar({ persona: "freelance" })
     for (const label of [
       messages.search.filters.availability,
-      messages.search.filters.price,
+      messages.search.filters.freelancePrice,
       messages.search.filters.location,
       messages.search.filters.languages,
       messages.search.filters.expertise,
@@ -60,6 +62,34 @@ describe("SearchFilterSidebar", () => {
     ]) {
       expect(screen.getByRole("heading", { name: label })).toBeInTheDocument()
     }
+  })
+
+  it("hides the work-mode section for the agency persona", () => {
+    renderSidebar({ persona: "agency" })
+    expect(
+      screen.queryByRole("heading", { name: messages.search.filters.workMode }),
+    ).toBeNull()
+    // Skills + pricing stay visible for agencies.
+    expect(
+      screen.getByRole("heading", { name: messages.search.filters.skills }),
+    ).toBeInTheDocument()
+  })
+
+  it("hides work-mode + skills + pricing for the referrer persona", () => {
+    renderSidebar({ persona: "referrer" })
+    expect(
+      screen.queryByRole("heading", { name: messages.search.filters.workMode }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole("heading", { name: messages.search.filters.skills }),
+    ).toBeNull()
+    // Referrer pricing is the commission section title — it should not
+    // be visible because the whole pricing block is hidden.
+    expect(
+      screen.queryByRole("heading", {
+        name: messages.search.filters.referrerPrice,
+      }),
+    ).toBeNull()
   })
 
   it("fires onChange when an availability pill is clicked", () => {
@@ -84,9 +114,11 @@ describe("SearchFilterSidebar", () => {
     )
   })
 
-  it("fires onChange with toggled language selection", () => {
+  it("fires onChange when a language is committed from the combobox", () => {
     const { onChange } = renderSidebar()
-    fireEvent.click(screen.getByRole("button", { name: "FR" }))
+    const input = screen.getByLabelText(messages.search.filters.languages)
+    fireEvent.change(input, { target: { value: "Fren" } })
+    fireEvent.keyDown(input, { key: "Enter" })
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ languages: ["fr"] }),
     )
@@ -133,22 +165,11 @@ describe("SearchFilterSidebar", () => {
   // the SearchFilterSidebar template actually delivers the expected
   // partial update through `onChange`.
   // ---------------------------------------------------------------------
-  it("forwards city changes through onChange", () => {
-    const { onChange } = renderSidebar()
-    fireEvent.change(
-      screen.getByLabelText(messages.search.filters.cityPlaceholder),
-      { target: { value: "Lyon" } },
-    )
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ city: "Lyon" }),
-    )
-  })
-
-  it("forwards country code changes through onChange", () => {
+  it("forwards country select changes through onChange", () => {
     const { onChange } = renderSidebar()
     fireEvent.change(
       screen.getByLabelText(messages.search.filters.countryPlaceholder),
-      { target: { value: "es" } },
+      { target: { value: "ES" } },
     )
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ countryCode: "ES" }),
@@ -219,8 +240,9 @@ describe("SearchFilterSidebar", () => {
 
   // V1 pricing simplification: the price section must relabel itself
   // per persona so the filter matches the primary pricing shape shown
-  // on the cards (TJM / Budget / Commission). Table-driven to stay
-  // green across all three personas and the undefined fallback.
+  // on the cards (TJM / Budget / Commission). Referrer hides pricing
+  // entirely (per per-persona visibility config), so it is excluded
+  // from this table — covered by the dedicated visibility test above.
   it.each<{
     name: string
     persona: SearchDocumentPersona | undefined
@@ -241,13 +263,6 @@ describe("SearchFilterSidebar", () => {
       expectedTitle: messages.search.filters.agencyPrice,
       expectedMin: messages.search.filters.agencyPriceMin,
       expectedMax: messages.search.filters.agencyPriceMax,
-    },
-    {
-      name: "referrer",
-      persona: "referrer",
-      expectedTitle: messages.search.filters.referrerPrice,
-      expectedMin: messages.search.filters.referrerPriceMin,
-      expectedMax: messages.search.filters.referrerPriceMax,
     },
     {
       name: "undefined fallback",
