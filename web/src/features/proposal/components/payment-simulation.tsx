@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
 import {
@@ -21,6 +21,12 @@ import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-ap
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
 import { BillingProfileInlineModal } from "@/shared/components/billing-profile/billing-profile-inline-modal"
+import { useBillingProfile } from "@/shared/hooks/billing-profile/use-billing-profile"
+import {
+  PaymentBillingIdentitySection,
+  persistInlineBillingIdentity,
+  type PaymentBillingIdentityValues,
+} from "./payment-billing-identity-section"
 
 // Soleil v2 — Payment confirmation page (escrow). Soleil card with
 // editorial header, Geist Mono amount summary, corail "Confirmer" pill.
@@ -247,6 +253,11 @@ export function PaymentSimulation() {
             }}
           />
         </Elements>
+        {/* Closing comment for downstream readers: the legacy 412 gate
+            modal stays mounted here as a defensive fallback. The pre-
+            payment gate was removed in fcb072d5; if a future deploy
+            ever re-introduces it, the modal renders without breaking
+            the page. */}
       </PaymentLayout>
     )
   }
@@ -276,6 +287,25 @@ function StripePaymentForm({
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  // Snapshot of the existing billing-profile so persistInlineBillingIdentity
+  // can keep the address fields the user already saved on the standalone
+  // settings page. Reads through the shared TanStack Query hook — the
+  // same query already cached by the inline section — so this does NOT
+  // trigger a second network round-trip.
+  const { data: billingSnapshot } = useBillingProfile()
+  // useRef keeps a live reference to the latest section values so the
+  // submit handler captures them at click-time without re-creating
+  // handleSubmit on every keystroke (which would re-render the
+  // PaymentElement, killing focus inside the iframe).
+  const billingValuesRef = useRef<PaymentBillingIdentityValues>({
+    legal_name: "",
+    tax_id: "",
+    vat_number: "",
+  })
+
+  const handleBillingChange = useCallback((values: PaymentBillingIdentityValues) => {
+    billingValuesRef.current = values
+  }, [])
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -285,6 +315,31 @@ function StripePaymentForm({
       setSubmitting(true)
       setError("")
 
+      // 1) Persist SIRET/VAT/legal-name BEFORE Stripe so the receipt
+      //    snapshot (captured at PaymentIntent creation, hydrated again
+      //    by the webhook) carries the legal identity. Failure is
+      //    surfaced inline so the user can fix the data — we do NOT
+      //    silently degrade here, otherwise the pretty UX defeats the
+      //    purpose of capturing the identity.
+      try {
+        await persistInlineBillingIdentity(
+          billingValuesRef.current,
+          billingSnapshot?.profile,
+        )
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : t("inlineBilling.saveError")
+        setError(message)
+        setSubmitting(false)
+        return
+      }
+
+      // 2) Hand off to Stripe. The Payment Element collects address
+      //    + name natively per the Elements options.fields.billingDetails
+      //    config — those land on payment_method.billing_details and
+      //    are projected by the webhook adapter into PaymentBillingDetails.
       const { error: stripeError } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -306,12 +361,36 @@ function StripePaymentForm({
       }
       onSuccess()
     },
-    [stripe, elements, proposalId, onSuccess, t],
+    [stripe, elements, proposalId, onSuccess, t, billingSnapshot?.profile],
   )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
+      <PaymentBillingIdentitySection onChange={handleBillingChange} />
+      <PaymentElement
+        options={{
+          // Tell Stripe to collect every address field natively. Country
+          // is auto-detected from the browser locale; the rest are
+          // user-typed inside the Stripe iframe and ride on the
+          // payment_method.billing_details that the webhook handler
+          // hydrates the billing profile from. Email + phone stay off
+          // by default — they're not required for B2B invoicing and
+          // would clutter the UI. Switch them to "auto" if the receipt
+          // template ever needs them.
+          fields: {
+            billingDetails: {
+              name: "auto",
+              address: {
+                line1: "auto",
+                line2: "auto",
+                city: "auto",
+                postalCode: "auto",
+                country: "auto",
+              },
+            },
+          },
+        }}
+      />
       <Button
         variant="ghost"
         size="auto"
