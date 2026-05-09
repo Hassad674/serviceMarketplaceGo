@@ -2,23 +2,19 @@
 
 import { useCallback, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import {
-  COUNTRY_OPTIONS,
-  getCountryLabel,
-} from "@/shared/lib/profile/country-options"
+import { CountrySelect } from "@/shared/components/forms/country-select"
 import {
   CityAutocomplete,
   type CitySelection,
-} from "@/shared/components/location/city-autocomplete"
+} from "@/shared/components/forms/city-autocomplete"
 import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLocation } from "../hooks/use-update-organization-location"
 import type { WorkMode } from "../api/organization-shared-api"
 
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
-import { Select } from "@/shared/components/ui/select"
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
 // SharedLocationSection renders the editable "Where you work" card on
@@ -29,7 +25,6 @@ const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 // both persona caches for us).
 export function SharedLocationSection() {
   const t = useTranslations("profile.location")
-  const locale = useLocale() === "fr" ? "fr" : "en"
   const { data: shared } = useOrganizationShared()
   const mutation = useUpdateOrganizationLocation()
 
@@ -71,6 +66,10 @@ export function SharedLocationSection() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <CountryField
+          value={draft.country}
+          onChange={(next) => draft.setCountry(next)}
+        />
         <div>
           <label
             htmlFor="shared-location-city"
@@ -86,11 +85,6 @@ export function SharedLocationSection() {
             />
           </div>
         </div>
-        <CountryField
-          value={draft.country}
-          locale={locale}
-          onChange={(next) => draft.setCountry(next)}
-        />
       </div>
 
       <WorkModeField
@@ -118,11 +112,10 @@ export function SharedLocationSection() {
 
 interface CountryFieldProps {
   value: string
-  locale: "fr" | "en"
   onChange: (next: string) => void
 }
 
-function CountryField({ value, locale, onChange }: CountryFieldProps) {
+function CountryField({ value, onChange }: CountryFieldProps) {
   const t = useTranslations("profile.location")
   return (
     <div>
@@ -132,19 +125,13 @@ function CountryField({ value, locale, onChange }: CountryFieldProps) {
       >
         {t("countryLabel")}
       </label>
-      <Select
+      <CountrySelect
         id="shared-location-country"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-      >
-        <option value="">{t("countryPlaceholder")}</option>
-        {COUNTRY_OPTIONS.map((option) => (
-          <option key={option.code} value={option.code}>
-            {getCountryLabel(option.code, locale)}
-          </option>
-        ))}
-      </Select>
+        onChange={onChange}
+        placeholder={t("countryPlaceholder")}
+        ariaLabel={t("countryLabel")}
+      />
     </div>
   )
 }
