@@ -40,22 +40,43 @@ func TestExtractLastActiveDays(t *testing.T) {
 	}
 }
 
-// Missing signals -> 0 (never a negative bias).
+// Missing signals — when NowUnix is also missing we cannot compute
+// anything (no reference clock); when only LastActiveAt is missing we
+// fall back to the dormant baseline (six months).
 func TestExtractLastActiveDays_MissingSignals(t *testing.T) {
 	cfg := DefaultConfig()
 	tests := []struct {
-		name string
-		doc  SearchDocumentLite
+		name    string
+		doc     SearchDocumentLite
+		wantMin float64
+		wantMax float64
 	}{
-		{"last_active_at unset", SearchDocumentLite{NowUnix: 1700000000}},
-		{"now_unix unset", SearchDocumentLite{LastActiveAt: 1700000000}},
-		{"both unset", SearchDocumentLite{}},
+		// LastActiveAt unset, NowUnix present: spec dormant baseline.
+		// At decay=30 the formula yields 1 / (1 + 180/30) = 0.1429.
+		{"last_active_at unset", SearchDocumentLite{NowUnix: 1700000000}, 0.13, 0.15},
+		// NowUnix missing — no clock means no signal; return 0.
+		{"now_unix unset", SearchDocumentLite{LastActiveAt: 1700000000}, 0, 0},
+		{"both unset", SearchDocumentLite{}, 0, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.InDelta(t, 0, ExtractLastActiveDays(tt.doc, cfg), 1e-9)
+			got := ExtractLastActiveDays(tt.doc, cfg)
+			assert.GreaterOrEqual(t, got, tt.wantMin)
+			assert.LessOrEqual(t, got, tt.wantMax)
 		})
 	}
+}
+
+// TestExtractLastActiveDays_DormantBaseline pins the exact value the
+// spec dormant fall-back yields under the default config so any tweak
+// to the constant is caught by the audit suite.
+func TestExtractLastActiveDays_DormantBaseline(t *testing.T) {
+	cfg := DefaultConfig()
+	doc := SearchDocumentLite{NowUnix: 1700000000} // LastActiveAt = 0
+	got := ExtractLastActiveDays(doc, cfg)
+	// 1 / (1 + 180/30) = 1 / 7 ≈ 0.142857
+	assert.InDelta(t, 1.0/7.0, got, 1e-9,
+		"unknown LastActiveAt must collapse to the 6-month dormant baseline at default decay")
 }
 
 // Clock skew (future timestamp) clamps to "right now".
