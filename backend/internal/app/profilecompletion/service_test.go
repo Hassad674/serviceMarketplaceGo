@@ -550,3 +550,102 @@ func assertMissingSectionKey(t *testing.T, r *profilecompletion.Report, key stri
 		}
 	}
 }
+
+// ---------------------------------------------------------------
+// ComputeWithPersona — referrer override on provider_personal orgs
+// ---------------------------------------------------------------
+
+func TestComputeWithPersona_ProviderPersonalReferrerOverride_SwitchesPersona(t *testing.T) {
+	f := newFixture()
+	f.users.user = providerUser()
+	f.orgs.org = providerOrg()
+
+	svc := f.build(t)
+	r, err := svc.ComputeWithPersona(
+		context.Background(),
+		f.users.user.ID,
+		f.orgs.org.ID,
+		profilecompletion.PersonaReferrer,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "referrer", r.Persona,
+		"provider_personal orgs MUST accept the referrer override")
+	assert.Equal(t, 8, r.TotalSections,
+		"the referrer checklist has 8 sections (no skills, languages, location, billing, kyc)")
+}
+
+func TestComputeWithPersona_ProviderPersonalEmptyOverride_DefaultsToFreelance(t *testing.T) {
+	f := newFixture()
+	f.users.user = providerUser()
+	f.orgs.org = providerOrg()
+
+	svc := f.build(t)
+	r, err := svc.ComputeWithPersona(
+		context.Background(),
+		f.users.user.ID,
+		f.orgs.org.ID,
+		"",
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "freelance", r.Persona,
+		"empty override must keep the default freelance persona")
+	assert.Equal(t, 13, r.TotalSections)
+}
+
+func TestComputeWithPersona_AgencyReferrerOverride_IgnoredFallsBackToAgency(t *testing.T) {
+	f := newFixture()
+	f.users.user = agencyUser()
+	f.orgs.org = agencyOrg()
+
+	svc := f.build(t)
+	r, err := svc.ComputeWithPersona(
+		context.Background(),
+		f.users.user.ID,
+		f.orgs.org.ID,
+		profilecompletion.PersonaReferrer,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "agency", r.Persona,
+		"non-provider_personal orgs MUST ignore the referrer override")
+	assert.Equal(t, 12, r.TotalSections,
+		"the agency checklist still surfaces 12 sections")
+}
+
+func TestComputeWithPersona_EnterpriseReferrerOverride_IgnoredFallsBackToEnterprise(t *testing.T) {
+	f := newFixture()
+	f.users.user = enterpriseUser()
+	f.orgs.org = enterpriseOrg()
+
+	svc := f.build(t)
+	r, err := svc.ComputeWithPersona(
+		context.Background(),
+		f.users.user.ID,
+		f.orgs.org.ID,
+		profilecompletion.PersonaReferrer,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "enterprise", r.Persona,
+		"enterprise orgs MUST never surface the referrer checklist")
+}
+
+func TestComputeWithPersona_UnknownOverride_FallsBackToDefault(t *testing.T) {
+	f := newFixture()
+	f.users.user = providerUser()
+	f.orgs.org = providerOrg()
+
+	svc := f.build(t)
+	r, err := svc.ComputeWithPersona(
+		context.Background(),
+		f.users.user.ID,
+		f.orgs.org.ID,
+		profilecompletion.Persona("malicious-value"),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "freelance", r.Persona,
+		"any unrecognized override silently maps to the default persona")
+}

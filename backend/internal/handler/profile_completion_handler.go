@@ -15,8 +15,19 @@ import (
 // on. Defined locally so the handler does not pull a concrete service
 // type into its surface — any value (concrete service, decorator, mock)
 // that returns a Report for (userID, orgID) satisfies it.
+//
+// ComputeWithPersona accepts an optional persona override drawn from
+// the `?persona=` query string so a provider_personal org can surface
+// its referrer checklist on /referral without losing the freelance
+// checklist on /profile. An empty override means "auto-select from the
+// org type" — preserving the original Compute() behaviour for clients
+// that do not care.
 type ProfileCompletionService interface {
-	Compute(ctx context.Context, userID, orgID uuid.UUID) (*profilecompletion.Report, error)
+	ComputeWithPersona(
+		ctx context.Context,
+		userID, orgID uuid.UUID,
+		override profilecompletion.Persona,
+	) (*profilecompletion.Report, error)
 }
 
 // ProfileCompletionHandler exposes GET /api/v1/me/profile/completion.
@@ -43,6 +54,12 @@ func NewProfileCompletionHandler(svc ProfileCompletionService) *ProfileCompletio
 // GetMyCompletion handles the GET /api/v1/me/profile/completion route.
 // The response is the JSON-serialized Report — every field is
 // non-optional so the frontend never has to write defensive code.
+//
+// The optional `?persona=referrer` query string scopes the report to
+// the apporteur checklist for provider_personal orgs. Every other
+// value (or an unsupported persona for the org type) silently falls
+// back to the auto-selected persona — the service layer enforces the
+// allow-list so the handler does not need to validate the input.
 func (h *ProfileCompletionHandler) GetMyCompletion(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == uuid.Nil {
@@ -55,7 +72,8 @@ func (h *ProfileCompletionHandler) GetMyCompletion(w http.ResponseWriter, r *htt
 		return
 	}
 
-	report, err := h.svc.Compute(r.Context(), userID, orgID)
+	override := profilecompletion.Persona(r.URL.Query().Get("persona"))
+	report, err := h.svc.ComputeWithPersona(r.Context(), userID, orgID, override)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to compute profile completion")
 		return

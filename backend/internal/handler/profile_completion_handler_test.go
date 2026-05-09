@@ -23,13 +23,19 @@ type stubCompletionService struct {
 	report *profilecompletion.Report
 	err    error
 
-	gotUserID uuid.UUID
-	gotOrgID  uuid.UUID
+	gotUserID  uuid.UUID
+	gotOrgID   uuid.UUID
+	gotPersona profilecompletion.Persona
 }
 
-func (s *stubCompletionService) Compute(_ context.Context, userID, orgID uuid.UUID) (*profilecompletion.Report, error) {
+func (s *stubCompletionService) ComputeWithPersona(
+	_ context.Context,
+	userID, orgID uuid.UUID,
+	override profilecompletion.Persona,
+) (*profilecompletion.Report, error) {
 	s.gotUserID = userID
 	s.gotOrgID = orgID
+	s.gotPersona = override
 	return s.report, s.err
 }
 
@@ -42,7 +48,7 @@ func TestProfileCompletionHandler_GetMyCompletion_Success(t *testing.T) {
 		FilledSections: 5,
 		Sections: []profilecompletion.Section{
 			{Key: profilecompletion.SectionTitle, Filled: true,
-				LabelKey: "profile.completion.section.title",
+				LabelKey:       "profile.completion.section.title",
 				CompletionPath: "/dashboard/profile/edit"},
 		},
 	}
@@ -63,6 +69,8 @@ func TestProfileCompletionHandler_GetMyCompletion_Success(t *testing.T) {
 	assert.Equal(t, "private, max-age=30", rr.Header().Get("Cache-Control"))
 	assert.Equal(t, uid, stub.gotUserID)
 	assert.Equal(t, oid, stub.gotOrgID)
+	assert.Equal(t, profilecompletion.Persona(""), stub.gotPersona,
+		"no query param means empty override")
 
 	var got profilecompletion.Report
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
@@ -71,6 +79,33 @@ func TestProfileCompletionHandler_GetMyCompletion_Success(t *testing.T) {
 	assert.Equal(t, "freelance", got.Persona)
 	require.Len(t, got.Sections, 1)
 	assert.Equal(t, profilecompletion.SectionTitle, got.Sections[0].Key)
+}
+
+func TestProfileCompletionHandler_GetMyCompletion_PersonaOverride_PassedThrough(t *testing.T) {
+	report := &profilecompletion.Report{
+		Role:           "provider",
+		Persona:        "referrer",
+		Percent:        25,
+		TotalSections:  8,
+		FilledSections: 2,
+	}
+	stub := &stubCompletionService{report: report}
+	h := handler.NewProfileCompletionHandler(stub)
+
+	uid := uuid.New()
+	oid := uuid.New()
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/v1/me/profile/completion?persona=referrer", nil)
+	ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, uid)
+	ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, oid)
+	req = req.WithContext(ctx)
+	rr := httptest.NewRecorder()
+
+	h.GetMyCompletion(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, profilecompletion.PersonaReferrer, stub.gotPersona,
+		"the handler must forward the persona query param verbatim")
 }
 
 func TestProfileCompletionHandler_GetMyCompletion_MissingUser_Returns401(t *testing.T) {

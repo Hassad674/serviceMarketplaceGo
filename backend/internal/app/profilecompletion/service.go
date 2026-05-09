@@ -255,10 +255,26 @@ func NewService(deps Deps) (*Service, error) {
 
 // Compute returns the completion report for the authenticated user's
 // current organization. The persona is auto-selected from the user's
-// role + organization type — provider_personal orgs always report the
-// freelance persona at this endpoint (the referrer persona is a
-// future surface).
+// role + organization type — provider_personal orgs default to the
+// freelance persona at this endpoint. Use ComputeWithPersona to force
+// the referrer persona for provider_personal orgs (the second surface
+// rendered when the user toggles the referrer workspace).
 func (s *Service) Compute(ctx context.Context, userID, orgID uuid.UUID) (*Report, error) {
+	return s.ComputeWithPersona(ctx, userID, orgID, "")
+}
+
+// ComputeWithPersona returns the completion report scoped to the given
+// persona override. When override is empty, the persona auto-selects
+// from the org type. The override is honoured only when it is a
+// supported persona for the org type — provider_personal orgs accept
+// PersonaFreelance and PersonaReferrer; every other override falls
+// back to the default persona for the org. Untrusted overrides cannot
+// surface a persona that does not match the user's role.
+func (s *Service) ComputeWithPersona(
+	ctx context.Context,
+	userID, orgID uuid.UUID,
+	override Persona,
+) (*Report, error) {
 	u, err := s.deps.Users.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("profile completion: load user: %w", err)
@@ -268,7 +284,7 @@ func (s *Service) Compute(ctx context.Context, userID, orgID uuid.UUID) (*Report
 		return nil, fmt.Errorf("profile completion: load org: %w", err)
 	}
 
-	persona := personaForOrg(org.Type)
+	persona := resolvePersona(org.Type, override)
 	sections, err := s.buildSections(ctx, u, org, persona)
 	if err != nil {
 		return nil, err
@@ -311,4 +327,24 @@ func personaForOrg(t organization.OrgType) Persona {
 		return PersonaEnterprise
 	}
 	return PersonaAgency
+}
+
+// resolvePersona picks the effective persona for the report. The
+// caller-supplied override is honoured only when it is a valid
+// alternative for the org type — today only provider_personal orgs
+// accept the referrer override. Every unsupported override silently
+// falls back to the default persona so a malicious or stale query
+// param cannot surface someone else's checklist.
+func resolvePersona(t organization.OrgType, override Persona) Persona {
+	def := personaForOrg(t)
+	if override == "" {
+		return def
+	}
+	if t == organization.OrgTypeProviderPersonal {
+		switch override {
+		case PersonaFreelance, PersonaReferrer:
+			return override
+		}
+	}
+	return def
 }
