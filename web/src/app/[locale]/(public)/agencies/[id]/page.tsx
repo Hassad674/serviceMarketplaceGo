@@ -111,7 +111,11 @@ export default async function AgencyProfilePage({ params }: Props) {
   ]
 
   return (
-    <div className="space-y-6">
+    // Wrapper matches /freelancers/[id] and /referrers/[id] — same
+    // editorial column width (max-w-5xl ~1024px) and vertical rhythm
+    // (space-y-5) so the three public detail pages stay visually
+    // identical save for persona-specific content.
+    <div className="mx-auto w-full max-w-5xl space-y-5">
       <BreadcrumbNav
         ariaLabel={tSeo("breadcrumbAriaLabel")}
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
@@ -129,7 +133,7 @@ export default async function AgencyProfilePage({ params }: Props) {
       <BreadcrumbsJsonLd
         crumbs={breadcrumbCrumbs.map((c) => ({ name: c.label, item: c.item }))}
       />
-      <div className="flex justify-center">
+      <div className="flex justify-center pt-2">
         <SendMessageButton targetOrgId={id} />
       </div>
       <RelatedProfiles
