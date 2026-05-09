@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
+import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../providers/organization_shared_providers.dart';
 
 /// Thin wrapper around the existing [UploadService] photo upload
@@ -48,6 +49,9 @@ class SharedPhotoUploadWidget extends ConsumerWidget {
         // personas pick it up from the organization JOIN.
         await ref.read(sharedPhotoEditorProvider.notifier).save(url);
         ref.invalidate(organizationSharedProvider);
+        // Photo is the first section of every persona checklist —
+        // refresh the bar so the % climbs without a screen reload.
+        ref.invalidate(profileCompletionProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.photoUpdated)),

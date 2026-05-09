@@ -11,7 +11,6 @@ import (
 	"marketplace-backend/internal/app/profilecompletion"
 	"marketplace-backend/internal/domain/freelancepricing"
 	"marketplace-backend/internal/domain/freelanceprofile"
-	"marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/referrerpricing"
 	"marketplace-backend/internal/domain/referrerprofile"
@@ -54,7 +53,6 @@ func wireProfileCompletion(deps profileCompletionDeps) *handler.ProfileCompletio
 	skillRepo := postgres.NewProfileSkillRepository(deps.DB)
 	socialRepo := postgres.NewSocialLinkRepository(deps.DB)
 	portfolioRepo := postgres.NewPortfolioRepository(deps.DB)
-	billingRepo := postgres.NewBillingProfileRepository(deps.DB)
 	freelancePricing := postgres.NewFreelancePricingRepository(deps.DB)
 	referrerPricing := postgres.NewReferrerPricingRepository(deps.DB)
 	legacyPricing := postgres.NewProfilePricingRepository(deps.DB)
@@ -69,7 +67,6 @@ func wireProfileCompletion(deps profileCompletionDeps) *handler.ProfileCompletio
 		Skills:           skillsCounterAdapter{repo: skillRepo},
 		SocialLinks:      socialLinksCounterAdapter{repo: socialRepo},
 		Portfolio:        portfolioCounterAdapter{repo: portfolioRepo},
-		BillingProfile:   billingProfileReaderAdapter{repo: billingRepo},
 		FreelancePricing: freelancePricingExistsAdapter{repo: freelancePricing},
 		ReferrerPricing:  referrerPricingExistsAdapter{repo: referrerPricing},
 		LegacyPricing:    legacyPricingCounterAdapter{repo: legacyPricing},
@@ -239,24 +236,6 @@ func (a portfolioCounterAdapter) CountByOrganization(ctx context.Context, orgID 
 	return a.repo.CountByOrganization(ctx, orgID)
 }
 
-type billingProfileReaderAdapter struct {
-	repo *postgres.BillingProfileRepository
-}
-
-func (a billingProfileReaderAdapter) FindByOrganization(ctx context.Context, orgID uuid.UUID) (*invoicing.BillingProfile, error) {
-	if a.repo == nil {
-		return nil, profilecompletion.ErrNotFound
-	}
-	bp, err := a.repo.FindByOrganization(ctx, orgID)
-	if err != nil {
-		if errors.Is(err, invoicing.ErrNotFound) {
-			return nil, profilecompletion.ErrNotFound
-		}
-		return nil, err
-	}
-	return bp, nil
-}
-
 type freelancePricingExistsAdapter struct {
 	repo *postgres.FreelancePricingRepository
 }
@@ -320,7 +299,6 @@ var (
 	_ profilecompletion.SkillsCounter          = skillsCounterAdapter{}
 	_ profilecompletion.SocialLinksCounter     = socialLinksCounterAdapter{}
 	_ profilecompletion.PortfolioCounter       = portfolioCounterAdapter{}
-	_ profilecompletion.BillingProfileReader   = billingProfileReaderAdapter{}
 	_ profilecompletion.FreelancePricingReader = freelancePricingExistsAdapter{}
 	_ profilecompletion.ReferrerPricingReader  = referrerPricingExistsAdapter{}
 	_ profilecompletion.LegacyPricingCounter   = legacyPricingCounterAdapter{}

@@ -956,10 +956,7 @@
     "title": "Profil rempli à {percent}%",
     "subtitle": "{filled}/{total} sections complétées",
     "subtitleComplete": "Toutes les sections sont complètes — bravo !",
-    "modalTitle": "Profil complété à {percent}%",
-    "modalSubtitle": "Clique sur une section pour la compléter et booster ton profil.",
-    "modalCloseLabel": "Fermer",
-    "a11yLabel": "Profil rempli à {percent}%, ouvrir la liste des sections"
+    "a11yLabel": "Profil rempli à {percent}%, ouvre ton profil pour le compléter"
   },
   "upload": {
     "addPhoto": "Ajouter une photo",

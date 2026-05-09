@@ -5,6 +5,7 @@ import { updateExpertiseDomains } from "../api/expertise-api"
 import { profileQueryKey } from "./use-profile"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 import type { Profile } from "../api/profile-api"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic mutation for the current operator's expertise list.
 //
@@ -51,6 +52,9 @@ export function useUpdateExpertiseDomains() {
           expertise_domains: result.expertise_domains,
         })
       }
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

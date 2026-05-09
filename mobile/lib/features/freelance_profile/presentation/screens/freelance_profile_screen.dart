@@ -14,6 +14,7 @@ import '../../../organization_shared/presentation/widgets/shared_languages_secti
 import '../../../organization_shared/presentation/widgets/shared_location_section_widget.dart';
 import '../../../organization_shared/presentation/widgets/shared_photo_upload_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
+import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../../../profile_completion/presentation/widgets/profile_completion_bar.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../../../skill/presentation/widgets/skills_section_widget.dart';
@@ -211,14 +212,14 @@ class _FreelanceProfileBody extends ConsumerWidget {
             orgType: 'provider_personal',
             initialDomains: profile.expertiseDomains,
             canEdit: canEdit,
-            onSaved: () => ref.invalidate(freelanceProfileProvider),
+            onSaved: () => _refreshAfterSave(ref),
           ),
           sectionGap,
           SkillsSectionWidget(
             orgType: 'provider_personal',
             expertiseKeys: profile.expertiseDomains,
             canEdit: canEdit,
-            onSaved: () => ref.invalidate(freelanceProfileProvider),
+            onSaved: () => _refreshAfterSave(ref),
           ),
           sectionGap,
 
@@ -231,7 +232,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
           FreelanceAvailabilitySectionWidget(
             initialWireValue: profile.availabilityStatus,
             canEdit: canEdit,
-            onSaved: () => ref.invalidate(freelanceProfileProvider),
+            onSaved: () => _refreshAfterSave(ref),
           ),
           sectionGap,
 
@@ -246,7 +247,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
                   canEdit: canEdit,
                   onSaved: () {
                     ref.invalidate(organizationSharedProvider);
-                    ref.invalidate(freelanceProfileProvider);
+                    _refreshAfterSave(ref);
                   },
                 ),
                 sectionGap,
@@ -255,7 +256,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
                   canEdit: canEdit,
                   onSaved: () {
                     ref.invalidate(organizationSharedProvider);
-                    ref.invalidate(freelanceProfileProvider);
+                    _refreshAfterSave(ref);
                   },
                 ),
                 sectionGap,
@@ -332,7 +333,7 @@ class _FreelanceProfileBody extends ConsumerWidget {
             .read(freelanceVideoEditorProvider.notifier)
             .upload(file);
         if (!ok) throw Exception('upload_failed');
-        ref.invalidate(freelanceProfileProvider);
+        _refreshAfterSave(ref);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.videoUpdated)),
@@ -367,6 +368,17 @@ class _FreelanceProfileBody extends ConsumerWidget {
     if (confirmed != true) return;
     final ok =
         await ref.read(freelanceVideoEditorProvider.notifier).remove();
-    if (ok) ref.invalidate(freelanceProfileProvider);
+    if (ok) _refreshAfterSave(ref);
   }
+}
+
+/// Centralised cache fan-out for every freelance editor save. Refreshes
+/// the freelance aggregate (used by every section card) plus the
+/// profile-completion provider (drives the "Profil rempli à X%" bar).
+/// Defined as a top-level helper so it stays free of the surrounding
+/// state lifecycle — the screen is a [ConsumerWidget] with no `this`
+/// instance to capture.
+void _refreshAfterSave(WidgetRef ref) {
+  ref.invalidate(freelanceProfileProvider);
+  ref.invalidate(profileCompletionProvider);
 }

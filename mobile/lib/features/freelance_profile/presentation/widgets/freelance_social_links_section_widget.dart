@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/widgets/social_links_card.dart';
+import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../providers/freelance_social_links_providers.dart';
 
 /// FreelanceSocialLinksSectionWidget mounts the shared social-links
@@ -41,10 +42,14 @@ class FreelanceSocialLinksSectionWidget extends ConsumerWidget {
                   onUpsert: (platform, url) async {
                     await repo.upsert(platform, url);
                     ref.invalidate(freelanceSocialLinksProvider);
+                    // Social links are tracked by the freelance
+                    // checklist — refresh the bar instantly.
+                    ref.invalidate(profileCompletionProvider);
                   },
                   onDelete: (platform) async {
                     await repo.delete(platform);
                     ref.invalidate(freelanceSocialLinksProvider);
+                    ref.invalidate(profileCompletionProvider);
                   },
                 )
               : null,

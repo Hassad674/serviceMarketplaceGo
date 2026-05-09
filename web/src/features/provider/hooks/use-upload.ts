@@ -9,6 +9,7 @@ import {
 } from "@/shared/lib/upload-api"
 import { profileQueryKey } from "./use-profile"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // `useUploadPhoto` lives in `@/shared/hooks/use-upload-photo` (P9 —
 // consumed cross-feature by client-profile). Re-exported here for
@@ -21,8 +22,12 @@ export function useUploadVideo() {
 
   return useMutation({
     mutationFn: (file: File) => uploadVideo(file),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -32,8 +37,12 @@ export function useUploadReferrerVideo() {
 
   return useMutation({
     mutationFn: (file: File) => uploadReferrerVideo(file),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -43,8 +52,12 @@ export function useDeleteVideo() {
 
   return useMutation({
     mutationFn: () => deleteVideo(),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -54,7 +67,11 @@ export function useDeleteReferrerVideo() {
 
   return useMutation({
     mutationFn: () => deleteReferrerVideo(),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }

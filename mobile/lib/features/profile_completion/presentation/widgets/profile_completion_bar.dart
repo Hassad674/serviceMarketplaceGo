@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/profile_completion_report.dart';
 import '../providers/profile_completion_providers.dart';
 
@@ -16,8 +19,10 @@ import '../providers/profile_completion_providers.dart';
 ///   * complete -> hidden when [hideWhenComplete] is true to avoid a
 ///     dead UI block on a fully completed profile.
 ///   * partial -> renders the corail-filled bar plus a chevron pill
-///     showing the missing-section count. Tapping opens a modal with
-///     a list of every section, marked filled / empty.
+///     showing the missing-section count. Tapping pushes the user's
+///     own profile screen so they can complete sections in place
+///     (matches the web behaviour: no intermediate sheet, single
+///     tap = land on the editor).
 class ProfileCompletionBar extends ConsumerWidget {
   const ProfileCompletionBar({super.key, this.hideWhenComplete = false});
 
@@ -55,7 +60,7 @@ class ProfileCompletionBar extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return InkWell(
-      onTap: () => _openMissingModal(context, report),
+      onTap: () => _navigateToOwnProfile(context, ref),
       borderRadius: BorderRadius.circular(16),
       child: Ink(
         decoration: BoxDecoration(
@@ -118,18 +123,24 @@ class ProfileCompletionBar extends ConsumerWidget {
     );
   }
 
-  Future<void> _openMissingModal(
-    BuildContext context,
-    ProfileCompletionReport report,
-  ) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => _ProfileCompletionMissingSheet(report: report),
-    );
+  /// Navigates to the authenticated user's own profile screen, picking
+  /// the right route per role:
+  ///
+  ///   * enterprise -> [RoutePaths.clientProfile]
+  ///   * everyone else (provider, agency) -> [RoutePaths.profile]
+  ///
+  /// Falls back to [RoutePaths.profile] when the auth state is not
+  /// hydrated yet — the provider profile screen is the safest default
+  /// because it dispatches between freelance / agency layouts on its
+  /// own and gracefully handles a missing org type.
+  void _navigateToOwnProfile(BuildContext context, WidgetRef ref) {
+    final auth = ref.read(authProvider);
+    final role = (auth.user?['role'] as String?) ?? '';
+    final orgType = (auth.organization?['type'] as String?) ?? '';
+    final target = role == 'enterprise' || orgType == 'enterprise'
+        ? RoutePaths.clientProfile
+        : RoutePaths.profile;
+    context.go(target);
   }
 }
 
@@ -162,163 +173,5 @@ class _MissingPill extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _ProfileCompletionMissingSheet extends StatelessWidget {
-  const _ProfileCompletionMissingSheet({required this.report});
-  final ProfileCompletionReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.extension<AppColors>()!;
-    final l10n = AppLocalizations.of(context)!;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.profileCompletionModalTitle(report.percent),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: l10n.profileCompletionModalCloseLabel,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.profileCompletionModalSubtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: report.sections.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final section = report.sections[index];
-                  return _SectionTile(section: section);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTile extends StatelessWidget {
-  const _SectionTile({required this.section});
-  final ProfileCompletionSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.extension<AppColors>()!;
-    final label = _labelFor(section.key, AppLocalizations.of(context)!);
-
-    if (section.filled) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: colors.successSoft,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check, size: 18, color: colors.success),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.mutedForeground,
-                  decoration: TextDecoration.lineThrough,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        title: Text(label, style: theme.textTheme.bodyMedium),
-        trailing: const Icon(Icons.chevron_right, size: 18),
-        // The router-aware navigation lives in the host screen; here
-        // we just close the sheet so the user lands back on the profile
-        // page where they can tap the section to edit. Surfacing each
-        // path as a deep-link would require a router map equal to the
-        // web's; the current mobile build keeps the navigation surface
-        // simple by leaving the editor entry points on the profile
-        // screen itself.
-        onTap: () => Navigator.of(context).pop(),
-      ),
-    );
-  }
-
-  String _labelFor(String key, AppLocalizations l10n) {
-    switch (key) {
-      case 'photo':
-        return l10n.profileCompletionSectionPhoto;
-      case 'title':
-        return l10n.profileCompletionSectionTitle;
-      case 'about':
-        return l10n.profileCompletionSectionAbout;
-      case 'expertises':
-        return l10n.profileCompletionSectionExpertises;
-      case 'skills':
-        return l10n.profileCompletionSectionSkills;
-      case 'pricing':
-        return l10n.profileCompletionSectionPricing;
-      case 'availability':
-        return l10n.profileCompletionSectionAvailability;
-      case 'location':
-        return l10n.profileCompletionSectionLocation;
-      case 'languages':
-        return l10n.profileCompletionSectionLanguages;
-      case 'video':
-        return l10n.profileCompletionSectionVideo;
-      case 'social_links':
-        return l10n.profileCompletionSectionSocialLinks;
-      case 'billing_profile':
-        return l10n.profileCompletionSectionBillingProfile;
-      case 'kyc':
-        return l10n.profileCompletionSectionKyc;
-      case 'portfolio':
-        return l10n.profileCompletionSectionPortfolio;
-      case 'client_about':
-        return l10n.profileCompletionSectionClientAbout;
-    }
-    // Unknown keys fall back to the raw machine identifier — never a
-    // crash, and a follow-up release adds the missing translation.
-    return key;
   }
 }

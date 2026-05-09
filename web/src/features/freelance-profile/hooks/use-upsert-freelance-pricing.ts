@@ -11,6 +11,7 @@ import {
   freelanceProfileQueryKey,
 } from "./use-freelance-profile"
 import { freelancePricingQueryKey } from "./use-freelance-pricing"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 import type { FreelanceProfile } from "../api/freelance-profile-api"
 
 // Optimistic upsert: patches both the dedicated pricing cache and the
@@ -55,6 +56,9 @@ export function useUpsertFreelancePricing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pricingKey })
       queryClient.invalidateQueries({ queryKey: profileKey })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

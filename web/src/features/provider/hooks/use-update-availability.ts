@@ -8,6 +8,7 @@ import {
   type UpdateAvailabilityInput,
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic patch for either the direct or the referrer availability
 // slot — never both in the same call. Each page (freelance profile vs
@@ -45,6 +46,9 @@ export function useUpdateAvailability() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: key })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

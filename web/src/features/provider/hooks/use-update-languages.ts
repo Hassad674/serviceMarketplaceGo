@@ -8,6 +8,7 @@ import {
   type UpdateLanguagesInput,
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic mutation for the two language lists (professional +
 // conversational). The backend invariant is that a language never
@@ -39,6 +40,9 @@ export function useUpdateLanguages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: key })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

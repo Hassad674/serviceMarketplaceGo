@@ -12,8 +12,10 @@ import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
  *
  * The mutation invalidates the canonical provider profile query by
  * its key shape, plus the two client-profile caches that mirror the
- * same photo (agencies expose both facets). Hardcoded prefixes are
- * intentional — keeping the shared hook free of feature imports.
+ * same photo (agencies expose both facets), plus the
+ * profile-completion report so the sidebar progress bar reflects the
+ * new "photo filled" state without a page reload. Hardcoded prefixes
+ * are intentional — keeping the shared hook free of feature imports.
  */
 export function useUploadPhoto() {
   const queryClient = useQueryClient()
@@ -31,6 +33,12 @@ export function useUploadPhoto() {
       // manual refresh.
       queryClient.invalidateQueries({ queryKey: ["client-profile"] })
       queryClient.invalidateQueries({ queryKey: ["public-client-profile"] })
+      // Profile-completion bar pulls from the same uid-scoped cache
+      // family — invalidate by key shape to keep this hook free of a
+      // feature import on the profile-completion module.
+      queryClient.invalidateQueries({
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }

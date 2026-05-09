@@ -9,6 +9,7 @@ import {
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
 import { pricingQueryKey } from "./use-pricing"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Upserts a single pricing row (identified by `kind`). The optimistic
 // patch touches two caches:
@@ -55,6 +56,9 @@ export function useUpsertPricing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pricingKey })
       queryClient.invalidateQueries({ queryKey: profileKey })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

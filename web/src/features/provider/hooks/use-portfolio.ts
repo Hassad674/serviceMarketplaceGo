@@ -2,6 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useOrganization } from "@/shared/hooks/use-user"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 import {
   fetchPortfolioByOrganization,
   createPortfolioItem,
@@ -50,6 +52,7 @@ export function useCreatePortfolioItem() {
   const queryClient = useQueryClient()
   const { data: org } = useOrganization()
   const orgId = org?.id
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (payload: {
@@ -59,8 +62,15 @@ export function useCreatePortfolioItem() {
       position: number
       media?: MediaPayload[]
     }) => createPortfolioItem(payload),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) })
+      // Portfolio is one of the agency persona checklist sections —
+      // invalidate completion so the bar reflects the new count without
+      // a page reload.
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -89,11 +99,19 @@ export function useDeletePortfolioItem() {
   const queryClient = useQueryClient()
   const { data: org } = useOrganization()
   const orgId = org?.id
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (id: string) => deletePortfolioItem(id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) })
+      // A delete may take the agency from "1 portfolio item" to zero,
+      // which un-fills the portfolio section; invalidate completion so
+      // the bar reflects the new state.
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 

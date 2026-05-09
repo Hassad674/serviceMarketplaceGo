@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/profile/money_format.dart';
+import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../../domain/entities/freelance_pricing.dart';
 import '../providers/freelance_profile_providers.dart';
 
@@ -109,6 +110,9 @@ class FreelancePricingSectionWidget extends ConsumerWidget {
     }
     ref.invalidate(freelancePricingProvider);
     ref.invalidate(freelanceProfileProvider);
+    // Pricing is one of the freelance checklist sections — refresh
+    // the bar so the % climbs after the upsert lands.
+    ref.invalidate(profileCompletionProvider);
   }
 }
 

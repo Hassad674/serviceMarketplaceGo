@@ -8,6 +8,7 @@ import {
   type UpdateLocationInput,
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic mutation for the org's location block (city, country,
 // coordinates, work modes, travel radius). Same pattern as
@@ -48,6 +49,9 @@ export function useUpdateLocation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: key })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

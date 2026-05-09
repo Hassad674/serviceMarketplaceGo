@@ -9,6 +9,7 @@ import {
 } from "../api/freelance-profile-api"
 import { freelanceProfileQueryKey } from "./use-freelance-profile"
 import { freelancePricingQueryKey } from "./use-freelance-pricing"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic delete: nulls the pricing row in both caches, rolls back
 // on error, invalidates on success to pick up any backend side-effects.
@@ -50,6 +51,9 @@ export function useDeleteFreelancePricing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pricingKey })
       queryClient.invalidateQueries({ queryKey: profileKey })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

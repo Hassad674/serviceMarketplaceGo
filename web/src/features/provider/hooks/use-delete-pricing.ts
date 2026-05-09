@@ -10,6 +10,7 @@ import {
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
 import { pricingQueryKey } from "./use-pricing"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Removes a single pricing row by kind. Optimistic removal from both
 // the dedicated pricing cache and the embedded profile copy.
@@ -51,6 +52,9 @@ export function useDeletePricing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pricingKey })
       queryClient.invalidateQueries({ queryKey: profileKey })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

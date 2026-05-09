@@ -21,7 +21,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
@@ -34,21 +33,19 @@ import (
 type SectionKey string
 
 const (
-	SectionPhoto          SectionKey = "photo"
-	SectionTitle          SectionKey = "title"
-	SectionAbout          SectionKey = "about"
-	SectionExpertises     SectionKey = "expertises"
-	SectionSkills         SectionKey = "skills"
-	SectionPricing        SectionKey = "pricing"
-	SectionAvailability   SectionKey = "availability"
-	SectionLocation       SectionKey = "location"
-	SectionLanguages      SectionKey = "languages"
-	SectionVideo          SectionKey = "video"
-	SectionSocialLinks    SectionKey = "social_links"
-	SectionBillingProfile SectionKey = "billing_profile"
-	SectionKYC            SectionKey = "kyc"
-	SectionPortfolio      SectionKey = "portfolio"
-	SectionClientAbout    SectionKey = "client_about"
+	SectionPhoto        SectionKey = "photo"
+	SectionTitle        SectionKey = "title"
+	SectionAbout        SectionKey = "about"
+	SectionExpertises   SectionKey = "expertises"
+	SectionSkills       SectionKey = "skills"
+	SectionPricing      SectionKey = "pricing"
+	SectionAvailability SectionKey = "availability"
+	SectionLocation     SectionKey = "location"
+	SectionLanguages    SectionKey = "languages"
+	SectionVideo        SectionKey = "video"
+	SectionSocialLinks  SectionKey = "social_links"
+	SectionPortfolio    SectionKey = "portfolio"
+	SectionClientAbout  SectionKey = "client_about"
 )
 
 // Section is one row of the completion report. The label_key is the
@@ -187,13 +184,6 @@ type PortfolioCounter interface {
 	CountByOrganization(ctx context.Context, organizationID uuid.UUID) (int, error)
 }
 
-// BillingProfileReader returns the org's billing profile row. Returns
-// ErrNotFound when the org has not seeded its billing profile yet —
-// the service treats that case as "billing section empty".
-type BillingProfileReader interface {
-	FindByOrganization(ctx context.Context, orgID uuid.UUID) (*invoicing.BillingProfile, error)
-}
-
 // FreelancePricingReader returns whether a freelance pricing row
 // exists for the given freelance profile id. Implementations return
 // (false, nil) when no row exists — never an error.
@@ -236,19 +226,18 @@ type Service struct {
 // breaking the completion endpoint — consult the rules in Compute for
 // the exact fallback per role.
 type Deps struct {
-	Users             UserReader
-	Organizations     OrganizationReader
-	Shared            SharedProfileReader
-	FreelanceProfile  FreelanceProfileReader
-	ReferrerProfile   ReferrerProfileReader
-	LegacyProfile     LegacyProfileReader
-	Skills            SkillsCounter
-	SocialLinks       SocialLinksCounter
-	Portfolio         PortfolioCounter
-	BillingProfile    BillingProfileReader
-	FreelancePricing  FreelancePricingReader
-	ReferrerPricing   ReferrerPricingReader
-	LegacyPricing     LegacyPricingCounter
+	Users            UserReader
+	Organizations    OrganizationReader
+	Shared           SharedProfileReader
+	FreelanceProfile FreelanceProfileReader
+	ReferrerProfile  ReferrerProfileReader
+	LegacyProfile    LegacyProfileReader
+	Skills           SkillsCounter
+	SocialLinks      SocialLinksCounter
+	Portfolio        PortfolioCounter
+	FreelancePricing FreelancePricingReader
+	ReferrerPricing  ReferrerPricingReader
+	LegacyPricing    LegacyPricingCounter
 }
 
 // NewService constructs the service. Required fields are Users and

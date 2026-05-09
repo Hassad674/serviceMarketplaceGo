@@ -5,14 +5,18 @@ import {
   updateClientProfile,
   type UpdateClientProfileInput,
 } from "../api/client-profile-api"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
 // useUpdateClientProfile wraps PUT /api/v1/profile/client. On success
 // we invalidate the session + private profile caches so the edited
 // `client_description` / `company_name` propagates everywhere — the
 // private client-profile page reads from `useProfile()` (provider
 // feature) and any sidebar/avatar surface reads from `useSession()`.
+// The profile-completion cache is invalidated too so the sidebar bar
+// reflects the new "client_about filled" state without a reload.
 export function useUpdateClientProfile() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (input: UpdateClientProfileInput) => updateClientProfile(input),
@@ -30,6 +34,11 @@ export function useUpdateClientProfile() {
       })
       queryClient.invalidateQueries({ queryKey: ["session"] })
       queryClient.invalidateQueries({ queryKey: ["public-client-profile"] })
+      // Profile-completion bar — the enterprise checklist scores
+      // client_about, so this update toggles a section.
+      queryClient.invalidateQueries({
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }

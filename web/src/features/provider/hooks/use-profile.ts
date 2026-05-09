@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getMyProfile, updateProfile } from "../api/profile-api"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 export function profileQueryKey(uid: string | undefined) {
   return ["user", uid, "profile"] as const
@@ -25,7 +26,14 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: (data: Record<string, string>) =>
       updateProfile(data),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) })
+      // Title / about / video URL on the legacy profile feed the
+      // agency persona checklist; refresh the bar so the count moves
+      // without a reload.
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }

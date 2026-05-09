@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { updateProfileSkills } from "../api/skill-api"
 import { SKILLS_QUERY_KEY } from "../constants"
 import type { ProfileSkillResponse } from "../types"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 // Optimistic mutation for the current operator's profile skill list.
 //
@@ -23,6 +25,7 @@ import type { ProfileSkillResponse } from "../types"
 // in `onSettled` fixes any gaps.
 export function useUpdateProfileSkills() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
   const key = SKILLS_QUERY_KEY.profile
 
   return useMutation({
@@ -51,6 +54,13 @@ export function useUpdateProfileSkills() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: key })
+      // Skills are tracked by the freelance + agency completion
+      // checklists — refresh the bar on every save (success or
+      // rollback so a user-visible refetch always brings the count
+      // back in sync with the backend).
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
     },
   })
 }

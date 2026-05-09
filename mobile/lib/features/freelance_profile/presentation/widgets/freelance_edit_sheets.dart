@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../../domain/entities/freelance_profile.dart';
 import '../providers/freelance_profile_providers.dart';
 
@@ -49,6 +50,9 @@ Future<void> showFreelanceAboutSheet({
                     data: {'about': controller.text},
                   );
                   ref.invalidate(freelanceProfileProvider);
+                  // About text feeds the freelance checklist —
+                  // refresh the bar so the user sees the count climb.
+                  ref.invalidate(profileCompletionProvider);
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: Text(l10n.save),
@@ -107,7 +111,12 @@ Future<void> showFreelanceTitleSheet({
                         about: profile.about,
                         videoUrl: profile.videoUrl,
                       );
-                  if (ok) ref.invalidate(freelanceProfileProvider);
+                  if (ok) {
+                    ref.invalidate(freelanceProfileProvider);
+                    // Title feeds the freelance checklist — refresh
+                    // the bar so the user sees the count climb.
+                    ref.invalidate(profileCompletionProvider);
+                  }
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: Text(l10n.save),

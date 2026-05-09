@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/app/profilecompletion"
-	"marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
@@ -172,18 +171,6 @@ func (s *portfolioCounterStub) CountByOrganization(_ context.Context, _ uuid.UUI
 	return s.n, nil
 }
 
-type billingReaderStub struct {
-	bp  *invoicing.BillingProfile
-	err error
-}
-
-func (s *billingReaderStub) FindByOrganization(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	return s.bp, nil
-}
-
 type pricingExistsStub struct {
 	exists bool
 }
@@ -295,45 +282,45 @@ func TestCompute_Provider_AllEmpty_ZeroPercentExceptDefaults(t *testing.T) {
 
 	assert.Equal(t, "provider", r.Role)
 	assert.Equal(t, "freelance", r.Persona)
-	assert.Equal(t, 13, r.TotalSections, "freelance persona has 13 sections")
+	assert.Equal(t, 11, r.TotalSections, "freelance persona has 11 sections (billing/kyc dropped)")
 	assert.Equal(t, 0, r.FilledSections)
 	assert.Equal(t, 0, r.Percent)
 
 	// Sanity-check the section keys are stable across releases.
 	assertHasSectionKey(t, r, "photo")
 	assertHasSectionKey(t, r, "title")
-	assertHasSectionKey(t, r, "billing_profile")
-	assertHasSectionKey(t, r, "kyc")
+	assertHasSectionKey(t, r, "social_links")
+	// billing_profile and kyc must NOT appear — they were dropped from
+	// the freelance checklist.
+	assertMissingSectionKey(t, r, "billing_profile")
+	assertMissingSectionKey(t, r, "kyc")
 }
 
 func TestCompute_Provider_AllFilled_HundredPercent(t *testing.T) {
 	f := newFixture()
 	f.users.user = providerUser()
 	org := providerOrg()
-	stripeAcct := "acct_test"
-	org.StripeAccountID = &stripeAcct
 	f.orgs.org = org
 
 	f.deps.Shared = &fakeSharedReader{ph: "photo.jpg", c: "Paris", cc: "FR", langs: []string{"fr"}}
 	f.deps.FreelanceProfile = &fakeFreelanceReader{
-		profileID:   uuid.New(),
-		title:       "Senior dev",
-		about:       "10 years",
-		video:       "https://video",
-		expertises:  []string{"backend"},
+		profileID:    uuid.New(),
+		title:        "Senior dev",
+		about:        "10 years",
+		video:        "https://video",
+		expertises:   []string{"backend"},
 		availability: profile.AvailabilityNow,
 	}
 	f.deps.Skills = &skillsCounterStub{n: 5}
 	f.deps.SocialLinks = &socialLinksCounterStub{freelance: 1}
-	f.deps.BillingProfile = &billingReaderStub{bp: completeBillingProfile()}
 	f.deps.FreelancePricing = &pricingExistsStub{exists: true}
 
 	svc := f.build(t)
 	r, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
 	require.NoError(t, err)
 
-	assert.Equal(t, 13, r.TotalSections)
-	assert.Equal(t, 13, r.FilledSections)
+	assert.Equal(t, 11, r.TotalSections)
+	assert.Equal(t, 11, r.FilledSections)
 	assert.Equal(t, 100, r.Percent)
 }
 
@@ -342,7 +329,7 @@ func TestCompute_Provider_PartialFilled_RoundedFraction(t *testing.T) {
 	f.users.user = providerUser()
 	f.orgs.org = providerOrg()
 
-	// Fill 4 sections out of 13 → 4*100/13 = 30 (integer division).
+	// Fill 4 sections out of 11 → 4*100/11 = 36 (integer division).
 	f.deps.Shared = &fakeSharedReader{ph: "photo.jpg"}
 	f.deps.FreelanceProfile = &fakeFreelanceReader{
 		profileID: uuid.New(),
@@ -351,14 +338,14 @@ func TestCompute_Provider_PartialFilled_RoundedFraction(t *testing.T) {
 	}
 	f.deps.Skills = &skillsCounterStub{n: 1}
 	f.deps.SocialLinks = &socialLinksCounterStub{}
-	f.deps.BillingProfile = &billingReaderStub{}
 
 	svc := f.build(t)
 	r, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
 	require.NoError(t, err)
 
+	assert.Equal(t, 11, r.TotalSections)
 	assert.Equal(t, 4, r.FilledSections)
-	assert.Equal(t, 30, r.Percent)
+	assert.Equal(t, 36, r.Percent)
 }
 
 // ---------------------------------------------------------------
@@ -374,13 +361,13 @@ func TestCompute_Agency_EmptyAndFilled(t *testing.T) {
 	empty, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "agency", empty.Persona)
-	assert.Equal(t, 12, empty.TotalSections)
+	assert.Equal(t, 10, empty.TotalSections, "agency persona has 10 sections (billing/kyc dropped)")
 	assert.Equal(t, 0, empty.FilledSections)
+	assertMissingSectionKey(t, empty, "billing_profile")
+	assertMissingSectionKey(t, empty, "kyc")
 
 	// Now fill every reader.
-	stripeAcct := "acct_x"
 	org := agencyOrg()
-	org.StripeAccountID = &stripeAcct
 	f.orgs.org = org
 
 	f.deps.Shared = &fakeSharedReader{ph: "p.jpg", c: "Lyon", cc: "FR", langs: []string{"fr"}}
@@ -393,13 +380,13 @@ func TestCompute_Agency_EmptyAndFilled(t *testing.T) {
 	f.deps.Skills = &skillsCounterStub{n: 2}
 	f.deps.SocialLinks = &socialLinksCounterStub{agency: 2}
 	f.deps.Portfolio = &portfolioCounterStub{n: 3}
-	f.deps.BillingProfile = &billingReaderStub{bp: completeBillingProfile()}
 	f.deps.LegacyPricing = &legacyPricingCounterStub{n: 1}
 
 	svc = f.build(t)
 	full, err := svc.Compute(context.Background(), f.users.user.ID, org.ID)
 	require.NoError(t, err)
-	assert.Equal(t, 12, full.FilledSections)
+	assert.Equal(t, 10, full.TotalSections)
+	assert.Equal(t, 10, full.FilledSections)
 	assert.Equal(t, 100, full.Percent)
 }
 
@@ -416,22 +403,22 @@ func TestCompute_Enterprise_EmptyAndFilled(t *testing.T) {
 	empty, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "enterprise", empty.Persona)
-	assert.Equal(t, 4, empty.TotalSections)
+	assert.Equal(t, 2, empty.TotalSections, "enterprise persona has 2 sections (photo + client_about)")
 	assert.Equal(t, 0, empty.FilledSections)
+	assertMissingSectionKey(t, empty, "billing_profile")
+	assertMissingSectionKey(t, empty, "kyc")
 
-	stripeAcct := "acct_e"
 	org := enterpriseOrg()
-	org.StripeAccountID = &stripeAcct
 	f.orgs.org = org
 
 	f.deps.Shared = &fakeSharedReader{ph: "p.jpg"}
 	f.deps.LegacyProfile = &fakeLegacyReader{p: &profile.Profile{ClientDescription: "We buy"}}
-	f.deps.BillingProfile = &billingReaderStub{bp: completeBillingProfile()}
 
 	svc = f.build(t)
 	full, err := svc.Compute(context.Background(), f.users.user.ID, org.ID)
 	require.NoError(t, err)
-	assert.Equal(t, 4, full.FilledSections)
+	assert.Equal(t, 2, full.TotalSections)
+	assert.Equal(t, 2, full.FilledSections)
 	assert.Equal(t, 100, full.Percent)
 }
 
@@ -458,23 +445,63 @@ func TestCompute_OrgReaderError_Surfaces(t *testing.T) {
 	assert.ErrorContains(t, err, "load org")
 }
 
-func TestCompute_BillingReaderNotFound_TreatedAsEmpty(t *testing.T) {
+// Billing/KYC sections were dropped from the freelance / agency /
+// enterprise checklists — completion percent no longer queries the
+// billing profile reader. This regression check ensures neither key
+// is shipped on the wire so a future re-introduction is an explicit
+// product decision, not a silent re-add.
+func TestCompute_FreelanceDoesNotShipBillingOrKyc(t *testing.T) {
 	f := newFixture()
 	f.users.user = providerUser()
 	f.orgs.org = providerOrg()
-	f.deps.BillingProfile = &billingReaderStub{err: profilecompletion.ErrNotFound}
 
 	svc := f.build(t)
 	r, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
 	require.NoError(t, err)
-	// Billing section must be empty (not filled).
 	for _, s := range r.Sections {
-		if s.Key == "billing_profile" {
-			assert.False(t, s.Filled)
-			return
-		}
+		assert.NotEqual(t, "billing_profile", string(s.Key),
+			"billing_profile must not be shipped — dropped from checklist")
+		assert.NotEqual(t, "kyc", string(s.Key),
+			"kyc must not be shipped — dropped from checklist")
 	}
-	t.Fatal("billing_profile section missing")
+}
+
+// TestCompute_AgencyDoesNotShipBillingOrKyc mirrors the freelance
+// regression for the agency persona.
+func TestCompute_AgencyDoesNotShipBillingOrKyc(t *testing.T) {
+	f := newFixture()
+	f.users.user = agencyUser()
+	f.orgs.org = agencyOrg()
+
+	svc := f.build(t)
+	r, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
+	require.NoError(t, err)
+	for _, s := range r.Sections {
+		assert.NotEqual(t, "billing_profile", string(s.Key))
+		assert.NotEqual(t, "kyc", string(s.Key))
+	}
+}
+
+// TestCompute_EnterpriseShipsTwoSections asserts the enterprise
+// checklist is exactly photo + client_about — billing/kyc were the
+// only other items, and dropping them leaves 2 sections.
+func TestCompute_EnterpriseShipsTwoSections(t *testing.T) {
+	f := newFixture()
+	f.users.user = enterpriseUser()
+	f.orgs.org = enterpriseOrg()
+
+	svc := f.build(t)
+	r, err := svc.Compute(context.Background(), f.users.user.ID, f.orgs.org.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, r.TotalSections)
+	keys := make(map[string]bool, len(r.Sections))
+	for _, s := range r.Sections {
+		keys[string(s.Key)] = true
+	}
+	assert.True(t, keys["photo"], "enterprise must include photo")
+	assert.True(t, keys["client_about"], "enterprise must include client_about")
+	assert.False(t, keys["billing_profile"])
+	assert.False(t, keys["kyc"])
 }
 
 // ---------------------------------------------------------------
@@ -511,14 +538,15 @@ func assertHasSectionKey(t *testing.T, r *profilecompletion.Report, key string) 
 	t.Errorf("missing section key %q", key)
 }
 
-func completeBillingProfile() *invoicing.BillingProfile {
-	return &invoicing.BillingProfile{
-		ProfileType:  invoicing.ProfileBusiness,
-		LegalName:    "ACME SAS",
-		AddressLine1: "1 rue test",
-		PostalCode:   "75001",
-		City:         "Paris",
-		Country:      "US", // outside-EU branch — minimal fields suffice
-		TaxID:        "",
+// assertMissingSectionKey is the dual of assertHasSectionKey — it
+// fails the test when the report carries a key that should not be
+// shipped (e.g. dropped billing/kyc sections).
+func assertMissingSectionKey(t *testing.T, r *profilecompletion.Report, key string) {
+	t.Helper()
+	for _, s := range r.Sections {
+		if string(s.Key) == key {
+			t.Errorf("unexpected section key %q present", key)
+			return
+		}
 	}
 }

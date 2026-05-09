@@ -8,6 +8,7 @@ import {
   deleteSocialLink,
 } from "../api/social-links-api"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 function mySocialLinksKey(uid: string | undefined) {
   return ["user", uid, "my-social-links"] as const
@@ -39,8 +40,12 @@ export function useUpsertSocialLink() {
   return useMutation({
     mutationFn: ({ platform, url }: { platform: string; url: string }) =>
       upsertSocialLink(platform, url),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: mySocialLinksKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mySocialLinksKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -50,7 +55,11 @@ export function useDeleteSocialLink() {
 
   return useMutation({
     mutationFn: (platform: string) => deleteSocialLink(platform),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: mySocialLinksKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mySocialLinksKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }

@@ -28,21 +28,19 @@ func labelKeyFor(k SectionKey) string {
 // prefix (/fr, /en) when navigating.
 func completionPathFor(persona Persona, k SectionKey) string {
 	freelancePaths := map[SectionKey]string{
-		SectionPhoto:          "/dashboard/profile/edit",
-		SectionTitle:          "/dashboard/profile/edit",
-		SectionAbout:          "/dashboard/profile/edit",
-		SectionExpertises:     "/dashboard/profile/expertise",
-		SectionSkills:         "/dashboard/profile/skills",
-		SectionPricing:        "/dashboard/profile/pricing",
-		SectionAvailability:   "/dashboard/profile/availability",
-		SectionLocation:       "/dashboard/profile/location",
-		SectionLanguages:      "/dashboard/profile/languages",
-		SectionVideo:          "/dashboard/profile/video",
-		SectionSocialLinks:    "/dashboard/profile/social",
-		SectionBillingProfile: "/dashboard/billing/profile",
-		SectionKYC:            "/dashboard/billing/kyc",
-		SectionPortfolio:      "/dashboard/portfolio",
-		SectionClientAbout:    "/dashboard/profile/client",
+		SectionPhoto:        "/dashboard/profile/edit",
+		SectionTitle:        "/dashboard/profile/edit",
+		SectionAbout:        "/dashboard/profile/edit",
+		SectionExpertises:   "/dashboard/profile/expertise",
+		SectionSkills:       "/dashboard/profile/skills",
+		SectionPricing:      "/dashboard/profile/pricing",
+		SectionAvailability: "/dashboard/profile/availability",
+		SectionLocation:     "/dashboard/profile/location",
+		SectionLanguages:    "/dashboard/profile/languages",
+		SectionVideo:        "/dashboard/profile/video",
+		SectionSocialLinks:  "/dashboard/profile/social",
+		SectionPortfolio:    "/dashboard/portfolio",
+		SectionClientAbout:  "/dashboard/profile/client",
 	}
 	referrerPaths := map[SectionKey]string{
 		SectionPhoto:        "/dashboard/referrer/edit",
@@ -55,11 +53,9 @@ func completionPathFor(persona Persona, k SectionKey) string {
 		SectionSocialLinks:  "/dashboard/referrer/social",
 	}
 	enterprisePaths := map[SectionKey]string{
-		SectionPhoto:          "/dashboard/profile/edit",
-		SectionAbout:          "/dashboard/profile/edit",
-		SectionClientAbout:    "/dashboard/profile/client",
-		SectionBillingProfile: "/dashboard/billing/profile",
-		SectionKYC:            "/dashboard/billing/kyc",
+		SectionPhoto:       "/dashboard/profile/edit",
+		SectionAbout:       "/dashboard/profile/edit",
+		SectionClientAbout: "/dashboard/profile/client",
 	}
 
 	switch persona {
@@ -125,8 +121,6 @@ type snapshotBundle struct {
 	SocialReferrer   int
 	SocialAgency     int
 	PortfolioCount   int
-	BillingComplete  bool
-	BillingPresent   bool
 	FreelancePricing bool
 	ReferrerPricing  bool
 	LegacyPricingN   int
@@ -218,31 +212,24 @@ func (s *Service) fillCounts(
 		}
 		out.PortfolioCount = n
 	}
-	if err := s.fillBillingAndPricing(ctx, out, org.ID); err != nil {
+	if err := s.fillPricing(ctx, out, org.ID); err != nil {
 		return err
 	}
 	return nil
 }
 
-// fillBillingAndPricing populates billing completeness and the per-
-// persona pricing booleans. Pricing readers are guarded against a nil
-// freelance/referrer snapshot (no profile id to query) — the section
-// then defaults to "empty".
-func (s *Service) fillBillingAndPricing(
+// fillPricing populates the per-persona pricing booleans. Pricing
+// readers are guarded against a nil freelance/referrer snapshot (no
+// profile id to query) — the section then defaults to "empty".
+//
+// Billing/KYC sections were dropped from every persona checklist —
+// billing info is captured inline at first payment and KYC has its
+// own dedicated flow, so neither is queried here anymore.
+func (s *Service) fillPricing(
 	ctx context.Context,
 	out *snapshotBundle,
 	orgID uuid.UUID,
 ) error {
-	if s.deps.BillingProfile != nil {
-		bp, err := s.deps.BillingProfile.FindByOrganization(ctx, orgID)
-		if err != nil && !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		if bp != nil {
-			out.BillingPresent = true
-			out.BillingComplete = bp.IsComplete()
-		}
-	}
 	if s.deps.FreelancePricing != nil && out.Freelance != nil &&
 		out.Freelance.ProfileID != uuid.Nil {
 		ok, err := s.deps.FreelancePricing.ExistsByProfileID(ctx, out.Freelance.ProfileID)

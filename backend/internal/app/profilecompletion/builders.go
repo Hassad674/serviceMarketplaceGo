@@ -10,19 +10,21 @@ import (
 
 // buildFreelanceSections is the checklist for provider_personal orgs
 // surfacing the freelance persona. Sections are ordered from identity
-// → presentation → offer → compliance so the missing-list modal
-// reads in an intuitive priority.
+// → presentation → offer so the page reads in an intuitive priority.
 //
-// Mapping (13 sections):
+// Mapping (11 sections):
 //
 //	photo, title, about, expertises, skills, pricing,
-//	availability, location, languages, video, social_links,
-//	billing_profile, kyc.
+//	availability, location, languages, video, social_links.
+//
+// billing_profile and kyc were intentionally dropped: billing info is
+// captured inline by Stripe at first payment and KYC has its own
+// dedicated flow, so neither belongs in the profile-completion %.
 //
 // availability is counted as "filled" when the freelance row has any
 // status — provider_personal orgs always default to available_now on
 // creation, so this section is effectively a tautology that bumps the
-// baseline to ~7%. We keep it explicit so a future redesign that adds
+// baseline to ~9%. We keep it explicit so a future redesign that adds
 // "I haven't decided yet" as a fourth status surfaces immediately in
 // the percent.
 func (s *Service) buildFreelanceSections(
@@ -55,8 +57,6 @@ func (s *Service) buildFreelanceSections(
 		section(PersonaFreelance, SectionLanguages, hasLanguages(bundle.Shared)),
 		section(PersonaFreelance, SectionVideo, videoFilled),
 		section(PersonaFreelance, SectionSocialLinks, bundle.SocialFreelance > 0),
-		section(PersonaFreelance, SectionBillingProfile, bundle.BillingComplete),
-		section(PersonaFreelance, SectionKYC, org.HasKYCCompleted()),
 	}
 	return out, nil
 }
@@ -105,15 +105,18 @@ func (s *Service) buildReferrerSections(
 // as freelance plus a portfolio section because agencies are expected
 // to ship a curated case-study list.
 //
-// Mapping (12 sections):
+// Mapping (10 sections):
 //
 //	photo, title, about, skills, pricing, availability,
-//	location, languages, social_links, portfolio,
-//	billing_profile, kyc.
+//	location, languages, social_links, portfolio.
 //
 // expertises and video are NOT mandatory for agencies — agencies are
 // curated through skills + portfolio so the expertise taxonomy is
 // optional, and the video upload is a recent provider-only feature.
+//
+// billing_profile and kyc were dropped from the checklist: billing
+// info is captured inline at first payment and KYC has its own
+// dedicated flow, so neither belongs in the profile-completion %.
 func (s *Service) buildAgencySections(
 	ctx context.Context,
 	u *user.User,
@@ -145,24 +148,22 @@ func (s *Service) buildAgencySections(
 			(hasLegacy && len(legacy.LanguagesProfessional) > 0)),
 		section(PersonaAgency, SectionSocialLinks, bundle.SocialAgency > 0),
 		section(PersonaAgency, SectionPortfolio, bundle.PortfolioCount > 0),
-		section(PersonaAgency, SectionBillingProfile, bundle.BillingComplete),
-		section(PersonaAgency, SectionKYC, org.HasKYCCompleted()),
 	}
 	return out, nil
 }
 
 // buildEnterpriseSections is the checklist for enterprise (client)
 // orgs. Enterprises do not sell on the marketplace — their checklist
-// focuses on the client-facing identity + invoicing compliance.
+// focuses on the client-facing identity.
 //
-// Mapping (4 sections):
+// Mapping (2 sections):
 //
-//	photo, client_about, billing_profile, kyc.
+//	photo, client_about.
 //
-// KYC is included because enterprises that pay providers via Stripe
-// Connect must have their billing identity validated before transfers
-// can clear; HasKYCCompleted just checks that a Stripe account exists,
-// which is the same gate every payment flow uses.
+// billing_profile and kyc were dropped from the checklist: enterprises
+// register their billing details inline at first payment and KYC has
+// its own dedicated flow, so neither belongs in the profile-completion
+// %.
 func (s *Service) buildEnterpriseSections(
 	ctx context.Context,
 	u *user.User,
@@ -181,8 +182,6 @@ func (s *Service) buildEnterpriseSections(
 		section(PersonaEnterprise, SectionPhoto, hasPhoto(bundle.Shared) ||
 			(hasLegacy && strings.TrimSpace(legacy.PhotoURL) != "")),
 		section(PersonaEnterprise, SectionClientAbout, clientAboutFilled),
-		section(PersonaEnterprise, SectionBillingProfile, bundle.BillingComplete),
-		section(PersonaEnterprise, SectionKYC, org.HasKYCCompleted()),
 	}
 	return out, nil
 }

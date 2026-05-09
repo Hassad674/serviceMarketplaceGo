@@ -36,7 +36,10 @@ export function useUpdateOrganizationLocation() {
 }
 
 // Helper exported for the other shared mutations so they all fan out
-// the same way — single rule change, all personas refresh.
+// the same way — single rule change, all personas refresh. The
+// profile-completion bar tracks photo / location / languages too, so
+// every shared mutation invalidates that report alongside the persona
+// caches.
 export function invalidateSharedDependents(
   queryClient: ReturnType<typeof useQueryClient>,
   uid: string | undefined,
@@ -46,4 +49,7 @@ export function invalidateSharedDependents(
       queryKey: ["user", uid, prefix],
     })
   }
+  queryClient.invalidateQueries({
+    queryKey: ["user", uid, "profile-completion"],
+  })
 }

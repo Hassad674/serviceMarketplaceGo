@@ -8,6 +8,7 @@ import {
   upsertFreelanceSocialLink,
 } from "../api/freelance-social-links-api"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { profileCompletionQueryKey } from "@/features/profile-completion/hooks/use-profile-completion"
 
 function myFreelanceLinksKey(uid: string | undefined) {
   return ["user", uid, "freelance-social-links"] as const
@@ -37,8 +38,12 @@ export function useUpsertFreelanceSocialLink() {
   return useMutation({
     mutationFn: ({ platform, url }: { platform: string; url: string }) =>
       upsertFreelanceSocialLink(platform, url),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myFreelanceLinksKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: myFreelanceLinksKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
 
@@ -47,7 +52,11 @@ export function useDeleteFreelanceSocialLink() {
   const uid = useCurrentUserId()
   return useMutation({
     mutationFn: (platform: string) => deleteFreelanceSocialLink(platform),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myFreelanceLinksKey(uid) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: myFreelanceLinksKey(uid) })
+      queryClient.invalidateQueries({
+        queryKey: profileCompletionQueryKey(uid),
+      })
+    },
   })
 }
