@@ -45,15 +45,35 @@ const ORG_PILL_CLASSES: Record<string, string> = {
   provider_personal: "bg-primary-soft text-primary-deep",
   agency: "bg-success-soft text-success",
   enterprise: "bg-amber-soft text-foreground",
+  // The 'referrer' tone re-uses the amber Soleil palette (apporteur
+  // d'affaires) so the pill is visually distinct from a freelance.
+  referrer: "bg-amber-soft text-primary-deep",
 }
 
-function orgLabelKey(orgType: string): string {
-  switch (orgType) {
+// kindToPill resolves the row pill from the persisted applicant_kind.
+// Falls back to org_type for legacy rows that pre-date the migration —
+// the migration backfilled, but a stale cache could still surface a row
+// with kind=freelance and an agency org_type. The fallback keeps the
+// tone honest in that edge case.
+function kindToPillTone(kind: string, orgType: string): string {
+  if (kind === "referrer") return ORG_PILL_CLASSES.referrer
+  if (kind === "agency") return ORG_PILL_CLASSES.agency
+  if (kind === "freelance") return ORG_PILL_CLASSES.provider_personal
+  return ORG_PILL_CLASSES[orgType] ?? "bg-border text-muted-foreground"
+}
+
+function kindLabelKey(kind: string, orgType: string): string {
+  switch (kind) {
+    case "referrer":
+      return "jobDetail_w08_orgReferrer"
     case "agency":
       return "jobDetail_w08_orgAgency"
-    case "enterprise":
-      return "jobDetail_w08_orgEnterprise"
+    case "freelance":
+      return "jobDetail_w08_orgFreelance"
     default:
+      // Legacy rows without applicant_kind (pre-migration cache).
+      if (orgType === "agency") return "jobDetail_w08_orgAgency"
+      if (orgType === "enterprise") return "jobDetail_w08_orgEnterprise"
       return "jobDetail_w08_orgFreelance"
   }
 }
@@ -67,8 +87,7 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
 
   const displayName = profile.name
   const initials = initialsFromName(displayName)
-  const pillClass =
-    ORG_PILL_CLASSES[profile.org_type] ?? "bg-border text-muted-foreground"
+  const pillClass = kindToPillTone(application.applicant_kind, profile.org_type)
 
   function handleSendMessage(e: React.MouseEvent) {
     e.stopPropagation()
@@ -133,7 +152,7 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
                 pillClass,
               )}
             >
-              {tJob(orgLabelKey(profile.org_type))}
+              {tJob(kindLabelKey(application.applicant_kind, profile.org_type))}
             </span>
             {application.video_url && (
               <span

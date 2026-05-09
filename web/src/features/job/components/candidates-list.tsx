@@ -9,10 +9,29 @@ import { cn } from "@/shared/lib/utils"
 import { useJobApplications } from "../hooks/use-job-applications"
 import { CandidateCard } from "./candidate-card"
 import { CandidateDetailPanel } from "./candidate-detail-panel"
-import type { ApplicationWithProfile } from "../types"
+import type { ApplicantKind, ApplicationWithProfile } from "../types"
 
 interface CandidatesListProps {
   jobId: string
+}
+
+// CandidateKindFilter is the chip selection on the candidates tab. The
+// "all" option is the implicit default; a selection is reflected in the
+// `kind` query param so a refresh / share link reproduces the view.
+type CandidateKindFilter = "all" | ApplicantKind
+
+const KIND_FILTERS: ReadonlyArray<{ value: CandidateKindFilter; labelKey: string }> = [
+  { value: "all", labelKey: "filterAllCandidates" },
+  { value: "freelance", labelKey: "filterFreelances" },
+  { value: "agency", labelKey: "filterAgencies" },
+  { value: "referrer", labelKey: "filterReferrers" },
+] as const
+
+function parseKindParam(value: string | null): CandidateKindFilter {
+  if (value === "freelance" || value === "agency" || value === "referrer") {
+    return value
+  }
+  return "all"
 }
 
 // W-08 candidates list — Soleil v2 wrapper around CandidateCard.
@@ -20,13 +39,22 @@ interface CandidatesListProps {
 // editorial corail-soft Soleil card with a CTA back to the listings.
 // Selecting a card opens CandidateDetailPanel (already Soleil-styled
 // in the panel file). Underlying API hook is unchanged.
+//
+// 2026-05-09 — Persona filter (Fix 3): segmented filter chips above the
+// list narrow the rows to a single applicant_kind. The active filter
+// is mirrored in the URL query (?kind=freelance|agency|referrer) so a
+// refresh or share link preserves the view.
 export function CandidatesList({ jobId }: CandidatesListProps) {
   const t = useTranslations("opportunity")
   const tJob = useTranslations("job")
-  const { data, isLoading } = useJobApplications(jobId)
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+
+  const filter = parseKindParam(searchParams.get("kind"))
+  const repoKind = filter === "all" ? undefined : filter
+
+  const { data, isLoading } = useJobApplications(jobId, undefined, repoKind)
 
   const selectedId = searchParams.get("candidate")
   const candidates = useMemo(() => data?.data ?? [], [data?.data])
@@ -52,9 +80,27 @@ export function CandidatesList({ jobId }: CandidatesListProps) {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }, [searchParams, router, pathname])
 
+  const handleFilterChange = useCallback(
+    (next: CandidateKindFilter) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next === "all") {
+        params.delete("kind")
+      } else {
+        params.set("kind", next)
+      }
+      // Reset the selected candidate when the filter changes —
+      // the previously selected row may no longer be in the list.
+      params.delete("candidate")
+      const qs = params.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    },
+    [searchParams, router, pathname],
+  )
+
   if (isLoading) {
     return (
       <div className="space-y-3">
+        <CandidateKindFilterBar active={filter} onChange={handleFilterChange} />
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
@@ -66,12 +112,18 @@ export function CandidatesList({ jobId }: CandidatesListProps) {
   }
 
   if (!data || data.data.length === 0) {
-    return <CandidatesEmpty />
+    return (
+      <div className="space-y-4">
+        <CandidateKindFilterBar active={filter} onChange={handleFilterChange} />
+        <CandidatesEmpty />
+      </div>
+    )
   }
 
   return (
     <>
       <div className="space-y-4">
+        <CandidateKindFilterBar active={filter} onChange={handleFilterChange} />
         <div className="flex items-baseline justify-between gap-3">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-primary-deep">
             {tJob("jobDetail_w08_eyebrow")}
@@ -104,6 +156,43 @@ export function CandidatesList({ jobId }: CandidatesListProps) {
         jobId={jobId}
       />
     </>
+  )
+}
+
+interface CandidateKindFilterBarProps {
+  active: CandidateKindFilter
+  onChange: (next: CandidateKindFilter) => void
+}
+
+function CandidateKindFilterBar({ active, onChange }: CandidateKindFilterBarProps) {
+  const t = useTranslations("opportunity")
+  return (
+    <div
+      role="tablist"
+      aria-label={t("filterAllCandidates")}
+      className="-mx-1 flex flex-wrap items-center gap-1 overflow-x-auto"
+    >
+      {KIND_FILTERS.map((opt) => {
+        const isActive = active === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-150",
+              isActive
+                ? "bg-primary-soft text-primary-deep"
+                : "border border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground",
+            )}
+          >
+            {t(opt.labelKey)}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
