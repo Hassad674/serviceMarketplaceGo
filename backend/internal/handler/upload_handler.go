@@ -183,6 +183,7 @@ func (h *UploadHandler) Stop(parent context.Context) error {
 type trackUploadInput struct {
 	UploaderID uuid.UUID
 	FileURL    string
+	FileName   string
 	FileType   string
 	FileSize   int64
 	MediaCtx   mediadomain.Context
@@ -248,9 +249,13 @@ func (h *UploadHandler) trackUpload(reqCtx context.Context, in trackUploadInput)
 		// short-circuits the in-flight Rekognition + S3 work — closes
 		// the BUG-17 partial regression where the structured cancel
 		// chain was decorative.
+		// FileName must be non-empty: mediadomain.NewMedia rejects empty
+		// values with ErrMissingFileName, which silently dropped the
+		// row + the entire Rekognition pipeline. Caller-supplied
+		// FileName is path.Base(result.key).
 		h.recorder.RecordUpload(
 			ctx,
-			in.UploaderID, in.FileURL, "" /*fileName unused*/, in.FileType, in.FileSize, in.MediaCtx,
+			in.UploaderID, in.FileURL, in.FileName, in.FileType, in.FileSize, in.MediaCtx,
 		)
 	}()
 }

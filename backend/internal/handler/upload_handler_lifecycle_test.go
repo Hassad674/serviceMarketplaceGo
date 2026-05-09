@@ -57,6 +57,12 @@ type fakeRecorder struct {
 type recordCall struct {
 	UploaderID uuid.UUID
 	MediaCtx   mediadomain.Context
+	// FileName captures the value forwarded into RecordUpload. The
+	// regression test for the moderation pipeline asserts this is
+	// non-empty — when it was hard-coded to "" the media domain
+	// rejected the entity with ErrMissingFileName and the entire
+	// Rekognition pipeline was silently bypassed.
+	FileName string
 	// CtxErr captures the value of ctx.Err() at the moment the recorder
 	// records the call. Tests use this to assert that SIGTERM truly
 	// propagated through trackUpload's context chain (BUG-17 follow-up).
@@ -71,7 +77,7 @@ func (f *fakeRecorder) RecordUpload(
 	ctx context.Context,
 	uploaderID uuid.UUID,
 	_ string,
-	_ string,
+	fileName string,
 	_ string,
 	_ int64,
 	mediaCtx mediadomain.Context,
@@ -100,7 +106,12 @@ func (f *fakeRecorder) RecordUpload(
 	}
 
 	f.mu.Lock()
-	f.calls = append(f.calls, recordCall{UploaderID: uploaderID, MediaCtx: mediaCtx, CtxErr: ctx.Err()})
+	f.calls = append(f.calls, recordCall{
+		UploaderID: uploaderID,
+		MediaCtx:   mediaCtx,
+		FileName:   fileName,
+		CtxErr:     ctx.Err(),
+	})
 	f.mu.Unlock()
 	select {
 	case f.done <- struct{}{}:
@@ -126,9 +137,14 @@ func sampleInput() trackUploadInput {
 	return trackUploadInput{
 		UploaderID: uuid.New(),
 		FileURL:    "https://bucket/x.jpg",
-		FileType:   "image/jpeg",
-		FileSize:   1024,
-		MediaCtx:   mediadomain.ContextProfilePhoto,
+		// FileName mirrors the storage-key basename callers derive
+		// via path.Base(result.key). Non-empty is required because
+		// mediadomain.NewMedia rejects empty FileName, which dropped
+		// the entire Rekognition pipeline silently before the fix.
+		FileName: "abcd-1234.jpg",
+		FileType: "image/jpeg",
+		FileSize: 1024,
+		MediaCtx: mediadomain.ContextProfilePhoto,
 	}
 }
 

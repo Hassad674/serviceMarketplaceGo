@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 
 	mediadomain "marketplace-backend/internal/domain/media"
 	"marketplace-backend/internal/handler/middleware"
@@ -115,6 +116,7 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextProfilePhoto,
@@ -168,6 +170,7 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextProfileVideo,
@@ -221,6 +224,7 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextReferrerVideo,
@@ -257,6 +261,7 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextReviewVideo,
@@ -362,6 +367,7 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextPortfolioImage,
@@ -440,6 +446,7 @@ func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Requ
 	h.trackUpload(r.Context(), trackUploadInput{
 		UploaderID: userID,
 		FileURL:    url,
+		FileName:   path.Base(result.key),
 		FileType:   result.mimeType,
 		FileSize:   int64(len(result.buf)),
 		MediaCtx:   mediadomain.ContextPortfolioVideo,
