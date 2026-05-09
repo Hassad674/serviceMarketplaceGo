@@ -69,13 +69,12 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "clientProfile", href: "/client-profile", icon: Building2, roles: ["agency", "enterprise"], orgTypes: ["agency", "enterprise"] },
   { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["agency", "provider"] },
   // Billing profile — recipient identity (legal name, SIRET, address)
-  // that ends up on every receipt and commission invoice. Visible to
-  // EVERY role: enterprises need it because their receipts (when they
-  // pay a proposal) snapshot from this same row, and providers/agencies
-  // already use it for their commission invoices. Without this entry
-  // enterprise users could not reach the form at all — the only way in
-  // was the proposal-payment 412 modal.
-  { labelKey: "billingProfile", href: "/settings/billing-profile", icon: ReceiptText, roles: ["agency", "provider", "enterprise"] },
+  // for receipts and commission invoices. Visible to providers/agencies
+  // only since they emit commission invoices. Enterprises now provide
+  // this inline via Stripe Elements during payment (post-2026-05-08
+  // change to remove the pre-payment 412 gate); the receipt snapshot is
+  // hydrated from `payment_method.billing_details` after the charge.
+  { labelKey: "billingProfile", href: "/settings/billing-profile", icon: ReceiptText, roles: ["agency", "provider"] },
   { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["agency", "provider"] },
   // Invoicing surfaces — visible to providers & agencies only. Enterprises
   // pay AGAINST these factures via Stripe but they don't need a self-serve
