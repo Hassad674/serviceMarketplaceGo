@@ -46,6 +46,12 @@ class AccountScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
     final email = authState.user?['email'] as String? ?? '—';
+    // Issue 3 — enterprise users no longer see the completion nudge.
+    // The 4-section enterprise checklist is short and the marketplace
+    // acquisition incentive does not apply to clients. Decided
+    // 2026-05-09 with the avatar-refresh batch.
+    final role = authState.user?['role'] as String? ?? '';
+    final showCompletionBar = role != 'enterprise';
 
     return Scaffold(
       appBar: AppBar(
@@ -62,8 +68,10 @@ class AccountScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ProfileCompletionBar(hideWhenComplete: true),
-              const SizedBox(height: 16),
+              if (showCompletionBar) ...[
+                const ProfileCompletionBar(hideWhenComplete: true),
+                const SizedBox(height: 16),
+              ],
               _AccountSection(
                 icon: Icons.notifications_outlined,
                 title: l10n.accountSectionNotifications,

@@ -130,9 +130,18 @@ class _FreelanceProfileBody extends ConsumerWidget {
           const ProfileCompletionBar(),
           sectionGap,
 
-          // 1. Header with shared photo + Soleil meta row
+          // 1. Header with shared photo + Soleil meta row.
+          //    onUploaded refreshes the freelance JOIN view + the
+          //    completion report so the new photo URL flows through
+          //    the identity card and the "Photo" section flips to
+          //    filled without a manual refresh (avatar-refresh fix
+          //    2026-05-09).
           SharedPhotoUploadWidget(
             canEdit: canEdit,
+            onUploaded: () {
+              ref.invalidate(freelanceProfileProvider);
+              ref.invalidate(profileCompletionProvider);
+            },
             child: FreelanceProfileHeader(
               displayName: displayName,
               title: profile.title,

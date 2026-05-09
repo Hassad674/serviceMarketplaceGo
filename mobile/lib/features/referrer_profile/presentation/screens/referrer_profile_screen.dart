@@ -10,6 +10,7 @@ import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
 import '../../../freelance_profile/presentation/widgets/freelance_section_card.dart';
 import '../../../freelance_profile/presentation/widgets/freelance_states.dart';
 import '../../../freelance_profile/presentation/widgets/freelance_video_card.dart';
+import '../../../profile_completion/presentation/widgets/profile_completion_bar.dart';
 import '../../domain/entities/referrer_profile.dart';
 import '../providers/referrer_profile_providers.dart';
 import '../widgets/referrer_edit_sheets.dart';
@@ -81,6 +82,13 @@ class _ReferrerBody extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          // Apporteur-scoped completion bar — same widget as
+          // /profile, but reads from the persona-scoped provider so
+          // the apporteur (8-section) checklist surfaces alongside
+          // the freelance (11-section) one without one stomping the
+          // other in the cache.
+          const ProfileCompletionBar(persona: 'referrer'),
+          const SizedBox(height: 16),
           ReferrerProfileHeader(
             displayName: displayName,
             title: profile.title,
