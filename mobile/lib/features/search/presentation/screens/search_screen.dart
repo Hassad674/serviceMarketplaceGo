@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,6 +16,11 @@ import '../widgets/search_filter_bottom_sheet.dart';
 /// search bar, calm Soleil cards, and a soft empty state. The Riverpod
 /// providers and Typesense data flow stay untouched — purely a visual
 /// identity refit.
+///
+/// Submit-only query (parity with web — 2026-05): typing never
+/// triggers a fetch. The Typesense round-trip fires only on the
+/// keyboard's "search" action OR a tap on the magnifier prefix icon
+/// (both call `onSubmitted`). The previous 250ms debounce was removed.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key, required this.type});
 
@@ -28,11 +31,8 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
-  static const Duration kQueryDebounce = Duration(milliseconds: 250);
-
   final TextEditingController _queryCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
-  Timer? _queryTimer;
 
   @override
   void initState() {
@@ -42,7 +42,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
-    _queryTimer?.cancel();
     _queryCtrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
@@ -82,12 +81,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
+  /// onChanged keeps the controller's text live for the editor — it
+  /// does NOT fire a search. Submit-only is the contract here.
   void _onQueryChanged(String raw) {
-    _queryTimer?.cancel();
-    _queryTimer = Timer(kQueryDebounce, () {
-      if (!mounted) return;
-      ref.read(searchProvider(widget.type).notifier).setQuery(raw);
-    });
+    // Intentionally empty: the controller already updates itself.
+    // Kept as an explicit hook so a future feature (e.g. local
+    // autosuggest) can plug in without changing the SearchField API.
+  }
+
+  /// onSubmitted (keyboard "search" action OR magnifier tap) commits
+  /// the draft into the provider and triggers the Typesense fetch.
+  void _onQuerySubmitted(String raw) {
+    if (!mounted) return;
+    ref.read(searchProvider(widget.type).notifier).setQuery(raw);
   }
 
   Future<void> _openFilters() async {
@@ -103,13 +109,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _applySuggestion(String suggestion) {
     _queryCtrl.text = suggestion;
     _queryCtrl.selection = TextSelection.collapsed(offset: suggestion.length);
-    _queryTimer?.cancel();
     ref.read(searchProvider(widget.type).notifier).setQuery(suggestion);
   }
 
   void _reset() {
     _queryCtrl.clear();
-    _queryTimer?.cancel();
     ref.read(searchProvider(widget.type).notifier).reset();
   }
 
@@ -153,6 +157,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             SearchField(
               controller: _queryCtrl,
               onChanged: _onQueryChanged,
+              onSubmitted: _onQuerySubmitted,
               hintText: _isFreelancer
                   ? l10n.freelancesSearchM12SearchHint
                   : l10n.search,

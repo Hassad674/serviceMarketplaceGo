@@ -84,16 +84,24 @@ class SearchM12Hero extends StatelessWidget {
 /// Soleil search field — full-pill, ivoire bg, corail focus aura.
 ///
 /// Extracted from `search_screen.dart` as part of the NF-9 file split.
+///
+/// Submit-only contract (parity with web): `onChanged` only updates
+/// the local input draft on the parent — typing must not trigger a
+/// network round-trip. The fetch fires when the user taps the
+/// keyboard's "search" action OR the prefix magnifier icon, both of
+/// which call `onSubmitted` with the current text.
 class SearchField extends StatelessWidget {
   const SearchField({
     super.key,
     required this.controller,
     required this.onChanged,
+    required this.onSubmitted,
     required this.hintText,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final String hintText;
 
   @override
@@ -109,6 +117,7 @@ class SearchField extends StatelessWidget {
         child: TextField(
           controller: controller,
           onChanged: onChanged,
+          onSubmitted: onSubmitted,
           textInputAction: TextInputAction.search,
           style: SoleilTextStyles.body.copyWith(
             color: colorScheme.onSurface,
@@ -119,10 +128,14 @@ class SearchField extends StatelessWidget {
               fontStyle: FontStyle.italic,
               color: colors.subtleForeground,
             ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
+            prefixIcon: GestureDetector(
+              onTap: () => onSubmitted(controller.text),
+              behavior: HitTestBehavior.opaque,
+              child: Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             filled: true,
             fillColor: colorScheme.surfaceContainerLowest,

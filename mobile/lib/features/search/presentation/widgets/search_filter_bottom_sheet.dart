@@ -137,6 +137,18 @@ class _FilterBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final priceLabels = _buildPriceLabels(l10n, persona);
+    // Per-persona visibility (parity with the web filter sidebar):
+    // - freelance: every section visible.
+    // - agency:    hide work-mode (agency engagements don't expose
+    //              per-engagement remote/onsite/hybrid).
+    // - referrer:  hide work-mode + skills + pricing (apporteur is
+    //              paid via commission, not project price; technical
+    //              skills don't apply since they connect rather than
+    //              execute).
+    final showPricing = persona != SearchDocumentPersona.referrer;
+    final showSkills = persona != SearchDocumentPersona.referrer;
+    final showWorkMode = persona == null ||
+        persona == SearchDocumentPersona.freelance;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -148,17 +160,18 @@ class _FilterBody extends StatelessWidget {
                 onChanged(filters.copyWith(availability: v)),
             l10n: l10n,
           ),
-          PriceRangeSection(
-            sectionTitle: priceLabels.title,
-            minLabel: priceLabels.minPlaceholder,
-            maxLabel: priceLabels.maxPlaceholder,
-            priceMin: filters.priceMin,
-            priceMax: filters.priceMax,
-            onPriceMinChanged: (v) =>
-                onChanged(filters.copyWith(priceMin: v)),
-            onPriceMaxChanged: (v) =>
-                onChanged(filters.copyWith(priceMax: v)),
-          ),
+          if (showPricing)
+            PriceRangeSection(
+              sectionTitle: priceLabels.title,
+              minLabel: priceLabels.minPlaceholder,
+              maxLabel: priceLabels.maxPlaceholder,
+              priceMin: filters.priceMin,
+              priceMax: filters.priceMax,
+              onPriceMinChanged: (v) =>
+                  onChanged(filters.copyWith(priceMin: v)),
+              onPriceMaxChanged: (v) =>
+                  onChanged(filters.copyWith(priceMax: v)),
+            ),
           LocationSection(
             sectionTitle: l10n.searchFiltersLocation,
             cityLabel: l10n.searchFiltersLocationCity,
@@ -183,25 +196,27 @@ class _FilterBody extends StatelessWidget {
             selected: filters.expertise,
             onChanged: (v) => onChanged(filters.copyWith(expertise: v)),
           ),
-          FilterSectionShell(
-            title: l10n.searchFiltersSkills,
-            child: SkillsChipInput(
-              selected: filters.skills,
-              onChanged: (v) => onChanged(filters.copyWith(skills: v)),
-              placeholder: l10n.searchFiltersSkillsHint,
-              semanticsPlaceholder: l10n.searchFiltersSkills,
+          if (showSkills)
+            FilterSectionShell(
+              title: l10n.searchFiltersSkills,
+              child: SkillsChipInput(
+                selected: filters.skills,
+                onChanged: (v) => onChanged(filters.copyWith(skills: v)),
+                placeholder: l10n.searchFiltersSkillsHint,
+                semanticsPlaceholder: l10n.searchFiltersSkills,
+              ),
             ),
-          ),
           _RatingSection(
             value: filters.minRating,
             onChanged: (v) => onChanged(filters.copyWith(minRating: v)),
             title: l10n.searchFiltersRating,
           ),
-          _WorkModeSection(
-            selected: filters.workModes,
-            onChanged: (v) => onChanged(filters.copyWith(workModes: v)),
-            l10n: l10n,
-          ),
+          if (showWorkMode)
+            _WorkModeSection(
+              selected: filters.workModes,
+              onChanged: (v) => onChanged(filters.copyWith(workModes: v)),
+              l10n: l10n,
+            ),
         ],
       ),
     );
