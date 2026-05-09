@@ -17,6 +17,20 @@ import { invalidateSharedDependents } from "./use-update-organization-location"
 // Keeping both steps inside one mutation means the parent UI only
 // wires a single loading/error surface and the cache fan-out happens
 // in exactly one place.
+//
+// Cache fan-out (avatar-refresh fix, 2026-05-09):
+//   * organization-shared cache → setQueryData with the fresh row
+//   * shared dependents (freelance-profile, referrer-profile) →
+//     invalidate so the page hero re-fetches its joined view
+//   * legacy provider profile cache (`["user", uid, "profile"]`) →
+//     invalidate because <UserAvatar> reads `photo_url` from there;
+//     without this the sidebar identity card and the header
+//     dropdown still render the OLD photo (or a Portrait fallback)
+//     after a successful upload on /profile or /referral.
+//   * client-profile facets → share the photo with the provider side.
+//   * profile-completion → invalidate every persona variant so the
+//     "Photo" section flips to filled instantly without waiting for
+//     the 30-second staleTime window.
 export function useUploadOrganizationPhoto() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
@@ -30,6 +44,12 @@ export function useUploadOrganizationPhoto() {
     onSuccess: (next) => {
       queryClient.setQueryData<OrganizationSharedProfile>(sharedKey, next)
       invalidateSharedDependents(queryClient, uid)
+      queryClient.invalidateQueries({ queryKey: ["user", uid, "profile"] })
+      queryClient.invalidateQueries({ queryKey: ["client-profile"] })
+      queryClient.invalidateQueries({ queryKey: ["public-client-profile"] })
+      queryClient.invalidateQueries({
+        queryKey: ["user", uid, "profile-completion"],
+      })
     },
   })
 }
