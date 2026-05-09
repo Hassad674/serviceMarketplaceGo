@@ -449,6 +449,74 @@ func (s *Service) IsBillingProfileComplete(ctx context.Context, organizationID u
 	return len(missing) == 0, missing, nil
 }
 
+// HydrateFromPaymentBillingDetails merges Stripe billing_details captured
+// inline on the Payment Element into the org's billing profile.
+//
+// Empty input fields are IGNORED — never overwrite existing data with
+// empty strings. The Mes infos page is the canonical source of truth;
+// this hook is a courtesy capture for receipt hydration when the user
+// never visited the page. When no profile row exists yet, a stub is
+// created (org_id + ProfileBusiness default) and then hydrated.
+//
+// Country codes are normalised to upper-case ISO-3166 alpha-2 to match
+// the existing CHECK constraint on the billing_profile table.
+//
+// Returns nil on success; the receipt snapshot for the just-paid charge
+// was captured at PaymentIntent CREATION time, so this method hydrates
+// FUTURE receipts and the standalone "Mes infos de facturation" page —
+// it cannot retroactively patch the snapshot.
+func (s *Service) HydrateFromPaymentBillingDetails(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	bd service.PaymentBillingDetails,
+) error {
+	if organizationID == uuid.Nil {
+		return fmt.Errorf("invoicing: organization id required")
+	}
+	if !bd.HasAny() {
+		return nil
+	}
+
+	existing, err := s.profiles.FindByOrganization(ctx, organizationID)
+	now := time.Now().UTC()
+	var profile invoicing.BillingProfile
+	switch {
+	case err == nil:
+		profile = *existing
+	case errors.Is(err, invoicing.ErrNotFound):
+		profile = invoicing.BillingProfile{
+			OrganizationID: organizationID,
+			ProfileType:    invoicing.ProfileBusiness,
+			CreatedAt:      now,
+		}
+	default:
+		return fmt.Errorf("hydrate billing profile: load: %w", err)
+	}
+
+	fillIfEmpty := func(target *string, src string) {
+		if strings.TrimSpace(*target) == "" && strings.TrimSpace(src) != "" {
+			*target = strings.TrimSpace(src)
+		}
+	}
+
+	fillIfEmpty(&profile.LegalName, bd.Name)
+	fillIfEmpty(&profile.AddressLine1, bd.AddressLine1)
+	fillIfEmpty(&profile.AddressLine2, bd.AddressLine2)
+	fillIfEmpty(&profile.City, bd.City)
+	fillIfEmpty(&profile.PostalCode, bd.PostalCode)
+	if strings.TrimSpace(profile.Country) == "" && strings.TrimSpace(bd.Country) != "" {
+		profile.Country = strings.ToUpper(strings.TrimSpace(bd.Country))
+	}
+	fillIfEmpty(&profile.InvoicingEmail, bd.Email)
+
+	profile.UpdatedAt = now
+
+	if err := s.profiles.Upsert(ctx, &profile); err != nil {
+		return fmt.Errorf("hydrate billing profile: persist: %w", err)
+	}
+	return nil
+}
+
 // snapshotOf packages a profile + its computed completeness into the
 // canonical handler payload.
 func snapshotOf(p invoicing.BillingProfile) BillingProfileSnapshot {
