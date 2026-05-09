@@ -274,6 +274,14 @@ func (c *ChargeService) MarkPaymentSucceeded(ctx context.Context, proposalID uui
 	return c.records.Update(ctx, record)
 }
 
+// FindRecordByPaymentIntentID returns the payment_records row that
+// references the given Stripe PaymentIntent id. Used by the webhook
+// handler to resolve the client_id when hydrating the billing profile
+// from inline Stripe billing_details.
+func (c *ChargeService) FindRecordByPaymentIntentID(ctx context.Context, paymentIntentID string) (*domain.PaymentRecord, error) {
+	return c.records.GetByPaymentIntentID(ctx, paymentIntentID)
+}
+
 // HandlePaymentSucceeded handles the payment_intent.succeeded webhook
 // event. Returns the proposal_id so the proposal service can activate
 // the mission.
