@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import messages from "@/../messages/en.json"
 import { SearchPage } from "../search-page"
@@ -174,5 +174,46 @@ describe("SearchPage (Typesense-only)", () => {
     const banner = container.querySelector("[role=status]")
     expect(banner).not.toBeNull()
     expect(banner?.textContent).toMatch(/react-dev/)
+  })
+
+  // -------------------------------------------------------------------
+  // Submit-only behaviour — typing must not trigger a fetch. Only
+  // pressing Enter (or clicking the magnifier icon, both submit the
+  // form) should flip the applied query and invoke useSearch with the
+  // new value. The test asserts the contract by inspecting the most
+  // recent call to mockUseSearch.
+  // -------------------------------------------------------------------
+  it("does NOT update the applied query while the user types", () => {
+    mockUseSearch.mockReturnValue(mockSearchResult([]))
+    renderPage("freelancer")
+    const input = screen.getByPlaceholderText(
+      messages.search.searchPlaceholder,
+    )
+    fireEvent.change(input, { target: { value: "g" } })
+    fireEvent.change(input, { target: { value: "go" } })
+    fireEvent.change(input, { target: { value: "go-dev" } })
+    // Every call to useSearch should have been with empty query —
+    // typing did not commit.
+    for (const call of mockUseSearch.mock.calls) {
+      const arg = call[0] as { query: string }
+      expect(arg.query).toBe("")
+    }
+  })
+
+  it("commits the applied query when the user submits the form (Enter)", () => {
+    mockUseSearch.mockReturnValue(mockSearchResult([]))
+    renderPage("freelancer")
+    const input = screen.getByPlaceholderText(
+      messages.search.searchPlaceholder,
+    )
+    fireEvent.change(input, { target: { value: "go-dev" } })
+    // Submit the surrounding form — this is what Enter does natively.
+    const form = input.closest("form")
+    expect(form).not.toBeNull()
+    fireEvent.submit(form!)
+    // The most recent useSearch call should now carry the committed query.
+    const latest = mockUseSearch.mock.calls[mockUseSearch.mock.calls.length - 1]
+    const arg = latest[0] as { query: string }
+    expect(arg.query).toBe("go-dev")
   })
 })

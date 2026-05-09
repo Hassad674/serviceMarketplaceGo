@@ -238,6 +238,14 @@
     "marketplace": "Marketplace",
     "atelier": "Atelier"
   },
+  "forms": {
+    "languageMultiSelect": {
+      "placeholder": "Rechercher une langue…",
+      "noResults": "Aucune langue ne correspond",
+      "selectedAriaLabel": "Langues sélectionnées",
+      "removeLabel": "Retirer {language}"
+    }
+  },
   "metadata": {
     "title": "Marketplace Service",
     "description": "La plateforme B2B qui connecte agences, freelances et entreprises"
@@ -1036,6 +1044,7 @@
     "showFilters": "Filtres",
     "hideFilters": "Masquer les filtres",
     "clearFilters": "Réinitialiser",
+    "searchSubmit": "Lancer la recherche",
     "empty": {
       "title": "Aucun résultat",
       "description": "Essaie d'élargir tes filtres.",
@@ -1072,6 +1081,7 @@
       "countryPlaceholder": "Pays",
       "radiusPlaceholder": "Rayon (km)",
       "languages": "Langues",
+      "languagesPlaceholder": "Rechercher une langue…",
       "expertise": "Domaines d'expertise",
       "skills": "Compétences",
       "skillsSearchPlaceholder": "Rechercher une compétence…",

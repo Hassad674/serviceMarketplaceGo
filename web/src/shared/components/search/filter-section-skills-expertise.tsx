@@ -4,16 +4,15 @@ import { useState, type KeyboardEvent } from "react"
 import { X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { EXPERTISE_DOMAIN_KEYS } from "@/shared/lib/profile/expertise"
+import { LanguageMultiSelect } from "@/shared/components/forms/language-multi-select"
 import {
   CheckboxRow,
-  PillButton,
   SectionShell,
   toggle,
 } from "./filter-primitives"
 
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
-const COMMON_LANGUAGES = ["fr", "en", "es", "de", "it", "pt"] as const
 
 // POPULAR_SKILLS is rendered as quick-add chips below the free-text
 // input so the user can one-click the common ones without having to
@@ -35,11 +34,19 @@ const POPULAR_SKILLS = [
 // domain expertise (broad), and skills (granular). Keeps them in a
 // single component because the section ordering matters for the UX
 // flow (broad → narrow) and they share the same compositional shape.
+//
+// Per-persona visibility flags are honoured here so the parent never
+// has to render a fragment of the component — referrer pages hide the
+// skills sub-section entirely (skills don't apply to apporteurs), and
+// agency/referrer pages keep the languages + expertise sub-sections.
 
 interface FilterSectionSkillsExpertiseProps {
   languages: string[]
   expertise: string[]
   skills: string[]
+  showLanguages?: boolean
+  showExpertise?: boolean
+  showSkills?: boolean
   onLanguagesChange: (next: string[]) => void
   onExpertiseChange: (next: string[]) => void
   onSkillsChange: (next: string[]) => void
@@ -49,6 +56,9 @@ export function FilterSectionSkillsExpertise({
   languages,
   expertise,
   skills,
+  showLanguages = true,
+  showExpertise = true,
+  showSkills = true,
   onLanguagesChange,
   onExpertiseChange,
   onSkillsChange,
@@ -58,34 +68,36 @@ export function FilterSectionSkillsExpertise({
 
   return (
     <>
-      <SectionShell title={t("languages")}>
-        <div className="flex flex-wrap gap-2">
-          {COMMON_LANGUAGES.map((code) => (
-            <PillButton
-              key={code}
-              label={code.toUpperCase()}
-              selected={languages.includes(code)}
-              onClick={() => onLanguagesChange(toggle(languages, code))}
-            />
-          ))}
-        </div>
-      </SectionShell>
+      {showLanguages ? (
+        <SectionShell title={t("languages")}>
+          <LanguageMultiSelect
+            selected={languages}
+            onChange={onLanguagesChange}
+            placeholder={t("languagesPlaceholder")}
+            ariaLabel={t("languages")}
+          />
+        </SectionShell>
+      ) : null}
 
-      <SectionShell title={t("expertise")}>
-        <ul className="flex flex-col gap-1">
-          {EXPERTISE_DOMAIN_KEYS.map((key) => (
-            <li key={key}>
-              <CheckboxRow
-                checked={expertise.includes(key)}
-                onChange={() => onExpertiseChange(toggle(expertise, key))}
-                label={safeExpertiseLabel(tDomains, key)}
-              />
-            </li>
-          ))}
-        </ul>
-      </SectionShell>
+      {showExpertise ? (
+        <SectionShell title={t("expertise")}>
+          <ul className="flex flex-col gap-1">
+            {EXPERTISE_DOMAIN_KEYS.map((key) => (
+              <li key={key}>
+                <CheckboxRow
+                  checked={expertise.includes(key)}
+                  onChange={() => onExpertiseChange(toggle(expertise, key))}
+                  label={safeExpertiseLabel(tDomains, key)}
+                />
+              </li>
+            ))}
+          </ul>
+        </SectionShell>
+      ) : null}
 
-      <SkillsBlock selected={skills} onChange={onSkillsChange} />
+      {showSkills ? (
+        <SkillsBlock selected={skills} onChange={onSkillsChange} />
+      ) : null}
     </>
   )
 }

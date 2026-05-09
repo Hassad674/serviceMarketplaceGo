@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Filter, Search, Users, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -15,6 +15,7 @@ import type {
 import { SearchResultCard } from "./search-result-card"
 import { SearchResultCardSkeleton } from "./search-result-card-skeleton"
 import { SearchFilterSidebar } from "./search-filter-sidebar"
+import { resolveFilterVisibility } from "./search-filter-config"
 import {
   EMPTY_SEARCH_FILTERS,
   type SearchFilters,
@@ -65,6 +66,18 @@ export interface SearchPageLayoutProps {
   query: string
   onQueryChange: (next: string) => void
   /**
+   * onQuerySubmit is invoked when the user explicitly commits the
+   * search input — Enter keypress on the field, click on the magnifier
+   * icon, or programmatic submit. The current `query` value is passed
+   * through so the parent can flip its "applied" query state.
+   *
+   * Submit-only is the user's explicit ask: typing must NOT trigger a
+   * fetch on every keystroke. The parent typically owns two states —
+   * `queryDraft` for the input and `appliedQuery` for the search hook
+   * — and only swaps `appliedQuery` here.
+   */
+  onQuerySubmit?: (next: string) => void
+  /**
    * Controlled filter state. When provided, the layout forwards
    * changes through `onFiltersChange` instead of keeping local
    * state. Required for the Typesense path where the parent has to
@@ -72,6 +85,14 @@ export interface SearchPageLayoutProps {
    */
   filters?: SearchFilters
   onFiltersChange?: (next: SearchFilters) => void
+  /**
+   * onFiltersApply is the explicit "commit my filter draft" hook the
+   * parent wires when it owns a draft/applied filter pair. The
+   * sidebar's Apply button always invokes the layout's internal
+   * handler (which closes the mobile drawer); this callback is a
+   * second hop the parent uses to swap its applied state.
+   */
+  onFiltersApply?: () => void
   /**
    * Controlled sort state. Same rationale as `filters`: the
    * Typesense parent maps the SortKey to a Typesense `sort_by`
@@ -128,12 +149,15 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
   }, [props.documents, props.preMappedDocuments, props.persona])
 
   const handleApply = () => {
-    // UI-only filter wiring today — the backend does not accept
-    // these parameters yet, so clicking Apply just closes the mobile
-    // drawer. When Typesense lands this becomes a query invalidation.
-    console.debug("search filters applied", { filters, sort })
+    // Forward the "apply" intent to the parent (so it can swap its
+    // draft filters into the applied state) and close the mobile
+    // drawer. The Typesense fetch is now keyed off the parent's
+    // applied filters, so this is the explicit commit point.
+    props.onFiltersApply?.()
     setDrawerOpen(false)
   }
+
+  const visibility = resolveFilterVisibility(props.persona)
 
   return (
     <div className="flex flex-col gap-6">
@@ -141,6 +165,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
       <TopBar
         query={props.query}
         onQueryChange={props.onQueryChange}
+        onQuerySubmit={props.onQuerySubmit}
         sort={sort}
         onSortChange={setSort}
         onOpenDrawer={() => setDrawerOpen(true)}
@@ -153,6 +178,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
             onApply={handleApply}
             resultsCount={props.totalFound ?? mappedDocuments.length}
             persona={props.persona}
+            visibility={visibility}
           />
         </div>
         <div className="flex flex-col gap-6">
@@ -177,6 +203,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
           onApply={handleApply}
           resultsCount={props.totalFound ?? mappedDocuments.length}
           persona={props.persona}
+          visibility={visibility}
           className="border-0 shadow-none"
         />
       </FilterDrawer>
@@ -210,26 +237,46 @@ function PageHeader({
 function TopBar({
   query,
   onQueryChange,
+  onQuerySubmit,
   sort,
   onSortChange,
   onOpenDrawer,
 }: {
   query: string
   onQueryChange: (next: string) => void
+  onQuerySubmit?: (next: string) => void
   sort: SortKey
   onSortChange: (next: SortKey) => void
   onOpenDrawer: () => void
 }) {
   const t = useTranslations("search")
   const tSort = useTranslations("search.sort")
+
+  // Submit-only fetch: typing must NOT trigger a backend round-trip.
+  // The form swallows the native submit, calls the parent's commit
+  // handler with the current draft, and the parent flips its applied
+  // query state. Pressing Enter on the input also submits the form
+  // for free thanks to the native HTML behaviour.
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onQuerySubmit?.(query)
+  }
+
   return (
-    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+    <form
+      role="search"
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-2 md:flex-row md:items-center"
+    >
       <label className="relative flex-1">
         <span className="sr-only">{t("searchPlaceholder")}</span>
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
+        <button
+          type="submit"
+          aria-label={t("searchSubmit")}
+          className="absolute left-0 top-0 flex h-full w-9 items-center justify-center rounded-l-xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+        >
+          <Search className="h-4 w-4" aria-hidden />
+        </button>
         <Input
           type="search"
           value={query}
@@ -263,7 +310,7 @@ function TopBar({
           <span>{t("showFilters")}</span>
         </Button>
       </div>
-    </div>
+    </form>
   )
 }
 

@@ -15,7 +15,6 @@ import type {
   SearchDocumentPersona,
 } from "@/shared/lib/search/search-document"
 import { useSearch, type BackendSearchPage } from "@/shared/lib/search/use-search"
-import { useDebouncedValue } from "@/shared/lib/search/use-debounced-value"
 import { trackSearchClick } from "@/shared/lib/search/track-click"
 import { fromTypesenseDocument } from "@/shared/lib/search/typesense-document-adapter"
 import type { SearchType } from "@/shared/lib/search/search-api"
@@ -27,8 +26,13 @@ import type { SearchType } from "@/shared/lib/search/search-api"
  * fallback (the 30-day grace period ended with phase 4).
  *
  * Behaviour:
- *  - debounced 250 ms search input (bypassed on empty query)
- *  - filter sidebar maps into the Typesense filter_by builder
+ *  - SUBMIT-ONLY query input — typing never triggers a fetch; the
+ *    backend is hit only when the user presses Enter or clicks the
+ *    magnifier icon. Drives perceived performance and avoids burning
+ *    Typesense credits for half-typed queries.
+ *  - filter sidebar maps into the Typesense filter_by builder, but
+ *    edits stay local until the user clicks "Apply" — at which point
+ *    the draft is promoted to applied and a single fetch fires.
  *  - did-you-mean banner over the results grid when Typesense
  *    returns a `corrected_query`
  *  - click tracking beacon fired on card select for CTR analytics
@@ -65,20 +69,25 @@ interface SearchPageProps {
 
 export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
   const t = useTranslations("search")
-  const [query, setQuery] = useState("")
-  const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
+  // queryDraft owns the live input value; appliedQuery is what we
+  // feed the search hook. Decoupling them is the whole point of
+  // submit-only — the user types freely without burning network
+  // requests until Enter / magnifier click.
+  const [queryDraft, setQueryDraft] = useState("")
+  const [appliedQuery, setAppliedQuery] = useState("")
+  // Same draft/applied split for filters: edits stay local until
+  // the user clicks "Apply" in the sidebar, mirroring the input UX.
+  const [filtersDraft, setFiltersDraft] =
+    useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
+  const [appliedFilters, setAppliedFilters] =
+    useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
   const [sort, setSort] = useState<SortKey>("relevance")
   const persona = TYPE_TO_PERSONA[type]
 
-  // Debounce by 250ms so search-as-you-type does not hammer the
-  // backend on every keystroke. Empty query bypasses the debounce
-  // so the listing page (q="*") renders instantly on initial load.
-  const debouncedQuery = useDebouncedValue(query, query.trim() === "" ? 0 : 250)
-
   const result = useSearch({
     persona,
-    query: debouncedQuery,
-    filters: filtersToInput(filters),
+    query: appliedQuery,
+    filters: filtersToInput(appliedFilters),
     sortBy: sortKeyToTypesense(sort),
     perPage: 20,
     initialFirstPage,
@@ -91,6 +100,29 @@ export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
     },
     [result.searchId],
   )
+
+  // The layout calls this on Enter / magnifier-click. Drafts are
+  // already in the parent's state, so we just promote them.
+  const handleQuerySubmit = useCallback((next: string) => {
+    setAppliedQuery(next)
+  }, [])
+
+  const handleFiltersApply = useCallback(() => {
+    setFiltersDraft((current) => {
+      setAppliedFilters(current)
+      return current
+    })
+  }, [])
+
+  // The reset button on the sidebar swaps both the draft and the
+  // applied state to EMPTY_SEARCH_FILTERS in one go — otherwise the
+  // user would have to click reset + apply.
+  const handleFiltersChange = useCallback((next: SearchFilters) => {
+    setFiltersDraft(next)
+    if (next === EMPTY_SEARCH_FILTERS) {
+      setAppliedFilters(EMPTY_SEARCH_FILTERS)
+    }
+  }, [])
 
   const status: "loading" | "error" | "idle" = result.isLoading
     ? "loading"
@@ -106,7 +138,10 @@ export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
       {result.correctedQuery ? (
         <DidYouMeanBanner
           correctedQuery={result.correctedQuery}
-          onApply={(corrected) => setQuery(corrected)}
+          onApply={(corrected) => {
+            setQueryDraft(corrected)
+            setAppliedQuery(corrected)
+          }}
         />
       ) : null}
       <SearchPageLayout
@@ -118,10 +153,12 @@ export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
         isLoadingMore={result.isFetchingMore}
         onLoadMore={result.loadMore}
         onRetry={result.refetch}
-        query={query}
-        onQueryChange={setQuery}
-        filters={filters}
-        onFiltersChange={setFilters}
+        query={queryDraft}
+        onQueryChange={setQueryDraft}
+        onQuerySubmit={handleQuerySubmit}
+        filters={filtersDraft}
+        onFiltersChange={handleFiltersChange}
+        onFiltersApply={handleFiltersApply}
         sort={sort}
         onSortChange={setSort}
         totalFound={result.found}
