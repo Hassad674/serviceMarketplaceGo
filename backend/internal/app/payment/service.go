@@ -226,6 +226,15 @@ func (s *Service) MarkPaymentSucceeded(ctx context.Context, proposalID uuid.UUID
 	return s.charge.MarkPaymentSucceeded(ctx, proposalID)
 }
 
+// FindRecordByPaymentIntentID returns the payment_records row attached
+// to the given Stripe PaymentIntent id. Delegates to ChargeService
+// which owns the records repository. Used by the webhook handler to
+// resolve the client_id when hydrating the billing profile from inline
+// Stripe billing_details.
+func (s *Service) FindRecordByPaymentIntentID(ctx context.Context, paymentIntentID string) (*domain.PaymentRecord, error) {
+	return s.charge.FindRecordByPaymentIntentID(ctx, paymentIntentID)
+}
+
 // HandlePaymentSucceeded delegates to ChargeService.
 func (s *Service) HandlePaymentSucceeded(ctx context.Context, paymentIntentID string) (uuid.UUID, error) {
 	return s.charge.HandlePaymentSucceeded(ctx, paymentIntentID)

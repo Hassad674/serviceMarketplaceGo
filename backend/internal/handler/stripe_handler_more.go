@@ -343,6 +343,79 @@ func (h *StripeHandler) dispatchEmbeddedNotif(ctx context.Context, event *portse
 	return nil
 }
 
+// handlePaymentSucceededWithEvent is the entry point used by Dispatch
+// when the projected event carries optional billing-details (client name
+// + address) that Stripe collected inline on the Payment Element.
+// Forwards to handlePaymentSucceeded for the canonical reconciliation
+// (mark record paid + activate proposal); afterwards, hydrates the
+// client_billing_profile so the receipt snapshot for FUTURE charges and
+// the standalone "Mes infos de facturation" page reflect the inline
+// capture.
+//
+// Hydration is a best-effort side-effect: any error inside the hook is
+// logged at WARN and never propagated. The receipt snapshot for the
+// charge that just succeeded was captured at PaymentIntent CREATION
+// time, so this hydration cannot retroactively fix that snapshot — its
+// purpose is to enrich the org's billing identity for the next charge
+// and for the user's settings page.
+func (h *StripeHandler) handlePaymentSucceededWithEvent(ctx context.Context, event *portservice.StripeWebhookEvent) error {
+	if err := h.handlePaymentSucceeded(ctx, event.PaymentIntentID); err != nil {
+		return err
+	}
+	if event.PaymentBillingDetails == nil || h.invoicingSvc == nil {
+		return nil
+	}
+	h.hydrateClientBillingProfile(ctx, event.PaymentIntentID, *event.PaymentBillingDetails)
+	return nil
+}
+
+// hydrateClientBillingProfile resolves the client organization that
+// owns the just-paid PaymentIntent and merges Stripe billing_details
+// into its profile row. Best-effort: every failure is logged and
+// swallowed so a glitch in the hydration pipeline never breaks the
+// money-movement contract.
+func (h *StripeHandler) hydrateClientBillingProfile(
+	ctx context.Context,
+	paymentIntentID string,
+	bd portservice.PaymentBillingDetails,
+) {
+	if h.paymentSvc == nil || h.invoicingSvc == nil {
+		return
+	}
+	record, err := h.paymentSvc.FindRecordByPaymentIntentID(ctx, paymentIntentID)
+	if err != nil || record == nil {
+		slog.Warn("stripe webhook: hydrate billing profile — record lookup failed",
+			"payment_intent_id", paymentIntentID, "error", err)
+		return
+	}
+	orgID, err := h.resolveClientOrg(ctx, record.ClientID)
+	if err != nil || orgID == uuid.Nil {
+		slog.Warn("stripe webhook: hydrate billing profile — org resolution failed",
+			"payment_intent_id", paymentIntentID, "client_user_id", record.ClientID, "error", err)
+		return
+	}
+	if err := h.invoicingSvc.HydrateFromPaymentBillingDetails(ctx, orgID, bd); err != nil {
+		slog.Warn("stripe webhook: hydrate billing profile — persist failed",
+			"payment_intent_id", paymentIntentID, "organization_id", orgID, "error", err)
+		return
+	}
+	slog.Info("stripe webhook: client billing profile hydrated from inline payment details",
+		"payment_intent_id", paymentIntentID,
+		"organization_id", orgID,
+		"has_legal_name", bd.Name != "",
+		"has_address", bd.AddressLine1 != "",
+	)
+}
+
+// resolveClientOrg returns the organization id that owns userID. nil
+// userOrgResolver is a no-op (returns uuid.Nil with nil err).
+func (h *StripeHandler) resolveClientOrg(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	if h.userOrgResolver == nil {
+		return uuid.Nil, nil
+	}
+	return h.userOrgResolver(ctx, userID)
+}
+
 func (h *StripeHandler) handlePaymentSucceeded(ctx context.Context, piID string) error {
 	// Stripe webhook is a system-actor caller: the request is
 	// authenticated by signature, not by a user session, so the

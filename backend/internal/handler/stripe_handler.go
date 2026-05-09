@@ -87,6 +87,14 @@ type StripeHandler struct {
 	// hook cleanly.
 	invoicingSvc *invoicingapp.Service
 
+	// userOrgResolver returns the organization id that owns a given
+	// user. Used by the inline-billing-capture pipeline to translate the
+	// payment record's ClientID (a user_id) into the org_id that
+	// HydrateFromPaymentBillingDetails persists onto. nil = the
+	// hydration step is silently skipped, which keeps the legacy
+	// dispatch path working unchanged when wiring lags behind.
+	userOrgResolver UserOrgResolver
+
 	// Async pipeline (P8). pendingEvents is the queue the webhook
 	// HTTP handler enqueues onto after signature verification — the
 	// dispatch chain (PDF generation, email sends, multi-row DB
@@ -149,6 +157,22 @@ func (h *StripeHandler) WithSubscription(svc *subscriptionapp.Service, cache Sub
 // dispatcher directly).
 func (h *StripeHandler) WithPendingEventsQueue(repo repository.PendingEventRepository) *StripeHandler {
 	h.pendingEvents = repo
+	return h
+}
+
+// UserOrgResolver returns the organization id that owns a user.
+// Implemented in cmd/api as a closure over the user repository — same
+// pattern as the receipt snapshot resolver's UserOrgFunc. The shape is
+// `func(ctx, userID) (orgID, err)`. Returning uuid.Nil with nil error
+// means "user has no org membership" — the hydration step then skips
+// silently rather than failing the webhook.
+type UserOrgResolver func(ctx context.Context, userID uuid.UUID) (uuid.UUID, error)
+
+// WithUserOrgResolver wires the user→org resolver used by the inline-
+// billing hydration step on payment_intent.succeeded. Pass nil to
+// disable hydration without disabling the rest of the dispatcher.
+func (h *StripeHandler) WithUserOrgResolver(r UserOrgResolver) *StripeHandler {
+	h.userOrgResolver = r
 	return h
 }
 
@@ -378,7 +402,7 @@ func (h *StripeHandler) handleWebhookInline(w http.ResponseWriter, r *http.Reque
 func (h *StripeHandler) Dispatch(ctx context.Context, event *portservice.StripeWebhookEvent) error {
 	switch event.Type {
 	case "payment_intent.succeeded":
-		return h.handlePaymentSucceeded(ctx, event.PaymentIntentID)
+		return h.handlePaymentSucceededWithEvent(ctx, event)
 	case "payment_intent.payment_failed":
 		slog.Warn("payment intent failed", "payment_intent_id", event.PaymentIntentID)
 		return nil

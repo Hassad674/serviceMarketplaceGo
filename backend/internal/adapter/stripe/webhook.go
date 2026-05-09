@@ -32,6 +32,17 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 			return nil, fmt.Errorf("unmarshal payment intent: %w", err)
 		}
 		result.PaymentIntentID = pi.ID
+		// Project payment_method.billing_details so the webhook handler
+		// can hydrate the client_billing_profile post-confirmation. The
+		// fields ride on the LatestCharge in the webhook payload —
+		// PaymentIntent.PaymentMethod is the bare id (not expanded), so
+		// we read from latest_charge.billing_details which Stripe
+		// serialises inline on the event payload.
+		if event.Type == "payment_intent.succeeded" {
+			if billing := extractPaymentBillingDetails(&pi); billing != nil {
+				result.PaymentBillingDetails = billing
+			}
+		}
 
 	case "account.updated", "account.application.authorized",
 		"account.application.deauthorized", "account.external_account.created",
@@ -214,6 +225,42 @@ func populateInvoicePaid(result *portservice.StripeWebhookEvent, inv *stripe.Inv
 			}
 		}
 	}
+}
+
+// extractPaymentBillingDetails projects payment_method.billing_details
+// out of a payment_intent.succeeded payload. Reads from
+// LatestCharge.BillingDetails because Stripe serialises the expanded
+// charge inline on the webhook event but keeps PaymentIntent.PaymentMethod
+// as the bare id reference. Returns nil when the projection would carry
+// zero usable data so the handler can short-circuit cleanly.
+//
+// Best-effort: any data point Stripe didn't collect stays empty in the
+// projection rather than blocking the receipt hydration pipeline. The
+// downstream handler treats empty fields as "leave the existing column
+// untouched", so an incomplete Payment Element config degrades
+// gracefully into a partial profile rather than wiping previously-saved
+// values.
+func extractPaymentBillingDetails(pi *stripe.PaymentIntent) *portservice.PaymentBillingDetails {
+	if pi == nil || pi.LatestCharge == nil || pi.LatestCharge.BillingDetails == nil {
+		return nil
+	}
+	bd := pi.LatestCharge.BillingDetails
+	out := portservice.PaymentBillingDetails{
+		Name:  strings.TrimSpace(bd.Name),
+		Email: strings.TrimSpace(bd.Email),
+		Phone: strings.TrimSpace(bd.Phone),
+	}
+	if bd.Address != nil {
+		out.AddressLine1 = strings.TrimSpace(bd.Address.Line1)
+		out.AddressLine2 = strings.TrimSpace(bd.Address.Line2)
+		out.City = strings.TrimSpace(bd.Address.City)
+		out.PostalCode = strings.TrimSpace(bd.Address.PostalCode)
+		out.Country = strings.TrimSpace(bd.Address.Country)
+	}
+	if !out.HasAny() {
+		return nil
+	}
+	return &out
 }
 
 // populateChargeRefunded copies the fields the invoicing app service needs

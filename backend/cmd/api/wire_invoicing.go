@@ -142,6 +142,13 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 	})
 
 	stripeHandler := deps.StripeHandler.WithInvoicing(invoicingSvc)
+	// Wire the user → organization resolver so the inline-billing-capture
+	// pipeline (payment_intent.succeeded → hydrate billing_profile) can
+	// translate the payment record's ClientID (a user_id) into the
+	// org_id that owns the billing identity. Same closure shape used by
+	// the receipt snapshot resolver — keeps the dependency surface
+	// narrow and the wiring identical.
+	stripeHandler = stripeHandler.WithUserOrgResolver(handler.UserOrgResolver(userOrgReaderAdapter(deps.Users)))
 	walletHandler := deps.WalletHandler.WithInvoicing(invoicingSvc)
 
 	// Proposal payment gate: a client paying a proposal must have a

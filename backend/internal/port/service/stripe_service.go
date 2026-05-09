@@ -182,6 +182,12 @@ type StripeWebhookEvent struct {
 	ChargePaymentIntentID     string // pi_* — bridges back to the original invoice
 	ChargeAmountRefundedCents int64  // total refunded so far on the charge (cumulative)
 	ChargeRefundID            string // re_* — most recent refund id, when available
+
+	// PaymentBillingDetails carries the billing identity Stripe collected
+	// inline on the Payment Element (name + address fields the client typed).
+	// Populated for payment_intent.succeeded when the underlying charge
+	// resolves a PaymentMethod with billing_details. Nil otherwise.
+	PaymentBillingDetails *PaymentBillingDetails
 }
 
 // StripeAccountSnapshot captures the state of a connected account at the
@@ -222,4 +228,29 @@ type AccountFullStatus struct {
 	VerifiedFileID     string
 	ChargesEnabled     bool
 	PayoutsEnabled     bool
+}
+
+// PaymentBillingDetails is the projection of a Stripe charge's
+// payment_method.billing_details that the webhook adapter extracts
+// from a payment_intent.succeeded event so the handler can hydrate
+// the client_billing_profile post-confirmation. Best-effort: Stripe
+// may omit any field. Empty strings are common; consumers must skip
+// the corresponding profile column rather than overwriting an existing
+// value.
+type PaymentBillingDetails struct {
+	Name         string
+	Email        string
+	Phone        string
+	AddressLine1 string
+	AddressLine2 string
+	City         string
+	PostalCode   string
+	Country      string
+}
+
+// HasAny reports whether the projection carries at least one user-typed
+// field. The handler skips the DB write when there is nothing to persist.
+func (b PaymentBillingDetails) HasAny() bool {
+	return b.Name != "" || b.AddressLine1 != "" || b.PostalCode != "" ||
+		b.City != "" || b.Country != ""
 }
