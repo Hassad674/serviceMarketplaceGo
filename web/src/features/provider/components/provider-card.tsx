@@ -18,19 +18,14 @@ const CARD_MAX_VISIBLE_SKILLS = 4
 // Badge styling is keyed on search type (the "what directory am I in"
 // dimension), not the raw org type, because provider_personal orgs
 // surface in both the freelancer and referrer directories with
-// different labels.
+// different labels. All variants compose Soleil v2 semantic tokens
+// (primary-soft / muted / etc.) so the cards stay theme-aware in
+// dark mode without per-variant hex hardcoded.
 const BADGE_STYLES: Record<SearchType, string> = {
-  agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
-  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
+  agency: "bg-muted text-foreground",
+  enterprise: "bg-muted text-foreground",
   freelancer: "bg-primary-soft text-primary-deep",
-  referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
-}
-
-const BADGE_LABELS: Record<SearchType, string> = {
-  agency: "Agency",
-  enterprise: "Enterprise",
-  freelancer: "Freelancer",
-  referrer: "Referrer",
+  referrer: "bg-secondary text-secondary-foreground",
 }
 
 function getProfileHref(profile: PublicProfileSummary, type: SearchType): string {
@@ -66,7 +61,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
   const t = useTranslations("search")
   const locale: PricingLocale = useLocale() === "fr" ? "fr" : "en"
   const badgeStyle = BADGE_STYLES[type] ?? BADGE_STYLES.freelancer
-  const badgeLabel = BADGE_LABELS[type] ?? type
+  const badgeLabel = t(`badge.${type}`)
   const primaryPricing = pickPrimaryPricing(profile)
   const primaryPricingLabel = primaryPricing
     ? formatPricing(primaryPricing, locale)
@@ -76,9 +71,9 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
     <Link
       href={getProfileHref(profile, type)}
       className={cn(
-        "group block rounded-xl border border-gray-100 dark:border-gray-800",
-        "bg-white dark:bg-gray-900 p-4 shadow-sm",
-        "transition-all duration-200 hover:shadow-md hover:-translate-y-0.5",
+        "group block rounded-2xl border border-border bg-card p-4 shadow-sm",
+        "transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
       )}
     >
       <div className="flex items-start gap-4">
@@ -91,11 +86,11 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               alt={profile.name}
               width={48}
               height={48}
-              className="h-12 w-12 rounded-full object-cover"
+              className="h-12 w-12 rounded-full border border-border object-cover"
               unoptimized
             />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-pink text-sm font-semibold text-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-deep">
               {getInitials(profile)}
             </div>
           )}
@@ -104,7 +99,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white group-hover:text-primary-deep transition-colors">
+            <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-deep">
               {profile.name || t("noTitle")}
             </h3>
             <span
@@ -116,7 +111,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               {badgeLabel}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">
             {profile.title || t("noTitle")}
           </p>
           {profile.review_count > 0 && (
@@ -126,10 +121,10 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
                 strokeWidth={1.5}
                 aria-hidden="true"
               />
-              <span className="font-semibold text-gray-900 dark:text-white">
+              <span className="font-semibold text-foreground">
                 {profile.average_rating.toFixed(1)}
               </span>
-              <span className="text-gray-500 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 ({profile.review_count})
               </span>
             </div>
@@ -179,7 +174,7 @@ function ProviderCardSignals({
   }
 
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       {hasLocation ? (
         <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
           <MapPin className="h-3 w-3" aria-hidden="true" strokeWidth={1.5} />
@@ -211,7 +206,7 @@ function ProviderCardSignals({
         </span>
       ) : null}
       {hasPricing ? (
-        <span className="inline-flex items-center font-semibold text-gray-900 dark:text-white">
+        <span className="inline-flex items-center font-semibold text-foreground">
           {primaryPricingLabel}
         </span>
       ) : null}
