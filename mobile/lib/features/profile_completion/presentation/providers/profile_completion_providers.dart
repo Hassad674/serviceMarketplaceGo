@@ -23,3 +23,14 @@ final profileCompletionProvider =
   final repo = ref.watch(profileCompletionRepositoryProvider);
   return repo.getMy();
 });
+
+/// Persona-scoped variant — used by the /referral mobile screen to
+/// surface the apporteur checklist alongside the default freelance
+/// one (cached separately so both bars can coexist on the same
+/// session). Pass `"referrer"` for the apporteur surface and `null`
+/// to fall back to the default persona for the org type.
+final profileCompletionByPersonaProvider = FutureProvider.autoDispose
+    .family<ProfileCompletionReport, String?>((ref, persona) async {
+  final repo = ref.watch(profileCompletionRepositoryProvider);
+  return repo.getMy(persona: persona);
+});

@@ -92,6 +92,48 @@ void main() {
     expect(report.missingCount, 13);
     expect(report.isComplete, isFalse);
   });
+
+  test('forwards the persona override on the query string', () async {
+    var calledWithReferrerPath = false;
+    fakeApi.getHandlers['/api/v1/me/profile/completion?persona=referrer'] =
+        (_) async {
+      calledWithReferrerPath = true;
+      return FakeApiClient.ok({
+        'role': 'provider',
+        'persona': 'referrer',
+        'percent': 25,
+        'total_sections': 8,
+        'filled_sections': 2,
+        'sections': [],
+      });
+    };
+    // Default path MUST not be hit when the persona override is set.
+    fakeApi.getHandlers['/api/v1/me/profile/completion'] = (_) async {
+      throw StateError('default path hit despite persona override');
+    };
+    final report = await repo.getMy(persona: 'referrer');
+    expect(calledWithReferrerPath, isTrue,
+        reason: 'persona must be appended verbatim as a query string');
+    expect(report.persona, 'referrer');
+    expect(report.totalSections, 8);
+  });
+
+  test('omits the query string when persona is null', () async {
+    var calledDefaultPath = false;
+    fakeApi.getHandlers['/api/v1/me/profile/completion'] = (_) async {
+      calledDefaultPath = true;
+      return FakeApiClient.ok({
+        'role': 'provider',
+        'persona': 'freelance',
+        'percent': 0,
+        'total_sections': 13,
+        'filled_sections': 0,
+        'sections': [],
+      });
+    };
+    await repo.getMy();
+    expect(calledDefaultPath, isTrue);
+  });
 }
 
 /// Lightweight stand-in used by the assertion above to verify a

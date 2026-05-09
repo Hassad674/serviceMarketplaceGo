@@ -22,12 +22,13 @@ class _FakeRepo implements ProfileCompletionRepository {
   _FakeRepo(this._report);
   final ProfileCompletionReport _report;
   @override
-  Future<ProfileCompletionReport> getMy() async => _report;
+  Future<ProfileCompletionReport> getMy({String? persona}) async => _report;
 }
 
 class _ThrowingRepo implements ProfileCompletionRepository {
   @override
-  Future<ProfileCompletionReport> getMy() async => throw Exception('boom');
+  Future<ProfileCompletionReport> getMy({String? persona}) async =>
+      throw Exception('boom');
 }
 
 // =============================================================================

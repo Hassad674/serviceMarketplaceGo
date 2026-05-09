@@ -24,16 +24,29 @@ import '../providers/profile_completion_providers.dart';
 ///     (matches the web behaviour: no intermediate sheet, single
 ///     tap = land on the editor).
 class ProfileCompletionBar extends ConsumerWidget {
-  const ProfileCompletionBar({super.key, this.hideWhenComplete = false});
+  const ProfileCompletionBar({
+    super.key,
+    this.hideWhenComplete = false,
+    this.persona,
+  });
 
   /// When true, the widget collapses to `SizedBox.shrink()` once the
   /// report reaches 100%. Defaults to false: surfaces that want to
   /// celebrate completion (e.g. the profile page) keep the bar visible.
   final bool hideWhenComplete;
 
+  /// Optional persona override (e.g. `"referrer"` on the /referral
+  /// screen). When non-null the widget reads from a separate cached
+  /// query so the freelance and referrer reports can coexist for the
+  /// same user. Null falls back to the default persona for the org
+  /// type via [profileCompletionProvider].
+  final String? persona;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(profileCompletionProvider);
+    final async = persona == null
+        ? ref.watch(profileCompletionProvider)
+        : ref.watch(profileCompletionByPersonaProvider(persona));
     return async.when(
       data: (report) =>
           _buildContent(context, ref, report, hideWhenComplete: hideWhenComplete),
