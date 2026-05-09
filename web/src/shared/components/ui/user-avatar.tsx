@@ -51,18 +51,33 @@ export function UserAvatar({
 		)
 	}
 
+	// Sized wrapper + `h-full w-full object-cover` image — caps the
+	// rendered photo to a perfect square regardless of the natural
+	// aspect ratio. Without the wrapper, Tailwind's preflight rule
+	// `img { max-width: 100%; height: auto }` overrides the width/
+	// height attributes that <Image> emits, causing portrait uploads
+	// to paint at their natural aspect ratio (vertical overflow). The
+	// inline `style={{ width, height }}` is required because `size`
+	// is a runtime numeric prop — Tailwind cannot generate dynamic
+	// class names from a number. Same pattern as
+	// shared/components/ui/profile-identity-header.tsx PhotoBlock.
 	return (
-		<Image
-			src={photoUrl}
-			alt={alt}
-			width={size}
-			height={size}
+		<div
 			className={cn(
-				"shrink-0 rounded-full object-cover",
+				"relative shrink-0 overflow-hidden rounded-full",
 				className,
 			)}
-			onError={() => setErrored(true)}
-			unoptimized
-		/>
+			style={{ width: size, height: size }}
+		>
+			<Image
+				src={photoUrl}
+				alt={alt}
+				width={size}
+				height={size}
+				className="h-full w-full object-cover"
+				onError={() => setErrored(true)}
+				unoptimized
+			/>
+		</div>
 	)
 }
