@@ -113,10 +113,11 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 
 	require.Equal(t, search.CollectionName, schema.Name)
 	require.Equal(t, "rating_score", schema.DefaultSortingField)
-	// 43 explicit fields (36 original + 7 ranking V1 signals added in
-	// phase 6B) + the implicit `id` Typesense auto-creates = 44 total
-	// on the server side.
-	require.Len(t, schema.Fields, 43,
+	// 46 explicit fields (36 original + 7 ranking V1 signals from
+	// phase 6B + 3 anti-gaming signals from the §7 spec-drift fix:
+	// about, recent_review_timestamps, reviewer_ids) + the implicit
+	// `id` Typesense auto-creates = 47 total on the server side.
+	require.Len(t, schema.Fields, 46,
 		"schema must keep its canonical field count; update both schema and test deliberately")
 
 	byName := make(map[string]search.SchemaField, len(schema.Fields))
@@ -170,6 +171,34 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 			assert.True(t, byName[name].Optional, "%s must be optional", name)
 		})
 	}
+
+	// Anti-gaming raw signals (§7 fix landed 2026-05-09): about is
+	// text-indexed FR locale; the timestamp + reviewer-ID arrays are
+	// payload-only (Index=false) since they are read by the rules
+	// pipeline, not filtered or faceted.
+	t.Run("antigaming/about", func(t *testing.T) {
+		f, ok := byName["about"]
+		require.True(t, ok, "about must be declared")
+		assert.Equal(t, "fr", f.Locale, "about must use FR locale")
+		assert.True(t, f.Optional, "about must be optional")
+		assert.Equal(t, "string", f.Type)
+	})
+	t.Run("antigaming/recent_review_timestamps", func(t *testing.T) {
+		f, ok := byName["recent_review_timestamps"]
+		require.True(t, ok, "recent_review_timestamps must be declared")
+		assert.Equal(t, "int64[]", f.Type)
+		assert.True(t, f.Optional)
+		require.NotNil(t, f.Index, "Index pointer must be set explicitly")
+		assert.False(t, *f.Index, "recent_review_timestamps must NOT be indexed")
+	})
+	t.Run("antigaming/reviewer_ids", func(t *testing.T) {
+		f, ok := byName["reviewer_ids"]
+		require.True(t, ok, "reviewer_ids must be declared")
+		assert.Equal(t, "string[]", f.Type)
+		assert.True(t, f.Optional)
+		require.NotNil(t, f.Index, "Index pointer must be set explicitly")
+		assert.False(t, *f.Index, "reviewer_ids must NOT be indexed")
+	})
 }
 
 // TestCollectionSchemaDefinition_JSONRoundTrip ensures the schema

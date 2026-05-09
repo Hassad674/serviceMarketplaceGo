@@ -40,6 +40,8 @@ type fakeRepo struct {
 	reviewDiversityErr  error
 	accountAge          *search.RawAccountAge
 	accountAgeErr       error
+	antiGaming          *search.RawAntiGamingSignals
+	antiGamingErr       error
 }
 
 func (f *fakeRepo) LoadActorSignals(_ context.Context, _ uuid.UUID, _ search.Persona) (*search.RawActorSignals, error) {
@@ -71,6 +73,9 @@ func (f *fakeRepo) LoadReviewDiversity(_ context.Context, _ uuid.UUID) (*search.
 }
 func (f *fakeRepo) LoadAccountAge(_ context.Context, _ uuid.UUID) (*search.RawAccountAge, error) {
 	return f.accountAge, f.accountAgeErr
+}
+func (f *fakeRepo) LoadAntiGamingSignals(_ context.Context, _ uuid.UUID) (*search.RawAntiGamingSignals, error) {
+	return f.antiGaming, f.antiGamingErr
 }
 
 func fullRepo() *fakeRepo {

@@ -142,6 +142,23 @@ type RawAccountAge struct {
 	AccountAgeDays int
 }
 
+// RawAntiGamingSignals captures the data the stage-3 antigaming rules
+// need that is NOT itself a ranking input. Feeds the velocity rule
+// §7.2 and the linked-account rule §7.3 once the SearchDocument is
+// hydrated.
+//
+//   - RecentReviewTimestamps lists Unix-seconds creation times of
+//     reviews received within the velocity window (24h). Empty for
+//     profiles with no recent reviews.
+//   - ReviewerIDs lists distinct reviewer user UUIDs (as strings)
+//     within the linked-account window (default 30 days). The detector
+//     hashes them before any cross-account lookup so the index payload
+//     stays GDPR-compatible.
+type RawAntiGamingSignals struct {
+	RecentReviewTimestamps []int64
+	ReviewerIDs            []string
+}
+
 // SearchDataRepository is the one and only port the indexer depends
 // on. It is intentionally coarse: one method per "shape of data"
 // rather than one per column, so the Postgres adapter can implement
@@ -193,6 +210,12 @@ type SearchDataRepository interface {
 	// §3.2-9, §5.3). Zero disputes + zero age for orgs without a
 	// traceable owner user (should not happen outside test fixtures).
 	LoadAccountAge(ctx context.Context, orgID uuid.UUID) (*RawAccountAge, error)
+
+	// LoadAntiGamingSignals returns the recent review timestamps + the
+	// reviewer IDs feeding the velocity (§7.2) + linked-account (§7.3)
+	// detection rules. Returns a zero-value struct (nil slices) for
+	// profiles with no matching reviews — both are optional inputs.
+	LoadAntiGamingSignals(ctx context.Context, orgID uuid.UUID) (*RawAntiGamingSignals, error)
 }
 
 // Indexer converts raw signals into a SearchDocument. Separate from
@@ -259,6 +282,7 @@ type indexAggregate struct {
 	clientHistory   *RawClientHistory
 	reviewDiversity *RawReviewDiversity
 	accountAge      *RawAccountAge
+	antiGaming      *RawAntiGamingSignals
 }
 
 // loadResult is the channel message type used by the fan-in. Named
@@ -310,8 +334,9 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 	}
 	agg.skills = skills
 
-	// 9 concurrent reads: 6 legacy + 3 ranking V1 aggregates.
-	const parallelReads = 9
+	// 10 concurrent reads: 6 legacy + 3 ranking V1 aggregates +
+	// 1 anti-gaming signal bundle.
+	const parallelReads = 10
 	results := make(chan loadResult, parallelReads)
 
 	go func() {
@@ -358,6 +383,11 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 		age, err := i.repo.LoadAccountAge(ctx, orgID)
 		agg.accountAge = age
 		results <- loadResult{"account_age", err}
+	}()
+	go func() {
+		ag, err := i.repo.LoadAntiGamingSignals(ctx, orgID)
+		agg.antiGaming = ag
+		results <- loadResult{"anti_gaming", err}
 	}()
 
 	return collectResults(results, parallelReads)

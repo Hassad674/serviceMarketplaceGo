@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/search"
 )
@@ -229,4 +230,77 @@ WHERE o.id = $1`
 		LostDisputes:   lostDisputes,
 		AccountAgeDays: accountAgeDays,
 	}, nil
+}
+
+// LoadAntiGamingSignals returns the recent review timestamps + the
+// reviewer IDs used by the velocity + linked-account detection rules
+// (docs/ranking-v1.md §7.2 + §7.3).
+//
+// Definition recap:
+//   - recent_review_timestamps = published reviews received in the
+//     last 24h (Unix epoch seconds, ascending order).
+//   - reviewer_ids = distinct reviewer user UUIDs seen on published
+//     reviews in the last 30 days. The detector hashes them at
+//     query time before any cross-account lookup.
+//
+// Both arrays are read by the rules at query time but never sorted /
+// faceted in Typesense — they are pure ranking metadata. The adapter
+// returns the arrays via two parallel one-shot scans.
+//
+// Caps: at most 50 timestamps (one per recent review, well above the
+// velocity cap of 5/24h) + at most 200 reviewer IDs (a busy profile
+// rarely exceeds 30 distinct reviewers in a month). The caps prevent
+// Typesense payload bloat for power users; the rule still fires above
+// the cap because the threshold is low.
+func (r *SearchDocumentRepository) LoadAntiGamingSignals(ctx context.Context, orgID uuid.UUID) (*search.RawAntiGamingSignals, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	const query = `
+SELECT
+    COALESCE(
+        (SELECT array_agg(EXTRACT(EPOCH FROM created_at)::bigint ORDER BY created_at)
+         FROM (
+             SELECT created_at
+             FROM reviews
+             WHERE reviewed_organization_id = $1
+               AND side = 'client_to_provider'
+               AND published_at IS NOT NULL
+               AND created_at > NOW() - INTERVAL '24 hours'
+             ORDER BY created_at DESC
+             LIMIT 50
+         ) recent_24h),
+        '{}'::bigint[]
+    ) AS recent_timestamps,
+    COALESCE(
+        (SELECT array_agg(DISTINCT reviewer_id::text)
+         FROM (
+             SELECT reviewer_id
+             FROM reviews
+             WHERE reviewed_organization_id = $1
+               AND side = 'client_to_provider'
+               AND published_at IS NOT NULL
+               AND created_at > NOW() - INTERVAL '30 days'
+             ORDER BY created_at DESC
+             LIMIT 200
+         ) recent_30d),
+        '{}'::text[]
+    ) AS reviewer_ids`
+
+	var tsArr pq.Int64Array
+	var idArr pq.StringArray
+	if err := r.db.QueryRowContext(ctx, query, orgID).Scan(&tsArr, &idArr); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &search.RawAntiGamingSignals{}, nil
+		}
+		return nil, fmt.Errorf("search repository: load anti-gaming signals: %w", err)
+	}
+	out := &search.RawAntiGamingSignals{}
+	if len(tsArr) > 0 {
+		out.RecentReviewTimestamps = []int64(tsArr)
+	}
+	if len(idArr) > 0 {
+		out.ReviewerIDs = []string(idArr)
+	}
+	return out, nil
 }

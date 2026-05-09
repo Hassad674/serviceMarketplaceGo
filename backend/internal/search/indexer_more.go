@@ -122,6 +122,10 @@ func (i *Indexer) assembleDocument(agg *indexAggregate, persona Persona) (*Searc
 		ExpertiseDomains:        nilToEmpty(s.ExpertiseDomains),
 		Skills:                  nilToEmpty(agg.skills),
 		SkillsText:              strings.Join(agg.skills, " "),
+		// About powers the §3.2-7 profile-completion junk penalty +
+		// the §7.1 keyword-stuffing detector. Stored trimmed (the rule
+		// lowercases at query time) so the wire payload stays clean.
+		About: strings.TrimSpace(s.About),
 		// completion is bounded 0..100 by ProfileCompletionScore — the
 		// int32 narrowing is provably overflow-free.
 		ProfileCompletionScore: int32(completion), // #nosec G115 -- bounded 0..100
@@ -137,6 +141,7 @@ func (i *Indexer) assembleDocument(agg *indexAggregate, persona Persona) (*Searc
 	applyClientHistory(doc, agg.clientHistory)
 	applyReviewDiversity(doc, agg.reviewDiversity)
 	applyAccountAge(doc, agg.accountAge)
+	applyAntiGamingSignals(doc, agg.antiGaming)
 	doc.IsVerified = agg.kyc
 
 	if agg.embed != nil {
@@ -245,6 +250,20 @@ func applyAccountAge(doc *SearchDocument, a *RawAccountAge) {
 	// AccountAgeDays is bounded by service uptime (years × 365).
 	doc.LostDisputesCount = int32(a.LostDisputes) // #nosec G115 -- bounded by dispute-table size per actor
 	doc.AccountAgeDays = int32(a.AccountAgeDays)  // #nosec G115 -- bounded by service uptime in days
+}
+
+// applyAntiGamingSignals copies the recent reviewer + ID signals onto
+// the document so the antigaming pipeline at query time can fire
+// velocity (§7.2) + linked-account (§7.3) detection. Nil means the
+// repository did not surface any data (no recent reviews) — leaving
+// the slices as zero-value nil keeps the JSON payload small thanks
+// to the `omitempty` tags.
+func applyAntiGamingSignals(doc *SearchDocument, a *RawAntiGamingSignals) {
+	if a == nil {
+		return
+	}
+	doc.RecentReviewTimestamps = a.RecentReviewTimestamps
+	doc.ReviewerIDs = a.ReviewerIDs
 }
 
 // nilToEmpty turns a nil slice into an empty slice so the serialised

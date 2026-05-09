@@ -205,6 +205,31 @@ type SearchDocument struct {
 	// account_age_bonus §3.2-9.
 	AccountAgeDays int32 `json:"account_age_days"`
 
+	// -------- Anti-gaming raw signals (phase 6B+) --------
+	// The three fields below are NOT scored directly. They feed the
+	// stage-3 anti-gaming rules so the velocity / linked-account /
+	// keyword-stuffing detectors can fire with real data. See
+	// docs/ranking-v1.md §7.
+
+	// About is the profile's free-form bio (lowercased, trimmed by the
+	// indexer). Feeds the keyword-stuffing detector §7.1 and the
+	// entropy / junk-text penalty §3.2-7.
+	About string `json:"about,omitempty"`
+
+	// RecentReviewTimestamps lists the Unix-seconds creation times of
+	// reviews received in the last 24h. The velocity rule §7.2 counts
+	// the slice length to detect review-bombing. Indexed but not facet-
+	// or sort-enabled — the field is only read by the ranking pipeline
+	// at query time. Capped server-side so the JSON payload stays small.
+	RecentReviewTimestamps []int64 `json:"recent_review_timestamps,omitempty"`
+
+	// ReviewerIDs is the list of distinct reviewer user UUIDs who left
+	// a review on this profile within the linked-account detection
+	// window (default 30 days). Feeds the linked-account rule §7.3.
+	// Stored as opaque strings; the detector hashes them server-side
+	// before any cross-account comparison.
+	ReviewerIDs []string `json:"reviewer_ids,omitempty"`
+
 	// -------- Semantic --------
 	Embedding []float32 `json:"embedding,omitempty"`
 
@@ -367,6 +392,15 @@ func CollectionSchemaDefinition() CollectionSchema {
 		{Name: "review_recency_factor", Type: "float", Sort: true, Optional: true},
 		{Name: "lost_disputes_count", Type: "int32", Sort: true, Optional: true},
 		{Name: "account_age_days", Type: "int32", Sort: true, Optional: true},
+
+		// Anti-gaming raw signals — fed back to the pipeline at query
+		// time. About is text-indexed (FR locale) so it shows up in
+		// the BM25 input alongside SkillsText. RecentReviewTimestamps
+		// + ReviewerIDs are flat arrays the rule layer reads — Index
+		// is set to false because we never filter / facet on them.
+		{Name: "about", Type: "string", Locale: "fr", Optional: true},
+		{Name: "recent_review_timestamps", Type: "int64[]", Optional: true, Index: boolPtr(false)},
+		{Name: "reviewer_ids", Type: "string[]", Optional: true, Index: boolPtr(false)},
 
 		// Semantic
 		{Name: "embedding", Type: "float[]", NumDim: EmbeddingDimensions, Optional: true},

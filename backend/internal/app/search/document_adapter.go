@@ -59,11 +59,11 @@ func (h TypesenseHit) ToSearchDocumentLite(nowUnix int64) features.SearchDocumen
 
 		Skills:     doc.Skills,
 		SkillsText: doc.SkillsText,
-		// The SearchDocument schema does not carry an `about` field
-		// yet — reserve the attribution for the day it lands. The
-		// stuffing rule still receives SkillsText through the Text
-		// field of RawSignals so the 0-value here is harmless.
-		About: "",
+		// About powers the entropy / junk-text penalty (§3.2-7) and
+		// feeds the keyword-stuffing detector through the lowercased
+		// concatenation in applyAntiGaming. Indexed by the schema as
+		// a text field with FR locale.
+		About: doc.About,
 
 		RatingAverage:          doc.RatingAverage,
 		RatingCount:            doc.RatingCount,
