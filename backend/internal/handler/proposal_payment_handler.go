@@ -169,20 +169,16 @@ func (h *ProposalPaymentHandler) PayProposal(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Billing profile gate: a client paying a proposal must have a
-	// complete billing profile so the resulting receipt snapshot
-	// (PR #165) carries the legally required recipient identity. The
-	// gate runs BEFORE InitiatePayment so we never charge a card and
-	// then fail to issue a usable receipt. Authorization (caller's
-	// org owns the client side) is enforced inside InitiatePayment;
-	// since the gate uses the caller's org id from the JWT context,
-	// a non-client caller that would fail authorization downstream
-	// would only see a benign "your billing profile is incomplete"
-	// 412, not a confidential leak — the message is identical for
-	// every authenticated org.
-	if !h.requireClientBillingComplete(w, r, orgID, proposalID) {
-		return
-	}
+	// REMOVED 2026-05-08: pre-payment billing profile gate.
+	// Rationale: blocking the redirect to Stripe creates a dead-end UX —
+	// the client clicks "Pay", lands on a 412 page, and has to navigate
+	// to a settings page before retrying. Stripe Elements (Payment
+	// Element / Checkout Session) already collects the billing address
+	// as part of the card form, so the receipt snapshot can be hydrated
+	// from `payment_method.billing_details` POST-confirmation instead.
+	// The gate function (`requireClientBillingComplete`) is kept for
+	// reference and may be reused if a regulated jurisdiction requires
+	// hard pre-blocking in the future.
 
 	result, err := h.proposalSvc.InitiatePayment(r.Context(), proposalapp.PayProposalInput{
 		ProposalID: proposalID,
@@ -282,15 +278,9 @@ func (h *ProposalPaymentHandler) FundMilestone(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	// Same billing-profile gate as PayProposal — milestone-mode
-	// payments still require the client org's billing identity so
-	// the receipt snapshot is regeneratable. Run BEFORE the
-	// milestone-matches-current check so a user with an incomplete
-	// profile sees the "fix your billing first" 412 instead of an
-	// unrelated milestone-state 409.
-	if !h.requireClientBillingComplete(w, r, orgID, proposalID) {
-		return
-	}
+	// REMOVED 2026-05-08: same pre-payment billing gate as PayProposal —
+	// see rationale there. Stripe collects billing details inline, the
+	// receipt snapshot is hydrated post-confirmation.
 	if !validateMilestoneMatchesCurrent(w, r, h.proposalSvc, proposalID, milestoneID) {
 		return
 	}
