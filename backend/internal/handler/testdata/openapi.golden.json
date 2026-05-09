@@ -3,6 +3,9 @@
     "schemas": {
       "ApplyToJobRequest": {
         "properties": {
+          "applicant_kind": {
+            "type": "string"
+          },
           "message": {
             "type": "string"
           },

@@ -27,7 +27,8 @@ func (r *JobApplicationRepository) Create(ctx context.Context, app *job.JobAppli
 	defer cancel()
 
 	_, err := r.db.ExecContext(ctx, queryInsertJobApplication,
-		app.ID, app.JobID, app.ApplicantID, app.ApplicantOrganizationID, app.Message, app.VideoURL,
+		app.ID, app.JobID, app.ApplicantID, app.ApplicantOrganizationID,
+		string(app.ApplicantKind), app.Message, app.VideoURL,
 		app.CreatedAt, app.UpdatedAt,
 	)
 	if err != nil {
@@ -86,7 +87,7 @@ func (r *JobApplicationRepository) Delete(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
-func (r *JobApplicationRepository) ListByJob(ctx context.Context, jobID uuid.UUID, cursorStr string, limit int) ([]*job.JobApplication, string, error) {
+func (r *JobApplicationRepository) ListByJob(ctx context.Context, jobID uuid.UUID, cursorStr string, limit int, kindFilter job.ApplicantKind) ([]*job.JobApplication, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	if limit <= 0 || limit > 100 {
@@ -95,9 +96,18 @@ func (r *JobApplicationRepository) ListByJob(ctx context.Context, jobID uuid.UUI
 
 	var rows *sql.Rows
 	var err error
-	if cursorStr == "" {
+	switch {
+	case kindFilter != "" && cursorStr == "":
+		rows, err = r.db.QueryContext(ctx, queryListJobAppsByJobAndKindFirst, jobID, string(kindFilter), limit+1)
+	case kindFilter != "" && cursorStr != "":
+		c, cErr := cursor.Decode(cursorStr)
+		if cErr != nil {
+			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+		}
+		rows, err = r.db.QueryContext(ctx, queryListJobAppsByJobAndKindWithCursor, jobID, string(kindFilter), c.CreatedAt, c.ID, limit+1)
+	case kindFilter == "" && cursorStr == "":
 		rows, err = r.db.QueryContext(ctx, queryListJobAppsByJobFirst, jobID, limit+1)
-	} else {
+	default:
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
@@ -150,25 +160,29 @@ func (r *JobApplicationRepository) CountByJob(ctx context.Context, jobID uuid.UU
 
 func scanJobApp(row *sql.Row) (*job.JobApplication, error) {
 	app := &job.JobApplication{}
+	var kindStr string
 	err := row.Scan(
-		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID, &app.Message,
-		&app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
+		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID,
+		&kindStr, &app.Message, &app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	app.ApplicantKind = job.ApplicantKind(kindStr)
 	return app, nil
 }
 
 func scanJobAppFromRows(rows *sql.Rows) (*job.JobApplication, error) {
 	app := &job.JobApplication{}
+	var kindStr string
 	err := rows.Scan(
-		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID, &app.Message,
-		&app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
+		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID,
+		&kindStr, &app.Message, &app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	app.ApplicantKind = job.ApplicantKind(kindStr)
 	return app, nil
 }
 

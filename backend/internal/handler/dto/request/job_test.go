@@ -74,4 +74,19 @@ func TestApplyToJobRequest_Validation(t *testing.T) {
 	t.Run("message too long", func(t *testing.T) {
 		require.Error(t, validator.Validate(ApplyToJobRequest{Message: strings.Repeat("a", 5001)}))
 	})
+	t.Run("applicant_kind freelance OK", func(t *testing.T) {
+		assert.NoError(t, validator.Validate(ApplyToJobRequest{Message: "hi", ApplicantKind: "freelance"}))
+	})
+	t.Run("applicant_kind agency OK", func(t *testing.T) {
+		assert.NoError(t, validator.Validate(ApplyToJobRequest{Message: "hi", ApplicantKind: "agency"}))
+	})
+	t.Run("applicant_kind referrer OK", func(t *testing.T) {
+		assert.NoError(t, validator.Validate(ApplyToJobRequest{Message: "hi", ApplicantKind: "referrer"}))
+	})
+	t.Run("applicant_kind empty OK (defaults at app layer)", func(t *testing.T) {
+		assert.NoError(t, validator.Validate(ApplyToJobRequest{Message: "hi", ApplicantKind: ""}))
+	})
+	t.Run("applicant_kind invalid", func(t *testing.T) {
+		require.Error(t, validator.Validate(ApplyToJobRequest{Message: "hi", ApplicantKind: "boss"}))
+	})
 }

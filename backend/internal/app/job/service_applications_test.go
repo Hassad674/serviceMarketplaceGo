@@ -166,7 +166,7 @@ func TestListJobApplications_NotOwner(t *testing.T) {
 	j := openJob(uuid.New())
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 
-	_, _, err := svc.ListJobApplications(context.Background(), j.ID, uuid.New(), "", 20)
+	_, _, err := svc.ListJobApplications(context.Background(), j.ID, uuid.New(), "", 20, ListJobApplicationsFilter{})
 	assert.ErrorIs(t, err, domain.ErrNotOwner)
 }
 
@@ -177,7 +177,7 @@ func TestListJobApplications_WithProfiles(t *testing.T) {
 	applicantID := uuid.New()
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
-	ar.listByJobFn = func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.JobApplication, string, error) {
+	ar.listByJobFn = func(_ context.Context, _ uuid.UUID, _ string, _ int, _ domain.ApplicantKind) ([]*domain.JobApplication, string, error) {
 		return []*domain.JobApplication{{ID: uuid.New(), JobID: j.ID, ApplicantID: applicantID, Message: "hi"}}, "", nil
 	}
 	pr.orgProfilesByUserIDsFn = func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
@@ -186,7 +186,7 @@ func TestListJobApplications_WithProfiles(t *testing.T) {
 		}, nil
 	}
 
-	items, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20)
+	items, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20, ListJobApplicationsFilter{})
 	assert.NoError(t, err)
 	assert.Len(t, items, 1)
 	assert.Equal(t, "Test Org", items[0].Profile.Name)
@@ -559,6 +559,170 @@ func TestListOpenJobs_RepoErrorPropagated(t *testing.T) {
 	assert.ErrorIs(t, err, wantErr)
 	assert.Nil(t, jobs)
 	assert.Empty(t, cursor)
+}
+
+// --- Applicant kind tests (radio: freelance / agency / referrer) ---
+
+func TestApplyToJob_DefaultKindForProvider_IsFreelance(t *testing.T) {
+	svc, jr, ar, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg}, nil
+	}
+	var captured *domain.JobApplication
+	ar.createFn = func(_ context.Context, app *domain.JobApplication) error {
+		captured = app
+		return nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: uuid.New(), Message: "default kind",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, domain.ApplicantKindFreelance, captured.ApplicantKind)
+}
+
+func TestApplyToJob_DefaultKindForAgency_IsAgency(t *testing.T) {
+	svc, jr, ar, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	j.ApplicantType = domain.ApplicantAll
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleAgency, OrganizationID: &stubOrg}, nil
+	}
+	var captured *domain.JobApplication
+	ar.createFn = func(_ context.Context, app *domain.JobApplication) error {
+		captured = app
+		return nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: uuid.New(), Message: "agency apply",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, domain.ApplicantKindAgency, captured.ApplicantKind)
+}
+
+func TestApplyToJob_ReferrerEnabledProvider_AcceptsReferrerKind(t *testing.T) {
+	svc, jr, ar, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg, ReferrerEnabled: true}, nil
+	}
+	var captured *domain.JobApplication
+	ar.createFn = func(_ context.Context, app *domain.JobApplication) error {
+		captured = app
+		return nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID:       j.ID,
+		ApplicantID: uuid.New(),
+		Kind:        domain.ApplicantKindReferrer,
+		Message:     "I bring you a great freelance",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, domain.ApplicantKindReferrer, captured.ApplicantKind)
+}
+
+func TestApplyToJob_ProviderWithoutReferrer_RejectsReferrerKind(t *testing.T) {
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg, ReferrerEnabled: false}, nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID:       j.ID,
+		ApplicantID: uuid.New(),
+		Kind:        domain.ApplicantKindReferrer,
+		Message:     "should fail",
+	})
+	assert.ErrorIs(t, err, domain.ErrInvalidApplicantKind)
+}
+
+func TestApplyToJob_AgencyCannotApplyAsReferrer(t *testing.T) {
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleAgency, OrganizationID: &stubOrg}, nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID:       j.ID,
+		ApplicantID: uuid.New(),
+		Kind:        domain.ApplicantKindReferrer,
+		Message:     "should fail",
+	})
+	assert.ErrorIs(t, err, domain.ErrInvalidApplicantKind)
+}
+
+func TestApplyToJob_ProviderCannotApplyAsAgency(t *testing.T) {
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	j := openJob(uuid.New())
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg, ReferrerEnabled: true}, nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID:       j.ID,
+		ApplicantID: uuid.New(),
+		Kind:        domain.ApplicantKindAgency,
+		Message:     "should fail",
+	})
+	assert.ErrorIs(t, err, domain.ErrInvalidApplicantKind)
+}
+
+// --- ListJobApplications filter tests ---
+
+func TestListJobApplications_FilterByKind(t *testing.T) {
+	svc, jr, ar, _, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	j := openJob(creatorID)
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ar.listByJobFn = func(_ context.Context, _ uuid.UUID, _ string, _ int, kindFilter domain.ApplicantKind) ([]*domain.JobApplication, string, error) {
+		// Echo the filter back as a marker — we assert it on the mock.
+		return []*domain.JobApplication{}, "", nil
+	}
+
+	_, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20, ListJobApplicationsFilter{Kind: domain.ApplicantKindReferrer})
+	require.NoError(t, err)
+	assert.Equal(t, domain.ApplicantKindReferrer, ar.listByJobLastKind, "filter should be forwarded to the repository")
+}
+
+func TestListJobApplications_RejectsInvalidKind(t *testing.T) {
+	svc, jr, _, _, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	j := openJob(creatorID)
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+
+	_, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20, ListJobApplicationsFilter{Kind: domain.ApplicantKind("hacker")})
+	assert.ErrorIs(t, err, domain.ErrInvalidApplicantKind)
+}
+
+func TestListJobApplications_EmptyKind_NoFilter(t *testing.T) {
+	svc, jr, ar, _, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	j := openJob(creatorID)
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+
+	_, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20, ListJobApplicationsFilter{})
+	require.NoError(t, err)
+	assert.Equal(t, domain.ApplicantKind(""), ar.listByJobLastKind, "empty filter must not add a SQL clause")
 }
 
 func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {

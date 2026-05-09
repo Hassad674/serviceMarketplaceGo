@@ -180,7 +180,7 @@ func (m *mockApplicationsRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
-func (m *mockApplicationsRepo) ListByJob(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*job.JobApplication, string, error) {
+func (m *mockApplicationsRepo) ListByJob(_ context.Context, _ uuid.UUID, _ string, _ int, _ job.ApplicantKind) ([]*job.JobApplication, string, error) {
 	return nil, "", nil
 }
 func (m *mockApplicationsRepo) ListByApplicantOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*job.JobApplication, string, error) {

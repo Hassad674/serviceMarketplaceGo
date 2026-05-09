@@ -1,10 +1,10 @@
 package postgres
 
-const jobAppColumns = `id, job_id, applicant_id, applicant_organization_id, message, video_url, created_at, updated_at`
+const jobAppColumns = `id, job_id, applicant_id, applicant_organization_id, applicant_kind, message, video_url, created_at, updated_at`
 
 const queryInsertJobApplication = `
-	INSERT INTO job_applications (id, job_id, applicant_id, applicant_organization_id, message, video_url, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	INSERT INTO job_applications (id, job_id, applicant_id, applicant_organization_id, applicant_kind, message, video_url, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 const queryGetJobApplicationByID = `
 	SELECT ` + jobAppColumns + `
@@ -34,6 +34,25 @@ const queryListJobAppsByJobWithCursor = `
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`
+
+// queryListJobAppsByJobAndKindFirst / WithCursor narrow the candidates
+// list to a single applicant_kind. The composite index
+// idx_job_applications_job_kind (job_id, applicant_kind, created_at DESC)
+// keeps the keyset pagination efficient.
+const queryListJobAppsByJobAndKindFirst = `
+	SELECT ` + jobAppColumns + `
+	FROM job_applications
+	WHERE job_id = $1 AND applicant_kind = $2
+	ORDER BY created_at DESC, id DESC
+	LIMIT $3`
+
+const queryListJobAppsByJobAndKindWithCursor = `
+	SELECT ` + jobAppColumns + `
+	FROM job_applications
+	WHERE job_id = $1 AND applicant_kind = $2
+		AND (created_at, id) < ($3, $4)
+	ORDER BY created_at DESC, id DESC
+	LIMIT $5`
 
 const queryListJobAppsByApplicantOrgFirst = `
 	SELECT ` + jobAppColumns + `

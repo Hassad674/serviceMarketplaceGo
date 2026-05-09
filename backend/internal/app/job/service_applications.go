@@ -22,8 +22,13 @@ import (
 type ApplyToJobInput struct {
 	JobID       uuid.UUID
 	ApplicantID uuid.UUID
-	Message     string
-	VideoURL    *string
+	// Kind is the persona under which the applicant is submitting.
+	// Empty value defaults to a role-derived kind (agency → 'agency',
+	// provider → 'freelance'); explicit 'referrer' is only allowed
+	// for providers with referrer_enabled=true.
+	Kind     domain.ApplicantKind
+	Message  string
+	VideoURL *string
 }
 
 // ApplicationWithProfile pairs an application with the applicant's public profile.
@@ -70,6 +75,16 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 	}
 	orgID := *applicant.OrganizationID
 
+	// Resolve the applicant kind. The handler may pass an explicit value
+	// (radio selection in the apply modal) or leave it empty for the
+	// default role-derived kind. The cross-check below is the authoritative
+	// gate: an agency cannot fake a referrer kind, and a non-referrer
+	// provider cannot apply as 'referrer'.
+	kind, kErr := resolveApplicantKind(input.Kind, applicant.Role, applicant.ReferrerEnabled)
+	if kErr != nil {
+		return nil, kErr
+	}
+
 	// KYC enforcement: the applicant's organization must not be
 	// blocked (14-day deadline since first earning without Stripe
 	// onboarding).
@@ -103,6 +118,7 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 		JobID:                   input.JobID,
 		ApplicantID:             input.ApplicantID,
 		ApplicantOrganizationID: orgID,
+		ApplicantKind:           kind,
 		Message:                 input.Message,
 		VideoURL:                input.VideoURL,
 	})
@@ -178,8 +194,17 @@ func (s *Service) WithdrawApplication(ctx context.Context, applicationID, applic
 	return nil
 }
 
+// ListJobApplicationsFilter narrows the candidates list. An empty Kind
+// returns all applications; a non-empty Kind must validate via
+// ApplicantKind.IsValid (the repository never receives an unchecked
+// string, so we never build a SQL filter from user-controlled input
+// without going through this guard).
+type ListJobApplicationsFilter struct {
+	Kind domain.ApplicantKind
+}
+
 // ListJobApplications returns applications for a job with enriched profiles.
-func (s *Service) ListJobApplications(ctx context.Context, jobID, ownerID uuid.UUID, cursorStr string, limit int) ([]ApplicationWithProfile, string, error) {
+func (s *Service) ListJobApplications(ctx context.Context, jobID, ownerID uuid.UUID, cursorStr string, limit int, filter ListJobApplicationsFilter) ([]ApplicationWithProfile, string, error) {
 	j, err := s.jobs.GetByID(ctx, jobID)
 	if err != nil {
 		return nil, "", fmt.Errorf("get job: %w", err)
@@ -188,7 +213,11 @@ func (s *Service) ListJobApplications(ctx context.Context, jobID, ownerID uuid.U
 		return nil, "", domain.ErrNotOwner
 	}
 
-	apps, nextCursor, err := s.applications.ListByJob(ctx, jobID, cursorStr, limit)
+	if filter.Kind != "" && !filter.Kind.IsValid() {
+		return nil, "", domain.ErrInvalidApplicantKind
+	}
+
+	apps, nextCursor, err := s.applications.ListByJob(ctx, jobID, cursorStr, limit, filter.Kind)
 	if err != nil {
 		return nil, "", fmt.Errorf("list applications: %w", err)
 	}
@@ -334,6 +363,40 @@ func (s *Service) fetchProfileMap(ctx context.Context, apps []*domain.JobApplica
 		ids[i] = a.ApplicantID
 	}
 	return s.profiles.OrgProfilesByUserIDs(ctx, ids)
+}
+
+// resolveApplicantKind picks the persona under which the application
+// is recorded. The default rule mirrors the user's role; an explicit
+// kind overrides only when it is consistent with the role + referrer
+// flag. This keeps the radio in the apply modal honest — a UI bug or
+// a hostile client cannot persist a kind the applicant is not entitled
+// to.
+func resolveApplicantKind(requested domain.ApplicantKind, role user.Role, referrerEnabled bool) (domain.ApplicantKind, error) {
+	switch role {
+	case user.RoleAgency:
+		// Agencies always submit as 'agency' — referrer mode is a
+		// solo-provider feature.
+		if requested != "" && requested != domain.ApplicantKindAgency {
+			return "", domain.ErrInvalidApplicantKind
+		}
+		return domain.ApplicantKindAgency, nil
+	case user.RoleProvider:
+		switch requested {
+		case "", domain.ApplicantKindFreelance:
+			return domain.ApplicantKindFreelance, nil
+		case domain.ApplicantKindReferrer:
+			if !referrerEnabled {
+				return "", domain.ErrInvalidApplicantKind
+			}
+			return domain.ApplicantKindReferrer, nil
+		default:
+			// Providers cannot apply as 'agency'.
+			return "", domain.ErrInvalidApplicantKind
+		}
+	default:
+		// Enterprise / unknown roles cannot apply at all.
+		return "", domain.ErrApplicantTypeMismatch
+	}
 }
 
 func canApply(applicantType domain.ApplicantType, role user.Role) bool {

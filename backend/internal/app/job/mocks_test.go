@@ -161,9 +161,12 @@ type mockJobApplicationRepo struct {
 	getByIDFn             func(ctx context.Context, id uuid.UUID) (*domain.JobApplication, error)
 	getByJobAndApplicantFn func(ctx context.Context, jobID, applicantID uuid.UUID) (*domain.JobApplication, error)
 	deleteFn              func(ctx context.Context, id uuid.UUID) error
-	listByJobFn           func(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
+	listByJobFn           func(ctx context.Context, jobID uuid.UUID, cursor string, limit int, kindFilter domain.ApplicantKind) ([]*domain.JobApplication, string, error)
 	listByApplicantOrgFn  func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
 	countByJobFn          func(ctx context.Context, jobID uuid.UUID) (int, error)
+
+	// Capture filter args for assertions on /jobs/{id}/applications?kind=
+	listByJobLastKind domain.ApplicantKind
 }
 
 func (m *mockJobApplicationRepo) Create(ctx context.Context, app *domain.JobApplication) error {
@@ -194,9 +197,10 @@ func (m *mockJobApplicationRepo) Delete(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-func (m *mockJobApplicationRepo) ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error) {
+func (m *mockJobApplicationRepo) ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int, kindFilter domain.ApplicantKind) ([]*domain.JobApplication, string, error) {
+	m.listByJobLastKind = kindFilter
 	if m.listByJobFn != nil {
-		return m.listByJobFn(ctx, jobID, cursor, limit)
+		return m.listByJobFn(ctx, jobID, cursor, limit, kindFilter)
 	}
 	return []*domain.JobApplication{}, "", nil
 }

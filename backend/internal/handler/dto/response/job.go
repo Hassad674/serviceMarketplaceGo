@@ -141,12 +141,13 @@ func NewOpenJobListResponse(jobs []jobapp.JobWithCounts, nextCursor string) JobL
 // --- Job Application DTOs ---
 
 type JobApplicationResponse struct {
-	ID          string  `json:"id"`
-	JobID       string  `json:"job_id"`
-	ApplicantID string  `json:"applicant_id"`
-	Message     string  `json:"message"`
-	VideoURL    *string `json:"video_url,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	ID            string  `json:"id"`
+	JobID         string  `json:"job_id"`
+	ApplicantID   string  `json:"applicant_id"`
+	ApplicantKind string  `json:"applicant_kind"`
+	Message       string  `json:"message"`
+	VideoURL      *string `json:"video_url,omitempty"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 type ApplicationWithProfileResponse struct {
@@ -185,12 +186,13 @@ type ContactApplicantResponse struct {
 
 func NewJobApplicationResponse(a *job.JobApplication) JobApplicationResponse {
 	return JobApplicationResponse{
-		ID:          a.ID.String(),
-		JobID:       a.JobID.String(),
-		ApplicantID: a.ApplicantID.String(),
-		Message:     a.Message,
-		VideoURL:    a.VideoURL,
-		CreatedAt:   a.CreatedAt.Format(time.RFC3339),
+		ID:            a.ID.String(),
+		JobID:         a.JobID.String(),
+		ApplicantID:   a.ApplicantID.String(),
+		ApplicantKind: string(a.ApplicantKind),
+		Message:       a.Message,
+		VideoURL:      a.VideoURL,
+		CreatedAt:     a.CreatedAt.Format(time.RFC3339),
 	}
 }
 

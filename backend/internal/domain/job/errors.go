@@ -30,6 +30,12 @@ var (
 	ErrNotApplicant              = errors.New("not the applicant of this application")
 	ErrApplicantTypeMismatch     = errors.New("your role does not match the required applicant type")
 	ErrNoCreditsLeft             = errors.New("no application credits remaining")
+	// ErrInvalidApplicantKind is returned when the apply payload carries an
+	// applicant_kind value outside the {freelance, agency, referrer} set,
+	// or when the kind is incompatible with the applicant's role (e.g. an
+	// agency applying as 'referrer', or a non-referrer-enabled provider
+	// applying as 'referrer').
+	ErrInvalidApplicantKind = errors.New("invalid applicant kind")
 
 	// Phase 2 moderation gate. Returned when the synchronous text
 	// moderation refuses a job title (strict 0.50 threshold) or

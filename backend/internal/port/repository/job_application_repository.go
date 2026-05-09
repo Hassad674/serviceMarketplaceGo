@@ -14,7 +14,12 @@ type JobApplicationRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*job.JobApplication, error)
 	GetByJobAndApplicant(ctx context.Context, jobID, applicantID uuid.UUID) (*job.JobApplication, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
+	// ListByJob returns applications for a job. When kindFilter is empty
+	// every application is returned; otherwise only applications whose
+	// applicant_kind matches the filter. The caller is expected to
+	// validate the filter value against ApplicantKind.IsValid before
+	// passing it in — the repository builds the SQL parameter directly.
+	ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int, kindFilter job.ApplicantKind) ([]*job.JobApplication, string, error)
 	// ListByApplicantOrganization returns job applications submitted by
 	// any member of the given organization. All operators of the same
 	// applying org see the same list.

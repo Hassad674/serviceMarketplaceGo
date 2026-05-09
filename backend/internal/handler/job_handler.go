@@ -261,6 +261,8 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "not_applicant", err.Error())
 	case errors.Is(err, jobdomain.ErrApplicantTypeMismatch):
 		res.Error(w, http.StatusForbidden, "applicant_type_mismatch", err.Error())
+	case errors.Is(err, jobdomain.ErrInvalidApplicantKind):
+		res.Error(w, http.StatusBadRequest, "invalid_applicant_kind", err.Error())
 	case errors.Is(err, jobdomain.ErrEmptyApplicationMessage):
 		res.Error(w, http.StatusBadRequest, "empty_message", err.Error())
 	case errors.Is(err, jobdomain.ErrApplicationMessageTooLong):

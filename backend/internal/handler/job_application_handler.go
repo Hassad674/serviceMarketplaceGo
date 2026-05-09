@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	jobapp "marketplace-backend/internal/app/job"
+	domain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -47,6 +48,7 @@ func (h *JobApplicationHandler) ApplyToJob(w http.ResponseWriter, r *http.Reques
 	app, err := h.jobSvc.ApplyToJob(r.Context(), jobapp.ApplyToJobInput{
 		JobID:       jobID,
 		ApplicantID: userID,
+		Kind:        domain.ApplicantKind(req.ApplicantKind),
 		Message:     req.Message,
 		VideoURL:    req.VideoURL,
 	})
@@ -92,8 +94,14 @@ func (h *JobApplicationHandler) ListJobApplications(w http.ResponseWriter, r *ht
 
 	cursor := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	// kind narrows the candidates list to a single applicant_kind. An
+	// unknown value bubbles up as 422 via handleJobError (the app
+	// service rejects it before reaching the repository).
+	filter := jobapp.ListJobApplicationsFilter{
+		Kind: domain.ApplicantKind(strings.TrimSpace(r.URL.Query().Get("kind"))),
+	}
 
-	items, nextCursor, err := h.jobSvc.ListJobApplications(r.Context(), jobID, userID, cursor, limit)
+	items, nextCursor, err := h.jobSvc.ListJobApplications(r.Context(), jobID, userID, cursor, limit, filter)
 	if err != nil {
 		handleJobError(w, err)
 		return

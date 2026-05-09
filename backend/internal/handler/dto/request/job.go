@@ -1,9 +1,17 @@
 package request
 
 // ApplyToJobRequest is the body of POST /api/v1/jobs/{id}/apply.
+//
+// ApplicantKind is optional for backwards compatibility with older
+// mobile clients that do not yet ship the radio. When empty the backend
+// derives the kind from the applicant's role (provider → 'freelance',
+// agency → 'agency'). When set, the value MUST be one of {freelance,
+// agency, referrer}; the app layer further enforces that the requested
+// kind is consistent with the applicant's role + referrer flag.
 type ApplyToJobRequest struct {
-	Message  string  `json:"message" validate:"required,min=1,max=5000"`
-	VideoURL *string `json:"video_url,omitempty" validate:"omitempty,url,max=2048"`
+	Message       string  `json:"message" validate:"required,min=1,max=5000"`
+	VideoURL      *string `json:"video_url,omitempty" validate:"omitempty,url,max=2048"`
+	ApplicantKind string  `json:"applicant_kind,omitempty" validate:"omitempty,oneof=freelance agency referrer"`
 }
 
 // CreateJobRequest is the body of POST /api/v1/jobs.
