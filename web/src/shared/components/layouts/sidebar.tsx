@@ -23,6 +23,7 @@ import {
   ReceiptText,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useUser, useLogout, useOrganization } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
@@ -166,6 +167,14 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const { data: unreadData } = useUnreadCount()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
+  // PERF-FIX-W-SIDEBAR-POLL: read the URL search reactively instead of
+  // polling. Each `<NavLink>` used to start its own `setInterval(300ms)`
+  // — with ~17 visible items that fired ~57 callbacks/second on idle,
+  // pushing dev-server CPU into double digits. `useSearchParams()` from
+  // `next/navigation` re-renders on the next App Router transition, so
+  // no timer is needed.
+  const searchParams = useSearchParams()
+  const currentSearch = searchParams.toString()
 
   const role = user?.role ?? ""
   // Sync workspace to referrer when visiting the /referral page (mount-only)
@@ -285,6 +294,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               item={item}
               label={t(item.labelKey)}
               pathname={pathname}
+              currentSearch={currentSearch}
               onClick={onClose}
               collapsed={collapsed}
               badge={item.labelKey === "messages" ? (unreadData?.count ?? 0) : 0}
@@ -396,44 +406,30 @@ function ReferrerSwitch({
   )
 }
 
+type NavLinkProps = {
+  item: NavItem
+  label: string
+  pathname: string
+  currentSearch: string
+  onClick?: () => void
+  collapsed: boolean
+  badge?: number
+}
+
 function NavLink({
   item,
   label,
   pathname,
+  currentSearch,
   onClick,
   collapsed,
   badge = 0,
-}: {
-  item: NavItem
-  label: string
-  pathname: string
-  onClick?: () => void
-  collapsed: boolean
-  badge?: number
-}) {
-  // Track browser search params reactively.
-  // pathname alone is not enough — /search?type=freelancer → /search?type=agency
-  // has the same pathname but different search params.
-  // Use href from the Link component's click to detect the full URL change.
-  const [currentSearch, setCurrentSearch] = useState("")
-
-  useEffect(() => {
-    const updateSearch = () => setCurrentSearch(window.location.search)
-    updateSearch()
-
-    // Listen for popstate (back/forward) and custom event for client-side nav
-    window.addEventListener("popstate", updateSearch)
-
-    // MutationObserver on the URL is not possible, so use a short interval
-    // that only runs while the component is mounted (cleans up on unmount)
-    const interval = setInterval(updateSearch, 300)
-
-    return () => {
-      window.removeEventListener("popstate", updateSearch)
-      clearInterval(interval)
-    }
-  }, [pathname])
-
+}: NavLinkProps) {
+  // PERF-FIX-W-SIDEBAR-POLL: `currentSearch` now comes from the parent's
+  // `useSearchParams()` call (one subscription for the whole sidebar).
+  // The previous per-item `setInterval(updateSearch, 300)` fired ~3
+  // callbacks/sec PER nav item — with 17 items that's ~57 callbacks/s
+  // of pure overhead in an otherwise idle tab.
   const [hrefPath, hrefQuery] = item.href.split("?")
   const hrefParams = new URLSearchParams(hrefQuery ?? "")
   const currentParams = new URLSearchParams(currentSearch)
