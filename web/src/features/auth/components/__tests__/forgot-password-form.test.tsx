@@ -89,7 +89,9 @@ describe("ForgotPasswordForm", () => {
   })
 
   it("shows the loading copy while submitting", async () => {
-    mockForgotPassword.mockImplementation(() => new Promise<void>(() => {}))
+    mockForgotPassword.mockImplementation(
+      () => new Promise<{ message: string }>(() => {}),
+    )
 
     const user = userEvent.setup()
     renderForm()
@@ -110,7 +112,7 @@ describe("ForgotPasswordForm", () => {
   })
 
   it("renders the success state when the API call resolves", async () => {
-    mockForgotPassword.mockResolvedValueOnce(undefined)
+    mockForgotPassword.mockResolvedValueOnce({ message: "ok" })
 
     const user = userEvent.setup()
     renderForm()
@@ -150,7 +152,7 @@ describe("ForgotPasswordForm", () => {
   })
 
   it("the success state exposes a back-to-login link", async () => {
-    mockForgotPassword.mockResolvedValueOnce(undefined)
+    mockForgotPassword.mockResolvedValueOnce({ message: "ok" })
 
     const user = userEvent.setup()
     renderForm()
