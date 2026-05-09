@@ -6890,6 +6890,12 @@ abstract class AppLocalizations {
   /// **'Secured payment · escrow guaranteed by the platform'**
   String get proposalFlow_pay_secureNotice;
 
+  /// No description provided for @proposalFlow_pay_billingIdentityCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete my billing info'**
+  String get proposalFlow_pay_billingIdentityCta;
+
   /// No description provided for @proposalFlow_detail_eyebrowPending.
   ///
   /// In en, this message translates to:

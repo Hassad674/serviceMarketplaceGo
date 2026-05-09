@@ -124,6 +124,16 @@ class _PaymentForm extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback onConfirm;
 
+  /// Opens the inline billing-profile sheet so the user can fill in
+  /// SIRET / VAT / legal name BEFORE the payment is simulated. The
+  /// information feeds the receipt snapshot the backend captures at
+  /// PaymentIntent creation, mirroring the web flow's "save billing
+  /// identity → pay" sequence on mobile (which is simulation-only and
+  /// has no Stripe Payment Element to embed billingDetails in).
+  Future<void> _openBillingSheet(BuildContext context) async {
+    await showBillingProfileInlineSheet(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -239,7 +249,26 @@ class _PaymentForm extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        // Inline billing identity reminder. Opens the full BillingProfile
+        // form in a bottom sheet so the user can fill SIRET/VAT/legal-name
+        // BEFORE confirming the simulation. Mirrors the web flow that
+        // captures the same fields above the Stripe Payment Element.
+        OutlinedButton.icon(
+          onPressed: isProcessing ? null : () => _openBillingSheet(context),
+          icon: const Icon(Icons.receipt_long_rounded, size: 18),
+          label: Text(l10n.proposalFlow_pay_billingIdentityCta),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            shape: const StadiumBorder(),
+            textStyle: SoleilTextStyles.button,
+            foregroundColor: theme.colorScheme.onSurface,
+            side: BorderSide(
+              color: appColors?.border ?? theme.dividerColor,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: isProcessing ? null : onConfirm,
           icon: isProcessing
