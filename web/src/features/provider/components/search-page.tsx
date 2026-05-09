@@ -65,16 +65,33 @@ interface SearchPageProps {
    * "loading" flash on first paint.
    */
   initialFirstPage?: BackendSearchPage
+  /**
+   * Optional initial query string. The public listing routes
+   * (/freelancers, /agencies, /referrers) read `?q=` from the URL
+   * (set by the landing page search bar) and forward it here so the
+   * results panel prefills the input AND fires a fetch on mount.
+   * Empty string keeps the unscoped catalog behaviour.
+   */
+  initialQuery?: string
 }
 
-export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
+export function SearchPage({
+  type,
+  initialFirstPage,
+  initialQuery = "",
+}: SearchPageProps) {
   const t = useTranslations("search")
   // queryDraft owns the live input value; appliedQuery is what we
   // feed the search hook. Decoupling them is the whole point of
   // submit-only — the user types freely without burning network
   // requests until Enter / magnifier click.
-  const [queryDraft, setQueryDraft] = useState("")
-  const [appliedQuery, setAppliedQuery] = useState("")
+  //
+  // initialQuery seeds BOTH so the URL `?q=foo` produces a real
+  // results panel (not just a pre-filled empty input). A non-empty
+  // initialQuery also invalidates the RSC seed because that seed is
+  // unscoped — let the hook refetch with the actual query.
+  const [queryDraft, setQueryDraft] = useState(initialQuery)
+  const [appliedQuery, setAppliedQuery] = useState(initialQuery)
   // Same draft/applied split for filters: edits stay local until
   // the user clicks "Apply" in the sidebar, mirroring the input UX.
   const [filtersDraft, setFiltersDraft] =
@@ -90,7 +107,11 @@ export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
     filters: filtersToInput(appliedFilters),
     sortBy: sortKeyToTypesense(sort),
     perPage: 20,
-    initialFirstPage,
+    // The RSC seed is fetched without a query; pass it through only
+    // when the page boots without an initial query so the seed is a
+    // valid match. Otherwise let the hook refetch with the user's
+    // query — the seed would mislead the results panel.
+    initialFirstPage: appliedQuery ? undefined : initialFirstPage,
   })
 
   const handleSelect = useCallback(

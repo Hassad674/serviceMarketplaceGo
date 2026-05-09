@@ -17,6 +17,20 @@ import {
 
 type Props = {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+// readInitialQuery extracts the `q` URL param when the visitor
+// arrives from the landing search bar. Mirrors the freelancers /
+// agencies routes — kept inline (rule of three) until search-prefill
+// becomes a richer API (filters, sort, etc.) worth a shared helper.
+function readInitialQuery(
+  searchParams?: Record<string, string | string[] | undefined>,
+): string {
+  const raw = searchParams?.q
+  if (!raw) return ""
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === "string" ? value : ""
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -51,7 +65,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function ReferrersDirectoryPage() {
+export default async function ReferrersDirectoryPage({
+  searchParams,
+}: Props) {
+  const resolvedSearchParams = await searchParams
+  const initialQuery = readInitialQuery(resolvedSearchParams)
   const firstPage = await fetchListingFirstPage("referrer")
   const itemList = firstPage
     ? buildItemList({
@@ -69,7 +87,11 @@ export default async function ReferrersDirectoryPage() {
           dangerouslySetInnerHTML={{ __html: safeJsonLd(itemList) }}
         />
       ) : null}
-      <SearchPage type="referrer" initialFirstPage={firstPage ?? undefined} />
+      <SearchPage
+        type="referrer"
+        initialFirstPage={firstPage ?? undefined}
+        initialQuery={initialQuery}
+      />
     </>
   )
 }

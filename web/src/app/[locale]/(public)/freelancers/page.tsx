@@ -17,6 +17,19 @@ import {
 
 type Props = {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+// readInitialQuery extracts the `q` URL param when the visitor
+// arrives from the landing search bar. We accept only the first
+// value (URLs like `?q=a&q=b` are sloppy callers — pick the first).
+function readInitialQuery(
+  searchParams?: Record<string, string | string[] | undefined>,
+): string {
+  const raw = searchParams?.q
+  if (!raw) return ""
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === "string" ? value : ""
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -51,7 +64,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function FreelancersDirectoryPage() {
+export default async function FreelancersDirectoryPage({
+  searchParams,
+}: Props) {
+  const resolvedSearchParams = await searchParams
+  const initialQuery = readInitialQuery(resolvedSearchParams)
   const firstPage = await fetchListingFirstPage("freelancer")
   const itemList = firstPage
     ? buildItemList({
@@ -69,7 +86,11 @@ export default async function FreelancersDirectoryPage() {
           dangerouslySetInnerHTML={{ __html: safeJsonLd(itemList) }}
         />
       ) : null}
-      <SearchPage type="freelancer" initialFirstPage={firstPage ?? undefined} />
+      <SearchPage
+        type="freelancer"
+        initialFirstPage={firstPage ?? undefined}
+        initialQuery={initialQuery}
+      />
     </>
   )
 }
