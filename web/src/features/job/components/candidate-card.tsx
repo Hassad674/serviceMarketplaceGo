@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { useState } from "react"
 import { Send, User, Video as VideoIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
@@ -9,6 +10,7 @@ import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import type { ApplicationWithProfile } from "../types"
 import { Button } from "@/shared/components/ui/button"
+import { applicantProfileHref } from "./applicant-profile-href"
 
 interface CandidateCardProps {
   item: ApplicationWithProfile
@@ -88,14 +90,30 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
   const displayName = profile.name
   const initials = initialsFromName(displayName)
   const pillClass = kindToPillTone(application.applicant_kind, profile.org_type)
+  // The chat widget + the public profile route both expect an
+  // organization id. application.applicant_id is the applicant USER id
+  // (audit trail) — using it would land on a 404 ("profile not found")
+  // and seed conversations on the wrong org. profile.organization_id
+  // is the canonical owner id for the application.
+  const organizationId = profile.organization_id
+  const profileHref = applicantProfileHref(
+    application.applicant_kind,
+    organizationId,
+  )
+  // Avatar fallback: when next/image errors (broken/expired URL,
+  // unreachable origin) we swap to the initials disc instead of
+  // leaving a broken-image glyph in the row. Mirrors the precedent in
+  // shared/components/ui/user-avatar.tsx (`onError -> setErrored`).
+  const [photoErrored, setPhotoErrored] = useState(false)
+  const showPhoto = Boolean(profile.photo_url) && !photoErrored
 
   function handleSendMessage(e: React.MouseEvent) {
     e.stopPropagation()
     if (isDesktop) {
-      openChatWithOrg(application.applicant_id, displayName)
+      openChatWithOrg(organizationId, displayName)
     } else {
       router.push(
-        `/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`,
+        `/messages?to=${organizationId}&name=${encodeURIComponent(displayName)}`,
       )
     }
   }
@@ -120,13 +138,15 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
     >
       <div className="flex items-center gap-3.5">
         {/* Avatar — next/image when photo_url is set (40×40, rounded). */}
-        {profile.photo_url ? (
+        {showPhoto ? (
           <Image
             src={profile.photo_url}
             alt={displayName}
             width={40}
             height={40}
             className="h-10 w-10 shrink-0 rounded-full object-cover"
+            onError={() => setPhotoErrored(true)}
+            unoptimized
           />
         ) : (
           <div
@@ -176,7 +196,7 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
         {/* Action buttons */}
         <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
           <Link
-            href={`/freelancers/${application.applicant_id}`}
+            href={profileHref}
             onClick={(e) => e.stopPropagation()}
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-3 py-1.5",
