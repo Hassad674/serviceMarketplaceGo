@@ -52,21 +52,25 @@ void _maybeAddKyc(Ref ref, List<DashboardAction> out) {
   if (role == 'enterprise') return;
   final status = (user['kyc_status'] as String?) ?? 'none';
   if (status == 'restricted') {
-    out.add(const DashboardAction(
-      id: 'kyc_restricted',
-      severity: DashboardActionSeverity.critical,
-      label: 'KYC restricted — payouts paused',
-      route: RoutePaths.paymentInfo,
-      detail: 'Open Stripe onboarding to restore payouts',
-    ));
+    out.add(
+      const DashboardAction(
+        id: 'kyc_restricted',
+        severity: DashboardActionSeverity.critical,
+        label: 'KYC restricted — payouts paused',
+        route: RoutePaths.paymentInfo,
+        detail: 'Open Stripe onboarding to restore payouts',
+      ),
+    );
   } else if (status == 'pending') {
-    out.add(const DashboardAction(
-      id: 'kyc_pending',
-      severity: DashboardActionSeverity.warning,
-      label: 'Finish KYC verification',
-      route: RoutePaths.paymentInfo,
-      detail: 'Required before your first payout',
-    ));
+    out.add(
+      const DashboardAction(
+        id: 'kyc_pending',
+        severity: DashboardActionSeverity.warning,
+        label: 'Finish KYC verification',
+        route: RoutePaths.paymentInfo,
+        detail: 'Required before your first payout',
+      ),
+    );
   }
 }
 
@@ -74,25 +78,29 @@ void _maybeAddProfileCompletion(Ref ref, List<DashboardAction> out) {
   final report = ref.watch(profileCompletionProvider).valueOrNull;
   if (report == null) return;
   if (report.percent >= 80) return;
-  out.add(DashboardAction(
-    id: 'profile_incomplete',
-    severity: DashboardActionSeverity.warning,
-    label: 'Complete your profile',
-    route: RoutePaths.profile,
-    detail: '${report.percent}% — boost your visibility',
-  ));
+  out.add(
+    DashboardAction(
+      id: 'profile_incomplete',
+      severity: DashboardActionSeverity.warning,
+      label: 'Complete your profile',
+      route: RoutePaths.profile,
+      detail: '${report.percent}% — boost your visibility',
+    ),
+  );
 }
 
 void _maybeAddBillingProfile(Ref ref, List<DashboardAction> out) {
   final completeness = ref.watch(billingProfileCompletenessProvider);
   if (completeness.isLoading || completeness.isComplete) return;
-  out.add(const DashboardAction(
-    id: 'billing_incomplete',
-    severity: DashboardActionSeverity.warning,
-    label: 'Add billing details',
-    route: RoutePaths.billingProfile,
-    detail: 'Required to invoice your clients',
-  ));
+  out.add(
+    const DashboardAction(
+      id: 'billing_incomplete',
+      severity: DashboardActionSeverity.warning,
+      label: 'Add billing details',
+      route: RoutePaths.billingProfile,
+      detail: 'Required to invoice your clients',
+    ),
+  );
 }
 
 void _maybeAddUnreadMessages(Ref ref, List<DashboardAction> out) {
@@ -102,15 +110,17 @@ void _maybeAddUnreadMessages(Ref ref, List<DashboardAction> out) {
     (sum, c) => sum + c.unreadCount,
   );
   if (totalUnread <= 0) return;
-  out.add(DashboardAction(
-    id: 'messages_unread',
-    severity: totalUnread >= 5
-        ? DashboardActionSeverity.critical
-        : DashboardActionSeverity.warning,
-    label: 'Reply to unread messages',
-    route: RoutePaths.messaging,
-    detail: '$totalUnread waiting',
-  ));
+  out.add(
+    DashboardAction(
+      id: 'messages_unread',
+      severity: totalUnread >= 5
+          ? DashboardActionSeverity.critical
+          : DashboardActionSeverity.warning,
+      label: 'Reply to unread messages',
+      route: RoutePaths.messaging,
+      detail: '$totalUnread waiting',
+    ),
+  );
 }
 
 void _maybeAddPendingProposals(Ref ref, List<DashboardAction> out) {
@@ -118,13 +128,15 @@ void _maybeAddPendingProposals(Ref ref, List<DashboardAction> out) {
   if (proposals == null) return;
   final pending = proposals.where((p) => p.status == 'pending').length;
   if (pending <= 0) return;
-  out.add(DashboardAction(
-    id: 'proposals_pending',
-    severity: DashboardActionSeverity.critical,
-    label: 'Action required on proposals',
-    route: RoutePaths.projects,
-    detail: '$pending awaiting your response',
-  ));
+  out.add(
+    DashboardAction(
+      id: 'proposals_pending',
+      severity: DashboardActionSeverity.critical,
+      label: 'Action required on proposals',
+      route: RoutePaths.projects,
+      detail: '$pending awaiting your response',
+    ),
+  );
 }
 
 void _maybeAddPremiumExpiring(Ref ref, List<DashboardAction> out) {
@@ -133,15 +145,17 @@ void _maybeAddPremiumExpiring(Ref ref, List<DashboardAction> out) {
   if (!sub.cancelAtPeriodEnd) return;
   final daysLeft = sub.currentPeriodEnd.difference(DateTime.now()).inDays;
   if (daysLeft < 0 || daysLeft > 7) return;
-  out.add(DashboardAction(
-    id: 'premium_expiring',
-    severity: DashboardActionSeverity.warning,
-    label: 'Premium expiring soon',
-    route: RoutePaths.pricing,
-    detail: daysLeft == 0
-        ? 'Ends today'
-        : daysLeft == 1
-            ? 'Ends tomorrow'
-            : 'Ends in $daysLeft days',
-  ));
+  out.add(
+    DashboardAction(
+      id: 'premium_expiring',
+      severity: DashboardActionSeverity.warning,
+      label: 'Premium expiring soon',
+      route: RoutePaths.pricing,
+      detail: daysLeft == 0
+          ? 'Ends today'
+          : daysLeft == 1
+              ? 'Ends tomorrow'
+              : 'Ends in $daysLeft days',
+    ),
+  );
 }
