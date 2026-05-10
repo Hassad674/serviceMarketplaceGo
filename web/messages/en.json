@@ -2461,5 +2461,138 @@
     "description": "We use an analytics tool to improve the service. You can refuse without losing anything.",
     "accept": "Accept",
     "refuse": "Refuse"
+  },
+  "legal": {
+    "footer": {
+      "ariaLabel": "Legal and privacy links",
+      "privacy": "Privacy policy",
+      "cookies": "Cookies",
+      "legal": "Legal notice",
+      "cgu": "Terms of use",
+      "cgv": "Sales terms",
+      "subprocessors": "Sub-processors",
+      "dpoContact": "GDPR contact",
+      "copyright": "© {year} Marketplace Service. All rights reserved."
+    },
+    "common": {
+      "placeholder": "This page will be completed shortly. The final wording is being prepared and will be published at the end of the GDPR documentation phase.",
+      "lastUpdated": "Last updated: {date}",
+      "contactDpo": "Question about your data? Reach out to {email}.",
+      "back": "Back to home"
+    },
+    "privacy": {
+      "title": "Privacy policy",
+      "intro": "This policy describes how Marketplace Service collects, uses, and protects your personal data in compliance with the GDPR.",
+      "rightsTitle": "Your rights",
+      "rightsDescription": "You have rights of access, rectification, erasure, portability, restriction, objection, and consent withdrawal. To exercise them, write to our GDPR contact or appeal to the CNIL ({cnilUrl}).",
+      "subprocessorsTitle": "Sub-processors",
+      "subprocessorsDescription": "Read the up-to-date list of our sub-processors: {link}."
+    },
+    "cookies": {
+      "title": "Cookies and trackers",
+      "intro": "This page lists every cookie and local storage key used by the service. You can change your choice anytime from the consent banner.",
+      "tableHeader": {
+        "name": "Cookie / key",
+        "provider": "Provider",
+        "type": "Type",
+        "purpose": "Purpose",
+        "duration": "Duration"
+      },
+      "rows": {
+        "session": {
+          "name": "session_id",
+          "provider": "Marketplace Service (internal)",
+          "type": "Strictly necessary",
+          "purpose": "Maintain your authenticated session",
+          "duration": "14 days"
+        },
+        "consent": {
+          "name": "marketplace.analytics.consent",
+          "provider": "Marketplace Service (localStorage)",
+          "type": "Strictly necessary",
+          "purpose": "Remember your consent choice",
+          "duration": "Until browser is cleared"
+        },
+        "stripe": {
+          "name": "Stripe cookies (m, __stripe_*)",
+          "provider": "Stripe (Ireland / United States)",
+          "type": "Strictly necessary (payments)",
+          "purpose": "Secure payments and KYC compliance",
+          "duration": "Up to 1 year"
+        },
+        "posthog": {
+          "name": "PostHog cookies (ph_*)",
+          "provider": "PostHog (Ireland)",
+          "type": "Audience measurement — opt-in",
+          "purpose": "Analyze service usage in aggregate",
+          "duration": "1 year"
+        },
+        "ga4": {
+          "name": "Google Analytics cookies (_ga, _ga_*)",
+          "provider": "Google (United States, DPF)",
+          "type": "Audience measurement — opt-in",
+          "purpose": "Measure acquisition and engagement",
+          "duration": "2 years"
+        },
+        "locale": {
+          "name": "NEXT_LOCALE",
+          "provider": "Marketplace Service",
+          "type": "Functional",
+          "purpose": "Remember your preferred language",
+          "duration": "Session"
+        }
+      }
+    },
+    "mentions": {
+      "title": "Legal notice",
+      "intro": "Pursuant to article 6 III of the French LCEN law no. 2004-575 of 21 June 2004, here are the service's legal mentions.",
+      "editorTitle": "Editor",
+      "editorPlaceholder": "Marketplace Service — legal entity details (company name, address, registry number, capital, publication director) being finalized.",
+      "hostingTitle": "Hosting",
+      "hostingDescription": "Frontend hosted by Vercel Inc. (340 S Lemon Ave #4133, Walnut, CA 91789, USA). API hosted by Railway Corp. (1771 Page Mill Rd, Palo Alto, CA 94304, USA). Database hosted by Neon (EU region)."
+    },
+    "cgu": {
+      "title": "Terms of use",
+      "intro": "These terms govern the use of the marketplace by agencies, freelancers, enterprises, and business referrers."
+    },
+    "cgv": {
+      "title": "Sales terms",
+      "intro": "These terms govern the commercial relationships and payments handled through the marketplace."
+    },
+    "subprocessors": {
+      "title": "Sub-processors",
+      "intro": "We rely on the sub-processors listed below to operate the service. The list is kept up to date; for any question, reach out to our GDPR contact.",
+      "tableHeader": {
+        "vendor": "Vendor",
+        "country": "Country",
+        "purpose": "Purpose",
+        "transfer": "Non-EU transfer"
+      },
+      "transferYes": "Yes (DPF / SCC)",
+      "transferNo": "No — EU",
+      "rows": {
+        "vercel": { "vendor": "Vercel", "country": "US", "purpose": "Web hosting" },
+        "railway": { "vendor": "Railway", "country": "US", "purpose": "API hosting" },
+        "neon": { "vendor": "Neon", "country": "EU", "purpose": "PostgreSQL database" },
+        "r2": { "vendor": "Cloudflare R2", "country": "US/EU", "purpose": "Object storage (media, documents)" },
+        "resend": { "vendor": "Resend", "country": "US", "purpose": "Transactional email" },
+        "stripe": { "vendor": "Stripe", "country": "US/IE", "purpose": "Payments + Connect KYC" },
+        "livekit": { "vendor": "LiveKit", "country": "US", "purpose": "Video calls" },
+        "openai": { "vendor": "OpenAI", "country": "US", "purpose": "Text moderation + embeddings" },
+        "anthropic": { "vendor": "Anthropic", "country": "US", "purpose": "AI dispute analysis" },
+        "rekognition": { "vendor": "AWS Rekognition", "country": "EU (eu-west-1)", "purpose": "Image / video moderation" },
+        "s3transit": { "vendor": "AWS S3 (moderation transit)", "country": "EU", "purpose": "Video transit before moderation" },
+        "snssqs": { "vendor": "AWS SNS + SQS", "country": "EU", "purpose": "Moderation completion notifications" },
+        "fcm": { "vendor": "Firebase Cloud Messaging", "country": "US", "purpose": "Push notifications" },
+        "typesense": { "vendor": "Typesense", "country": "EU", "purpose": "Search engine" },
+        "posthog": { "vendor": "PostHog", "country": "EU (Ireland)", "purpose": "Product analytics (opt-in)" },
+        "ga4": { "vendor": "Google Analytics 4", "country": "US", "purpose": "Marketing analytics (opt-in)" },
+        "vies": { "vendor": "VIES (European Commission)", "country": "EU", "purpose": "Intra-community VAT validation" },
+        "nominatim": { "vendor": "Nominatim (OSM)", "country": "EU (DE)", "purpose": "Address autocomplete" },
+        "ban": { "vendor": "BAN (api-adresse.data.gouv.fr)", "country": "FR", "purpose": "FR address autocomplete" },
+        "photon": { "vendor": "Photon (komoot.io)", "country": "EU (DE)", "purpose": "International city autocomplete" },
+        "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + DDoS protection" }
+      }
+    }
   }
 }

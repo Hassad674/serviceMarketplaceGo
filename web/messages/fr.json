@@ -2461,5 +2461,138 @@
     "description": "On utilise un outil d'analyse pour améliorer le service. Tu peux refuser sans rien perdre.",
     "accept": "Accepter",
     "refuse": "Refuser"
+  },
+  "legal": {
+    "footer": {
+      "ariaLabel": "Liens légaux et confidentialité",
+      "privacy": "Politique de confidentialité",
+      "cookies": "Cookies",
+      "legal": "Mentions légales",
+      "cgu": "CGU",
+      "cgv": "CGV",
+      "subprocessors": "Sous-processeurs",
+      "dpoContact": "Contact RGPD",
+      "copyright": "© {year} Marketplace Service. Tous droits réservés."
+    },
+    "common": {
+      "placeholder": "Cette page sera complétée prochainement. La rédaction définitive est en cours et sera publiée à l'issue de la phase documentaire RGPD.",
+      "lastUpdated": "Dernière mise à jour : {date}",
+      "contactDpo": "Une question sur tes données ? Écris à {email}.",
+      "back": "Revenir à l'accueil"
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "intro": "Cette politique décrit comment Marketplace Service collecte, utilise et protège tes données personnelles dans le respect du RGPD.",
+      "rightsTitle": "Tes droits",
+      "rightsDescription": "Tu disposes des droits d'accès, de rectification, d'effacement, de portabilité, de limitation, d'opposition et de retrait du consentement. Pour les exercer, écris à notre point de contact RGPD ou recours à la CNIL ({cnilUrl}).",
+      "subprocessorsTitle": "Sous-processeurs",
+      "subprocessorsDescription": "Consulte la liste à jour de nos sous-processeurs : {link}."
+    },
+    "cookies": {
+      "title": "Cookies et traceurs",
+      "intro": "Cette page liste tous les cookies et stockages locaux utilisés par le service. Tu peux modifier ton choix à tout moment depuis le bandeau de consentement.",
+      "tableHeader": {
+        "name": "Cookie / clé",
+        "provider": "Fournisseur",
+        "type": "Type",
+        "purpose": "Finalité",
+        "duration": "Durée"
+      },
+      "rows": {
+        "session": {
+          "name": "session_id",
+          "provider": "Marketplace Service (interne)",
+          "type": "Strictement nécessaire",
+          "purpose": "Maintenir ta session authentifiée",
+          "duration": "14 jours"
+        },
+        "consent": {
+          "name": "marketplace.analytics.consent",
+          "provider": "Marketplace Service (localStorage)",
+          "type": "Strictement nécessaire",
+          "purpose": "Mémoriser ton choix de consentement",
+          "duration": "Jusqu'à effacement du navigateur"
+        },
+        "stripe": {
+          "name": "Cookies Stripe (m, __stripe_*)",
+          "provider": "Stripe (Irlande / États-Unis)",
+          "type": "Strictement nécessaire (paiement)",
+          "purpose": "Sécuriser les paiements et la conformité KYC",
+          "duration": "1 an maximum"
+        },
+        "posthog": {
+          "name": "Cookies PostHog (ph_*)",
+          "provider": "PostHog (Irlande)",
+          "type": "Mesure d'audience — opt-in",
+          "purpose": "Analyser l'utilisation du service de manière agrégée",
+          "duration": "1 an"
+        },
+        "ga4": {
+          "name": "Cookies Google Analytics (_ga, _ga_*)",
+          "provider": "Google (États-Unis, DPF)",
+          "type": "Mesure d'audience — opt-in",
+          "purpose": "Mesurer l'acquisition et l'engagement",
+          "duration": "2 ans"
+        },
+        "locale": {
+          "name": "NEXT_LOCALE",
+          "provider": "Marketplace Service",
+          "type": "Fonctionnel",
+          "purpose": "Mémoriser ta langue préférée",
+          "duration": "Session"
+        }
+      }
+    },
+    "mentions": {
+      "title": "Mentions légales",
+      "intro": "Conformément à l'article 6 III de la loi LCEN n° 2004-575 du 21 juin 2004, voici les mentions légales du service.",
+      "editorTitle": "Éditeur",
+      "editorPlaceholder": "Marketplace Service — informations légales (raison sociale, adresse, RCS, capital, directeur de publication) en cours de finalisation.",
+      "hostingTitle": "Hébergement",
+      "hostingDescription": "Frontend hébergé par Vercel Inc. (340 S Lemon Ave #4133, Walnut, CA 91789, USA). API hébergée par Railway Corp. (1771 Page Mill Rd, Palo Alto, CA 94304, USA). Base de données hébergée par Neon (région UE)."
+    },
+    "cgu": {
+      "title": "Conditions Générales d'Utilisation",
+      "intro": "Ces conditions encadrent l'usage de la marketplace par les agences, freelances, entreprises et apporteurs d'affaires."
+    },
+    "cgv": {
+      "title": "Conditions Générales de Vente",
+      "intro": "Ces conditions encadrent les relations commerciales et les paiements transitant via la marketplace."
+    },
+    "subprocessors": {
+      "title": "Sous-processeurs",
+      "intro": "Nous nous appuyons sur les sous-processeurs ci-dessous pour faire fonctionner le service. La liste est tenue à jour ; en cas de question, écris à notre point de contact RGPD.",
+      "tableHeader": {
+        "vendor": "Fournisseur",
+        "country": "Pays",
+        "purpose": "Finalité",
+        "transfer": "Transfert hors UE"
+      },
+      "transferYes": "Oui (DPF / SCC)",
+      "transferNo": "Non — UE",
+      "rows": {
+        "vercel": { "vendor": "Vercel", "country": "US", "purpose": "Hébergement web" },
+        "railway": { "vendor": "Railway", "country": "US", "purpose": "Hébergement API" },
+        "neon": { "vendor": "Neon", "country": "UE", "purpose": "Base de données PostgreSQL" },
+        "r2": { "vendor": "Cloudflare R2", "country": "US/UE", "purpose": "Stockage objet (médias, documents)" },
+        "resend": { "vendor": "Resend", "country": "US", "purpose": "Emails transactionnels" },
+        "stripe": { "vendor": "Stripe", "country": "US/IE", "purpose": "Paiements + KYC Connect" },
+        "livekit": { "vendor": "LiveKit", "country": "US", "purpose": "Appels vidéo" },
+        "openai": { "vendor": "OpenAI", "country": "US", "purpose": "Modération de texte + embeddings" },
+        "anthropic": { "vendor": "Anthropic", "country": "US", "purpose": "Analyse IA des litiges" },
+        "rekognition": { "vendor": "AWS Rekognition", "country": "UE (eu-west-1)", "purpose": "Modération d'images / vidéo" },
+        "s3transit": { "vendor": "AWS S3 (transit modération)", "country": "UE", "purpose": "Transit vidéo avant modération" },
+        "snssqs": { "vendor": "AWS SNS + SQS", "country": "UE", "purpose": "Notifications fin de modération" },
+        "fcm": { "vendor": "Firebase Cloud Messaging", "country": "US", "purpose": "Notifications push" },
+        "typesense": { "vendor": "Typesense", "country": "UE", "purpose": "Moteur de recherche" },
+        "posthog": { "vendor": "PostHog", "country": "UE (Irlande)", "purpose": "Mesure d'audience produit (opt-in)" },
+        "ga4": { "vendor": "Google Analytics 4", "country": "US", "purpose": "Mesure d'audience marketing (opt-in)" },
+        "vies": { "vendor": "VIES (Commission Européenne)", "country": "UE", "purpose": "Validation de TVA intracommunautaire" },
+        "nominatim": { "vendor": "Nominatim (OSM)", "country": "UE (DE)", "purpose": "Auto-complétion d'adresse" },
+        "ban": { "vendor": "BAN (api-adresse.data.gouv.fr)", "country": "FR", "purpose": "Auto-complétion d'adresse FR" },
+        "photon": { "vendor": "Photon (komoot.io)", "country": "UE (DE)", "purpose": "Auto-complétion de villes internationales" },
+        "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + protection DDoS" }
+      }
+    }
   }
 }

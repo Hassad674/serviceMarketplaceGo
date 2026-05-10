@@ -3,6 +3,7 @@
 import { useUser } from "@/shared/hooks/use-user"
 import { DashboardShell } from "@/shared/components/layouts/dashboard-shell"
 import { PublicNavbar } from "@/shared/components/layouts/public-navbar"
+import { LegalFooter } from "@/shared/components/legal/legal-footer"
 
 export default function PublicLayout({
   children,
@@ -16,13 +17,19 @@ export default function PublicLayout({
   }
 
   if (user) {
-    return <DashboardShell>{children}</DashboardShell>
+    return (
+      <DashboardShell>
+        {children}
+        <LegalFooter />
+      </DashboardShell>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       <PublicNavbar />
-      <main className="mx-auto max-w-7xl px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">{children}</main>
+      <LegalFooter />
     </div>
   )
 }
