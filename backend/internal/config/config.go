@@ -53,6 +53,14 @@ type Config struct {
 	StorageBucket    string
 	StorageUseSSL    bool
 	StoragePublicURL string
+	// AuditColdStorageBucket is the destination bucket for the B.2
+	// cold-tier audit log archive (gzipped JSONL bundles uploaded to
+	// R2 when an audit_logs_archive row is older than the cold-tier
+	// cutoff). Empty = feature disabled, the archive_to_r2 retention
+	// policy skips itself. Allowed to equal StorageBucket; the sweep
+	// scopes its keys under the `audit-cold/` prefix so collisions
+	// with user uploads are impossible.
+	AuditColdStorageBucket string
 	ResendAPIKey         string
 	ResendDevRedirectTo  string // optional: if set, all outgoing emails are routed here (dev/staging sandbox)
 	EmailFrom            string // RFC 5322 sender, e.g. "Marketplace <noreply@designedtrust.com>"
@@ -181,6 +189,12 @@ func Load() *Config {
 		StorageBucket:    getEnv("STORAGE_BUCKET", "marketplace"),
 		StorageUseSSL:    getEnv("STORAGE_USE_SSL", "false") == "true",
 		StoragePublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/marketplace"),
+		// B.2 cold-tier audit archive bucket. Empty by default — the
+		// retention sweep skips the archive_to_r2 policy until the
+		// operator opts in by setting STORAGE_AUDIT_COLD_BUCKET. In
+		// production this is a separate R2 bucket from user uploads
+		// so cost reporting splits cleanly between the two tiers.
+		AuditColdStorageBucket: getEnv("STORAGE_AUDIT_COLD_BUCKET", ""),
 		ResendAPIKey:        getEnv("RESEND_API_KEY", ""),
 		ResendDevRedirectTo: getEnv("RESEND_DEV_REDIRECT_TO", ""),
 		EmailFrom:           getEnv("EMAIL_FROM", "Marketplace Service <onboarding@resend.dev>"),
