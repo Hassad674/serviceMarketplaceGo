@@ -34,7 +34,11 @@ CREATE TABLE IF NOT EXISTS two_factor_challenges (
 -- "find latest pending challenge for this user" without scanning
 -- expired/used rows. The verify handler calls this on every 2FA
 -- submission so the index pays for itself immediately.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2fa_user_pending
+-- Note: CONCURRENTLY removed because golang-migrate wraps each migration
+-- in a transaction by default and CREATE INDEX CONCURRENTLY cannot run
+-- inside one. The table is empty at deploy time, so the brief AccessShare
+-- lock is negligible.
+CREATE INDEX IF NOT EXISTS idx_2fa_user_pending
     ON two_factor_challenges(user_id, used_at, expires_at)
     WHERE used_at IS NULL;
 
