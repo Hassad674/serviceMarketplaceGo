@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/config"
 )
@@ -37,18 +38,31 @@ func TestSecurityHeaders_AllHeadersSet(t *testing.T) {
 				header string
 				want   string
 			}{
-				{"Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"},
 				{"X-Content-Type-Options", "nosniff"},
 				{"X-Frame-Options", "DENY"},
 				{"X-Xss-Protection", "0"},
 				{"Strict-Transport-Security", "max-age=31536000; includeSubDomains"},
 				{"Referrer-Policy", "strict-origin-when-cross-origin"},
 				{"Permissions-Policy", "camera=(self), microphone=(self), geolocation=()"},
+				// B.3 Cross-Origin-* trio — values are checked verbatim
+				// because the policy choice (same-origin / same-site /
+				// credentialless) is part of the documented contract
+				// and any drift must be a deliberate, reviewed change.
+				{"Cross-Origin-Opener-Policy", "same-origin"},
+				{"Cross-Origin-Resource-Policy", "same-site"},
+				{"Cross-Origin-Embedder-Policy", "credentialless"},
 			}
 			for _, tc := range tests {
 				assert.Equal(t, tc.want, rec.Header().Get(tc.header),
 					"header %s must be set to the expected value", tc.header)
 			}
+
+			// CSP is asserted separately because the directive list is
+			// long and we want to reason about each directive
+			// individually rather than against a single 600-char
+			// string literal that is brittle to refactor.
+			csp := rec.Header().Get("Content-Security-Policy")
+			require.NotEmpty(t, csp, "Content-Security-Policy must be set")
 		})
 	}
 }
@@ -188,6 +202,208 @@ func TestSecurityHeaders_PermissionsPolicy_AllowsMicrophoneCamera(t *testing.T) 
 	assert.Equal(t, "()", geo,
 		"geolocation must remain disabled — the app does not use it. "+
 			"If you add a feature that needs it, update this test alongside the policy.")
+}
+
+// TestSecurityHeaders_CSP_HardenedDirectives asserts the B.3
+// hardening: every injection-mitigation directive is present with the
+// exact value, and the legacy `default-src 'self'` baseline survives.
+// Each assertion is its own line so a regression points at the
+// missing directive directly rather than at a 600-char diff.
+func TestSecurityHeaders_CSP_HardenedDirectives(t *testing.T) {
+	csp := captureCSP(t, &config.Config{Env: "production"})
+	directives := parseCSP(csp)
+
+	require.NotEmpty(t, directives, "CSP must contain at least one directive")
+
+	// The baseline that existed before B.3 — keep it explicit so a
+	// future refactor cannot silently widen `default-src`.
+	assert.Equal(t, "'self'", directives["default-src"],
+		"default-src must remain 'self'")
+
+	// Injection-mitigation directives added in B.3.
+	assert.Equal(t, "'none'", directives["frame-ancestors"],
+		"frame-ancestors must be 'none' to defend against clickjacking "+
+			"even when X-Frame-Options is ignored by the browser")
+	assert.Equal(t, "'self'", directives["base-uri"],
+		"base-uri must be 'self' to block <base href> hijacking on injected HTML")
+	assert.Equal(t, "'self'", directives["form-action"],
+		"form-action must be 'self' to block <form action=evil> on injected HTML")
+	assert.Equal(t, "'none'", directives["object-src"],
+		"object-src must be 'none' — the app embeds no <object>/<embed>/<applet>")
+}
+
+// TestSecurityHeaders_CSP_ThirdPartyWhitelists asserts every vendor the
+// front-end actually contacts is whitelisted in the appropriate
+// directive. The test is per-vendor rather than per-directive so a
+// failure points at the integration that broke (Stripe / LiveKit /
+// PostHog / GA / R2) instead of "CSP is wrong".
+func TestSecurityHeaders_CSP_ThirdPartyWhitelists(t *testing.T) {
+	csp := captureCSP(t, &config.Config{Env: "production"})
+	directives := parseCSP(csp)
+
+	t.Run("stripe", func(t *testing.T) {
+		// Loader script + iframe + API endpoint all need a slot.
+		assert.Contains(t, directives["script-src"], "https://js.stripe.com",
+			"script-src must whitelist js.stripe.com (Stripe.js loader)")
+		assert.Contains(t, directives["script-src"], "https://*.stripe.com",
+			"script-src must whitelist *.stripe.com (Embedded Components)")
+		assert.Contains(t, directives["frame-src"], "https://js.stripe.com",
+			"frame-src must whitelist js.stripe.com (Checkout iframe)")
+		assert.Contains(t, directives["frame-src"], "https://*.stripe.com",
+			"frame-src must whitelist *.stripe.com (Embedded iframes)")
+		assert.Contains(t, directives["connect-src"], "https://api.stripe.com",
+			"connect-src must whitelist api.stripe.com (Stripe API)")
+		assert.Contains(t, directives["connect-src"], "https://hooks.stripe.com",
+			"connect-src must whitelist hooks.stripe.com (Stripe webhooks)")
+	})
+
+	t.Run("livekit", func(t *testing.T) {
+		assert.Contains(t, directives["connect-src"], "wss://*.livekit.cloud",
+			"connect-src must whitelist wss://*.livekit.cloud (LiveKit signalling)")
+		assert.Contains(t, directives["connect-src"], "https://*.livekit.cloud",
+			"connect-src must whitelist https://*.livekit.cloud (LiveKit config fetch)")
+	})
+
+	t.Run("posthog", func(t *testing.T) {
+		assert.Contains(t, directives["script-src"], "https://*.posthog.com",
+			"script-src must whitelist *.posthog.com (PostHog SDK)")
+		assert.Contains(t, directives["connect-src"], "https://*.posthog.com",
+			"connect-src must whitelist *.posthog.com (capture endpoint)")
+		assert.Contains(t, directives["connect-src"], "https://*.i.posthog.com",
+			"connect-src must whitelist *.i.posthog.com (regional ingest)")
+	})
+
+	t.Run("ga4", func(t *testing.T) {
+		assert.Contains(t, directives["script-src"], "https://www.googletagmanager.com",
+			"script-src must whitelist googletagmanager.com (gtag.js loader)")
+		assert.Contains(t, directives["connect-src"], "https://www.google-analytics.com",
+			"connect-src must whitelist google-analytics.com (GA4 events)")
+		assert.Contains(t, directives["connect-src"], "https://*.analytics.google.com",
+			"connect-src must whitelist *.analytics.google.com (regional GA4)")
+		assert.Contains(t, directives["img-src"], "https://www.google-analytics.com",
+			"img-src must whitelist google-analytics.com (1x1 pixel beacons)")
+	})
+
+	t.Run("cloudflare-r2", func(t *testing.T) {
+		assert.Contains(t, directives["img-src"], "https://*.r2.cloudflarestorage.com",
+			"img-src must whitelist *.r2.cloudflarestorage.com (signed-URL images)")
+		assert.Contains(t, directives["img-src"], "https://*.r2.dev",
+			"img-src must whitelist *.r2.dev (public bucket images)")
+		assert.Contains(t, directives["connect-src"], "https://*.r2.cloudflarestorage.com",
+			"connect-src must whitelist *.r2.cloudflarestorage.com (uploads)")
+		assert.Contains(t, directives["media-src"], "https://*.r2.dev",
+			"media-src must whitelist *.r2.dev (public audio/video)")
+	})
+}
+
+// TestSecurityHeaders_CrossOriginTrio asserts the COOP/CORP/COEP
+// values explicitly. These three are a single security feature
+// (cross-origin isolation) and changing any one in isolation breaks
+// the guarantee — we want a regression to fail loudly with the
+// intended value in the error.
+func TestSecurityHeaders_CrossOriginTrio(t *testing.T) {
+	tests := []struct {
+		header string
+		want   string
+		why    string
+	}{
+		{
+			"Cross-Origin-Opener-Policy",
+			"same-origin",
+			"COOP must be same-origin to neutralise window.opener tabnabbing/XS-Leaks",
+		},
+		{
+			"Cross-Origin-Resource-Policy",
+			"same-site",
+			"CORP must be same-site to allow cross-subdomain loads while blocking arbitrary origins",
+		},
+		{
+			"Cross-Origin-Embedder-Policy",
+			"credentialless",
+			"COEP must be credentialless — require-corp would break Stripe/LiveKit/PostHog/GA embeds " +
+				"because none of those vendors emit a CORP header today",
+		},
+	}
+
+	csp := captureCSP // ensure compile reference unused vars don't drift
+	_ = csp
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := SecurityHeaders(&config.Config{Env: "production"})(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	for _, tt := range tests {
+		t.Run(tt.header, func(t *testing.T) {
+			assert.Equal(t, tt.want, rec.Header().Get(tt.header), tt.why)
+		})
+	}
+}
+
+// TestSecurityHeaders_CrossOriginTrio_NonProduction asserts the
+// Cross-Origin-* trio is emitted in EVERY environment, not just
+// production. HSTS is the only header that gets the "production-only"
+// treatment because it can wedge localhost. The COOP/CORP/COEP trio
+// has no such risk and must guard dev/staging too — an attacker who
+// finds an XS-Leak in dev can exfiltrate dev credentials.
+func TestSecurityHeaders_CrossOriginTrio_NonProduction(t *testing.T) {
+	for _, env := range []string{"development", "staging", ""} {
+		t.Run(env, func(t *testing.T) {
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+			handler := SecurityHeaders(&config.Config{Env: env})(next)
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, "same-origin", rec.Header().Get("Cross-Origin-Opener-Policy"))
+			assert.Equal(t, "same-site", rec.Header().Get("Cross-Origin-Resource-Policy"))
+			assert.Equal(t, "credentialless", rec.Header().Get("Cross-Origin-Embedder-Policy"))
+		})
+	}
+}
+
+// captureCSP runs the middleware once and returns the CSP header.
+// Centralised so every CSP-targeted test has identical setup and a
+// single place to evolve if the constructor signature changes.
+func captureCSP(t *testing.T, cfg *config.Config) string {
+	t.Helper()
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := SecurityHeaders(cfg)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec.Header().Get("Content-Security-Policy")
+}
+
+// parseCSP splits a CSP header value into a directive -> value map.
+// The value is the rest of the directive's source list as a single
+// space-separated string. Tests then `assert.Contains(directives[X], origin)`
+// to verify membership without locking the origin order.
+func parseCSP(header string) map[string]string {
+	out := make(map[string]string)
+	for _, entry := range strings.Split(header, ";") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		sp := strings.Index(entry, " ")
+		if sp < 0 {
+			// Directive with no source list (e.g. `upgrade-insecure-requests`).
+			out[entry] = ""
+			continue
+		}
+		name := strings.TrimSpace(entry[:sp])
+		value := strings.TrimSpace(entry[sp+1:])
+		out[name] = value
+	}
+	return out
 }
 
 // parsePermissionsPolicy splits the header value into directive ->
