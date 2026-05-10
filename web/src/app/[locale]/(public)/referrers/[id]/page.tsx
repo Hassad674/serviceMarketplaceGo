@@ -127,6 +127,9 @@ export default async function ReferrerProfilePage({ params }: Props) {
         ariaLabel={tSeo("breadcrumbAriaLabel")}
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
       />
+      <div className="flex justify-end">
+        <SendMessageButton targetOrgId={id} />
+      </div>
       <ReferrerPublicProfileLoader orgId={id} />
       {profile ? (
         <JsonLd
@@ -141,9 +144,6 @@ export default async function ReferrerProfilePage({ params }: Props) {
       <BreadcrumbsJsonLd
         crumbs={breadcrumbCrumbs.map((c) => ({ name: c.label, item: c.item }))}
       />
-      <div className="flex justify-center pt-2">
-        <SendMessageButton targetOrgId={id} />
-      </div>
       <RelatedProfiles
         type="referrer"
         documents={filteredRelated}
