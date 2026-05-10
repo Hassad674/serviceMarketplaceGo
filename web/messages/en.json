@@ -2463,6 +2463,33 @@
     "accept": "Accept",
     "refuse": "Refuse"
   },
+  "cookieConsent": {
+    "banner": {
+      "title": "You stay in control of your data",
+      "description": "We use strictly necessary cookies to run the service and — only with your consent — analytics cookies to improve the platform. You can change your mind anytime from the Cookies page.",
+      "acceptAll": "Accept all",
+      "refuseAll": "Refuse all",
+      "preferences": "Customise",
+      "footer": "<a href=\"/en/privacy\">Privacy policy</a> · <a href=\"/en/cookies\">Cookies</a>"
+    },
+    "preferences": {
+      "title": "Cookie preferences",
+      "save": "Save my choices",
+      "close": "Close",
+      "intro": {
+        "title": "What these choices do",
+        "description": "Marketplace Service uses two families of cookies: those that are required to log in and pay, and those that help us understand usage to improve the service. This panel lets you choose."
+      },
+      "necessary": {
+        "title": "Strictly necessary",
+        "description": "Required to run the service: authentication, security, Stripe payments, persistence of your consent choice and locale. They cannot be disabled."
+      },
+      "analytics": {
+        "title": "Audience measurement",
+        "description": "PostHog (Ireland) and Google Analytics 4 cookies used to understand service usage in aggregate. No data is shared with advertisers. You can refuse without losing any feature."
+      }
+    }
+  },
   "legal": {
     "footer": {
       "ariaLabel": "Legal and privacy links",

@@ -3,7 +3,7 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { CookieBanner } from "@/shared/components/analytics/cookie-banner"
+import { CookieConsentProvider } from "@/shared/components/analytics/cookie-consent-provider"
 import { GoogleAnalyticsProvider } from "@/shared/components/analytics/google-analytics-provider"
 import { PostHogProvider } from "@/shared/components/analytics/posthog-provider"
 import { useTheme } from "@/shared/hooks/use-theme"
@@ -126,7 +126,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       */}
       <GoogleAnalyticsProvider />
       {children}
-      <CookieBanner />
+      {/*
+        CookieConsentProvider mounts vanilla-cookieconsent (CMP) which
+        injects the consent dialog + preferences modal into
+        `document.body`. The PostHog + GA4 providers above are gated on
+        the `analytics` category — neither fires a network call before
+        the user's first interaction with this CMP.
+      */}
+      <CookieConsentProvider />
     </QueryClientProvider>
   )
 }
