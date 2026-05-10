@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"marketplace-backend/internal/domain/retention"
+	"marketplace-backend/internal/port/service"
 )
 
 // RetentionRepository implements repository.RetentionRepository for
@@ -32,7 +33,9 @@ import (
 // adapter intentionally does not call RunInTxWithTenant — there is
 // no per-user tenant for a system-wide retention pass.
 type RetentionRepository struct {
-	db *sql.DB
+	db           *sql.DB
+	archiveWriter service.AuditArchiveWriter
+	now          func() time.Time
 }
 
 // NewRetentionRepository wires the repo onto a *sql.DB. Production
@@ -40,8 +43,32 @@ type RetentionRepository struct {
 // every row regardless of RLS context. The retention service tags
 // its context as a system actor for clarity, but the underlying
 // pool selection is the load-bearing guard.
+//
+// The repo is functional without an AuditArchiveWriter — every
+// strategy except StrategyArchiveToR2 ignores it. Wire one with
+// WithAuditArchiveWriter when the B.2 cold-tier sweep is enabled.
 func NewRetentionRepository(db *sql.DB) *RetentionRepository {
-	return &RetentionRepository{db: db}
+	return &RetentionRepository{db: db, now: time.Now}
+}
+
+// WithAuditArchiveWriter installs the cold-storage writer used by the
+// StrategyArchiveToR2 sweep. Returns the receiver for chaining at wire
+// time. Calling Sweep with that strategy without a writer wired in
+// surfaces an explicit error so the misconfiguration cannot silently
+// swallow rows.
+func (r *RetentionRepository) WithAuditArchiveWriter(w service.AuditArchiveWriter) *RetentionRepository {
+	r.archiveWriter = w
+	return r
+}
+
+// withClock is a test seam — production callers never use it. It lets
+// the unit test pin the timestamp embedded in R2 keys without
+// stubbing the system clock globally.
+func (r *RetentionRepository) withClock(now func() time.Time) *RetentionRepository {
+	if now != nil {
+		r.now = now
+	}
+	return r
 }
 
 // retentionAllowlist is the single source of truth for which
@@ -76,6 +103,10 @@ var retentionAllowlist = map[string]retentionTableSpec{
 	},
 	"user_sessions": {
 		ageColumns:       map[string]bool{"revoked_at": true},
+		anonymizeColumns: map[string]bool{},
+	},
+	"audit_logs_archive": {
+		ageColumns:       map[string]bool{"archived_at": true},
 		anonymizeColumns: map[string]bool{},
 	},
 }
@@ -127,7 +158,7 @@ func (r *RetentionRepository) Sweep(ctx context.Context, policy retention.Policy
 	if err := validatePolicy(policy); err != nil {
 		return 0, err
 	}
-	now := time.Now().UTC()
+	now := r.now().UTC()
 	switch policy.Strategy {
 	case retention.StrategyDelete:
 		return r.sweepDelete(ctx, policy, now)
@@ -137,6 +168,8 @@ func (r *RetentionRepository) Sweep(ctx context.Context, policy retention.Policy
 		return r.sweepAnonymize(ctx, policy, now)
 	case retention.StrategyDeleteRevokedSessions:
 		return r.sweepDeleteRevokedSessions(ctx, policy, now)
+	case retention.StrategyArchiveToR2:
+		return r.sweepArchiveAuditLogsToR2(ctx, policy, now)
 	default:
 		// Unreachable: validatePolicy already accepts only the
 		// supported strategies. Defense in depth — never fall through
