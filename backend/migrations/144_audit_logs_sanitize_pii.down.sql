@@ -1,0 +1,22 @@
+-- Migration 144 — DOWN (intentionally a no-op)
+--
+-- This migration redacts cleartext PII (email, phone, iban, …) inside
+-- `audit_logs.metadata` by replacing each sensitive value with the
+-- first 16 hex chars of its SHA-256 hash. The transform is one-way:
+-- the cleartext is gone the moment the up migration commits.
+--
+-- A "real" down migration would have to restore the cleartext from
+-- somewhere — but the entire point of the up migration (RGPD art.
+-- 5-1-c data minimization) is that the cleartext must NOT exist in
+-- any other table. There is no reversible path, by design.
+--
+-- Down is therefore documentation-only. If the operator absolutely
+-- needs to roll back the schema state to "pre-144 applied", the only
+-- safe approach is to:
+--   1. Restore the audit_logs table from a pre-migration backup;
+--   2. Manually mark migration 144 as un-applied via
+--      `make migrate-force VERSION=143`.
+-- This is a destructive recovery path, not a routine rollback.
+
+-- Intentionally empty.
+SELECT 1;
