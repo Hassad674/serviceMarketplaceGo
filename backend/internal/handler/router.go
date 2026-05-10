@@ -74,6 +74,7 @@ type RouterDeps struct {
 	AdminSearchStats    *AdminSearchStatsHandler // optional — nil when Typesense is disabled
 	GDPR                *GDPRHandler             // optional — nil disables /me/export + /me/account/*-deletion routes
 	Consent             *ConsentHandler          // optional — nil disables POST /consent/log
+	AutomatedDecisionAppeal *AutomatedDecisionAppealHandler // optional — nil disables POST /me/automated-decision-appeals (RGPD art. 22)
 	Security            *SecurityHandler         // optional — nil disables /me/security/activity route
 	Stats               *StatsHandler            // optional — nil disables /me/stats/* routes
 	StatsRecorder       StatsRecorder            // optional — nil disables view-tracking middleware on public profile reads
@@ -177,6 +178,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		mountDisputeRoutes(r, deps, auth)
 		mountGDPRRoutes(r, deps, auth)
 		mountConsentRoutes(r, deps, auth)
+		mountAutomatedDecisionAppealRoutes(r, deps, auth)
 		mountSecurityRoutes(r, deps, auth)
 		mountStatsRoutes(r, deps, auth)
 		mountWebSocketRoute(r, deps)
