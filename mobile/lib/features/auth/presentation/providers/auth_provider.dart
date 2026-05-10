@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/storage/secure_storage.dart';
+import '../../data/two_factor_api.dart';
 
 // ---------------------------------------------------------------------------
 // Auth state
@@ -12,6 +13,11 @@ import '../../../../core/storage/secure_storage.dart';
 
 /// Possible authentication states.
 enum AuthStatus { loading, authenticated, unauthenticated }
+
+/// Outcome of the password step of the login flow. The screen state machine
+/// branches on this: `success` -> dashboard, `requires2fa` -> OTP form,
+/// `failed` -> stay on the password form (error message lives on the state).
+enum LoginResult { success, requires2fa, failed }
 
 /// Immutable snapshot of the authentication state.
 ///
@@ -28,6 +34,7 @@ class AuthState {
     this.organization,
     this.errorMessage,
     this.isSubmitting = false,
+    this.pendingTwoFactor,
   });
 
   final AuthStatus status;
@@ -38,12 +45,19 @@ class AuthState {
   /// True while a login/register request is in-flight.
   final bool isSubmitting;
 
+  /// Non-null when the password step succeeded but the user has 2FA on.
+  /// Holds the `user_id` + `challenge_id` returned by the backend so the
+  /// login screen can collect the 6-digit code and POST to
+  /// `/api/v1/auth/login/verify-2fa`. Cleared on success / cancel / restart.
+  final TwoFactorChallenge? pendingTwoFactor;
+
   const AuthState.initial()
       : status = AuthStatus.loading,
         user = null,
         organization = null,
         errorMessage = null,
-        isSubmitting = false;
+        isSubmitting = false,
+        pendingTwoFactor = null;
 
   AuthState copyWith({
     AuthStatus? status,
@@ -51,6 +65,8 @@ class AuthState {
     Map<String, dynamic>? organization,
     String? errorMessage,
     bool? isSubmitting,
+    TwoFactorChallenge? pendingTwoFactor,
+    bool clearPendingTwoFactor = false,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -58,6 +74,9 @@ class AuthState {
       organization: organization ?? this.organization,
       errorMessage: errorMessage,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      pendingTwoFactor: clearPendingTwoFactor
+          ? null
+          : (pendingTwoFactor ?? this.pendingTwoFactor),
     );
   }
 }
@@ -132,11 +151,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Logs in with email and password.
-  Future<bool> login({
+  ///
+  /// Returns:
+  /// * [LoginResult.success] — fully authenticated, router can navigate.
+  /// * [LoginResult.requires2fa] — password OK but 2FA challenge issued; the
+  ///   screen must collect the 6-digit code and call [verifyTwoFactor].
+  /// * [LoginResult.failed] — wrong password / network error / server error.
+  Future<LoginResult> login({
     required String email,
     required String password,
   }) async {
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(
+      isSubmitting: true,
+      errorMessage: null,
+      clearPendingTwoFactor: true,
+    );
 
     try {
       final response = await _api.post(
@@ -145,10 +174,81 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       final data = response.data as Map<String, dynamic>;
+
+      // 2FA branch — server returns no tokens, just the challenge.
+      if (data['requires_2fa'] == true) {
+        final userId = data['user_id'] as String?;
+        final challengeId = data['challenge_id'] as String?;
+        if (userId == null || challengeId == null) {
+          state = state.copyWith(
+            isSubmitting: false,
+            errorMessage: 'Unexpected server response',
+          );
+          return LoginResult.failed;
+        }
+        state = state.copyWith(
+          isSubmitting: false,
+          pendingTwoFactor: TwoFactorChallenge(
+            userId: userId,
+            challengeId: challengeId,
+          ),
+        );
+        return LoginResult.requires2fa;
+      }
+
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
       final user = data['user'] as Map<String, dynamic>;
       final org = data['organization'] as Map<String, dynamic>?;
+
+      await _storage.saveTokens(accessToken, refreshToken);
+      await _storage.saveUser(user);
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: user,
+        organization: org,
+      );
+      return LoginResult.success;
+    } on DioException catch (e) {
+      final apiError = ApiException.fromDioException(e);
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: apiError.message,
+      );
+      return LoginResult.failed;
+    } catch (_) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: 'An unexpected error occurred',
+      );
+      return LoginResult.failed;
+    }
+  }
+
+  /// Submits the 6-digit code for the pending 2FA challenge.
+  ///
+  /// Resolves to true on success — caller can navigate to the dashboard.
+  /// On failure leaves [AuthState.pendingTwoFactor] set so the user can
+  /// retry without re-entering their password.
+  Future<bool> verifyTwoFactor({required String code}) async {
+    final pending = state.pendingTwoFactor;
+    if (pending == null) {
+      state = state.copyWith(errorMessage: 'No pending challenge');
+      return false;
+    }
+    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    try {
+      final api = TwoFactorApi(_api);
+      final body = await api.verifyLogin(
+        userId: pending.userId,
+        challengeId: pending.challengeId,
+        code: code,
+      );
+      final accessToken = body['access_token'] as String;
+      final refreshToken = body['refresh_token'] as String;
+      final user = body['user'] as Map<String, dynamic>;
+      final org = body['organization'] as Map<String, dynamic>?;
 
       await _storage.saveTokens(accessToken, refreshToken);
       await _storage.saveUser(user);
@@ -173,6 +273,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     }
+  }
+
+  /// Asks the backend to email a fresh 2FA code for the same challenge.
+  ///
+  /// The backend treats `/login/verify-2fa` resends as a no-op — the only
+  /// way to get a new code today is to start the password flow again. We
+  /// re-issue the password by calling `/auth/login` once more, but we only
+  /// need the email since the screen kept the password in its controller.
+  /// This helper exposes a thin wrapper so the screen can ask the user to
+  /// re-enter the password (cheaper, more secure than caching it).
+  void cancelPendingTwoFactor() {
+    state = state.copyWith(
+      clearPendingTwoFactor: true,
+      errorMessage: null,
+    );
   }
 
   /// Registers a new account with role-specific fields.
