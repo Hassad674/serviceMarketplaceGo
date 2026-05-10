@@ -222,4 +222,29 @@ describe("buildCSP — structural invariants", () => {
     expect(csp).not.toContain("\n")
     expect(csp.split(";").length).toBeGreaterThan(8)
   })
+
+  it("connect-src whitelists *.posthog.com so the browser SDK can ship events", () => {
+    const csp = buildCSP(PROD_ENV, true)
+    const connect = getDirective(csp, "connect-src")
+    expect(connect).toContain("https://*.posthog.com")
+    expect(connect).toContain("https://*.i.posthog.com")
+  })
+
+  it("script-src whitelists PostHog so the SDK loader is not blocked", () => {
+    const csp = buildCSP(PROD_ENV, true)
+    const scriptSrc = getDirective(csp, "script-src")
+    expect(scriptSrc).toContain("https://*.posthog.com")
+  })
+
+  it("connect-src includes the configured PostHog host in prod", () => {
+    const csp = buildCSP(
+      {
+        ...PROD_ENV,
+        NEXT_PUBLIC_POSTHOG_HOST: "https://eu.posthog.com",
+      },
+      true,
+    )
+    const connect = getDirective(csp, "connect-src")
+    expect(connect).toContain("https://eu.posthog.com")
+  })
 })

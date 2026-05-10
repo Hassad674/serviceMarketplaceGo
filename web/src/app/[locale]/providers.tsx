@@ -3,6 +3,8 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { CookieBanner } from "@/shared/components/analytics/cookie-banner"
+import { PostHogProvider } from "@/shared/components/analytics/posthog-provider"
 import { useTheme } from "@/shared/hooks/use-theme"
 import { ApiError } from "@/shared/lib/api-client"
 
@@ -87,7 +89,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeInitializer />
+      {/*
+        PostHogProvider must live INSIDE QueryClientProvider so it can
+        consume useSession() to identify the logged-in user. It renders
+        nothing — pure side-effect on the SDK lifecycle. The banner is
+        rendered last so it floats above page content without forcing
+        anyone to wrap their layouts.
+      */}
+      <PostHogProvider />
       {children}
+      <CookieBanner />
     </QueryClientProvider>
   )
 }
