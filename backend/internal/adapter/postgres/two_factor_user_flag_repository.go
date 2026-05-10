@@ -11,6 +11,19 @@ import (
 	"marketplace-backend/internal/domain/user"
 )
 
+// ChallengeDB is the minimal *sql.DB surface the 2FA challenge
+// adapter needs. Re-exported here so the cmd/api wiring layer can
+// pass infra.DB without importing database/sql directly.
+type ChallengeDB = *sql.DB
+
+// TwoFactorFlagSetter is satisfied by *UserRepository — it pairs the
+// IsEmail/SetEmail TwoFactorEnabled methods so the wiring layer can
+// hold a narrow port reference instead of the wide UserRepository.
+type TwoFactorFlagSetter interface {
+	IsEmailTwoFactorEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
+	SetEmailTwoFactorEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error
+}
+
 // IsEmailTwoFactorEnabled returns the current value of
 // users.two_factor_email_enabled. Implements
 // repository.TwoFactorUserFlagRepository on the existing
