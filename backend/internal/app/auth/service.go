@@ -12,6 +12,7 @@ import (
 	appmoderation "marketplace-backend/internal/app/moderation"
 	orgapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/audit"
+	"marketplace-backend/internal/domain/session"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -60,6 +61,17 @@ type orgContext = orgapp.Context
 // trail stays clean. Closes V7 V5-8.
 const timingParityDummyPassword = "TimingParityDummy_Password_v1!" // #nosec G101 -- timing-parity dummy, not a real credential
 
+// SessionFingerprint groups the request-side metadata that the
+// service uses to record an audit row in user_sessions (B.4). The
+// handler is responsible for hashing the user-agent and anonymizing
+// the IP — the service treats both as opaque strings. When a
+// fingerprint is empty the service skips the audit row and emits a
+// slog.Warn so the missing piece is visible in production logs.
+type SessionFingerprint struct {
+	UserAgentHash string
+	IPAnonymized  string
+}
+
 type RegisterInput struct {
 	Email       string
 	Password    string
@@ -67,11 +79,13 @@ type RegisterInput struct {
 	LastName    string
 	DisplayName string
 	Role        user.Role
+	Fingerprint SessionFingerprint
 }
 
 type LoginInput struct {
-	Email    string
-	Password string
+	Email       string
+	Password    string
+	Fingerprint SessionFingerprint
 }
 
 type ForgotPasswordInput struct {
@@ -128,8 +142,13 @@ type Service struct {
 	// audits is the append-only audit log repository (SEC-13). Used
 	// to record every authentication event for forensic purposes.
 	// May be nil in unit tests; production wires the Postgres adapter.
-	audits      repository.AuditRepository
-	frontendURL string
+	audits repository.AuditRepository
+	// userSessions is the append-only audit trail of refresh-token
+	// sessions (B.4). Optional — when nil the service skips the
+	// session-row writes and falls back to legacy behavior. Production
+	// wiring always attaches the Postgres adapter.
+	userSessions repository.UserSessionRepository
+	frontendURL  string
 }
 
 // ServiceDeps groups the auth service dependencies to avoid a growing
@@ -144,6 +163,7 @@ type ServiceDeps struct {
 	Sessions         service.SessionService          // SEC-16: optional, purges sessions on password reset
 	RefreshBlacklist service.RefreshBlacklistService // SEC-06: when set, refresh tokens rotate single-use through Redis
 	Audits           repository.AuditRepository      // SEC-13: when set, auth events + token_reuse_detected are recorded
+	UserSessions     repository.UserSessionRepository // B.4: when set, login/refresh/logout produce server-side session rows
 	FrontendURL      string
 }
 
@@ -181,6 +201,7 @@ func NewServiceWithDeps(deps ServiceDeps) *Service {
 		sessionSvc:       deps.Sessions,
 		refreshBlacklist: deps.RefreshBlacklist,
 		audits:           deps.Audits,
+		userSessions:     deps.UserSessions,
 		frontendURL:      deps.FrontendURL,
 	}
 }
@@ -297,6 +318,9 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
+
+	// B.4: record the server-side session row.
+	s.recordSession(ctx, u.ID, refreshToken, "", session.LoginMethodPassword, input.Fingerprint)
 
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
 }
@@ -484,6 +508,9 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 			"email": email.String(),
 		},
 	})
+
+	// B.4: record the server-side session row.
+	s.recordSession(ctx, u.ID, refreshToken, "", session.LoginMethodPassword, input.Fingerprint)
 
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
 }

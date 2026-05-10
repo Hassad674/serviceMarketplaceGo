@@ -175,6 +175,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		LastName:    req.LastName,
 		DisplayName: req.DisplayName,
 		Role:        user.Role(req.Role),
+		Fingerprint: h.sessionFingerprint(r),
 	})
 	if err != nil {
 		handleAuthError(w, err)
@@ -313,8 +314,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output, err := h.authService.Login(r.Context(), auth.LoginInput{
-		Email:    req.Email,
-		Password: req.Password,
+		Email:       req.Email,
+		Password:    req.Password,
+		Fingerprint: h.sessionFingerprint(r),
 	})
 	if err != nil {
 		// SEC-07: every failed login bumps the per-email counter.
@@ -458,7 +460,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	output, err := h.authService.RefreshToken(r.Context(), req.RefreshToken)
+	output, err := h.authService.RefreshTokenWithFingerprint(r.Context(), req.RefreshToken, h.sessionFingerprint(r))
 	if err != nil {
 		handleAuthError(w, err)
 		return

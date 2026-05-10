@@ -18,20 +18,22 @@ import "time"
 // columns, strategies and archive targets are NEVER overridable
 // because changing them silently would change the privacy contract.
 type Overrides struct {
-	MessagesMaxAge        time.Duration
-	NotificationsMaxAge   time.Duration
-	DeviceTokensMaxAge    time.Duration
-	SearchQueriesMaxAge   time.Duration
-	AuditLogsHotMaxAge    time.Duration
+	MessagesMaxAge          time.Duration
+	NotificationsMaxAge     time.Duration
+	DeviceTokensMaxAge      time.Duration
+	SearchQueriesMaxAge     time.Duration
+	AuditLogsHotMaxAge      time.Duration
+	UserSessionsRevokedAge  time.Duration
 }
 
 // Default values, in one place so the test suite can pin them.
 const (
-	DefaultMessagesMaxAge      = 3 * 365 * 24 * time.Hour       // 3 years
-	DefaultNotificationsMaxAge = 90 * 24 * time.Hour            // 90 days
-	DefaultDeviceTokensMaxAge  = 60 * 24 * time.Hour            // 60 days inactivity
-	DefaultSearchQueriesMaxAge = 12 * 30 * 24 * time.Hour       // ~12 months
-	DefaultAuditLogsHotMaxAge  = 24 * 30 * 24 * time.Hour       // ~24 months
+	DefaultMessagesMaxAge         = 3 * 365 * 24 * time.Hour // 3 years
+	DefaultNotificationsMaxAge    = 90 * 24 * time.Hour      // 90 days
+	DefaultDeviceTokensMaxAge     = 60 * 24 * time.Hour      // 60 days inactivity
+	DefaultSearchQueriesMaxAge    = 12 * 30 * 24 * time.Hour // ~12 months
+	DefaultAuditLogsHotMaxAge     = 24 * 30 * 24 * time.Hour // ~24 months
+	DefaultUserSessionsRevokedAge = 30 * 24 * time.Hour      // 30 days post-revoke
 )
 
 // DefaultPolicies returns the five Phase B.1 policies as a fresh
@@ -82,6 +84,17 @@ func DefaultPolicies(o Overrides) []Policy {
 			MaxAge:       pick(o.AuditLogsHotMaxAge, DefaultAuditLogsHotMaxAge),
 			Strategy:     StrategyArchive,
 			ArchiveTable: "audit_logs_archive",
+		},
+		{
+			// B.4: revoke-and-stale sessions older than 30 days are
+			// hard-deleted to keep the table small. Active sessions
+			// are kept until expiry. The adapter enforces both
+			// revoked_at < cutoff AND expires_at < cutoff.
+			Name:      "user_sessions_revoked_30d_delete",
+			Table:     "user_sessions",
+			AgeColumn: "revoked_at",
+			MaxAge:    pick(o.UserSessionsRevokedAge, DefaultUserSessionsRevokedAge),
+			Strategy:  StrategyDeleteRevokedSessions,
 		},
 	}
 }

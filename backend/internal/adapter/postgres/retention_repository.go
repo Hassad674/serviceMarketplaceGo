@@ -74,6 +74,10 @@ var retentionAllowlist = map[string]retentionTableSpec{
 		anonymizeColumns: map[string]bool{},
 		archiveTables:    map[string]bool{"audit_logs_archive": true},
 	},
+	"user_sessions": {
+		ageColumns:       map[string]bool{"revoked_at": true},
+		anonymizeColumns: map[string]bool{},
+	},
 }
 
 type retentionTableSpec struct {
@@ -131,12 +135,46 @@ func (r *RetentionRepository) Sweep(ctx context.Context, policy retention.Policy
 		return r.sweepArchive(ctx, policy, now)
 	case retention.StrategyAnonymize:
 		return r.sweepAnonymize(ctx, policy, now)
+	case retention.StrategyDeleteRevokedSessions:
+		return r.sweepDeleteRevokedSessions(ctx, policy, now)
 	default:
-		// Unreachable: validatePolicy already accepts only the three
+		// Unreachable: validatePolicy already accepts only the
 		// supported strategies. Defense in depth — never fall through
 		// to a no-op that would silently keep stale rows alive.
 		return 0, fmt.Errorf("retention: unsupported strategy %q", policy.Strategy)
 	}
+}
+
+// sweepDeleteRevokedSessions implements the B.4 cleanup: hard-delete
+// user_sessions rows where BOTH revoked_at and expires_at are older
+// than the cutoff. Active sessions (revoked_at IS NULL) are never
+// touched, so the sweep cannot accidentally invalidate a live login.
+//
+// Hard-coded to user_sessions — the adapter rejects the policy for
+// any other table — because the (revoked_at, expires_at) compound
+// predicate is the load-bearing safety guard. Reusing it on a table
+// without those columns would produce a SQL error at runtime; we
+// fail-fast at the validation step instead.
+func (r *RetentionRepository) sweepDeleteRevokedSessions(ctx context.Context, policy retention.Policy, now time.Time) (int, error) {
+	if policy.Table != "user_sessions" {
+		return 0, fmt.Errorf("retention: delete_revoked_sessions strategy is only valid for user_sessions, got %q", policy.Table)
+	}
+	cutoff := policy.Cutoff(now)
+	batch := policy.EffectiveBatchSize()
+	// #nosec G201 -- table is hard-coded above; batch is a validated int.
+	q := fmt.Sprintf(`
+        WITH eligible AS MATERIALIZED (
+            SELECT id FROM user_sessions
+             WHERE revoked_at IS NOT NULL
+               AND revoked_at < $1
+               AND expires_at < $1
+             ORDER BY revoked_at ASC
+             LIMIT %d
+             FOR UPDATE SKIP LOCKED
+        )
+        DELETE FROM user_sessions
+         WHERE id IN (SELECT id FROM eligible)`, batch)
+	return r.execBatch(ctx, q, cutoff)
 }
 
 // sweepDelete handles StrategyDelete: hard-DELETE LIMITed by the
