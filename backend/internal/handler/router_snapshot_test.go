@@ -143,6 +143,7 @@ func snapshotDeps() RouterDeps {
 		AdminSearchStats:      &AdminSearchStatsHandler{},
 		GDPR:                  &GDPRHandler{},
 		Security:              &SecurityHandler{},
+		Stats:                 &StatsHandler{},
 		WSHandler:             func(w http.ResponseWriter, r *http.Request) {},
 		Metrics:               nil, // metrics route is gated; we keep it off so the golden does not depend on prometheus internals
 		RateLimiter:           nil, // optional — leaving nil keeps the chain count comparison stable

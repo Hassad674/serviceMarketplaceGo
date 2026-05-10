@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"marketplace-backend/internal/domain/organization"
+	domainstats "marketplace-backend/internal/domain/stats"
 	"marketplace-backend/internal/handler/middleware"
 )
 
@@ -165,7 +166,11 @@ func mountSkillsCatalog(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 func mountPublicProfileReads(r chi.Router, deps RouterDeps) {
 	// Public profiles (keyed by organization id since phase R2)
 	r.Get("/profiles/search", deps.Profile.SearchProfiles)
-	r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
+	// Wrap the public profile detail GETs with the view-tracking
+	// middleware. The wrapper is a passthrough when StatsRecorder
+	// is nil — feature-isolation rule.
+	r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaAgency, "orgId")).
+		Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 
 	// Public client profile (migration 114). Keyed on organization
 	// id so the URL scheme stays symmetrical with /profiles/{orgId}.
@@ -184,10 +189,12 @@ func mountPublicProfileReads(r chi.Router, deps RouterDeps) {
 	// so the URL scheme stays symmetrical with the legacy
 	// /profiles/{orgId} and the frontend's existing routes.
 	if deps.FreelanceProfile != nil {
-		r.Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
+		r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaFreelance, "orgID")).
+			Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
 	}
 	if deps.ReferrerProfile != nil {
-		r.Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
+		r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaReferrer, "orgID")).
+			Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
 		// Apporteur reputation surface — keyed on orgID for URL
 		// symmetry with the rest of the referrer-profile read
 		// surface. The handler translates internally to the
