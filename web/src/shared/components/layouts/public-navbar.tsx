@@ -4,8 +4,20 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 
+// PublicNavbar is the slim header rendered by the public layout
+// (`(public)/layout.tsx`) for visitors who are NOT signed in. It
+// links to the public listing routes — `/agencies`, `/freelancers`,
+// `/opportunities` — and exposes the auth CTAs.
+//
+// All labels are read from the `landing.nav.*` namespace so the keys
+// stay aligned with the landing-header anchored nav. The previous
+// implementation read invented top-level keys (`landing.agenciesTitle`,
+// `landing.freelancesTitle`, `landing.browseProjects`) which never
+// existed in fr.json / en.json — visitors saw raw key names instead
+// of translated copy. The trip-wire test in
+// `__tests__/public-navbar.test.tsx` blocks that regression.
 export function PublicNavbar() {
-  const t = useTranslations("landing")
+  const tNav = useTranslations("landing.nav")
   const tCommon = useTranslations("common")
 
   return (
@@ -22,19 +34,19 @@ export function PublicNavbar() {
             href="/agencies"
             className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
-            {t("agenciesTitle")}
+            {tNav("agencies")}
           </Link>
           <Link
-            href="/freelances"
+            href="/freelancers"
             className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
-            {t("freelancesTitle")}
+            {tNav("freelancers")}
           </Link>
           <Link
-            href="/projects"
+            href="/opportunities"
             className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
-            {t("browseProjects")}
+            {tNav("opportunities")}
           </Link>
           <ThemeToggle />
           <Link
