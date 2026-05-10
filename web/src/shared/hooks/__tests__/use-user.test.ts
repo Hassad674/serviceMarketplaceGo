@@ -162,6 +162,15 @@ describe("useUser", () => {
     "/fr/freelancers",
     "/en/agencies",
     "/fr/",
+    // Bug A regression: the invitation acceptance landing page is
+    // reached from the email link by an unauthenticated visitor.
+    // /auth/me legitimately returns 401 there (no session yet) and
+    // a hard-redirect to /login would prevent the user from
+    // accepting the invitation. Cover both bare and locale-prefixed
+    // variants since the email may include either.
+    "/invitation/abc123token",
+    "/fr/invitation/abc123token",
+    "/en/invitation/abc123token",
   ]
 
   it.each(publicListingPaths)(
