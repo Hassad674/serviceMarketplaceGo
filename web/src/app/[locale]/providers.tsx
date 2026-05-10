@@ -21,6 +21,25 @@ function getPermissionErrorMessage(error: ApiError): string | null {
   return null
 }
 
+/**
+ * Reads `meta.suppressGlobalErrorToast` from a query/mutation's options.
+ * When `true` the global QueryCache / MutationCache toast handler skips
+ * the error — the local consumer is expected to surface its own message.
+ *
+ * This is the surgical escape hatch for flows where a 403 from a
+ * background refetch (or a chained invalidation) is EXPECTED and would
+ * otherwise spuriously alarm the user — e.g. the role-permissions editor,
+ * which fans out a `["session"]` invalidation immediately after a
+ * successful save and used to surface a false "permission denied" toast
+ * as the post-success refetch raced the now-stale permission snapshot.
+ */
+function shouldSuppressGlobalErrorToast(meta: unknown): boolean {
+  if (typeof meta !== "object" || meta === null) return false
+  const flag = (meta as { suppressGlobalErrorToast?: unknown })
+    .suppressGlobalErrorToast
+  return flag === true
+}
+
 function ThemeInitializer() {
   const { theme } = useTheme()
 
@@ -65,22 +84,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         },
         queryCache: new QueryCache({
-          onError: (error) => {
-            if (error instanceof ApiError) {
-              const message = getPermissionErrorMessage(error)
-              if (message) {
-                toast.error(message)
-              }
+          onError: (error, query) => {
+            if (!(error instanceof ApiError)) return
+            if (shouldSuppressGlobalErrorToast(query.meta)) return
+            const message = getPermissionErrorMessage(error)
+            if (message) {
+              toast.error(message)
             }
           },
         }),
         mutationCache: new MutationCache({
-          onError: (error) => {
-            if (error instanceof ApiError) {
-              const message = getPermissionErrorMessage(error)
-              if (message) {
-                toast.error(message)
-              }
+          onError: (error, _vars, _onMutateResult, mutation) => {
+            if (!(error instanceof ApiError)) return
+            if (shouldSuppressGlobalErrorToast(mutation.meta)) return
+            const message = getPermissionErrorMessage(error)
+            if (message) {
+              toast.error(message)
             }
           },
         }),

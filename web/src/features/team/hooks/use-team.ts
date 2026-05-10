@@ -237,21 +237,38 @@ export function rolePermissionsKey(orgID: string) {
 // org. Short stale time so the Owner sees the latest state if they
 // open the page right after a save from another tab. Disabled when
 // orgID is missing (the team page renders a loading skeleton instead).
+//
+// `meta.suppressGlobalErrorToast: true` — the editor renders its own
+// inline error card on failure (see RolePermissionsEditor's `error`
+// branch). Without the opt-out, a 403 from a background refetch
+// (e.g. a non-Owner who navigated away from /team mid-session) would
+// surface the global "permission refusée" toast and confuse a user
+// who is no longer looking at the editor.
 export function useRolePermissionsMatrix(orgID: string | undefined) {
   return useQuery({
     queryKey: rolePermissionsKey(orgID ?? ""),
     queryFn: () => getRolePermissionsMatrix(orgID as string),
     enabled: !!orgID,
     staleTime: 30 * 1000,
+    meta: { suppressGlobalErrorToast: true },
   })
 }
 
 // useUpdateRolePermissions saves a role's full override map. On
-// success, invalidates the team queries AND the session so the
-// Owner's own effective permission list refreshes if they edited
-// their own role indirectly (e.g. granted a permission to Admin,
-// then demoted themselves — edge case but the invalidation is
+// success, refreshes the role-permissions cache (using the matrix
+// already returned in the response when present) and invalidates
+// `["session"]` so the Owner's effective permission list catches
+// any indirect side effect (e.g. they granted a permission to Admin
+// then demoted themselves — edge case, but the invalidation is
 // cheap).
+//
+// `meta.suppressGlobalErrorToast: true` — the editor renders its own
+// `toast.error(...)` inside `onError` (see role-permissions-editor.tsx)
+// so the global MutationCache handler must not double-fire. Without
+// the opt-out, a chained 403 (e.g. the Owner just revoked their own
+// `team.view` for the Member role and a sibling refetch races the
+// new cookie state) would surface the generic "permission refusée"
+// toast even though the save itself landed cleanly. SEC-FIX-W-TEAM-R17.
 //
 // The returned mutation result carries the summary from the backend
 // (granted_keys, revoked_keys, affected_members) so the caller can
@@ -275,5 +292,6 @@ export function useUpdateRolePermissions(orgID: string) {
       // up. Cheap: a single /me round-trip.
       queryClient.invalidateQueries({ queryKey: ["session"] })
     },
+    meta: { suppressGlobalErrorToast: true },
   })
 }
