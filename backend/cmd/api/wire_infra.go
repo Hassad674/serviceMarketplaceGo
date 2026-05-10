@@ -93,6 +93,11 @@ type infrastructure struct {
 	AnalyticsSvc               service.AnalyticsService
 	SessionSvc                 service.SessionService
 	RefreshBlacklistSvc        service.RefreshBlacklistService
+	// UserSessionRepo persists the server-side audit trail of
+	// authentication sessions (B.4). Wired alongside
+	// RefreshBlacklistSvc since both belong to the refresh-token
+	// rotation pipeline.
+	UserSessionRepo            repository.UserSessionRepository
 	PresenceSvc                service.PresenceService
 	StreamBroadcaster          *redisadapter.StreamBroadcaster
 	MessagingRateLimiter       *redisadapter.MessagingRateLimiter
@@ -229,6 +234,7 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		// expiry, so memory use is automatically bounded as old
 		// tokens age out.
 		RefreshBlacklistSvc:   redisadapter.NewRefreshBlacklistService(redisClient),
+		UserSessionRepo:       postgres.NewUserSessionRepository(db),
 		MessagingRateLimiter:  redisadapter.NewMessagingRateLimiter(redisClient),
 		InvitationRateLimiter: redisadapter.NewInvitationRateLimiter(redisClient),
 	}

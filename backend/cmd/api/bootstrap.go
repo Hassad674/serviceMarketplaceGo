@@ -75,6 +75,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		OrganizationMemberRepo:     infra.OrganizationMemberRepo,
 		OrganizationInvitationRepo: infra.OrganizationInvitationRepo,
 		AuditRepo:                  infra.AuditRepo,
+		UserSessionRepo:            infra.UserSessionRepo,
 		Hasher:                     infra.Hasher,
 		TokenSvc:                   infra.TokenSvc,
 		EmailSvc:                   infra.EmailSvc,

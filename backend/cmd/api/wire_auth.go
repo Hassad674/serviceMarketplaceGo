@@ -43,6 +43,7 @@ type authDeps struct {
 	OrganizationMemberRepo     repository.OrganizationMemberRepository
 	OrganizationInvitationRepo repository.OrganizationInvitationRepository
 	AuditRepo                  repository.AuditRepository
+	UserSessionRepo            repository.UserSessionRepository
 	Hasher                     service.HasherService
 	TokenSvc                   service.TokenService
 	EmailSvc                   service.EmailService
@@ -79,6 +80,7 @@ func wireAuth(deps authDeps) authWiring {
 		Sessions:         deps.SessionSvc,         // SEC-16 — purge sessions on password reset
 		RefreshBlacklist: deps.RefreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
 		Audits:           deps.AuditRepo,          // SEC-13 — emit auth audit events
+		UserSessions:     deps.UserSessionRepo,    // B.4 — server-side session audit trail
 		FrontendURL:      deps.Cfg.FrontendURL,
 	})
 
