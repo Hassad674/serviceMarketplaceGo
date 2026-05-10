@@ -41,7 +41,10 @@ export function StatsOverview() {
   const visibility = useVisibilityStats(period)
   const keywords = useKeywordStats(period, KEYWORDS_LIMIT)
 
-  const series = visibility.data?.series ?? []
+  const series = useMemo(
+    () => visibility.data?.series ?? [],
+    [visibility.data?.series],
+  )
   const hasData = series.some((point) => point.count > 0)
   const positionSeries = useMemo(
     () => buildPositionSeries(visibility.data?.avg_search_position, series),

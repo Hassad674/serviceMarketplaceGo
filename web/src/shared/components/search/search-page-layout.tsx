@@ -285,13 +285,15 @@ function TopBar({
     >
       <label className="relative flex-1">
         <span className="sr-only">{t("searchPlaceholder")}</span>
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="submit"
           aria-label={t("searchSubmit")}
           className="absolute left-0 top-0 flex h-full w-9 items-center justify-center rounded-l-xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
         >
           <Search className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
         <Input
           type="search"
           value={query}
