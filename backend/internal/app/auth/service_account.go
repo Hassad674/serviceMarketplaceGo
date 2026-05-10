@@ -204,3 +204,27 @@ func (s *Service) invalidateUserSessions(ctx context.Context, userID uuid.UUID, 
 		}
 	}
 }
+
+// VerifyPassword performs a constant-time bcrypt check of the
+// supplied plaintext against the user's stored hash. Used by the
+// /me/two-factor/disable endpoint as a fresh re-auth gate before the
+// flag flips off — without this guard, a hijacked unlocked browser
+// could disable 2FA without the user's consent.
+//
+// Returns user.ErrInvalidCredentials on mismatch, user.ErrUnauthorized
+// when the account is suspended/banned/scheduled for deletion, and
+// the underlying repo error on infrastructure failures. The handler
+// maps each one to the appropriate HTTP status.
+func (s *Service) VerifyPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("verify password: get user: %w", err)
+	}
+	if u.IsBanned() || u.IsSuspended() || u.IsScheduledForDeletion() {
+		return user.ErrUnauthorized
+	}
+	if err := s.hasher.Compare(u.HashedPassword, password); err != nil {
+		return user.ErrInvalidCredentials
+	}
+	return nil
+}

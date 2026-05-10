@@ -88,6 +88,21 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	authSvc := authWire.AuthSvc
 	authHandler := authWire.AuthHandler
 
+	// B.6: Email 2FA. Wired AFTER authSvc/authHandler so we can
+	// post-attach the gate via SetTwoFactorGate and AttachTwoFactor.
+	// Removable feature: deleting wire_two_factor.go + this block
+	// leaves the auth flow unchanged (gate stays nil, login proceeds
+	// without 2FA gating).
+	twoFactorWire := wireTwoFactor(twoFactorDeps{
+		DB:        infra.DB,
+		Hasher:    infra.Hasher,
+		Email:     infra.EmailSvc,
+		Audits:    infra.AuditRepo,
+		UserFlags: infra.UserRepo,
+	})
+	authSvc.SetTwoFactorGate(twoFactorWire.Gate)
+	attachTwoFactorToHandler(authHandler, authSvc, infra.UserRepo, twoFactorWire.Gate)
+
 	// Profile + Tier-1 geocoder.
 	profileGeocoder := nominatim.NewGeocoder("marketplace-backend/1.0 (contact@marketplace.local)")
 	profileSvc := profileapp.NewService(infra.ProfileRepo).WithGeocoder(profileGeocoder)

@@ -33,6 +33,11 @@ func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.H
 		// first 2xx response so retries land on a stable replay.
 		r.With(idem).Post("/register", deps.Auth.Register)
 		r.Post("/login", deps.Auth.Login)
+		// B.6 Email 2FA: completes a login that was gated by the 2FA
+		// flag. Public route — auth middleware would reject it because
+		// no token has been issued yet (tokens come back IN the
+		// response).
+		r.Post("/login/verify-2fa", deps.Auth.VerifyTwoFactor)
 		r.Post("/refresh", deps.Auth.Refresh)
 		r.Post("/forgot-password", deps.Auth.ForgotPassword)
 		r.Post("/reset-password", deps.Auth.ResetPassword)
@@ -53,6 +58,17 @@ func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.H
 			r.Post("/change-email", deps.Auth.ChangeEmail)
 			r.Post("/change-password", deps.Auth.ChangePassword)
 		})
+	})
+
+	// B.6 Email 2FA opt-in/opt-out. Mounted under /me so the user
+	// owns the toggle implicitly — no orgID, no resource id. Both
+	// endpoints require auth; the disable endpoint additionally
+	// requires fresh password re-auth in the body.
+	r.Route("/me/two-factor", func(r chi.Router) {
+		r.Use(auth)
+		r.Use(middleware.NoCache)
+		r.Post("/enable", deps.Auth.EnableTwoFactor)
+		r.Post("/disable", deps.Auth.DisableTwoFactor)
 	})
 }
 

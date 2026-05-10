@@ -166,6 +166,20 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // httpOnly + Secure-in-prod so it cannot be exfiltrated by JS) and a
 // concrete cost: every admin reload kicked the user back to /login.
 func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, status int, output *auth.AuthOutput) {
+	// B.6: when 2FA is required the auth service skipped token issuance
+	// — the response shape is intentionally narrow ({requires_2fa,
+	// user_id, challenge_id}) and no session cookie is set. The client
+	// is expected to prompt for the 6-digit code and call
+	// /auth/login/verify-2fa to complete the login.
+	if output != nil && output.RequiresTwoFactor {
+		res.JSON(w, http.StatusOK, map[string]any{
+			"requires_2fa": true,
+			"user_id":      output.TwoFactorUserID.String(),
+			"challenge_id": output.TwoFactorChallengeID.String(),
+		})
+		return
+	}
+
 	// Resolve the freshly created/loaded org context for inclusion in the
 	// response payload. We re-query the org service rather than storing
 	// the Context on AuthOutput to keep the auth package from leaking

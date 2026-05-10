@@ -45,6 +45,14 @@ type AuthHandler struct {
 	// flow never depends on analytics. Wired via WithAnalytics from
 	// cmd/api/wire_auth.go.
 	analytics service.AnalyticsService
+
+	// B.6 Email 2FA dependencies. All three are optional — the
+	// /me/two-factor/* endpoints check for nil and return 503
+	// feature_unavailable instead of panicking. Wired via
+	// AttachTwoFactor from main.go.
+	twoFactorFlag        TwoFactorEnabler
+	twoFactorChallenger  TwoFactorChallenger
+	twoFactorPasswords   TwoFactorPasswordVerifier
 }
 
 func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {

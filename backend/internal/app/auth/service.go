@@ -118,6 +118,25 @@ type AuthOutput struct {
 	// real user gets a signal that someone tried to (re)register their
 	// address.
 	SilentDuplicate bool
+
+	// RequiresTwoFactor is true when Login() validated the password
+	// for a user with two_factor_email_enabled=true. Tokens are NOT
+	// issued in this case — the handler instead returns a 200 envelope
+	// with `requires_2fa: true` and a user_id payload so the client
+	// can prompt for the 6-digit code and call /auth/login/verify-2fa.
+	// The challenge has already been emailed by the time the response
+	// is built.
+	RequiresTwoFactor bool
+
+	// TwoFactorUserID echoes the user id the client must include in
+	// the verify-2fa call. Set only when RequiresTwoFactor is true.
+	TwoFactorUserID uuid.UUID
+
+	// TwoFactorChallengeID is the freshly-issued challenge row's id.
+	// Returned for logging / future "resend" support — the verify
+	// endpoint resolves the latest pending row by user_id, so the id
+	// is informational, not load-bearing.
+	TwoFactorChallengeID uuid.UUID
 }
 
 type Service struct {
@@ -148,7 +167,13 @@ type Service struct {
 	// session-row writes and falls back to legacy behavior. Production
 	// wiring always attaches the Postgres adapter.
 	userSessions repository.UserSessionRepository
-	frontendURL  string
+	// twoFactorGate is the optional B.6 hook. When nil, Login behaves
+	// exactly like it did pre-B.6 — tokens are issued immediately on a
+	// successful password match. When wired, Login consults the gate
+	// for every authenticated user and short-circuits with a
+	// "requires_2fa" output when the flag is on.
+	twoFactorGate TwoFactorGate
+	frontendURL   string
 }
 
 // ServiceDeps groups the auth service dependencies to avoid a growing
@@ -164,6 +189,7 @@ type ServiceDeps struct {
 	RefreshBlacklist service.RefreshBlacklistService // SEC-06: when set, refresh tokens rotate single-use through Redis
 	Audits           repository.AuditRepository      // SEC-13: when set, auth events + token_reuse_detected are recorded
 	UserSessions     repository.UserSessionRepository // B.4: when set, login/refresh/logout produce server-side session rows
+	TwoFactorGate    TwoFactorGate                    // B.6: when set, Login gates on email 2FA
 	FrontendURL      string
 }
 
@@ -202,8 +228,16 @@ func NewServiceWithDeps(deps ServiceDeps) *Service {
 		refreshBlacklist: deps.RefreshBlacklist,
 		audits:           deps.Audits,
 		userSessions:     deps.UserSessions,
+		twoFactorGate:    deps.TwoFactorGate,
 		frontendURL:      deps.FrontendURL,
 	}
+}
+
+// SetTwoFactorGate wires the B.6 2FA gate after construction. Used by
+// main.go when the gate has a circular dependency on the auth service
+// (rare; the helper exists for symmetry with SetModerationOrchestrator).
+func (s *Service) SetTwoFactorGate(gate TwoFactorGate) {
+	s.twoFactorGate = gate
 }
 
 // logAudit is a fire-and-forget audit emission helper. Failures are
@@ -477,6 +511,51 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, user.NewBannedError(u.BanReason)
 	}
 
+	// B.6: when 2FA is enabled for this user, password OK does NOT
+	// issue tokens — the handler must gate on a 6-digit code emailed
+	// to the user. The gate is optional; nil means "feature not
+	// wired" and login behaves like it did pre-B.6.
+	if s.twoFactorGate != nil {
+		enabled, gateErr := s.twoFactorGate.IsEnabledForUser(ctx, u.ID)
+		if gateErr != nil {
+			// A gate read failure is non-fatal: we'd rather let the
+			// user log in without 2FA than lock them out due to a
+			// transient DB blip. Logged for ops visibility.
+			slog.Warn("auth: read 2fa flag failed", "user_id", u.ID, "error", gateErr)
+		} else if enabled {
+			challengeID, reqErr := s.twoFactorGate.RequestChallenge(ctx, TwoFactorChallengeRequest{
+				UserID:        u.ID,
+				EmailTo:       u.Email,
+				ClientIP:      input.Fingerprint.IPAnonymized,
+				UserAgentHash: input.Fingerprint.UserAgentHash,
+			})
+			if reqErr != nil {
+				// Issuing the challenge failed (email outage, DB
+				// blip). Surfacing the error to the caller is the
+				// safer choice than letting the user in without 2FA
+				// — the user's account is opted into 2FA precisely
+				// because they don't trust an email-only link.
+				return nil, fmt.Errorf("auth: request 2fa challenge: %w", reqErr)
+			}
+			s.logAudit(ctx, audit.NewEntryInput{
+				UserID:       &u.ID,
+				Action:       audit.ActionLoginSuccess,
+				ResourceType: audit.ResourceTypeUser,
+				ResourceID:   &u.ID,
+				Metadata: map[string]any{
+					"email":             email.String(),
+					"requires_2fa":      true,
+					"challenge_id":      challengeID.String(),
+				},
+			})
+			return &AuthOutput{
+				RequiresTwoFactor:    true,
+				TwoFactorUserID:      u.ID,
+				TwoFactorChallengeID: challengeID,
+			}, nil
+		}
+	}
+
 	orgCtx, err := s.resolveOrgContext(ctx, u.ID)
 	if err != nil {
 		return nil, err
@@ -511,6 +590,76 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 
 	// B.4: record the server-side session row.
 	s.recordSession(ctx, u.ID, refreshToken, "", session.LoginMethodPassword, input.Fingerprint)
+
+	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
+}
+
+// CompleteLoginWithTwoFactor finishes a login that was gated by 2FA.
+// The handler reaches here after the client posts the 6-digit code to
+// /auth/login/verify-2fa. On success the service issues the
+// access/refresh token pair exactly like the password-only Login
+// path. On failure it returns the underlying twofactor sentinel so
+// the handler can map it to the right HTTP status (400 invalid_code,
+// 400 challenge_expired, 429 too_many_attempts, 400 no_challenge).
+func (s *Service) CompleteLoginWithTwoFactor(ctx context.Context, userID uuid.UUID, code string, fingerprint SessionFingerprint) (*AuthOutput, error) {
+	if s.twoFactorGate == nil {
+		// Defensive: if the feature was disabled between the Login
+		// call and this verify call, refuse rather than letting the
+		// user in. Mapped to 400 by the handler.
+		return nil, fmt.Errorf("auth: 2fa gate not configured")
+	}
+	if userID == uuid.Nil {
+		return nil, user.ErrInvalidCredentials
+	}
+
+	if err := s.twoFactorGate.VerifyChallenge(ctx, userID, code); err != nil {
+		s.logAudit(ctx, audit.NewEntryInput{
+			UserID:       &userID,
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			ResourceID:   &userID,
+			Metadata: map[string]any{
+				"reason": "two_factor_failed",
+			},
+		})
+		return nil, err
+	}
+
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("auth: load user after 2fa: %w", err)
+	}
+
+	orgCtx, err := s.resolveOrgContext(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.tokens.GenerateAccessToken(buildAccessInput(u, orgCtx))
+	if err != nil {
+		return nil, fmt.Errorf("auth: generate access token after 2fa: %w", err)
+	}
+	refreshToken, err := s.tokens.GenerateRefreshToken(u.ID)
+	if err != nil {
+		return nil, fmt.Errorf("auth: generate refresh token after 2fa: %w", err)
+	}
+
+	if err := s.users.TouchLastActive(ctx, u.ID); err != nil {
+		slog.Warn("auth: touch last_active_at after 2fa failed", "user_id", u.ID, "error", err)
+	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &u.ID,
+		Action:       audit.ActionLoginSuccess,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &u.ID,
+		Metadata: map[string]any{
+			"email":           u.Email,
+			"two_factor_used": true,
+		},
+	})
+
+	s.recordSession(ctx, u.ID, refreshToken, "", session.LoginMethodPassword, fingerprint)
 
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
 }
