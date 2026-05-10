@@ -386,6 +386,7 @@ describe("session query contract", () => {
       refetchOnWindowFocus?: boolean | "always"
       refetchOnReconnect?: boolean | "always"
       retry?: boolean | number
+      retryOnMount?: boolean
     }
     const opts = observerSpy.mock.calls[0]?.[1] as unknown as CapturedOpts
     // 30 minutes — sessions last hours and are explicitly
@@ -396,5 +397,135 @@ describe("session query contract", () => {
     expect(opts.refetchOnWindowFocus).toBe(false)
     expect(opts.refetchOnReconnect).toBe(false)
     expect(opts.retry).toBe(false)
+    // PERF-FIX-W-AUTH-ME-FANOUT: `retryOnMount: false` is the
+    // load-bearing flag that prevents the 401 fan-out. See the long
+    // comment in `use-user.ts` for the full diagnosis.
+    expect(opts.retryOnMount).toBe(false)
+  })
+})
+
+// PERF-FIX-W-AUTH-ME-FANOUT regression test.
+//
+// Before the fix, a public profile page like /freelancers/[id]
+// mounted ~30 distinct session consumers (PublicLayout, PostHogProvider,
+// SendMessageButton, sidebar / header on the logged-in branch, …) and
+// the FIRST /auth/me 401 response left the cache in
+// `{ data: undefined, status: "error" }`. With `retryOnMount`
+// defaulting to `true`, every subsequent observer that subscribed
+// triggered a fresh fetch — TanStack Query's
+// `shouldLoadOnMount(query, options)` returns true whenever
+// `data === undefined && status !== "error" || retryOnMount !== false`.
+// 30 observers × the React-strict-mode double-mount = 60+ requests
+// in <1 s, tripping the global IP rate limit.
+//
+// This block reproduces the storm scenario with a single QueryClient
+// shared by N sibling components and asserts that EXACTLY ONE
+// `/auth/me` request fires, regardless of how many session
+// consumers mount.
+describe("auth-me fan-out regression (PERF-FIX-W-AUTH-ME-FANOUT)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...originalLocation, href: "", pathname: "/freelancers/abc-123" },
+    })
+  })
+
+  it("fires AT MOST ONE /auth/me request when 50 observers mount on a 401-returning public path", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    // SHARED QueryClient across all `renderHook` calls so the cache
+    // persists. In production, layouts, providers, sidebars, chat
+    // widgets, lazy-loaded panels each call useUser/useSession at
+    // slightly different points in the React commit phase — observer
+    // subscriptions are sequential, not simultaneous. Reproducing
+    // that ordering is what surfaces the bug.
+    const queryClient = new QueryClient()
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children)
+    }
+
+    // First observer — drives the actual fetch.
+    const { result: firstResult } = renderHook(() => useUser(), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(firstResult.current.isError).toBe(true))
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    // 49 more observers mount sequentially, simulating the rolling
+    // mounts of a real freelancer page (PublicLayout, PostHog,
+    // SendMessageButton, sidebar, header, ChatWidget, KYCBanner,
+    // route-level pages, lazy-loaded modals, …). With the bug
+    // present, each one triggered a new /auth/me request because
+    // `shouldLoadOnMount(query, options)` returns true whenever
+    // `data === undefined && retryOnMount !== false`.
+    for (let i = 0; i < 49; i++) {
+      const hookKind = i % 3
+      renderHook(
+        () => {
+          if (hookKind === 0) return useUser()
+          if (hookKind === 1) return useOrganization()
+          return useSession()
+        },
+        { wrapper: Wrapper },
+      )
+    }
+
+    // Drain the microtask queue — any fan-out would fire here.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // The contract: ONE fetch, no matter how many consumers mount
+    // on a public-path 401. Previous bug yielded 50+.
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("does NOT refetch when additional observers subscribe AFTER the first 401", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    // SHARED QueryClient across both renderHook calls — the cache
+    // (and its 401 verdict) must survive the unmount/remount the
+    // way it survives an App Router transition in production.
+    const queryClient = new QueryClient()
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children)
+    }
+
+    // First observer mounts on its own and resolves to error.
+    const { result: first } = renderHook(() => useUser(), { wrapper: Wrapper })
+    await waitFor(() => expect(first.current.isError).toBe(true))
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    // A late-mounting observer (e.g. a chat widget that lazy-loads
+    // after the layout settles) MUST NOT trigger a second fetch.
+    // The cache already holds the verdict; the observer should
+    // surface it as cached error state.
+    const { result: late } = renderHook(() => useSession(), { wrapper: Wrapper })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(late.current.isError).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("forces a fresh fetch when the writer invalidates the session (post-login flow)", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    const queryClient = new QueryClient()
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children)
+    }
+
+    const { result } = renderHook(() => useUser(), { wrapper: Wrapper })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    // Login flow: the cookie has just been issued by the backend;
+    // the form invalidates ["session"] before navigating to
+    // /dashboard. This MUST force a refetch even though
+    // `retryOnMount: false` would otherwise gate it.
+    mockMe({ user: agencyUser, organization: agencyOrg })
+    await queryClient.invalidateQueries({ queryKey: ["session"] })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 })
