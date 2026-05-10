@@ -61,6 +61,7 @@ type routerHandlers struct {
 	Dispute               *handler.DisputeHandler
 	AdminDispute          *handler.AdminDisputeHandler
 	GDPR                  *handler.GDPRHandler
+	Consent               *handler.ConsentHandler
 	Security              *handler.SecurityHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
@@ -127,6 +128,7 @@ type finalHandlers struct {
 	Dispute               *handler.DisputeHandler
 	AdminDispute          *handler.AdminDisputeHandler
 	GDPR                  *handler.GDPRHandler
+	Consent               *handler.ConsentHandler
 	Security              *handler.SecurityHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
@@ -185,6 +187,7 @@ func buildRouterHandlers(h finalHandlers) routerHandlers {
 		Dispute:               h.Dispute,
 		AdminDispute:          h.AdminDispute,
 		GDPR:                  h.GDPR,
+		Consent:               h.Consent,
 		Security:              h.Security,
 		Skill:                 h.Skill,
 		Referral:              h.Referral,
@@ -243,6 +246,7 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Dispute:               b.Handlers.Dispute,
 		AdminDispute:          b.Handlers.AdminDispute,
 		GDPR:                  b.Handlers.GDPR,
+		Consent:               b.Handlers.Consent,
 		Security:              b.Handlers.Security,
 		Skill:                 b.Handlers.Skill,
 		Referral:              b.Handlers.Referral,

@@ -7,6 +7,7 @@ import (
 
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
+	consentapp "marketplace-backend/internal/app/consent"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/config"
@@ -550,6 +551,15 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	})
 	gdprHandler := gdpr.Handler
 
+	// Consent log (Phase A.3 of gdpr-roadmap.md): records every
+	// accept/refuse on the cookie banner with anonymized IP + UA hash.
+	// Wired here next to GDPR because both serve the same compliance
+	// surface; the feature is fully removable — drop these three lines
+	// and the route disappears without breaking the rest of the API.
+	consentRepo := postgres.NewConsentLogRepository(infra.DB)
+	consentSvc := consentapp.NewService(consentRepo)
+	consentHandler := handler.NewConsentHandler(consentSvc)
+
 	// Security activity — read-only feed of the caller's recent
 	// authentication audit events. Wired AFTER infra so the audit
 	// repository is fully initialised; the handler short-circuits
@@ -600,8 +610,9 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			Admin:           adminHandler, Portfolio: portfolioHandler,
 			ProjectHistory:  projectHistoryHandler,
 			Dispute:         disputeHandler, AdminDispute: adminDisputeHandler,
-			GDPR:            gdprHandler, Skill: skillHandler, Referral: referralHandler,
-			Search:          searchHandler, AdminSearchStats: adminSearchStatsHandler,
+			GDPR:            gdprHandler, Consent: consentHandler,
+			Skill:   skillHandler, Referral: referralHandler,
+			Search:  searchHandler, AdminSearchStats: adminSearchStatsHandler,
 			Security: securityHandler,
 		}),
 		WSHandler:   wsHandler,

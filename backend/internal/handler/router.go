@@ -73,6 +73,7 @@ type RouterDeps struct {
 	Search              *SearchHandler           // optional — nil when Typesense is disabled
 	AdminSearchStats    *AdminSearchStatsHandler // optional — nil when Typesense is disabled
 	GDPR                *GDPRHandler             // optional — nil disables /me/export + /me/account/*-deletion routes
+	Consent             *ConsentHandler          // optional — nil disables POST /consent/log
 	Security            *SecurityHandler         // optional — nil disables /me/security/activity route
 	WSHandler           http.HandlerFunc
 	Config              *config.Config
@@ -173,6 +174,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		mountReferralRoutes(r, deps, auth)
 		mountDisputeRoutes(r, deps, auth)
 		mountGDPRRoutes(r, deps, auth)
+		mountConsentRoutes(r, deps, auth)
 		mountSecurityRoutes(r, deps, auth)
 		mountWebSocketRoute(r, deps)
 		mountAdminRoutes(r, deps, auth)
