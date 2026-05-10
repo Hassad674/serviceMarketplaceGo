@@ -78,6 +78,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		SessionSvc:                 infra.SessionSvc,
 		RefreshBlacklistSvc:        infra.RefreshBlacklistSvc,
 		CookieCfg:                  infra.CookieCfg,
+		AnalyticsSvc:               infra.AnalyticsSvc,
 	})
 	organizationSvc := authWire.OrganizationSvc
 	authSvc := authWire.AuthSvc

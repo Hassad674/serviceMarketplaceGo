@@ -104,6 +104,14 @@ type StripeHandler struct {
 	// behaviour, kept so unit tests that don't wire a queue still
 	// drive the dispatcher).
 	pendingEvents repository.PendingEventRepository
+
+	// analytics ships server-side events to PostHog. Optional —
+	// nil short-circuits to a no-op so the webhook flow never depends
+	// on analytics being configured. Stripe-driven events
+	// (proposal.payment_succeeded, subscription.upgraded) are best
+	// captured here because the webhook is the canonical truth source
+	// and immune to ad-blockers / browser closure mid-flow.
+	analytics portservice.AnalyticsService
 }
 
 func NewStripeHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service, publishableKey string) *StripeHandler {
@@ -141,6 +149,15 @@ func (h *StripeHandler) WithSubscription(svc *subscriptionapp.Service, cache Sub
 	h.subscriptionSvc = svc
 	h.subscriptionCache = cache
 	h.idempotencyStore = idempotency
+	return h
+}
+
+// WithAnalytics wires the server-side analytics emitter so the
+// webhook handler can ship `proposal.payment_succeeded` /
+// `subscription.upgraded` events to PostHog with idempotency keyed on
+// the Stripe event id. Pass nil to disable.
+func (h *StripeHandler) WithAnalytics(analytics portservice.AnalyticsService) *StripeHandler {
+	h.analytics = analytics
 	return h
 }
 

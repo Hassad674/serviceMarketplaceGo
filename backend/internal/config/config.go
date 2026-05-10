@@ -131,6 +131,19 @@ type Config struct {
 	// "dev-salt-not-for-prod" and Validate() refuses to boot in
 	// production with that value.
 	GDPRAnonymizationSalt string
+
+	// PostHogProjectKey is the public project token used by the
+	// posthog-go SDK to ship server-side events. Same value as the
+	// browser-side NEXT_PUBLIC_POSTHOG_KEY — PostHog deliberately
+	// shares the public project token between server and client.
+	// Empty disables analytics (the noop adapter is wired instead);
+	// the wiring fail-opens with a WARN log so a missing key never
+	// breaks the boot.
+	PostHogProjectKey string
+	// PostHogHost is the regional PostHog endpoint — https://eu.posthog.com
+	// for the RGPD-friendly EU project, or https://us.posthog.com.
+	// Defaults to EU because the marketplace stores data in the EU.
+	PostHogHost string
 }
 
 func Load() *Config {
@@ -199,7 +212,22 @@ func Load() *Config {
 		// production Validate() refuses to boot if the value is
 		// still the fallback.
 		GDPRAnonymizationSalt: getEnv("GDPR_ANONYMIZATION_SALT", devGDPRSaltFallback),
+
+		// PostHog analytics. Same project token shared with the web
+		// SDK (NEXT_PUBLIC_POSTHOG_KEY) — the public project token
+		// is designed to be embedded in clients. Empty key disables
+		// analytics with a WARN log; never fatal at boot.
+		PostHogProjectKey: getEnv("POSTHOG_PROJECT_KEY", ""),
+		PostHogHost:       getEnv("POSTHOG_HOST", "https://eu.posthog.com"),
 	}
+}
+
+// PostHogConfigured reports whether enough env is present to ship
+// events to PostHog. Used by the wiring to pick the real adapter vs
+// the noop fallback. Analytics never blocks the boot — a missing
+// key only logs a WARN and turns the noop adapter on.
+func (c *Config) PostHogConfigured() bool {
+	return c.PostHogProjectKey != "" && c.PostHogHost != ""
 }
 
 const devGDPRSaltFallback = "dev-salt-not-for-prod"

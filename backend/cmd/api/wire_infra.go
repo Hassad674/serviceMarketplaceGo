@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	noopadapter "marketplace-backend/internal/adapter/noop"
+	"marketplace-backend/internal/adapter/posthog"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	resendadapter "marketplace-backend/internal/adapter/resend"
@@ -75,6 +77,11 @@ type infrastructure struct {
 	TokenSvc                   service.TokenService
 	EmailSvc                   service.EmailService
 	StorageSvc                 service.StorageService
+	// AnalyticsSvc fans out server-side events to PostHog. When the
+	// project key is unset (e.g. in tests) the noop adapter is wired
+	// instead — capture sites unconditionally call .Capture() and
+	// trust the wiring to silence them when analytics is disabled.
+	AnalyticsSvc               service.AnalyticsService
 	SessionSvc                 service.SessionService
 	RefreshBlacklistSvc        service.RefreshBlacklistService
 	PresenceSvc                service.PresenceService
@@ -196,6 +203,7 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		Hasher:                     crypto.NewBcryptHasher(),
 		TokenSvc:                   crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry),
 		EmailSvc:                   resendadapter.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom, cfg.ResendDevRedirectTo),
+		AnalyticsSvc:               buildAnalyticsService(cfg),
 		StorageSvc: s3adapter.NewStorageService(
 			cfg.StorageEndpoint,
 			cfg.StorageAccessKey,
@@ -262,6 +270,13 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		streamCancel()
 		hubCancel()
 		_ = redisClient.Close()
+		// Flush any buffered analytics events before exit so the
+		// last few seconds of activity are not dropped on graceful
+		// shutdown. .Close() is idempotent on both real and noop
+		// adapters so the call is always safe.
+		if infra.AnalyticsSvc != nil {
+			_ = infra.AnalyticsSvc.Close()
+		}
 		// Close both pools. The admin pool is currently aliased as
 		// `db`, so closing it here is the same as closing `db`.
 		// `routed.Close()` defensively closes both — call it for
@@ -269,6 +284,30 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		_ = routed.Close()
 	}
 	return infra, closer
+}
+
+// buildAnalyticsService picks the right AnalyticsService implementation
+// based on env config. Fail-open by design — when the PostHog project
+// key is missing we fall back to the noop adapter and log a single
+// WARN so the absence is visible in production telemetry without
+// crashing the boot. Same when the SDK rejects the config (invalid
+// host URL, etc.) — analytics is observability, never load-bearing.
+func buildAnalyticsService(cfg *config.Config) service.AnalyticsService {
+	if !cfg.PostHogConfigured() {
+		slog.Warn("posthog: project key missing — analytics disabled (noop adapter wired)")
+		return noopadapter.NewAnalyticsService()
+	}
+	svc, err := posthog.NewAnalyticsService(posthog.Config{
+		ProjectKey: cfg.PostHogProjectKey,
+		Endpoint:   cfg.PostHogHost,
+		Verbose:    cfg.IsDevelopment(),
+	})
+	if err != nil {
+		slog.Warn("posthog: init failed — falling back to noop", "error", err)
+		return noopadapter.NewAnalyticsService()
+	}
+	slog.Info("posthog: analytics enabled", "endpoint", cfg.PostHogHost)
+	return svc
 }
 
 // buildCookieConfig produces the per-environment session cookie

@@ -39,6 +39,12 @@ type AuthHandler struct {
 	// guard untouched. Wired via WithRateLimiter from cmd/api so
 	// tests can keep using the email-only mock without churn.
 	ipExtractor func(*http.Request) string
+
+	// analytics ships server-side events (registration, login, logout)
+	// to PostHog. Optional — nil short-circuits to a no-op so the auth
+	// flow never depends on analytics. Wired via WithAnalytics from
+	// cmd/api/wire_auth.go.
+	analytics service.AnalyticsService
 }
 
 func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
@@ -83,6 +89,26 @@ func (h *AuthHandler) WithFailClosed(failClosedInProd bool) *AuthHandler {
 func (h *AuthHandler) WithIPExtractor(extractor func(*http.Request) string) *AuthHandler {
 	h.ipExtractor = extractor
 	return h
+}
+
+// WithAnalytics wires the server-side analytics emitter so the auth
+// flow can capture `auth.user_registered` and `auth.login_succeeded`
+// events directly from the handler. Server-side capture is the only
+// guarantee for the registration event — the browser may close
+// before the redirect lands, dropping a pure client-side capture.
+func (h *AuthHandler) WithAnalytics(analytics service.AnalyticsService) *AuthHandler {
+	h.analytics = analytics
+	return h
+}
+
+// captureAnalytics is a tiny helper that no-ops when analytics is
+// not wired — keeps the call sites readable without checking nil
+// every time.
+func (h *AuthHandler) captureAnalytics(r *http.Request, evt service.AnalyticsEvent) {
+	if h.analytics == nil {
+		return
+	}
+	h.analytics.Capture(r.Context(), evt)
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +195,39 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Server-side analytics: emit the registration event from here so
+	// it lands in PostHog even if the browser closes before the redirect.
+	// Identify must be done first so the user properties land on the
+	// distinct id before the first event references it.
+	if output != nil && output.User != nil {
+		h.analyticsIdentifyUser(r, output.User)
+		h.captureAnalytics(r, service.AnalyticsEvent{
+			DistinctID: output.User.ID.String(),
+			EventName:  "auth.user_registered",
+			Properties: map[string]any{
+				"role":   string(output.User.Role),
+				"source": "web",
+			},
+		})
+	}
+
 	h.sendAuthResponse(w, r, http.StatusCreated, output)
+}
+
+// analyticsIdentifyUser is a small helper that pushes the user's
+// public profile attributes onto the PostHog distinct id so dashboards
+// can filter by role / verification state without us shipping the
+// fields on every event.
+func (h *AuthHandler) analyticsIdentifyUser(r *http.Request, u *user.User) {
+	if h.analytics == nil || u == nil {
+		return
+	}
+	h.analytics.Identify(r.Context(), u.ID.String(), map[string]any{
+		"email":            u.Email,
+		"role":             string(u.Role),
+		"email_verified":   u.EmailVerified,
+		"referrer_enabled": u.ReferrerEnabled,
+	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -291,6 +349,26 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		if recordErr := h.bruteForce.RecordSuccess(r.Context(), req.Email); recordErr != nil {
 			slog.Warn("brute force record_success failed", "email", req.Email, "error", recordErr)
 		}
+	}
+
+	// Server-side analytics: emit login.succeeded so dashboards can
+	// filter by role + see daily active users without relying on the
+	// browser SDK landing.
+	if output != nil && output.User != nil {
+		h.analyticsIdentifyUser(r, output.User)
+		props := map[string]any{
+			"role":   string(output.User.Role),
+			"source": "web",
+		}
+		evt := service.AnalyticsEvent{
+			DistinctID: output.User.ID.String(),
+			EventName:  "auth.login_succeeded",
+			Properties: props,
+		}
+		if output.OrganizationID != nil {
+			evt.GroupKey = output.OrganizationID.String()
+		}
+		h.captureAnalytics(r, evt)
 	}
 
 	h.sendAuthResponse(w, r, http.StatusOK, output)

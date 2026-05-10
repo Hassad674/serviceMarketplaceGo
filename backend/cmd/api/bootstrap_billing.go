@@ -71,6 +71,7 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 		Notifications:     deps.NotifSvc,
 		ReferralSvc:       deps.ReferralSvc,
 		PendingEventsRepo: deps.PendingEventsRepo,
+		AnalyticsSvc:      deps.Infra.AnalyticsSvc,
 	})
 
 	walletHandler, billingHandler := wirePaymentHandlers(paymentHandlersDeps{
