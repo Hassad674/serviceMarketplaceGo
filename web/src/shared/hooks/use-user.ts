@@ -85,6 +85,15 @@ export type CurrentUser = {
   deleted_at?: string
   /** RFC3339 — when the cron will hard-purge if cancel does not land. */
   hard_delete_at?: string
+  /**
+   * B.6 — true when email 2FA is opted-in. Optional because the
+   * backend /auth/me response does not surface this flag yet (B.6.1
+   * shipped only the mutation endpoints). The Sécurité toggle keeps
+   * an authoritative local copy after each successful enable/disable
+   * call; this field is reserved for the day the backend ships it on
+   * /me so the toggle can render the correct initial state.
+   */
+  two_factor_email_enabled?: boolean
   created_at: string
 }
 
