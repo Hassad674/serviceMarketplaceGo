@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../receipt/presentation/screens/receipts_tab.dart';
 import '../../domain/entities/invoice.dart';
@@ -72,6 +73,15 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen>
         backgroundColor: colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu_rounded,
+            color: colorScheme.onSurface,
+            size: 22,
+          ),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
         title: Text(
           'Factures',
           style: SoleilTextStyles.titleMedium.copyWith(

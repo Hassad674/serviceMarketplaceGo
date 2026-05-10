@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -51,6 +52,15 @@ class TeamScreen extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu_rounded,
+            color: colorScheme.onSurface,
+            size: 22,
+          ),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
         title: Text(
           l10n.teamScreenTitle,
           style: SoleilTextStyles.titleLarge.copyWith(

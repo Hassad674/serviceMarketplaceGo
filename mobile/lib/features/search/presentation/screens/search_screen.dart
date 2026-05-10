@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/search/search_document.dart';
@@ -134,6 +135,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu_rounded,
+            color: colorScheme.onSurface,
+            size: 22,
+          ),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
         title: Text(
           _screenTitle(l10n),
           style: SoleilTextStyles.titleLarge.copyWith(
