@@ -23,6 +23,7 @@ import {
   capitalize,
   extractErrorMessage,
   groupPermissionsByGroup,
+  translatePermission,
 } from "./role-permissions-editor-parts"
 
 // Soleil v2 — Roles & permissions editor. The unified section serves
@@ -427,18 +428,19 @@ function OwnerExclusiveSection({ cells }: { cells: RolePermissionCell[] }) {
             {t("rolePermissions.ownerExclusiveDescription")}
           </p>
           <ul className="mt-3 space-y-2">
-            {cells.map((cell) => (
-              <li key={cell.key} className="text-[13px]">
-                <p className="font-medium text-[var(--foreground)]">
-                  {cell.label || cell.key}
-                </p>
-                {cell.description && (
-                  <p className="mt-0.5 text-[12px] text-[var(--muted-foreground)]">
-                    {cell.description}
-                  </p>
-                )}
-              </li>
-            ))}
+            {cells.map((cell) => {
+              const { label, description } = translatePermission(t, cell)
+              return (
+                <li key={cell.key} className="text-[13px]">
+                  <p className="font-medium text-[var(--foreground)]">{label}</p>
+                  {description && (
+                    <p className="mt-0.5 text-[12px] text-[var(--muted-foreground)]">
+                      {description}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>

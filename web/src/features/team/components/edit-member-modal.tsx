@@ -108,7 +108,7 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
             >
               {EDITABLE_ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {t(`roles.${r}`)}
+                  {t(`roles.${r}.label`)}
                 </option>
               ))}
             </select>
@@ -124,7 +124,7 @@ export function EditMemberModal({ open, onClose, orgID, member }: EditMemberModa
                 aria-hidden="true"
               />
               <p className="font-mono text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
-                {t("editMember.rolePreviewLabel", { role: t(`roles.${role}`) })}
+                {t("editMember.rolePreviewLabel", { role: t(`roles.${role}.label`) })}
               </p>
             </div>
             {selectedRoleDef && selectedRoleDef.permissions.length > 0 ? (

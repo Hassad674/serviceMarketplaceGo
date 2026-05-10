@@ -56,10 +56,22 @@
       "expiresAt": "Expires"
     },
     "roles": {
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "owner": {
+        "label": "Owner",
+        "description": "Full control of the organization. The owner is the only role that can transfer ownership, delete the organization, and request payouts. Exactly one owner per organization."
+      },
+      "admin": {
+        "label": "Admin",
+        "description": "Trusted operator with full operational rights: can manage the team, jobs, proposals, KYC, billing settings, and respond to reviews. Cannot transfer ownership, delete the organization, or move money out of the wallet."
+      },
+      "member": {
+        "label": "Member",
+        "description": "Daily operator. Can create and edit jobs, send and respond to proposals, message clients, and view the wallet balance. Cannot manage the team or touch finances beyond viewing."
+      },
+      "viewer": {
+        "label": "Viewer",
+        "description": "Read-only access across all organization resources. Used for observers, external accountants, and trainees who need visibility without the ability to act."
+      }
     },
     "permissionGroups": {
       "team": "Team",
@@ -73,6 +85,122 @@
       "kyc": "KYC",
       "danger": "Danger zone",
       "other": "Other"
+    },
+    "permissions": {
+      "team": {
+        "view": {
+          "label": "View team",
+          "description": "Can see the list of members and pending invitations."
+        },
+        "invite": {
+          "label": "Invite members",
+          "description": "Can send email invitations to join the organization."
+        },
+        "manage": {
+          "label": "Manage team",
+          "description": "Can change member roles and titles, and remove members from the organization."
+        },
+        "transfer_ownership": {
+          "label": "Transfer ownership",
+          "description": "Can initiate the ownership transfer flow to hand the organization to another admin."
+        },
+        "manage_role_permissions": {
+          "label": "Customize role permissions",
+          "description": "Can edit which permissions each role (Admin, Member, Viewer) has in this organization. Owner-only and non-delegable."
+        }
+      },
+      "org_profile": {
+        "edit": {
+          "label": "Edit provider profile",
+          "description": "Can update the organization's public-facing marketplace profile (logo, about, video)."
+        }
+      },
+      "org_client_profile": {
+        "edit": {
+          "label": "Edit client profile",
+          "description": "Can update the organization's public-facing client profile (description, logo — the client-facing facet)."
+        }
+      },
+      "jobs": {
+        "view": {
+          "label": "View jobs",
+          "description": "Can browse and read jobs published by the organization."
+        },
+        "create": {
+          "label": "Create jobs",
+          "description": "Can publish new jobs on behalf of the organization."
+        },
+        "edit": {
+          "label": "Edit jobs",
+          "description": "Can update jobs already published by the organization."
+        },
+        "delete": {
+          "label": "Delete jobs",
+          "description": "Can take down jobs published by the organization."
+        }
+      },
+      "proposals": {
+        "view": {
+          "label": "View proposals",
+          "description": "Can read proposals sent or received by the organization."
+        },
+        "create": {
+          "label": "Send proposals",
+          "description": "Can draft and send new proposals to clients."
+        },
+        "respond": {
+          "label": "Respond to proposals",
+          "description": "Can accept, decline, or counter incoming proposals."
+        }
+      },
+      "messaging": {
+        "view": {
+          "label": "Read conversations",
+          "description": "Can open and read messaging threads the organization is part of."
+        },
+        "send": {
+          "label": "Send messages",
+          "description": "Can write and send messages from the organization account."
+        }
+      },
+      "reviews": {
+        "respond": {
+          "label": "Respond to reviews",
+          "description": "Can publicly reply to reviews left on the organization."
+        }
+      },
+      "wallet": {
+        "view": {
+          "label": "View wallet",
+          "description": "Can see the organization's balance and transaction history."
+        },
+        "withdraw": {
+          "label": "Request payouts",
+          "description": "Can move money out of the organization wallet to the connected Stripe account."
+        }
+      },
+      "billing": {
+        "view": {
+          "label": "View billing",
+          "description": "Can see invoices and payment history for the organization."
+        },
+        "manage": {
+          "label": "Manage billing",
+          "description": "Can change payment methods and update billing settings."
+        }
+      },
+      "kyc": {
+        "manage": {
+          "label": "Manage KYC",
+          "description": "Can complete and update the organization's Stripe Connect KYC verification."
+        }
+      },
+      "org": {
+        "delete": {
+          "label": "Delete organization",
+          "description": "Can permanently delete the organization. This action is irreversible."
+        }
+      }
     },
     "editMember": {
       "rolePreviewLabel": "Permissions granted to {role}",

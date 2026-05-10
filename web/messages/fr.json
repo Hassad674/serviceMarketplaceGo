@@ -56,10 +56,22 @@
       "expiresAt": "Expire"
     },
     "roles": {
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "owner": {
+        "label": "Propriétaire",
+        "description": "Contrôle total de l'organisation. Tu es le seul à pouvoir transférer la propriété, supprimer l'organisation et déclencher des virements. Un seul propriétaire par organisation."
+      },
+      "admin": {
+        "label": "Admin",
+        "description": "Opérateur de confiance avec tous les droits opérationnels : tu peux gérer l'équipe, les jobs, les propositions, le KYC, les paramètres de facturation et répondre aux avis. Tu ne peux ni transférer la propriété, ni supprimer l'organisation, ni sortir de l'argent du portefeuille."
+      },
+      "member": {
+        "label": "Membre",
+        "description": "Opérateur du quotidien. Tu peux créer et modifier des jobs, envoyer et répondre à des propositions, échanger avec les clients et consulter le portefeuille. Tu ne peux pas gérer l'équipe ni toucher aux finances au-delà de la consultation."
+      },
+      "viewer": {
+        "label": "Lecteur",
+        "description": "Accès en lecture seule sur toutes les ressources de l'organisation. Idéal pour les observateurs, les comptables externes ou les stagiaires qui ont besoin de visibilité sans pouvoir agir."
+      }
     },
     "permissionGroups": {
       "team": "Équipe",
@@ -73,6 +85,122 @@
       "kyc": "KYC",
       "danger": "Zone à risque",
       "other": "Autre"
+    },
+    "permissions": {
+      "team": {
+        "view": {
+          "label": "Voir l'équipe",
+          "description": "Consulter la liste des membres et des invitations en attente."
+        },
+        "invite": {
+          "label": "Inviter des membres",
+          "description": "Envoyer des invitations par email pour rejoindre l'organisation."
+        },
+        "manage": {
+          "label": "Gérer l'équipe",
+          "description": "Modifier les rôles et titres des membres, et retirer un membre de l'organisation."
+        },
+        "transfer_ownership": {
+          "label": "Transférer la propriété",
+          "description": "Lancer le processus de transfert de propriété vers un autre admin."
+        },
+        "manage_role_permissions": {
+          "label": "Personnaliser les permissions des rôles",
+          "description": "Modifier les permissions de chaque rôle (Admin, Membre, Lecteur) dans cette organisation. Réservé au propriétaire et non délégable."
+        }
+      },
+      "org_profile": {
+        "edit": {
+          "label": "Modifier le profil prestataire",
+          "description": "Mettre à jour le profil public de l'organisation côté marketplace (logo, description, vidéo)."
+        }
+      },
+      "org_client_profile": {
+        "edit": {
+          "label": "Modifier le profil client",
+          "description": "Mettre à jour le profil public de l'organisation côté client (description, logo — facette client)."
+        }
+      },
+      "jobs": {
+        "view": {
+          "label": "Voir les jobs",
+          "description": "Parcourir et lire les jobs publiés par l'organisation."
+        },
+        "create": {
+          "label": "Créer des jobs",
+          "description": "Publier de nouveaux jobs au nom de l'organisation."
+        },
+        "edit": {
+          "label": "Modifier les jobs",
+          "description": "Mettre à jour les jobs déjà publiés par l'organisation."
+        },
+        "delete": {
+          "label": "Supprimer des jobs",
+          "description": "Retirer les jobs publiés par l'organisation."
+        }
+      },
+      "proposals": {
+        "view": {
+          "label": "Voir les propositions",
+          "description": "Lire les propositions envoyées ou reçues par l'organisation."
+        },
+        "create": {
+          "label": "Envoyer des propositions",
+          "description": "Rédiger et envoyer de nouvelles propositions aux clients."
+        },
+        "respond": {
+          "label": "Répondre aux propositions",
+          "description": "Accepter, refuser ou contre-proposer une proposition entrante."
+        }
+      },
+      "messaging": {
+        "view": {
+          "label": "Lire les conversations",
+          "description": "Ouvrir et consulter les fils de messagerie auxquels l'organisation participe."
+        },
+        "send": {
+          "label": "Envoyer des messages",
+          "description": "Rédiger et envoyer des messages depuis le compte de l'organisation."
+        }
+      },
+      "reviews": {
+        "respond": {
+          "label": "Répondre aux avis",
+          "description": "Répondre publiquement aux avis laissés sur l'organisation."
+        }
+      },
+      "wallet": {
+        "view": {
+          "label": "Voir le portefeuille",
+          "description": "Consulter le solde de l'organisation et l'historique des transactions."
+        },
+        "withdraw": {
+          "label": "Demander un virement",
+          "description": "Sortir de l'argent du portefeuille de l'organisation vers le compte Stripe connecté."
+        }
+      },
+      "billing": {
+        "view": {
+          "label": "Voir la facturation",
+          "description": "Consulter les factures et l'historique de paiement de l'organisation."
+        },
+        "manage": {
+          "label": "Gérer la facturation",
+          "description": "Modifier les moyens de paiement et les paramètres de facturation."
+        }
+      },
+      "kyc": {
+        "manage": {
+          "label": "Gérer le KYC",
+          "description": "Compléter et mettre à jour la vérification KYC Stripe Connect de l'organisation."
+        }
+      },
+      "org": {
+        "delete": {
+          "label": "Supprimer l'organisation",
+          "description": "Supprimer définitivement l'organisation. Cette action est irréversible."
+        }
+      }
     },
     "editMember": {
       "rolePreviewLabel": "Permissions accordées à {role}",

@@ -73,7 +73,7 @@ function InvitationRow({ orgID, invitation, canInvite }: InvitationRowProps) {
             {fullName || invitation.email}
           </p>
           <span className="inline-flex items-center rounded-full bg-[var(--background)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--muted-foreground)]">
-            {t(`roles.${invitation.role}`)}
+            {t(`roles.${invitation.role}.label`)}
           </span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-[var(--muted-foreground)]">

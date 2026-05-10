@@ -132,7 +132,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <p className="mt-1 font-serif text-[13.5px] italic text-[var(--muted-foreground)]">
             {t("invitedAs", {
               name: displayName,
-              role: t(`roles.${preview.role}`),
+              role: t(`roles.${preview.role}.label`),
               orgType: orgLabel,
             })}
           </p>
