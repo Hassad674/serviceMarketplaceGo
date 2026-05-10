@@ -7,6 +7,7 @@ import { useState } from "react"
 import { Link, useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
+import { trackSignUp } from "@/shared/lib/analytics-events"
 import { Button } from "@/shared/components/ui/button"
 
 import { Input } from "@/shared/components/ui/input"
@@ -54,6 +55,7 @@ export function RegisterForm() {
     setError(null)
     try {
       await registerUser(values)
+      trackSignUp({ method: "email", role: values.role })
       router.push("/dashboard")
     } catch (err) {
       setError(

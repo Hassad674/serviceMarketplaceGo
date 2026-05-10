@@ -45,6 +45,26 @@ export const EMPTY_SEARCH_FILTERS: SearchFilters = {
   workModes: [],
 }
 
+// countAppliedFilters counts the number of "active" filter slots —
+// each non-default field counts once. Used by analytics call sites
+// (GA4 `search` event `filters_count`) to slice search volume by
+// filter intensity. Cheap to compute, no allocation.
+export function countAppliedFilters(filters: SearchFilters): number {
+  let count = 0
+  if (filters.availability !== "all") count += 1
+  if (filters.priceMin !== null) count += 1
+  if (filters.priceMax !== null) count += 1
+  if (filters.city !== "") count += 1
+  if (filters.countryCode !== "") count += 1
+  if (filters.radiusKm !== null) count += 1
+  if (filters.languages.length > 0) count += 1
+  if (filters.expertise.length > 0) count += 1
+  if (filters.skills.length > 0) count += 1
+  if (filters.minRating > 0) count += 1
+  if (filters.workModes.length > 0) count += 1
+  return count
+}
+
 // isEmptyFilters returns true when the filters exactly match the
 // canonical empty state — used by the sidebar to hide the "reset"
 // button when there is nothing to clear.

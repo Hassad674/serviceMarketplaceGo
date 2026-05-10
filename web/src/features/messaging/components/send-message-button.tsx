@@ -7,18 +7,29 @@ import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import { Button } from "@/shared/components/ui/button"
+import { trackLead } from "@/shared/lib/analytics-events"
+
+/**
+ * Persona of the public profile being contacted. Drives the GA4
+ * `generate_lead` segmentation so the dashboard can compare lead
+ * volume per profile category.
+ */
+export type SendMessagePersona = "freelance" | "agency" | "referrer"
 
 interface SendMessageButtonProps {
   targetOrgId: string
   targetDisplayName?: string
+  /** Persona of the contacted profile (default: "freelance"). */
+  persona?: SendMessagePersona
 }
 
-export function SendMessageButton({ targetOrgId, targetDisplayName }: SendMessageButtonProps) {
+export function SendMessageButton({ targetOrgId, targetDisplayName, persona = "freelance" }: SendMessageButtonProps) {
   const t = useTranslations("messaging")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
 
   function handleClick() {
+    trackLead({ profileId: targetOrgId, persona })
     const name = targetDisplayName || ""
     if (isDesktop) {
       openChatWithOrg(targetOrgId, name)

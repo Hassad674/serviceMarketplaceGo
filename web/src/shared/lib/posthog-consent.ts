@@ -35,6 +35,10 @@ export function readConsent(): ConsentChoice | null {
 /**
  * Persist the user's choice and propagate it to PostHog.
  * Idempotent — calling it twice with the same choice is a no-op.
+ *
+ * Also dispatches a same-tab `analytics:consent-changed` event so
+ * other analytics providers (e.g. GA4) can re-render their
+ * conditional mounts without a full reload.
  */
 export function applyConsent(choice: ConsentChoice): void {
   if (typeof window === "undefined") return
@@ -49,6 +53,14 @@ export function applyConsent(choice: ConsentChoice): void {
     posthog.opt_in_capturing()
   } else {
     posthog.opt_out_capturing()
+  }
+  // Notify any provider listening for consent flips in the same tab
+  // (the standard `storage` event only fires across tabs).
+  try {
+    window.dispatchEvent(new CustomEvent("analytics:consent-changed"))
+  } catch {
+    // best-effort — old browsers without CustomEvent ctor still get
+    // the persistence + posthog flip.
   }
 }
 

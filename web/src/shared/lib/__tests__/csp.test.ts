@@ -247,4 +247,25 @@ describe("buildCSP — structural invariants", () => {
     const connect = getDirective(csp, "connect-src")
     expect(connect).toContain("https://eu.posthog.com")
   })
+
+  it("script-src whitelists Google Tag Manager so the GA4 loader is not blocked", () => {
+    const csp = buildCSP(PROD_ENV, true)
+    const scriptSrc = getDirective(csp, "script-src")
+    expect(scriptSrc).toContain("https://www.googletagmanager.com")
+  })
+
+  it("connect-src whitelists Google Analytics endpoints", () => {
+    const csp = buildCSP(PROD_ENV, true)
+    const connect = getDirective(csp, "connect-src")
+    expect(connect).toContain("https://www.google-analytics.com")
+    expect(connect).toContain("https://*.analytics.google.com")
+    expect(connect).toContain("https://*.googletagmanager.com")
+  })
+
+  it("img-src whitelists Google Analytics for the gtag pixel beacons", () => {
+    const csp = buildCSP(PROD_ENV, true)
+    const imgSrc = getDirective(csp, "img-src")
+    expect(imgSrc).toContain("https://www.google-analytics.com")
+    expect(imgSrc).toContain("https://*.analytics.google.com")
+  })
 })

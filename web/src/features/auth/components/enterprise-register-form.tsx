@@ -8,6 +8,7 @@ import { useRouter } from "@i18n/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
+import { trackSignUp } from "@/shared/lib/analytics-events"
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
 
@@ -86,6 +87,7 @@ export function EnterpriseRegisterForm() {
         display_name: values.display_name,
         role: "enterprise",
       })
+      trackSignUp({ method: "email", role: "enterprise" })
       router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))

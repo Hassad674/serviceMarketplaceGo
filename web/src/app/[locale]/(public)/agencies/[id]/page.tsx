@@ -125,7 +125,7 @@ export default async function AgencyProfilePage({ params }: Props) {
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
       />
       <div className="flex justify-end">
-        <SendMessageButton targetOrgId={id} />
+        <SendMessageButton targetOrgId={id} persona="agency" />
       </div>
       <PublicProfile orgId={id} type="agency" />
       {profile ? (

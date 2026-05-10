@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { Search } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { trackSearch } from "@/shared/lib/analytics-events"
 
 // LandingSearchBar — the centerpiece of the hero. Three role tabs
 // (Freelance / Apporteur / Agence) drive the placeholder copy AND
@@ -76,12 +77,31 @@ export function LandingSearchBar() {
   const [query, setQuery] = useState("")
   const [city, setCity] = useState("")
 
+  // Count "filled" filter slots for the GA4 search event so we can
+  // see how often users hit Submit with a city scope vs. raw text.
+  function filtersCount(values: { query: string; city: string }): number {
+    let count = 0
+    if (values.query.trim()) count += 1
+    if (values.city.trim()) count += 1
+    return count
+  }
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    trackSearch({
+      searchTerm: query.trim(),
+      persona: role,
+      filtersCount: filtersCount({ query, city }),
+    })
     router.push(buildSearchUrl(role, query, city))
   }
 
   function handleSuggestionClick(label: string) {
+    trackSearch({
+      searchTerm: label.trim(),
+      persona: role,
+      filtersCount: filtersCount({ query: label, city }),
+    })
     router.push(buildSearchUrl(role, label, city))
   }
 

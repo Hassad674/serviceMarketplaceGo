@@ -128,7 +128,7 @@ export default async function ReferrerProfilePage({ params }: Props) {
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
       />
       <div className="flex justify-end">
-        <SendMessageButton targetOrgId={id} />
+        <SendMessageButton targetOrgId={id} persona="referrer" />
       </div>
       <ReferrerPublicProfileLoader orgId={id} />
       {profile ? (

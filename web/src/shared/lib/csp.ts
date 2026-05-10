@@ -46,6 +46,22 @@ const POSTHOG_ORIGINS = [
   "https://*.i.posthog.com",
 ] as const
 
+// Google Analytics 4 origins. The `gtag.js` loader lives on
+// googletagmanager.com; events are POSTed to google-analytics.com and
+// the regional analytics.google.com subdomains. The 1x1 pixel beacons
+// fall on google-analytics.com and *.analytics.google.com under
+// img-src.
+const GA4_SCRIPT_ORIGINS = ["https://www.googletagmanager.com"] as const
+const GA4_CONNECT_ORIGINS = [
+  "https://www.google-analytics.com",
+  "https://*.analytics.google.com",
+  "https://*.googletagmanager.com",
+] as const
+const GA4_IMG_ORIGINS = [
+  "https://www.google-analytics.com",
+  "https://*.analytics.google.com",
+] as const
+
 const R2_ORIGINS = [
   "https://*.r2.cloudflarestorage.com",
   "https://*.r2.dev",
@@ -114,6 +130,7 @@ function buildConnectOrigins(env: CSPEnv, isProduction: boolean): string[] {
   R2_ORIGINS.forEach((o) => origins.add(o))
   CITY_AUTOCOMPLETE_ORIGINS.forEach((o) => origins.add(o))
   POSTHOG_ORIGINS.forEach((o) => origins.add(o))
+  GA4_CONNECT_ORIGINS.forEach((o) => origins.add(o))
   if (env.NEXT_PUBLIC_POSTHOG_HOST) {
     const hostUrl = parseEnvUrl(
       "NEXT_PUBLIC_POSTHOG_HOST",
@@ -194,7 +211,7 @@ export function buildCSP(env: CSPEnv, isProduction: boolean): string {
 
   // 'unsafe-eval' is required by Next/Turbopack HMR runtime in dev.
   // Production bundles ship only static code → drop it.
-  const scriptOrigins = `${STRIPE_ORIGINS.join(" ")} ${POSTHOG_ORIGINS.join(" ")}`
+  const scriptOrigins = `${STRIPE_ORIGINS.join(" ")} ${POSTHOG_ORIGINS.join(" ")} ${GA4_SCRIPT_ORIGINS.join(" ")}`
   const scriptSrc = isProduction
     ? `script-src 'self' 'unsafe-inline' ${scriptOrigins}`
     : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${scriptOrigins}`
@@ -203,7 +220,7 @@ export function buildCSP(env: CSPEnv, isProduction: boolean): string {
     "default-src 'self'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: ${mediaOrigins.join(" ")} ${STRIPE_ORIGINS.join(" ")}`,
+    `img-src 'self' data: blob: ${mediaOrigins.join(" ")} ${STRIPE_ORIGINS.join(" ")} ${GA4_IMG_ORIGINS.join(" ")}`,
     `media-src 'self' blob: ${mediaOrigins.join(" ")}`,
     "font-src 'self' data:",
     `connect-src 'self' ${connectOrigins.join(" ")}`,

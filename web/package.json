@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
+    "@next/third-parties": "^16.2.6",
     "@stripe/connect-js": "^3.3.35",
     "@stripe/react-connect-js": "^3.3.34",
     "@stripe/react-stripe-js": "^6.2.0",

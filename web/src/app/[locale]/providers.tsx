@@ -4,6 +4,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { CookieBanner } from "@/shared/components/analytics/cookie-banner"
+import { GoogleAnalyticsProvider } from "@/shared/components/analytics/google-analytics-provider"
 import { PostHogProvider } from "@/shared/components/analytics/posthog-provider"
 import { useTheme } from "@/shared/hooks/use-theme"
 import { ApiError } from "@/shared/lib/api-client"
@@ -97,6 +98,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         anyone to wrap their layouts.
       */}
       <PostHogProvider />
+      {/*
+        GoogleAnalyticsProvider mounts the gtag.js script via
+        `@next/third-parties/google`. It renders nothing until BOTH
+        NEXT_PUBLIC_GA_MEASUREMENT_ID is set AND the user opted in
+        through the cookie banner. RGPD-compatible: no script loaded
+        before consent.
+      */}
+      <GoogleAnalyticsProvider />
       {children}
       <CookieBanner />
     </QueryClientProvider>

@@ -15,6 +15,7 @@ import {
 import { useTranslations } from "next-intl"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import { trackPurchase } from "@/shared/lib/analytics-events"
 import { ApiError } from "@/shared/lib/api-client"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-api"
@@ -248,6 +249,30 @@ export function PaymentSimulation() {
           <StripePaymentForm
             proposalId={proposalId}
             onSuccess={() => {
+              // GA4 + PostHog: ecommerce schema. Amounts arrive in
+              // cents from the backend → divide by 100 for the
+              // currency-typed `value`. The marketplace ships EUR
+              // only; revisit when multi-currency lands. transaction_id
+              // uses the backend-issued payment_record_id when
+              // present, falling back to the proposal id which is
+              // still unique per purchase.
+              const amounts = paymentData.amounts
+              if (amounts) {
+                trackPurchase({
+                  value: amounts.client_total / 100,
+                  currency: "EUR",
+                  transactionId:
+                    paymentData.payment_record_id ?? proposalId,
+                  items: [
+                    {
+                      item_id: proposalId,
+                      item_name: proposal.title,
+                      price: amounts.proposal_amount / 100,
+                      quantity: 1,
+                    },
+                  ],
+                })
+              }
               setPaid(true)
               setTimeout(() => router.push("/projects"), 2000)
             }}
@@ -267,6 +292,24 @@ export function PaymentSimulation() {
       <SimulationFallback
         proposalId={proposalId}
         onPaid={() => {
+          // Simulation mode (no Stripe): still fire the GA4 purchase
+          // so the conversion funnel registers the test transactions
+          // in dev / preview deployments.
+          if (paymentData.amounts) {
+            trackPurchase({
+              value: paymentData.amounts.client_total / 100,
+              currency: "EUR",
+              transactionId: paymentData.payment_record_id ?? proposalId,
+              items: [
+                {
+                  item_id: proposalId,
+                  item_name: proposal.title,
+                  price: paymentData.amounts.proposal_amount / 100,
+                  quantity: 1,
+                },
+              ],
+            })
+          }
           setPaid(true)
           setTimeout(() => router.push("/projects"), 1500)
         }}

@@ -138,7 +138,7 @@ export default async function FreelancerProfilePage({ params }: Props) {
           <ArrowLeft className="h-3 w-3" aria-hidden="true" />
           {t("backToList")}
         </Link>
-        <SendMessageButton targetOrgId={id} />
+        <SendMessageButton targetOrgId={id} persona="freelance" />
       </div>
       <FreelancePublicProfileLoader orgId={id} />
       {profile ? (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Filter, Search, Users, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { trackSearch } from "@/shared/lib/analytics-events"
 import {
   toSearchDocument,
   type RawSearchDocumentLike,
@@ -18,6 +19,7 @@ import { SearchFilterSidebar } from "./search-filter-sidebar"
 import { resolveFilterVisibility } from "./search-filter-config"
 import {
   EMPTY_SEARCH_FILTERS,
+  countAppliedFilters,
   type SearchFilters,
 } from "./search-filters"
 
@@ -159,13 +161,25 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
 
   const visibility = resolveFilterVisibility(props.persona)
 
+  // Wrap the parent's submit so analytics (GA4 + PostHog) fire on
+  // every commit without spamming events on every keystroke. The
+  // parent receives the same callback shape it always did.
+  const handleQuerySubmit = (next: string) => {
+    trackSearch({
+      searchTerm: next.trim(),
+      persona: props.persona,
+      filtersCount: countAppliedFilters(filters),
+    })
+    props.onQuerySubmit?.(next)
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={props.title} subtitle={props.subtitle} />
       <TopBar
         query={props.query}
         onQueryChange={props.onQueryChange}
-        onQuerySubmit={props.onQuerySubmit}
+        onQuerySubmit={handleQuerySubmit}
         sort={sort}
         onSortChange={setSort}
         onOpenDrawer={() => setDrawerOpen(true)}
