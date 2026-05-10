@@ -49,6 +49,10 @@ type authDeps struct {
 	SessionSvc                 service.SessionService
 	RefreshBlacklistSvc        service.RefreshBlacklistService
 	CookieCfg                  *handler.CookieConfig
+	// AnalyticsSvc captures auth events to PostHog (registration,
+	// login). Optional — nil short-circuits to a no-op so tests
+	// stay free of analytics state.
+	AnalyticsSvc service.AnalyticsService
 }
 
 // wireAuth brings up the auth feature: the organization aggregate
@@ -91,6 +95,9 @@ func wireAuth(deps authDeps) authWiring {
 	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, deps.SessionSvc, deps.CookieCfg).
 		WithBruteForce(loginBruteForce, passwordResetThrottle).
 		WithFailClosed(deps.Cfg.IsProduction())
+	if deps.AnalyticsSvc != nil {
+		authHandler = authHandler.WithAnalytics(deps.AnalyticsSvc)
+	}
 
 	return authWiring{
 		OrganizationSvc:       organizationSvc,

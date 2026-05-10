@@ -16,6 +16,7 @@ import (
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // clientProfileWiring carries the products of the client-profile
@@ -137,6 +138,10 @@ type stripeHandlerDeps struct {
 	Notifications     *notifapp.Service
 	ReferralSvc       *referralapp.Service
 	PendingEventsRepo *postgres.PendingEventRepository
+	// AnalyticsSvc captures payment success / subscription change
+	// events to PostHog from the webhook (server-truth). Optional —
+	// nil leaves the handler analytics-blind.
+	AnalyticsSvc service.AnalyticsService
 }
 
 // wireStripeHandler builds the optional Stripe HTTP handler when
@@ -172,6 +177,9 @@ func wireStripeHandler(deps stripeHandlerDeps) *handler.StripeHandler {
 	// worker registered by wirePendingEventsStripeHandler in main.go.
 	if deps.PendingEventsRepo != nil {
 		stripeHandler = stripeHandler.WithPendingEventsQueue(deps.PendingEventsRepo)
+	}
+	if deps.AnalyticsSvc != nil {
+		stripeHandler = stripeHandler.WithAnalytics(deps.AnalyticsSvc)
 	}
 	return stripeHandler
 }

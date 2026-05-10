@@ -362,11 +362,57 @@ func (h *StripeHandler) handlePaymentSucceededWithEvent(ctx context.Context, eve
 	if err := h.handlePaymentSucceeded(ctx, event.PaymentIntentID); err != nil {
 		return err
 	}
+	// Server-side analytics — captures payment success even if the
+	// browser closed before the redirect. Stripe's event id doubles
+	// as the PostHog message_id so a duplicated webhook delivery
+	// (Stripe retries on 5xx) does not double-count the conversion.
+	h.captureProposalPaymentSucceeded(ctx, event)
 	if event.PaymentBillingDetails == nil || h.invoicingSvc == nil {
 		return nil
 	}
 	h.hydrateClientBillingProfile(ctx, event.PaymentIntentID, *event.PaymentBillingDetails)
 	return nil
+}
+
+// captureProposalPaymentSucceeded ships the conversion event to
+// PostHog. Best-effort: any failure inside the analytics pipeline is
+// already swallowed by the adapter, so we only need to guard against
+// the optional analytics dep being nil and against missing
+// payment-record metadata.
+func (h *StripeHandler) captureProposalPaymentSucceeded(ctx context.Context, event *portservice.StripeWebhookEvent) {
+	if h.analytics == nil || event == nil || h.paymentSvc == nil {
+		return
+	}
+	record, err := h.paymentSvc.FindRecordByPaymentIntentID(ctx, event.PaymentIntentID)
+	if err != nil || record == nil {
+		// Silent fallback: ship a minimal event so the conversion
+		// still shows up in the dashboard, just without amount/owner
+		// dimensions.
+		h.analytics.Capture(ctx, portservice.AnalyticsEvent{
+			DistinctID: "stripe-anon",
+			EventName:  "proposal.payment_succeeded",
+			Properties: map[string]any{
+				"payment_intent_id": event.PaymentIntentID,
+				"source":            "stripe_webhook",
+			},
+			MessageID: event.EventID,
+		})
+		return
+	}
+	h.analytics.Capture(ctx, portservice.AnalyticsEvent{
+		DistinctID: record.ClientID.String(),
+		EventName:  "proposal.payment_succeeded",
+		Properties: map[string]any{
+			"payment_intent_id": event.PaymentIntentID,
+			"proposal_id":       record.ProposalID.String(),
+			"amount":            record.ProposalAmount,
+			"client_total":      record.ClientTotalAmount,
+			"currency":          record.Currency,
+			"provider_id":       record.ProviderID.String(),
+			"source":            "stripe_webhook",
+		},
+		MessageID: event.EventID,
+	})
 }
 
 // hydrateClientBillingProfile resolves the client organization that
