@@ -187,6 +187,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 onRefresh: () => notifier.load(),
                 onReset: _reset,
                 onCardTap: notifier.trackClick,
+                query: notifier.query,
               ),
             ),
           ],
