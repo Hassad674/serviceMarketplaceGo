@@ -9011,11 +9011,14 @@ export interface components {
             country_code: string;
             created_at: string;
             expertise_domains: string[];
+            first_name: string;
             id: string;
             languages_conversational: string[];
             languages_professional: string[];
+            last_name: string;
             latitude?: number | null;
             longitude?: number | null;
+            org_name: string;
             organization_id: string;
             photo_url: string;
             pricing?: {
@@ -9465,11 +9468,14 @@ export interface components {
             country_code: string;
             created_at: string;
             expertise_domains: string[];
+            first_name: string;
             id: string;
             languages_conversational: string[];
             languages_professional: string[];
+            last_name: string;
             latitude?: number | null;
             longitude?: number | null;
+            org_name: string;
             organization_id: string;
             photo_url: string;
             pricing?: {

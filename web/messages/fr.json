@@ -1241,6 +1241,7 @@
     "public": {
       "notFound": "Profil introuvable",
       "untitledProfile": "Profil sans titre",
+      "agencyHeadingFallback": "Profil agence",
       "back": "Retour",
       "presentationVideo": "Vidéo de présentation",
       "videoNotSupported": "Votre navigateur ne supporte pas l'élément vidéo.",

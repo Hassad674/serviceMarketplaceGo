@@ -1241,6 +1241,7 @@
     "public": {
       "notFound": "Profile not found",
       "untitledProfile": "Untitled Profile",
+      "agencyHeadingFallback": "Agency profile",
       "back": "Back",
       "presentationVideo": "Presentation Video",
       "videoNotSupported": "Your browser does not support the video element.",

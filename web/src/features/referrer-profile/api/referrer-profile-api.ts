@@ -49,6 +49,14 @@ export type ReferrerProfile = {
   languages_professional: string[]
   languages_conversational: string[]
 
+  // Identity (JOINed from organizations + owner user). Optional on the
+  // type because older clients may not see the keys; the public
+  // referrer heading prefers `${first_name} ${last_name}` and falls
+  // back to the localised "Apporteur d'affaires" label otherwise.
+  org_name?: string
+  first_name?: string
+  last_name?: string
+
   pricing: ReferrerPricing | null
 
   created_at: string

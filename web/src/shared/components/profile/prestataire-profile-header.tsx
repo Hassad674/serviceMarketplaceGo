@@ -213,6 +213,7 @@ function HeaderRow(props: HeaderRowProps) {
         />
         <TitleRow
           title={props.identity.title}
+          displayName={props.identity.displayName}
           onSaveTitle={props.onEditTitle}
         />
         <MetaRow
@@ -343,17 +344,26 @@ function NameRow({ displayName, availability, badge }: NameRowProps) {
 
 interface TitleRowProps {
   title: string
+  displayName: string
   onSaveTitle?: (next: string) => void
 }
 
-function TitleRow({ title, onSaveTitle }: TitleRowProps) {
+function TitleRow({ title, displayName, onSaveTitle }: TitleRowProps) {
   const t = useTranslations("profile")
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
   const editable = Boolean(onSaveTitle)
 
+  // Read-only viewers (public profile pages): hide the italic subtitle
+  // when it duplicates the H1. This collapses the legacy "title twice"
+  // bug where /freelancers/[id] used the title as both the heading and
+  // its own subtitle. Owner-edit views still show the subtitle so they
+  // can edit it.
+  const subtitleDuplicatesHeading =
+    title.trim().toLowerCase() === displayName.trim().toLowerCase()
+
   if (!editable) {
-    return title ? (
+    return title && !subtitleDuplicatesHeading ? (
       <p className="font-serif text-base italic text-muted-foreground sm:text-[17px]">
         {title}
       </p>

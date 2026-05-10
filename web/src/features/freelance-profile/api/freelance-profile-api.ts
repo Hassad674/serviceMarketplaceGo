@@ -67,6 +67,15 @@ export type FreelanceProfile = {
   languages_professional: string[]
   languages_conversational: string[]
 
+  // Identity (JOINed from organizations + owner user). Optional on the
+  // type because older clients consuming a stale /api/v1/freelance-profiles
+  // payload may not see the keys; the public profile heading prefers
+  // `${first_name} ${last_name}` but falls back to `title` when both
+  // are empty so we never render an empty H1.
+  org_name?: string
+  first_name?: string
+  last_name?: string
+
   // Decorations
   skills: ProfileSkill[]
   pricing: FreelancePricing | null

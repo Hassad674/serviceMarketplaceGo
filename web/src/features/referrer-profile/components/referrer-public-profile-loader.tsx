@@ -51,13 +51,11 @@ export function ReferrerPublicProfileLoader({
     )
   }
 
-  // displayName falls back to a localized "Apporteur d'affaires" label
-  // when the referrer has not yet set a title — surfacing the raw
-  // organization id (a UUID) to a public viewer is both ugly and a
-  // privacy leak. The `t("publicTitleSuffix")` already covers the
-  // metadata path; this mirror in the header keeps the two surfaces
-  // consistent.
-  const displayName = profile.title || t("displayNameFallback")
+  // Public referrer heading: prefer the owner's first_name + last_name,
+  // fall back to the persona-specific title, finally to the localised
+  // "Apporteur d'affaires" label so the H1 is never empty nor a UUID.
+  const fullName = buildReferrerFullName(profile.first_name, profile.last_name)
+  const displayName = fullName || profile.title || t("displayNameFallback")
   // The header rating uses the apporteur reputation, not the freelance
   // rating. Undefined until the reputation query settles so the
   // ProfileIdentityHeader hides the rating block during loading.
@@ -75,6 +73,17 @@ export function ReferrerPublicProfileLoader({
       <PublicReferrerSocialLinks orgId={orgId} />
     </div>
   )
+}
+
+// buildReferrerFullName joins the owner's first_name + last_name,
+// trimming whitespace so a profile with only one of the two still
+// renders cleanly. Returns "" when both are absent so the caller can
+// fall through to the title / persona label fallback.
+function buildReferrerFullName(firstName?: string, lastName?: string): string {
+  const parts = [firstName, lastName]
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+  return parts.join(" ")
 }
 
 function LoadingShell() {

@@ -50,7 +50,14 @@ export function FreelancePublicProfileLoader({
     )
   }
 
-  const displayName = profile.title || profile.organization_id
+  // Public profile heading: prefer the owner's first_name + last_name,
+  // fall back to the persona-specific title, finally to a localised
+  // "Freelance" label so we never render an empty H1 nor leak an
+  // organization UUID. The italic title under the heading is rendered
+  // by the inner FreelanceProfileHeader and hides itself when it
+  // duplicates the displayName.
+  const fullName = buildFullName(profile.first_name, profile.last_name)
+  const displayName = fullName || profile.title || t("publicTitleSuffix")
 
   // Soleil v2 W-16 v3 — history pinned LAST (brief #2). The aerated
   // max-w-5xl wrapper (~1024px) is set on the inner profile component
@@ -69,6 +76,17 @@ export function FreelancePublicProfileLoader({
       <ProjectHistorySection orgId={orgId} readOnly />
     </div>
   )
+}
+
+// buildFullName joins the owner's first_name + last_name, trimming
+// whitespace so a profile that only has one of the two still renders
+// cleanly. Returns an empty string when both are absent so the caller
+// can fall through to the title / persona label fallback.
+function buildFullName(firstName?: string, lastName?: string): string {
+  const parts = [firstName, lastName]
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+  return parts.join(" ")
 }
 
 function LoadingShell() {

@@ -54,7 +54,14 @@ export function PublicProfile({ orgId, type: _type }: PublicProfileProps) {
     )
   }
 
-  const displayName = profile.title || t("untitledProfile")
+  // The agency public profile heading shows the agency display name
+  // when set; otherwise the persona's localised title fallback (NOT
+  // the previous "Untitled Profile" hardcoded string, which leaked an
+  // English-only placeholder onto FR pages). The agency Profile DTO
+  // currently exposes only `title` — when the org rename flow lands
+  // a name field on /api/v1/profiles/{orgId}, this fallback can drop
+  // through to it before the localised label.
+  const displayName = profile.title || t("agencyHeadingFallback")
 
   return (
     <div className="space-y-6">
