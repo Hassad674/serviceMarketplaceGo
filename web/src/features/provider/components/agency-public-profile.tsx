@@ -89,7 +89,6 @@ export function AgencyPublicProfile(props: AgencyPublicProfileProps) {
           emptyDescription: t("addVideoDescAgency"),
         }}
         readOnly
-        showWhenEmpty
       />
 
       <PublicPortfolioSection orgId={orgId} />

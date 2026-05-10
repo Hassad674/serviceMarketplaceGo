@@ -174,7 +174,6 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
             : undefined
         }
         readOnly={readOnly}
-        showWhenEmpty={readOnly}
       />
     </div>
   )
