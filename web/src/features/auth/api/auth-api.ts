@@ -38,7 +38,30 @@ export class AuthApiError extends Error {
   }
 }
 
-export async function login(email: string, password: string): Promise<AuthUser> {
+/**
+ * B.6 Email 2FA — when the user has opted in, the backend short-circuits
+ * the login flow before issuing tokens and returns this narrow envelope
+ * instead of the regular AuthUser. The client is then expected to prompt
+ * for the 6-digit code and POST it to /auth/login/verify-2fa.
+ *
+ * Distinguishable from AuthUser via the `requires_2fa` discriminator —
+ * the caller pattern-matches on it (`if ("requires_2fa" in resp)`).
+ */
+export type LoginTwoFactorChallenge = {
+  requires_2fa: true
+  user_id: string
+  challenge_id: string
+}
+
+export type LoginResponse = AuthUser | LoginTwoFactorChallenge
+
+export function isTwoFactorChallenge(
+  resp: LoginResponse,
+): resp is LoginTwoFactorChallenge {
+  return (resp as LoginTwoFactorChallenge).requires_2fa === true
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
   const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
     credentials: "include",

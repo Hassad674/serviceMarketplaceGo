@@ -8,9 +8,14 @@ import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter } from "@i18n/navigation"
-import { login, AuthApiError } from "@/features/auth/api/auth-api"
+import {
+  login,
+  AuthApiError,
+  isTwoFactorChallenge,
+} from "@/features/auth/api/auth-api"
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
+import { VerifyTwoFactorForm } from "./verify-two-factor-form"
 
 // Schema kept inline (intentionally not extracted to features/auth/schemas/
 // for this batch — that is OFF-LIMITS work that will happen later as a
@@ -27,14 +32,27 @@ type SuspensionInfo = {
   reason: string
 }
 
+type TwoFactorPending = {
+  userId: string
+  challengeId: string
+  email: string
+  password: string
+}
+
 export function LoginForm() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [suspension, setSuspension] = useState<SuspensionInfo | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  // B.6 — when the backend signals `requires_2fa: true`, swap the form
+  // body for the 6-digit verification step instead of redirecting. The
+  // shell + page chrome stay identical so the user perceives the gate
+  // as a continuation of the same login screen, not a hop elsewhere.
+  const [twoFactor, setTwoFactor] = useState<TwoFactorPending | null>(null)
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
+  const tTwoFactor = useTranslations("twoFactor")
 
   const {
     register: registerField,
@@ -48,7 +66,16 @@ export function LoginForm() {
     setError(null)
     setSuspension(null)
     try {
-      await login(values.email, values.password)
+      const resp = await login(values.email, values.password)
+      if (isTwoFactorChallenge(resp)) {
+        setTwoFactor({
+          userId: resp.user_id,
+          challengeId: resp.challenge_id,
+          email: values.email,
+          password: values.password,
+        })
+        return
+      }
       // PERF-FIX-W-AUTH-ME-FANOUT: explicitly invalidate the cached
       // session so the post-login navigation refetches /auth/me. The
       // hook now uses `retryOnMount: false` (which prevents the 401
@@ -68,6 +95,42 @@ export function LoginForm() {
       }
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))
     }
+  }
+
+  if (twoFactor) {
+    return (
+      <div className="space-y-4">
+        <header className="space-y-1">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            {tTwoFactor("eyebrow")}
+          </p>
+          <h2 className="font-serif text-2xl font-medium tracking-[-0.01em] text-foreground">
+            {tTwoFactor("title")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {tTwoFactor("subtitle")}
+          </p>
+        </header>
+        <VerifyTwoFactorForm
+          userId={twoFactor.userId}
+          challengeId={twoFactor.challengeId}
+          email={twoFactor.email}
+          password={twoFactor.password}
+          onChallengeRefreshed={(challengeId) =>
+            setTwoFactor((prev) => (prev ? { ...prev, challengeId } : prev))
+          }
+        />
+        <p className="text-center text-[13px] text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => setTwoFactor(null)}
+            className="font-serif italic text-[var(--text-link)] underline-offset-4 transition-colors hover:text-primary hover:underline"
+          >
+            {tTwoFactor("backToLogin")}
+          </button>
+        </p>
+      </div>
+    )
   }
 
   return (

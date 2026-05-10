@@ -732,6 +732,48 @@
       "successTitle": "Password updated."
     }
   },
+  "twoFactor": {
+    "eyebrow": "Two-step verification",
+    "title": "Let's confirm it's really you.",
+    "subtitle": "We sent a 6-digit code to your email. Enter it below to finish signing in.",
+    "emailHint": "Code sent to {email}",
+    "codeLabel": "Verification code",
+    "codePlaceholder": "123456",
+    "verifyCta": "Verify code",
+    "verifying": "Verifying…",
+    "resendQuestion": "Didn't get anything?",
+    "resend": "Resend code",
+    "resending": "Sending…",
+    "resendSuccess": "A new code has been sent. Check your inbox.",
+    "backToLogin": "← Back to sign in",
+    "toggleTitle": "Email 2FA",
+    "toggleDescOff": "Add a second security layer: we'll email you a 6-digit code on every sign-in.",
+    "toggleDescOn": "Email 2FA is on. A code will be required on every sign-in.",
+    "enableCta": "Enable",
+    "disableCta": "Disable",
+    "enablePrompt": "We just sent you a 6-digit code to verify your email. Enter it to finish enabling 2FA.",
+    "disablePrompt": "To turn 2FA off, confirm your current password.",
+    "currentPasswordLabel": "Current password",
+    "confirmEnableCta": "Enable 2FA",
+    "confirmDisableCta": "Disable 2FA",
+    "cancel": "Cancel",
+    "toasts": {
+      "enabled": "Email 2FA enabled.",
+      "disabled": "Email 2FA disabled."
+    },
+    "errors": {
+      "noChallenge": "No pending verification code — request a new one.",
+      "challengeExpired": "The verification code has expired — request a new one.",
+      "invalidCode": "The verification code is incorrect.",
+      "tooManyAttempts": "Too many attempts — request a new code in a few minutes.",
+      "codeLength": "The code must be 6 digits.",
+      "invalidCredentials": "The password is incorrect.",
+      "passwordRequired": "Password is required.",
+      "sessionInvalid": "Session is no longer valid — please sign in again.",
+      "featureUnavailable": "Two-factor authentication is unavailable right now.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
   "registerFix": {
     "shared": {
       "stepEyebrow": "↳ Step 2/2",

@@ -14,6 +14,8 @@ import { Button } from "@/shared/components/ui/button"
 import type {
   SecurityActivityEvent,
 } from "../api/security-api"
+import { TwoFactorToggle } from "./two-factor-toggle"
+import { useUser } from "@/shared/hooks/use-user"
 
 /**
  * SecuritySettings — Soleil v2 panel for the /account?section=security
@@ -30,6 +32,7 @@ export function SecuritySettings() {
   const t = useTranslations("account.security")
   const locale = useLocale()
   const query = useSecurityActivity()
+  const { data: user } = useUser()
 
   const events: SecurityActivityEvent[] = query.data
     ? query.data.pages.flatMap((p) => p.data)
@@ -43,6 +46,11 @@ export function SecuritySettings() {
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
+
+      {/* B.6 — Email 2FA toggle. The flag is not exposed on /auth/me yet
+          so we default to false; on the next page load the parent will
+          re-read once the field is wired (flagged for follow-up). */}
+      <TwoFactorToggle initialEnabled={user?.two_factor_email_enabled ?? false} />
 
       <section
         aria-labelledby="security-activity-heading"

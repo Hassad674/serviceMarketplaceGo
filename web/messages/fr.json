@@ -732,6 +732,48 @@
       "successTitle": "Mot de passe à jour."
     }
   },
+  "twoFactor": {
+    "eyebrow": "Vérification en deux étapes",
+    "title": "Confirme que c'est bien toi.",
+    "subtitle": "On t'a envoyé un code à 6 chiffres par email. Recopie-le ci-dessous pour finaliser ta connexion.",
+    "emailHint": "Code envoyé à {email}",
+    "codeLabel": "Code de vérification",
+    "codePlaceholder": "123456",
+    "verifyCta": "Vérifier le code",
+    "verifying": "Vérification…",
+    "resendQuestion": "Tu n'as rien reçu ?",
+    "resend": "Renvoyer le code",
+    "resending": "Envoi…",
+    "resendSuccess": "Un nouveau code a été envoyé. Vérifie ta boîte mail.",
+    "backToLogin": "← Revenir à la connexion",
+    "toggleTitle": "2FA par email",
+    "toggleDescOff": "Ajoute une deuxième couche de sécurité : on t'enverra un code à 6 chiffres par email à chaque connexion.",
+    "toggleDescOn": "La 2FA par email est active. Un code te sera demandé à chaque connexion.",
+    "enableCta": "Activer",
+    "disableCta": "Désactiver",
+    "enablePrompt": "On vient de t'envoyer un code à 6 chiffres pour vérifier que ton email est bien à toi. Recopie-le pour finaliser l'activation.",
+    "disablePrompt": "Pour désactiver la 2FA, confirme ton mot de passe actuel.",
+    "currentPasswordLabel": "Mot de passe actuel",
+    "confirmEnableCta": "Activer la 2FA",
+    "confirmDisableCta": "Désactiver la 2FA",
+    "cancel": "Annuler",
+    "toasts": {
+      "enabled": "2FA par email activée.",
+      "disabled": "2FA par email désactivée."
+    },
+    "errors": {
+      "noChallenge": "Aucun code en attente — demandes-en un nouveau.",
+      "challengeExpired": "Le code a expiré — demandes-en un nouveau.",
+      "invalidCode": "Le code est incorrect.",
+      "tooManyAttempts": "Trop de tentatives — demandes-en un nouveau dans quelques minutes.",
+      "codeLength": "Le code doit comporter 6 chiffres.",
+      "invalidCredentials": "Le mot de passe est incorrect.",
+      "passwordRequired": "Le mot de passe est requis.",
+      "sessionInvalid": "La session n'est plus valide — reconnecte-toi.",
+      "featureUnavailable": "La 2FA n'est pas disponible pour le moment.",
+      "generic": "Une erreur est survenue. Réessaye dans un instant."
+    }
+  },
   "registerFix": {
     "shared": {
       "stepEyebrow": "↳ Étape 2/2",
