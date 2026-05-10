@@ -214,6 +214,19 @@ body {
   outline-offset: 2px;
 }
 
+/* Soleil v2 — text selection uses the brand corail (primary-deep) so
+ * highlighted text reads as part of the design instead of the browser
+ * default blue. Foreground stays ivoire for AA contrast on the deep
+ * corail background. */
+::selection {
+  background-color: var(--primary-deep);
+  color: var(--primary-foreground);
+}
+::-moz-selection {
+  background-color: var(--primary-deep);
+  color: var(--primary-foreground);
+}
+
 /* ============================================
  * Keyframe animations — Soleil is calm
  * No glow, no float, no pulse.

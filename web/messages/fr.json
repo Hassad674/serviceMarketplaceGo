@@ -2081,7 +2081,7 @@
     "manageInfoHint": "Modifiez vos coordonnées, IBAN, adresse ou représentants légaux.",
     "accountActive": "Compte entièrement actif",
     "accountActiveDesc": "Vous pouvez recevoir des paiements et transférer des fonds",
-    "urgentAction": "Action urgente requise",
+    "urgentAction": "Action requise pour vos paiements",
     "verificationInProgress": "Vérification en cours",
     "itemsToComplete": "{count, plural, one {# information à compléter} other {# informations à compléter}}",
     "processingByStripe": "Traitement par Stripe en cours",

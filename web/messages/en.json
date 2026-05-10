@@ -2081,7 +2081,7 @@
     "manageInfoHint": "Update your details, bank account, address or legal representatives.",
     "accountActive": "Account fully active",
     "accountActiveDesc": "You can receive payments and transfer funds",
-    "urgentAction": "Urgent action required",
+    "urgentAction": "Action required for your payments",
     "verificationInProgress": "Verification in progress",
     "itemsToComplete": "{count, plural, one {# item to complete} other {# items to complete}}",
     "processingByStripe": "Processing by Stripe in progress",
