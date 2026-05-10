@@ -36,9 +36,15 @@ export function readConsent(): ConsentChoice | null {
  * Persist the user's choice and propagate it to PostHog.
  * Idempotent — calling it twice with the same choice is a no-op.
  *
- * Also dispatches a same-tab `analytics:consent-changed` event so
- * other analytics providers (e.g. GA4) can re-render their
- * conditional mounts without a full reload.
+ * Also:
+ *   - dispatches a same-tab `analytics:consent-changed` event so
+ *     other analytics providers (e.g. GA4) can re-render their
+ *     conditional mounts without a full reload.
+ *   - fires-and-forgets a POST /api/v1/consent/log with the chosen
+ *     categories so we keep server-side proof of consent (Phase A.3
+ *     of gdpr-roadmap.md). Failure is silent: the localStorage flip
+ *     is the source of truth in the browser; the server log is the
+ *     audit trail that backs CNIL inquiries.
  */
 export function applyConsent(choice: ConsentChoice): void {
   if (typeof window === "undefined") return
@@ -62,6 +68,31 @@ export function applyConsent(choice: ConsentChoice): void {
     // best-effort — old browsers without CustomEvent ctor still get
     // the persistence + posthog flip.
   }
+
+  void recordConsentOnServer(choice)
+}
+
+// recordConsentOnServer fires the POST to /api/v1/consent/log. Pulled
+// to a private helper so applyConsent stays a side-effect choreographer
+// and the network call can be tested / mocked independently.
+function recordConsentOnServer(choice: ConsentChoice): Promise<void> {
+  // analytics is the only category gated today (PostHog + GA4). When
+  // Tarteaucitron lands in Phase A.2 this list will be richer.
+  const categories =
+    choice === "accepted" ? ["analytics"] : ["functional"]
+  const action = choice === "accepted" ? "accept_all" : "refuse_all"
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+  const body = JSON.stringify({ action, categories })
+
+  return fetch(`${apiUrl}/api/v1/consent/log`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body,
+  })
+    .then(() => undefined)
+    .catch(() => undefined)
 }
 
 /** Helper for tests / settings page that lets a user revoke consent. */
