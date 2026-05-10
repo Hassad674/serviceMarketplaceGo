@@ -95,6 +95,16 @@ Brief: `docs/plans/F3_3_brief.md` (à créer)
 - 19 backend files > 600 lines split
 - CONTRIBUTING.md typo `contract-isolation.spec.ts` → `refactor-isolation.spec.ts`
 
+## Phase B — Security hardening (parallel-track)
+
+| # | Item | Stack | Status | Notes |
+|---|---|---|---|---|
+| **B.6.1** | Email 2FA — backend (migration 148, domain/twofactor, app service, postgres adapter, /auth/login/verify-2fa, /me/two-factor/{enable,disable}) | backend | ✅ **done 2026-05-10** | Migration 148. Login gated on `users.two_factor_email_enabled`. Web + mobile UI shipped separately as B.6.2 / B.6.3. |
+| **B.6.2** | Email 2FA — web UI (login verify form + settings toggle) | web | ⏳ pending | Depends on B.6.1 backend (done) |
+| **B.6.3** | Email 2FA — mobile UI (login verify screen + settings toggle) | mobile | ⏳ pending | Depends on B.6.1 backend (done) |
+
+---
+
 ## F.4 — LOW (~2-3 jours, perfectionnement final)
 
 À détailler après F.3 — 41 LOW findings restants dans audits.
