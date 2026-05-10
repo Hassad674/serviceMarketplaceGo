@@ -101,7 +101,7 @@ Brief: `docs/plans/F3_3_brief.md` (à créer)
 |---|---|---|---|---|
 | **B.6.1** | Email 2FA — backend (migration 148, domain/twofactor, app service, postgres adapter, /auth/login/verify-2fa, /me/two-factor/{enable,disable}) | backend | ✅ **done 2026-05-10** | Migration 148. Login gated on `users.two_factor_email_enabled`. Web + mobile UI shipped separately as B.6.2 / B.6.3. |
 | **B.6.2** | Email 2FA — web UI (login verify form + settings toggle) | web | ✅ **done 2026-05-10** | LoginForm gates on `requires_2fa`, swaps to 6-digit input + resend in place. Sécurité tab toggle (`/account?section=security`) — two-step enable, password-confirm disable. i18n FR/EN under `twoFactor`. Caveat: `/auth/me` does not yet surface `two_factor_email_enabled` so the toggle defaults to off on first paint (flagged for follow-up). |
-| **B.6.3** | Email 2FA — mobile UI (login verify screen + settings toggle) | mobile | ⏳ pending | Depends on B.6.1 backend (done) |
+| **B.6.3** | Email 2FA — mobile UI (login verify screen + settings toggle) | mobile | ✅ **done 2026-05-10** | Login screen state machine swaps to OTP form when `requires_2fa: true` (inline state, no new route). Sécurité section toggle uses two-step enable (challenge → 6-digit modal) + password-confirm disable. i18n FR/EN under `twoFactor*` keys in `lib/l10n/app_{fr,en}.arb`. Caveat: `/auth/me` does not yet surface `two_factor_email_enabled` so the toggle starts OFF on every mount (same gap as B.6.2 web — flagged for follow-up). |
 
 ---
 
