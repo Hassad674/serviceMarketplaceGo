@@ -177,11 +177,12 @@ func TestDefaultPolicies_OverridesApply(t *testing.T) {
 func TestDefaultPolicies_StrategyMapping(t *testing.T) {
 	policies := retention.DefaultPolicies(retention.Overrides{})
 	wantStrategies := map[string]retention.Strategy{
-		"messages_3y":                   retention.StrategyDelete,
-		"notifications_90d":             retention.StrategyDelete,
-		"device_tokens_60d_inactive":    retention.StrategyDelete,
-		"search_queries_12mo_anonymize": retention.StrategyAnonymize,
-		"audit_logs_24mo_archive":       retention.StrategyArchive,
+		"messages_3y":                      retention.StrategyDelete,
+		"notifications_90d":                retention.StrategyDelete,
+		"device_tokens_60d_inactive":       retention.StrategyDelete,
+		"search_queries_12mo_anonymize":    retention.StrategyAnonymize,
+		"audit_logs_24mo_archive":          retention.StrategyArchive,
+		"user_sessions_revoked_30d_delete": retention.StrategyDeleteRevokedSessions,
 	}
 	got := map[string]retention.Strategy{}
 	for _, p := range policies {

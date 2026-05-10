@@ -50,12 +50,18 @@ const (
 	// to NULL for rows older than MaxAge. The row itself stays so
 	// analytics aggregates and ML training data remain stable.
 	StrategyAnonymize Strategy = "anonymize"
+	// StrategyDeleteRevokedSessions hard-deletes user_sessions rows
+	// only when BOTH revoked_at and expires_at are older than the
+	// cutoff. Active sessions are kept. Single-purpose strategy
+	// scoped to user_sessions; the adapter rejects the policy for
+	// any other table. B.4.
+	StrategyDeleteRevokedSessions Strategy = "delete_revoked_sessions"
 )
 
 // IsValid reports whether s is one of the supported strategies.
 func (s Strategy) IsValid() bool {
 	switch s {
-	case StrategyDelete, StrategyArchive, StrategyAnonymize:
+	case StrategyDelete, StrategyArchive, StrategyAnonymize, StrategyDeleteRevokedSessions:
 		return true
 	default:
 		return false
