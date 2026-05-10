@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -166,10 +167,14 @@ func (h *ReceiptHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusBadRequest, "invalid_receipt_id", "receipt id must be a valid UUID")
 		return
 	}
-	language := r.URL.Query().Get("lang")
-	if language == "" {
-		language = "fr"
-	}
+	// Boundary validation: strict allowlist on the user-controlled
+	// `lang` query param so no tainted string ever reaches the
+	// renderer or the response. Closes CodeQL #63 (go/xss G705) —
+	// even though the response Content-Type is `application/pdf` and
+	// the chromedp renderer uses `html/template` (auto-escaping),
+	// gosec rightly flags the taint flow. Allowing only the two
+	// supported languages kills the flow at the entry point.
+	language := normalizeReceiptLang(r.URL.Query().Get("lang"))
 	pdf, _, err := h.svc.RenderPDF(r.Context(), id, orgID, language)
 	if err != nil {
 		if errors.Is(err, receiptapp.ErrPDFRendererUnavailable) {
@@ -230,6 +235,23 @@ func (h *ReceiptHandler) emitPDFDownload(r *http.Request, receiptID uuid.UUID) {
 	}
 	uid, _ := middleware.GetUserID(r.Context())
 	h.auditLog.LogReceiptPDFDownload(r.Context(), uid, receiptID, clientIP(r))
+}
+
+// normalizeReceiptLang collapses any user-supplied `lang` query param
+// into the strict allowlist {"fr", "en"} the renderer supports.
+// Anything else — including empty, mixed-case, surrounding whitespace,
+// or hostile HTML/JS payloads — falls back to "fr" (the primary
+// market). This is the boundary defense for CodeQL #63 (go/xss): no
+// untrusted string is allowed to flow further into the rendering
+// pipeline, even though the chromedp renderer uses html/template and
+// the response Content-Type is application/pdf.
+func normalizeReceiptLang(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "en":
+		return "en"
+	default:
+		return "fr"
+	}
 }
 
 // (clientIP is defined in role_overrides_handler.go and reused
