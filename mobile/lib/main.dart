@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/analytics/posthog_service.dart';
 import 'core/lifecycle/app_lifecycle_observer.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -66,6 +67,13 @@ Future<void> main() async {
     // [firebaseReady] before touching the SDK. Saves 200-500 ms TTI
     // on iOS where Firebase setup is the slowest non-Flutter step.
     firebaseReady = _initFirebase();
+
+    // Initialise PostHog analytics in the same off-critical-path
+    // pattern. The SDK setup hits the platform method channel for a
+    // ~50 ms init; we fire-and-forget so the splash never blocks on
+    // it. Analytics failures are swallowed — observability must
+    // never crash the boot.
+    unawaited(PostHogService.instance.initialize());
 
     // Wire framework + platform error surfaces. Both must be set
     // BEFORE runApp so the very first frame's errors are caught.
