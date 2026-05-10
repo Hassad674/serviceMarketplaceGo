@@ -140,6 +140,14 @@ type Config struct {
 	// to zero falls back to the per-env default.
 	RetentionInterval time.Duration
 
+	// GDPRContactEmail is the recipient address for compliance
+	// notifications surfaced by the user-facing legal endpoints —
+	// currently used by the RGPD art. 22 appeal handler to flag a new
+	// human-review request to the admin inbox. Empty silences the
+	// notification (the appeal row is still persisted) so dev / CI
+	// stacks without an email channel do not break the flow.
+	GDPRContactEmail string
+
 	// PostHogProjectKey is the public project token used by the
 	// posthog-go SDK to ship server-side events. Same value as the
 	// browser-side NEXT_PUBLIC_POSTHOG_KEY — PostHog deliberately
@@ -226,6 +234,10 @@ func Load() *Config {
 		// in prod, 1m in dev). Non-empty is parsed; bogus values fall
 		// back to zero so the wire-layer default applies.
 		RetentionInterval: retentionIntervalFromEnv(getEnv("RETENTION_INTERVAL", "")),
+
+		// RGPD art. 22 admin notification recipient. Empty silences the
+		// email best-effort path; the row is still persisted.
+		GDPRContactEmail: getEnv("GDPR_CONTACT_EMAIL", ""),
 
 		// PostHog analytics. Same project token shared with the web
 		// SDK (NEXT_PUBLIC_POSTHOG_KEY) — the public project token

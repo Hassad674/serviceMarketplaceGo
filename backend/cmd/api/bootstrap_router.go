@@ -62,6 +62,7 @@ type routerHandlers struct {
 	AdminDispute          *handler.AdminDisputeHandler
 	GDPR                  *handler.GDPRHandler
 	Consent               *handler.ConsentHandler
+	AutomatedDecisionAppeal *handler.AutomatedDecisionAppealHandler
 	Security              *handler.SecurityHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
@@ -131,6 +132,7 @@ type finalHandlers struct {
 	AdminDispute          *handler.AdminDisputeHandler
 	GDPR                  *handler.GDPRHandler
 	Consent               *handler.ConsentHandler
+	AutomatedDecisionAppeal *handler.AutomatedDecisionAppealHandler
 	Security              *handler.SecurityHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
@@ -190,9 +192,10 @@ func buildRouterHandlers(h finalHandlers) routerHandlers {
 		ProjectHistory:        h.ProjectHistory,
 		Dispute:               h.Dispute,
 		AdminDispute:          h.AdminDispute,
-		GDPR:                  h.GDPR,
-		Consent:               h.Consent,
-		Security:              h.Security,
+		GDPR:                    h.GDPR,
+		Consent:                 h.Consent,
+		AutomatedDecisionAppeal: h.AutomatedDecisionAppeal,
+		Security:                h.Security,
 		Skill:                 h.Skill,
 		Referral:              h.Referral,
 		Search:                h.Search,
@@ -251,9 +254,10 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		ProjectHistory:        b.Handlers.ProjectHistory,
 		Dispute:               b.Handlers.Dispute,
 		AdminDispute:          b.Handlers.AdminDispute,
-		GDPR:                  b.Handlers.GDPR,
-		Consent:               b.Handlers.Consent,
-		Security:              b.Handlers.Security,
+		GDPR:                    b.Handlers.GDPR,
+		Consent:                 b.Handlers.Consent,
+		AutomatedDecisionAppeal: b.Handlers.AutomatedDecisionAppeal,
+		Security:                b.Handlers.Security,
 		Skill:                 b.Handlers.Skill,
 		Referral:              b.Handlers.Referral,
 		Search:                b.Handlers.Search,

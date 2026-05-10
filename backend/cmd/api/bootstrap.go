@@ -7,6 +7,7 @@ import (
 
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
+	automateddecisionapp "marketplace-backend/internal/app/automateddecision"
 	consentapp "marketplace-backend/internal/app/consent"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
@@ -561,6 +562,20 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	consentSvc := consentapp.NewService(consentRepo)
 	consentHandler := handler.NewConsentHandler(consentSvc)
 
+	// RGPD art. 22 (Phase B.5 of gdpr-roadmap.md): authenticated user
+	// files an appeal for human review of an automated decision (AI
+	// moderation, search ranking, Stripe risk scoring). Wired here next
+	// to GDPR/Consent because all three serve the same compliance
+	// surface; fully removable — drop these four lines + the routes_*.go
+	// mount + the migration and the rest of the API still builds.
+	automatedDecisionRepo := postgres.NewAutomatedDecisionAppealRepository(infra.DB)
+	automatedDecisionSvc := automateddecisionapp.NewService(automateddecisionapp.ServiceDeps{
+		Repo:       automatedDecisionRepo,
+		Email:      infra.EmailSvc,
+		AdminEmail: cfg.GDPRContactEmail,
+	})
+	automatedDecisionHandler := handler.NewAutomatedDecisionAppealHandler(automatedDecisionSvc)
+
 	// Phase B.1 of gdpr-roadmap.md — retention scheduler. Sweeps stale
 	// rows from messages (3y), notifications (90d), device_tokens
 	// (60d inactivity), search_queries (12mo → anonymize) and
@@ -635,6 +650,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			ProjectHistory:  projectHistoryHandler,
 			Dispute:         disputeHandler, AdminDispute: adminDisputeHandler,
 			GDPR:            gdprHandler, Consent: consentHandler,
+			AutomatedDecisionAppeal: automatedDecisionHandler,
 			Skill:   skillHandler, Referral: referralHandler,
 			Search:  searchHandler, AdminSearchStats: adminSearchStatsHandler,
 			Security:      securityHandler,
