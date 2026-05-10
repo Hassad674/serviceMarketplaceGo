@@ -142,4 +142,74 @@ describe("ReferrerPublicProfileLoader — display name fallback", () => {
       screen.queryByText("2d454cba-6949-4c08-95a1-e105c51ff368"),
     ).not.toBeInTheDocument()
   })
+
+  // Step-2 behaviour: the loader now prefers the owner's first_name +
+  // last_name when the public referrer payload exposes them. The title
+  // remains the italic subtitle below the heading. Falls back to title
+  // (then to the localised label) only when both name fields are
+  // empty — see the previous tests.
+  it("renders ${first_name} ${last_name} as the H1 when both are present", () => {
+    profileMock.current = buildProfile({
+      first_name: "Marc",
+      last_name: "Aurele",
+      title: "Apporteur senior",
+    })
+    profileMock.loading = false
+    profileMock.error = null
+    renderLoader()
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Marc Aurele" }),
+    ).toBeInTheDocument()
+    // The persona title still surfaces as the italic subtitle when
+    // it does NOT duplicate the heading.
+    expect(
+      screen.getByText("Apporteur senior", { selector: "p" }),
+    ).toBeInTheDocument()
+  })
+
+  it("trims a single missing name part (only first_name set)", () => {
+    profileMock.current = buildProfile({
+      first_name: "Marc",
+      last_name: "",
+      title: "Apporteur senior",
+    })
+    profileMock.loading = false
+    profileMock.error = null
+    renderLoader()
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Marc" }),
+    ).toBeInTheDocument()
+  })
+
+  // Bug #3 regression: the public referrer view must NOT render the
+  // empty-state placeholder for the presentation video card when the
+  // org has no video. Owners still see the empty-state with the upload
+  // CTA on /referral, but the public read-only viewer skips it.
+  it("hides the empty presentation video card when the org has no video", () => {
+    profileMock.current = buildProfile({ video_url: "" })
+    profileMock.loading = false
+    profileMock.error = null
+    const { container } = renderLoader()
+    expect(container.querySelector("video")).toBeNull()
+    // The empty-state heading "No referrer video" is the smoke test —
+    // the bug surfaced this exact string on /fr/referrers/{uuid} for
+    // every unset video.
+    expect(
+      screen.queryByText(messages.profile.noVideoReferrer),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders the embedded <video> tag when the org has a presentation video", () => {
+    profileMock.current = buildProfile({
+      video_url: "https://media.example.test/intro.mp4",
+    })
+    profileMock.loading = false
+    profileMock.error = null
+    const { container } = renderLoader()
+    const video = container.querySelector("video")
+    expect(video).not.toBeNull()
+    expect(video?.getAttribute("src")).toBe(
+      "https://media.example.test/intro.mp4",
+    )
+  })
 })

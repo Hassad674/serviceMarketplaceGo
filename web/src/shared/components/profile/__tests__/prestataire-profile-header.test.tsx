@@ -162,4 +162,74 @@ describe("PrestataireProfileHeader — shared shell", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByText("Senior Go engineer")).toBeInTheDocument()
   })
+
+  // Public-profile heading bug regression: when the loader has no
+  // first_name/last_name to render, it falls back to the title for
+  // both the H1 and the italic subtitle, producing a "title twice"
+  // surface (e.g. "grtgvrthzthrhgtre" rendered as both heading and
+  // subtitle). The shared header now hides the subtitle when it
+  // duplicates the heading on read-only views, while keeping it for
+  // the owner-edit affordance so the inline editor still works.
+  it("hides the italic subtitle on read-only views when title equals the displayName", () => {
+    renderHeader(
+      buildProps({
+        identity: {
+          photoUrl: "",
+          displayName: "Senior Go engineer",
+          title: "Senior Go engineer",
+          availabilityStatus: "available_now",
+          organizationId: "org-1",
+          city: "Paris",
+          countryCode: "FR",
+          languagesProfessional: ["fr", "en"],
+        },
+      }),
+    )
+    // The H1 is unique; the italic <p> subtitle must NOT also surface
+    // the same string, otherwise users see the title twice.
+    const subtitleMatches = screen
+      .getAllByText("Senior Go engineer")
+      .filter((node) => node.tagName.toLowerCase() === "p")
+    expect(subtitleMatches).toHaveLength(0)
+  })
+
+  it("compares title and displayName case-insensitively for the dedup", () => {
+    renderHeader(
+      buildProps({
+        identity: {
+          photoUrl: "",
+          displayName: "Profil Agence",
+          title: "profil agence",
+          availabilityStatus: "available_now",
+          organizationId: "org-1",
+          city: "Paris",
+          countryCode: "FR",
+          languagesProfessional: ["fr", "en"],
+        },
+      }),
+    )
+    expect(
+      screen.queryByText("profil agence", { selector: "p" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("keeps the subtitle visible when title differs from displayName", () => {
+    renderHeader(
+      buildProps({
+        identity: {
+          photoUrl: "",
+          displayName: "Ada Lovelace",
+          title: "Senior Go engineer",
+          availabilityStatus: "available_now",
+          organizationId: "org-1",
+          city: "Paris",
+          countryCode: "FR",
+          languagesProfessional: ["fr", "en"],
+        },
+      }),
+    )
+    expect(
+      screen.getByText("Senior Go engineer", { selector: "p" }),
+    ).toBeInTheDocument()
+  })
 })

@@ -136,4 +136,33 @@ describe("AgencyPublicProfile — unified Soleil v2 shell", () => {
     renderProfile(buildProfile({ pricing: [] }))
     expect(screen.queryByText("Starting at")).not.toBeInTheDocument()
   })
+
+  // Bug #3 regression: the public agency view must NOT render the
+  // empty presentation video card when the org has no video. Other
+  // empty sections (e.g. social links, portfolio) already collapse —
+  // the video card now follows the same convention. Owners still
+  // see the empty-state with the upload CTA on /profile.
+  it("hides the empty presentation video card when the agency has no video", () => {
+    const { container } = renderProfile(
+      buildProfile({ presentation_video_url: "" }),
+    )
+    expect(container.querySelector("video")).toBeNull()
+    // The empty-state heading "No presentation video" is the smoke
+    // test — the bug surfaced this exact string on every video-less
+    // /agencies/{uuid} page in production.
+    expect(screen.queryByText("No presentation video")).not.toBeInTheDocument()
+  })
+
+  it("renders the embedded <video> tag when the agency has a presentation video", () => {
+    const { container } = renderProfile(
+      buildProfile({
+        presentation_video_url: "https://media.example.test/intro.mp4",
+      }),
+    )
+    const video = container.querySelector("video")
+    expect(video).not.toBeNull()
+    expect(video?.getAttribute("src")).toBe(
+      "https://media.example.test/intro.mp4",
+    )
+  })
 })
