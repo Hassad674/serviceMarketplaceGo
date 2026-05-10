@@ -4077,4 +4077,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileCompletionSectionClientAbout => 'Client presentation';
+
+  @override
+  String get statsScreenTitle => 'Stats';
+
+  @override
+  String get statsPeriod7d => '7d';
+
+  @override
+  String get statsPeriod30d => '30d';
+
+  @override
+  String get statsPeriod90d => '90d';
+
+  @override
+  String get statsPeriodSelectorLabel => 'Period';
+
+  @override
+  String get statsVisibilityTitle => 'Visibility';
+
+  @override
+  String get statsVisibilitySubtitle =>
+      'Views, search appearances and avg position';
+
+  @override
+  String get statsApplicationsTitle => 'Applications received';
+
+  @override
+  String get statsApplicationsSubtitle => 'Volume over the selected window';
+
+  @override
+  String get statsKeywordsTitle => 'Top 10 keywords';
+
+  @override
+  String get statsKeywordsSubtitle => 'Searches that surface your profile';
+
+  @override
+  String get statsProfileViews => 'Profile views';
+
+  @override
+  String get statsSearchAppearances => 'Appearances';
+
+  @override
+  String get statsAvgPosition => 'Avg position';
+
+  @override
+  String get statsKeywordHeader => 'Keyword';
+
+  @override
+  String get statsKeywordVolumeHeader => 'Volume';
+
+  @override
+  String get statsKeywordPositionHeader => 'Position';
+
+  @override
+  String get statsInsufficientData =>
+      'Not enough data yet — your profile needs ~7 days of visibility to surface trends.';
+
+  @override
+  String get statsLoadError => 'Couldn\'t load this data. Try again.';
+
+  @override
+  String get statsEnterprisePlaceholderBody =>
+      'Enterprise stats (applications, active jobs) are coming soon.';
 }
