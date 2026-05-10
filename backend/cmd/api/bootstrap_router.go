@@ -67,6 +67,8 @@ type routerHandlers struct {
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
 	AdminSearchStats      *handler.AdminSearchStatsHandler
+	Stats                 *handler.StatsHandler
+	StatsRecorder         handler.StatsRecorder
 }
 
 // bootstrappedRouter bundles everything assembleRouter needs.
@@ -134,6 +136,8 @@ type finalHandlers struct {
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
 	AdminSearchStats      *handler.AdminSearchStatsHandler
+	Stats                 *handler.StatsHandler
+	StatsRecorder         handler.StatsRecorder
 }
 
 // buildRouterHandlers copies a finalHandlers value into the
@@ -193,6 +197,8 @@ func buildRouterHandlers(h finalHandlers) routerHandlers {
 		Referral:              h.Referral,
 		Search:                h.Search,
 		AdminSearchStats:      h.AdminSearchStats,
+		Stats:                 h.Stats,
+		StatsRecorder:         h.StatsRecorder,
 	}
 }
 
@@ -252,6 +258,8 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Referral:              b.Handlers.Referral,
 		Search:                b.Handlers.Search,
 		AdminSearchStats:      b.Handlers.AdminSearchStats,
+		Stats:                 b.Handlers.Stats,
+		StatsRecorder:         b.Handlers.StatsRecorder,
 		WSHandler:             b.WSHandler,
 		Cfg:                   b.Cfg,
 		TokenService:          b.Infra.TokenSvc,

@@ -75,6 +75,8 @@ type RouterDeps struct {
 	GDPR                *GDPRHandler             // optional — nil disables /me/export + /me/account/*-deletion routes
 	Consent             *ConsentHandler          // optional — nil disables POST /consent/log
 	Security            *SecurityHandler         // optional — nil disables /me/security/activity route
+	Stats               *StatsHandler            // optional — nil disables /me/stats/* routes
+	StatsRecorder       StatsRecorder            // optional — nil disables view-tracking middleware on public profile reads
 	WSHandler           http.HandlerFunc
 	Config              *config.Config
 	TokenService        service.TokenService
@@ -176,6 +178,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		mountGDPRRoutes(r, deps, auth)
 		mountConsentRoutes(r, deps, auth)
 		mountSecurityRoutes(r, deps, auth)
+		mountStatsRoutes(r, deps, auth)
 		mountWebSocketRoute(r, deps)
 		mountAdminRoutes(r, deps, auth)
 		mountTestRoutes(r, deps)

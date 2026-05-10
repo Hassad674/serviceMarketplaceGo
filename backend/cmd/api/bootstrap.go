@@ -10,6 +10,7 @@ import (
 	consentapp "marketplace-backend/internal/app/consent"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
+	statsapp "marketplace-backend/internal/app/stats"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/observability"
@@ -574,6 +575,15 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		DB:  infra.AdminDB,
 	})
 
+	// Stats infrastructure (migration 143): per-org public profile
+	// view tracking + visibility / keywords / applications stats. The
+	// feature is fully removable: drop these four lines + the routes_stats.go
+	// mount + the migration and the rest of the API still builds.
+	profileViewRepo := postgres.NewProfileViewRepository(infra.DB)
+	searchQueryStatsRepo := postgres.NewSearchQueryStatsRepository(infra.DB)
+	statsSvc := statsapp.NewService(profileViewRepo, searchQueryStatsRepo, profileViewRepo)
+	statsHandler := handler.NewStatsHandler(statsSvc)
+
 	// Security activity — read-only feed of the caller's recent
 	// authentication audit events. Wired AFTER infra so the audit
 	// repository is fully initialised; the handler short-circuits
@@ -627,7 +637,9 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			GDPR:            gdprHandler, Consent: consentHandler,
 			Skill:   skillHandler, Referral: referralHandler,
 			Search:  searchHandler, AdminSearchStats: adminSearchStatsHandler,
-			Security: securityHandler,
+			Security:      securityHandler,
+			Stats:         statsHandler,
+			StatsRecorder: statsSvc,
 		}),
 		WSHandler:   wsHandler,
 		Cfg:         cfg,
