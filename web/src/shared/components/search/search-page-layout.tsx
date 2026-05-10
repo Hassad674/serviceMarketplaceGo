@@ -207,6 +207,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
             loadMoreLabel={t("loadMore")}
             loadingLabel={t("loading")}
             onSelect={props.onSelect}
+            query={props.query}
           />
         </div>
       </div>
@@ -339,6 +340,14 @@ interface ResultsSectionProps {
   loadMoreLabel: string
   loadingLabel: string
   onSelect?: (docID: string, position: number) => void
+  /**
+   * Active search query — propagated to every <SearchResultCard> so
+   * the card link appends `?q=<query>&pos=<index>` to the destination
+   * URL. The backend's tracking middleware reads those params on the
+   * profile GET to populate /me/stats/keywords + visibility records
+   * (R-DASH-2026-05-10).
+   */
+  query: string
 }
 
 function ResultsSection(props: ResultsSectionProps) {
@@ -370,6 +379,8 @@ function ResultsSection(props: ResultsSectionProps) {
                 ? () => props.onSelect?.(doc.id, index)
                 : undefined
             }
+            query={props.query}
+            position={index + 1}
           />
         ))}
       </div>

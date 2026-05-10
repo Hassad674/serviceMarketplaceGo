@@ -45,6 +45,20 @@ interface SearchResultCardProps {
    * paths that don't need tracking (e.g. SQL fallback).
    */
   onSelect?: () => void
+  /**
+   * Active search query — propagated to the destination URL as `?q=`
+   * so the public profile GET request feeds the visibility-stats
+   * tracking middleware (R-DASH-2026-05-10). Undefined on the
+   * unscoped catalogue browse where no query was typed.
+   */
+  query?: string
+  /**
+   * 1-based position of the card in the result grid — propagated as
+   * `?pos=`. Together with `q`, this lets the backend aggregate
+   * average search position per organization. Undefined when the
+   * parent layout does not pass an index.
+   */
+  position?: number
 }
 
 const PERSONA_TO_PATH: Record<SearchDocumentPersona, string> = {
@@ -53,10 +67,15 @@ const PERSONA_TO_PATH: Record<SearchDocumentPersona, string> = {
   referrer: "/referrers",
 }
 
-export function SearchResultCard({ document, onSelect }: SearchResultCardProps) {
+export function SearchResultCard({
+  document,
+  onSelect,
+  query,
+  position,
+}: SearchResultCardProps) {
   const locale: FormatLocale = useLocale() === "fr" ? "fr" : "en"
   const headingId = `search-card-${document.id}`
-  const href = `${PERSONA_TO_PATH[document.persona]}/${document.id}`
+  const href = buildResultHref(document.persona, document.id, query, position)
 
   return (
     <article aria-labelledby={headingId} className="h-full">
@@ -287,6 +306,32 @@ function isRenderableImageUrl(raw: string): boolean {
   } catch {
     return false
   }
+}
+
+// buildResultHref appends the search query (`q`) and 1-based card
+// position (`pos`) to the destination profile URL. The backend's
+// public-profile GET tracking middleware reads these query params off
+// the request and writes a `profile_view` row with the lowercased
+// keyword + position, which feeds the /me/stats/visibility +
+// /me/stats/keywords endpoints. The function is exported for test
+// access — kept private to consumers via the unrelated default export
+// pattern of `SearchResultCard`.
+export function buildResultHref(
+  persona: SearchDocumentPersona,
+  id: string,
+  query: string | undefined,
+  position: number | undefined,
+): string {
+  const base = `${PERSONA_TO_PATH[persona]}/${id}`
+  const params: string[] = []
+  const trimmed = (query ?? "").trim().toLowerCase()
+  if (trimmed.length > 0) {
+    params.push(`q=${encodeURIComponent(trimmed)}`)
+  }
+  if (typeof position === "number" && Number.isFinite(position) && position >= 1) {
+    params.push(`pos=${Math.trunc(position)}`)
+  }
+  return params.length === 0 ? base : `${base}?${params.join("&")}`
 }
 
 function getInitials(name: string): string {
