@@ -13,6 +13,7 @@ import (
 	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/moderation"
+	"marketplace-backend/internal/domain/session"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
@@ -30,7 +31,19 @@ func (s *Service) resolveOrgContext(ctx context.Context, userID uuid.UUID) (*org
 	return orgCtx, nil
 }
 
+// RefreshToken keeps the legacy signature for callers that don't yet
+// pass a fingerprint. New callers should prefer
+// RefreshTokenWithFingerprint so the B.4 audit row carries the
+// originating user-agent / IP.
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthOutput, error) {
+	return s.RefreshTokenWithFingerprint(ctx, refreshToken, SessionFingerprint{})
+}
+
+// RefreshTokenWithFingerprint is the full-featured refresh path. It
+// implements OAuth 2.1 §4.13.2 refresh-token replay detection AND
+// records the rotation chain in user_sessions (B.4). The fingerprint
+// becomes the new session row's user_agent_hash + ip_anonymized.
+func (s *Service) RefreshTokenWithFingerprint(ctx context.Context, refreshToken string, fp SessionFingerprint) (*AuthOutput, error) {
 	claims, err := s.tokens.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return nil, user.ErrUnauthorized
@@ -75,6 +88,11 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 						"user_id", claims.UserID, "error", err)
 				}
 			}
+			// B.4: assume the user is compromised — revoke every
+			// still-active session row so the SOC investigation has
+			// the full audit trail and the attacker's parallel
+			// chains are killed in one shot.
+			s.revokeAllSessionsForUser(ctx, claims.UserID)
 			return nil, user.ErrUnauthorized
 		}
 	}
@@ -129,6 +147,12 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		}
 	}
 
+	// B.4: revoke the old session row + record the new one chained
+	// via parent_jti. The chain reconstruction lets the SOC replay a
+	// rotation history when investigating a stolen-token alert.
+	s.revokeSessionByJTI(ctx, claims.JTI)
+	s.recordSession(ctx, u.ID, newRefreshToken, claims.JTI, session.LoginMethodRefresh, fp)
+
 	return buildAuthOutput(u, orgCtx, newAccessToken, newRefreshToken), nil
 }
 
@@ -136,6 +160,12 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 // auth handler after it has invalidated the session — exposes a method
 // rather than logging from the handler so the audit emission stays in
 // the app layer with the rest of the auth audit calls.
+//
+// Note: this method does NOT mark the user_sessions row revoked
+// because a userID alone is not enough to disambiguate which session
+// the caller is signing out of. The handler invokes RevokeRefreshToken
+// for the mobile path (refresh token in body) which DOES carry the
+// jti — that path is responsible for the session-row revoke.
 func (s *Service) Logout(ctx context.Context, userID uuid.UUID) {
 	s.logAudit(ctx, audit.NewEntryInput{
 		UserID:       &userID,
@@ -158,17 +188,22 @@ func (s *Service) Logout(ctx context.Context, userID uuid.UUID) {
 // session layer and we do not surface a 500 just because there is
 // nothing to blacklist.
 func (s *Service) RevokeRefreshToken(ctx context.Context, refreshToken string) {
-	if s.refreshBlacklist == nil || refreshToken == "" {
+	if refreshToken == "" {
 		return
 	}
 	claims, err := s.tokens.ValidateRefreshToken(refreshToken)
 	if err != nil || claims.JTI == "" {
 		return
 	}
-	ttl := time.Until(claims.ExpiresAt)
-	if err := s.refreshBlacklist.Add(ctx, claims.JTI, ttl); err != nil {
-		slog.Warn("refresh blacklist revoke failed", "jti", claims.JTI, "error", err)
+	if s.refreshBlacklist != nil {
+		ttl := time.Until(claims.ExpiresAt)
+		if err := s.refreshBlacklist.Add(ctx, claims.JTI, ttl); err != nil {
+			slog.Warn("refresh blacklist revoke failed", "jti", claims.JTI, "error", err)
+		}
 	}
+	// B.4: mark the session row as revoked. Best-effort — failure is
+	// logged and swallowed inside the helper.
+	s.revokeSessionByJTI(ctx, claims.JTI)
 }
 
 // recordTokenReuse writes an auth.token_reuse_detected audit row. The
