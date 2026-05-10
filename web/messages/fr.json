@@ -2463,6 +2463,33 @@
     "accept": "Accepter",
     "refuse": "Refuser"
   },
+  "cookieConsent": {
+    "banner": {
+      "title": "Tu gardes la main sur tes données",
+      "description": "On utilise des cookies strictement nécessaires pour faire tourner le service, et — uniquement si tu l'acceptes — des cookies de mesure d'audience pour améliorer la plateforme. Tu peux changer d'avis à tout moment depuis la page Cookies.",
+      "acceptAll": "Tout accepter",
+      "refuseAll": "Tout refuser",
+      "preferences": "Personnaliser",
+      "footer": "<a href=\"/fr/privacy\">Politique de confidentialité</a> · <a href=\"/fr/cookies\">Cookies</a>"
+    },
+    "preferences": {
+      "title": "Préférences de cookies",
+      "save": "Enregistrer mes choix",
+      "close": "Fermer",
+      "intro": {
+        "title": "À quoi servent ces choix",
+        "description": "Marketplace Service utilise deux familles de cookies : ceux qui sont indispensables pour que tu puisses te connecter et payer, et ceux qui nous aident à comprendre l'usage du service pour l'améliorer. Ce panneau te laisse choisir."
+      },
+      "necessary": {
+        "title": "Strictement nécessaires",
+        "description": "Indispensables au fonctionnement du service : authentification, sécurité, paiements Stripe, mémorisation de tes choix de consentement et de la langue. Ils ne peuvent pas être désactivés."
+      },
+      "analytics": {
+        "title": "Mesure d'audience",
+        "description": "Cookies PostHog (Irlande) et Google Analytics 4 utilisés pour comprendre l'usage du service de manière agrégée. Aucune donnée n'est partagée avec un annonceur. Tu peux refuser sans perdre aucune fonctionnalité."
+      }
+    }
+  },
   "legal": {
     "footer": {
       "ariaLabel": "Liens légaux et confidentialité",

@@ -1,0 +1,74 @@
+/*
+ * Soleil v2 overrides for vanilla-cookieconsent.
+ *
+ * The package ships its own CSS via custom properties prefixed with
+ * `--cc-`. We re-map those to the design-system tokens defined in
+ * `globals.css` so the CMP inherits the ivoire/corail palette without
+ * a single hardcoded hex literal in the component layer.
+ *
+ * Reference: https://cookieconsent.orestbida.com/advanced/ui-customization.html
+ */
+
+#cc-main {
+  /* Surfaces */
+  --cc-bg: var(--surface);
+  --cc-primary-color: var(--foreground);
+  --cc-secondary-color: var(--muted-foreground);
+  --cc-text: var(--foreground);
+
+  /* Primary CTA — corail */
+  --cc-btn-primary-bg: var(--primary);
+  --cc-btn-primary-color: var(--primary-foreground);
+  --cc-btn-primary-border-color: var(--primary);
+  --cc-btn-primary-hover-bg: var(--primary-deep);
+  --cc-btn-primary-hover-color: var(--primary-foreground);
+  --cc-btn-primary-hover-border-color: var(--primary-deep);
+
+  /* Secondary CTA — outlined sand */
+  --cc-btn-secondary-bg: var(--surface);
+  --cc-btn-secondary-color: var(--foreground);
+  --cc-btn-secondary-border-color: var(--border-strong);
+  --cc-btn-secondary-hover-bg: var(--primary-soft);
+  --cc-btn-secondary-hover-color: var(--primary-deep);
+  --cc-btn-secondary-hover-border-color: var(--primary-soft);
+
+  /* Toggle switch */
+  --cc-toggle-bg-off: var(--border-strong);
+  --cc-toggle-bg-on: var(--primary);
+  --cc-toggle-bg-readonly: var(--border);
+  --cc-toggle-knob-bg: var(--surface);
+  --cc-toggle-knob-icon-color: var(--muted-foreground);
+
+  /* Sectioning */
+  --cc-cookie-category-block-bg: var(--background);
+  --cc-cookie-category-block-border: var(--border);
+  --cc-cookie-category-block-hover-bg: var(--primary-soft);
+  --cc-cookie-category-block-hover-border: var(--primary-soft);
+  --cc-cookie-category-expanded-block-bg: var(--background);
+  --cc-cookie-category-expanded-block-hover-bg: var(--primary-soft);
+
+  --cc-overlay-bg: rgba(42, 31, 21, 0.45);
+
+  --cc-section-border: var(--border);
+
+  /* Tables (cookie listing inside preferences modal) */
+  --cc-cookie-table-border: var(--border);
+
+  /* Footer link colour — corail-deep meets WCAG AA on ivoire */
+  --cc-footer-bg: var(--background);
+  --cc-footer-color: var(--muted-foreground);
+  --cc-footer-border-color: var(--border);
+
+  /* Soleil v2 type stack — inherit Inter Tight */
+  font-family: var(--font-inter-tight), system-ui, sans-serif;
+}
+
+/* Soleil v2 radii — match cards (16-20px). The CMP exposes a
+ * `--cc-modal-border-radius` token for the modal shell and a
+ * `--cc-btn-border-radius` for the buttons. Pills/buttons use 999px
+ * elsewhere in the design system for true full-radius. */
+#cc-main {
+  --cc-modal-border-radius: 20px;
+  --cc-btn-border-radius: 999px;
+  --cc-pm-toggle-border-radius: 999px;
+}
