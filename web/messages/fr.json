@@ -782,7 +782,61 @@
     "commissions": "Commissions",
     "totalEarned": "Total gagné",
     "freelanceDashboard": "Dashboard Freelance",
-    "businessReferrer": "Apporteur d'affaire"
+    "businessReferrer": "Apporteur d'affaire",
+    "stats": {
+      "profileViews7d": "Vues du profil",
+      "searchAppearances7d": "Apparitions recherche",
+      "avgSearchPosition": "Position moyenne",
+      "monthlyRevenue": "Revenus du mois",
+      "activeRecruitments": "Recrutements actifs",
+      "applicationsReceived7d": "Candidatures reçues",
+      "spending30d": "Dépenses",
+      "toReview": "À reviewer",
+      "activeReferrals": "Mises en relation actives",
+      "pendingCommissions": "Commissions en attente",
+      "paid30d": "Commissions versées",
+      "lifetimeTotal": "Total cumul",
+      "last7Days": "7 derniers jours",
+      "last30Days": "30 derniers jours",
+      "thisMonth": "Ce mois-ci",
+      "acrossPeriod": "Sur la période",
+      "notEnoughData": "Données insuffisantes",
+      "viewDetailedStats": "Voir mes statistiques détaillées"
+    },
+    "actions": {
+      "title": "Actions à faire",
+      "count": "{count, plural, one {# action} other {# actions}}",
+      "countAllClear": "Tout est à jour",
+      "loading": "Chargement des actions",
+      "allClear": "Tout est à jour. Continue comme ça !",
+      "kycRestricted": "Ton compte est en attente de vérification — relance ta vérification KYC.",
+      "kycPending": "Tu as {days, plural, =0 {moins d'un jour} one {# jour} other {# jours}} pour finaliser ta vérification KYC.",
+      "kycCta": "Vérifier",
+      "profileCompletion": "Ton profil est complété à {percent}% — finalise-le pour gagner en visibilité.",
+      "profileCompletionCta": "Compléter",
+      "billingProfile": "Renseigne tes informations de facturation pour activer les paiements.",
+      "billingProfileCta": "Compléter",
+      "unreadMessages": "Tu as {count, plural, one {# message non lu} other {# messages non lus}}.",
+      "unreadMessagesCta": "Ouvrir"
+    },
+    "pipeline": {
+      "title": "Pipeline en cours",
+      "cta": "Tout voir",
+      "empty": "Pas de mission active. Postule sur les opportunités du moment pour démarrer.",
+      "count": "{count, plural, one {# mission active} other {# missions actives}}"
+    },
+    "activeRecruitments": {
+      "title": "Recrutements actifs",
+      "cta": "Gérer",
+      "empty": "Aucun recrutement actif. Publie une mission pour démarrer.",
+      "count": "{count, plural, one {# recrutement} other {# recrutements}}"
+    },
+    "referralsActive": {
+      "title": "Mises en relation actives",
+      "cta": "Gérer",
+      "empty": "Pas encore de mise en relation. Connecte une entreprise à un freelance pour toucher une commission.",
+      "count": "{count, plural, one {# mise en relation} other {# mises en relation}}"
+    }
   },
   "sidebar": {
     "dashboard": "Tableau de bord",

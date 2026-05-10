@@ -782,7 +782,61 @@
     "commissions": "Commissions",
     "totalEarned": "Total earned",
     "freelanceDashboard": "Freelance Dashboard",
-    "businessReferrer": "Business Referrer"
+    "businessReferrer": "Business Referrer",
+    "stats": {
+      "profileViews7d": "Profile views",
+      "searchAppearances7d": "Search impressions",
+      "avgSearchPosition": "Average search position",
+      "monthlyRevenue": "Monthly revenue",
+      "activeRecruitments": "Active recruitments",
+      "applicationsReceived7d": "Applications received",
+      "spending30d": "Spending",
+      "toReview": "To review",
+      "activeReferrals": "Active referrals",
+      "pendingCommissions": "Pending commissions",
+      "paid30d": "Paid commissions",
+      "lifetimeTotal": "Lifetime total",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "thisMonth": "This month",
+      "acrossPeriod": "Over the period",
+      "notEnoughData": "Not enough data",
+      "viewDetailedStats": "View my detailed statistics"
+    },
+    "actions": {
+      "title": "Action items",
+      "count": "{count, plural, one {# item} other {# items}}",
+      "countAllClear": "All clear",
+      "loading": "Loading actions",
+      "allClear": "Nothing pending. Keep it up!",
+      "kycRestricted": "Your account is on hold — restart your KYC verification.",
+      "kycPending": "You have {days, plural, =0 {less than a day} one {# day} other {# days}} left to complete your KYC verification.",
+      "kycCta": "Verify",
+      "profileCompletion": "Your profile is {percent}% complete — finish it to boost your visibility.",
+      "profileCompletionCta": "Complete",
+      "billingProfile": "Add your billing details to unlock payments.",
+      "billingProfileCta": "Complete",
+      "unreadMessages": "You have {count, plural, one {# unread message} other {# unread messages}}.",
+      "unreadMessagesCta": "Open"
+    },
+    "pipeline": {
+      "title": "Active pipeline",
+      "cta": "View all",
+      "empty": "No active mission. Apply to today's opportunities to get started.",
+      "count": "{count, plural, one {# active mission} other {# active missions}}"
+    },
+    "activeRecruitments": {
+      "title": "Active recruitments",
+      "cta": "Manage",
+      "empty": "No active recruitment. Post a mission to get started.",
+      "count": "{count, plural, one {# recruitment} other {# recruitments}}"
+    },
+    "referralsActive": {
+      "title": "Active referrals",
+      "cta": "Manage",
+      "empty": "No referral yet. Connect a company to a freelancer to earn a commission.",
+      "count": "{count, plural, one {# referral} other {# referrals}}"
+    }
   },
   "sidebar": {
     "dashboard": "Dashboard",
