@@ -73,6 +73,24 @@ export default async function PrivacyPage({
           })}
         </p>
       </div>
+
+      <div className="space-y-3">
+        <h2 className="font-display text-xl text-foreground">
+          {t("automatedDecisionsTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t.rich("automatedDecisionsDescription", {
+            link: () => (
+              <Link
+                href="/decisions-automatisees"
+                className="text-accent underline-offset-4 hover:underline"
+              >
+                /decisions-automatisees
+              </Link>
+            ),
+          })}
+        </p>
+      </div>
     </LegalShell>
   )
 }

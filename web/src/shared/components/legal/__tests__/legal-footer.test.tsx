@@ -39,9 +39,17 @@ function renderFooter() {
 }
 
 describe("LegalFooter", () => {
-  it("links to all 6 placeholder legal routes", () => {
+  it("links to all legal routes including /decisions-automatisees (RGPD art. 22)", () => {
     renderFooter()
-    const expected = ["/privacy", "/cookies", "/legal", "/cgu", "/cgv", "/sous-processeurs"]
+    const expected = [
+      "/privacy",
+      "/cookies",
+      "/legal",
+      "/cgu",
+      "/cgv",
+      "/sous-processeurs",
+      "/decisions-automatisees",
+    ]
     for (const href of expected) {
       const link = document.querySelector(`a[href="${href}"]`)
       expect(link, `expected anchor with href=${href}`).not.toBeNull()

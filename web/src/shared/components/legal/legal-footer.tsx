@@ -19,6 +19,7 @@ export function LegalFooter() {
     { href: "/cgu", key: "cgu" },
     { href: "/cgv", key: "cgv" },
     { href: "/sous-processeurs", key: "subprocessors" },
+    { href: "/decisions-automatisees", key: "automatedDecisions" },
   ]
 
   return (
