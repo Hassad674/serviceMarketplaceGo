@@ -12,6 +12,7 @@ import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget
 import { ReportDialog } from "@/shared/components/reporting/report-dialog"
 import type { ApplicationWithProfile } from "../types"
 import { Button } from "@/shared/components/ui/button"
+import { applicantProfileHref } from "./applicant-profile-href"
 
 // W-08 candidate detail panel — Soleil v2.
 // Right-side aside (desktop) / full-screen (<lg) modal panel. Top bar
@@ -76,6 +77,22 @@ export function CandidateDetailPanel({
   const canSendMessage = useHasPermission("messaging.send")
   const isOpen = candidate !== null
   const [showReportDialog, setShowReportDialog] = useState(false)
+  // Avatar fallback: when next/image errors (broken/expired URL) we
+  // swap to the initials disc — same pattern as user-avatar.tsx.
+  // Track the key (candidate id) alongside the errored flag so we can
+  // reset on candidate change WITHOUT a setState-in-effect cascade.
+  const [photoState, setPhotoState] = useState<{ key: string | null; errored: boolean }>(
+    { key: null, errored: false },
+  )
+  const candidateKey = candidate?.application.id ?? null
+  // React-recommended "reset on prop change" via render-time setState:
+  // cheap, no effect, no cascading render warning.
+  if (photoState.key !== candidateKey) {
+    setPhotoState({ key: candidateKey, errored: false })
+  }
+  const photoErrored = photoState.errored
+  const setPhotoErrored = (v: boolean) =>
+    setPhotoState((prev) => ({ ...prev, errored: v }))
 
   const currentIndex = candidate
     ? candidates.findIndex((c) => c.application.id === candidate.application.id)
@@ -124,13 +141,21 @@ export function CandidateDetailPanel({
   const initials = initialsFromName(displayName)
   const pillClass =
     ORG_PILL_CLASSES[profile.org_type] ?? "bg-border text-muted-foreground"
+  // applicant_id is the user id (audit), profile.organization_id is the
+  // canonical owner id consumed by the public profile route + chat
+  // widget. See ./applicant-profile-href for the persona routing.
+  const organizationId = profile.organization_id
+  const profileHref = applicantProfileHref(
+    application.applicant_kind,
+    organizationId,
+  )
 
   function handleSendMessage() {
     if (isDesktop) {
-      openChatWithOrg(application.applicant_id, displayName)
+      openChatWithOrg(organizationId, displayName)
     } else {
       router.push(
-        `/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`,
+        `/messages?to=${organizationId}&name=${encodeURIComponent(displayName)}`,
       )
     }
   }
@@ -234,7 +259,7 @@ export function CandidateDetailPanel({
 
           {/* Identity row */}
           <div className="flex items-start gap-4">
-            {profile.photo_url ? (
+            {profile.photo_url && !photoErrored ? (
               <Image
                 src={profile.photo_url}
                 alt={displayName}
@@ -242,6 +267,8 @@ export function CandidateDetailPanel({
                 height={56}
                 className="h-14 w-14 shrink-0 rounded-full object-cover"
                 style={{ boxShadow: "var(--shadow-portrait)" }}
+                onError={() => setPhotoErrored(true)}
+                unoptimized
               />
             ) : (
               <div
@@ -285,7 +312,7 @@ export function CandidateDetailPanel({
           {/* Action row */}
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
-              href={`/freelancers/${application.applicant_id}`}
+              href={profileHref}
               className={cn(
                 "inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5",
                 "border border-border-strong bg-card text-[13px] font-medium text-foreground",

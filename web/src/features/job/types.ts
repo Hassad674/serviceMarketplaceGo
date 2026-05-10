@@ -92,7 +92,11 @@ export type JobWithCountsListResponse = {
 export type ApplicantKind = "freelance" | "agency" | "referrer"
 
 // Since phase R3, a job application is owned by an organization, not
-// an individual user. applicant_id is the applicant org id.
+// an individual user — see ApplicationWithProfile.profile.organization_id
+// for the canonical owner id consumed by the public profile route + chat
+// widget. applicant_id is the applicant USER id (audit/authorship), kept
+// for legacy clients but NEVER use it as a route id; it 404s the public
+// profile endpoint which expects an organization id.
 export type JobApplicationResponse = {
   id: string
   job_id: string
