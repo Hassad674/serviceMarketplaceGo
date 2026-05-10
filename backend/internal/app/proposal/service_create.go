@@ -101,6 +101,20 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 
 	totalAmount := milestone.SumAmount(milestones)
 
+	// Phase 6 (Contra-style milestone form): in milestone mode the
+	// frontend hides the global proposal deadline. When the caller did
+	// not pass an explicit Deadline, derive it server-side from the
+	// LATEST milestone due date — the natural last day of the project.
+	// In one-time mode (synthesised single milestone), the milestone
+	// deadline IS the proposal deadline so the same derivation yields
+	// the same value the caller would have sent.
+	proposalDeadline := input.Deadline
+	if proposalDeadline == nil {
+		if latest := latestMilestoneDeadline(milestones); latest != nil {
+			proposalDeadline = latest
+		}
+	}
+
 	p, err := domain.NewProposal(domain.NewProposalInput{
 		ConversationID: input.ConversationID,
 		SenderID:       input.SenderID,
@@ -108,7 +122,7 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 		Title:          input.Title,
 		Description:    input.Description,
 		Amount:         totalAmount,
-		Deadline:       input.Deadline,
+		Deadline:       proposalDeadline,
 		ClientID:       clientID,
 		ProviderID:     providerID,
 		Version:        1,
@@ -208,6 +222,15 @@ func validateProposalFields(input CreateProposalInput) error {
 	if input.Description == "" {
 		return domain.ErrEmptyDescription
 	}
+	// Milestone-mode minimum: a proposal that the caller explicitly
+	// flagged as "milestone" must carry at least
+	// MinMilestonesPerMilestoneProposal entries. A single-milestone
+	// payload is the shape of one-time mode, not milestone mode — the
+	// frontend mirrors this rule by initialising milestone mode with
+	// 2 empty rows.
+	if input.PaymentMode == paymentModeMilestone && len(input.Milestones) < milestone.MinMilestonesPerMilestoneProposal {
+		return milestone.ErrMilestonesTooFew
+	}
 	// One-time mode: validate the single Amount directly.
 	if len(input.Milestones) == 0 {
 		if input.Amount <= 0 {
@@ -215,15 +238,15 @@ func validateProposalFields(input CreateProposalInput) error {
 		}
 		return nil
 	}
-	// Milestone mode: validate that every milestone has a title,
-	// description, and positive amount. The detailed sequence/batch
-	// checks happen later in milestone.NewMilestoneBatch.
+	// Milestone mode: validate that every milestone has a title and a
+	// positive amount. Description is OPTIONAL in milestone mode (the
+	// per-milestone description repeats the same intent as the
+	// proposal-level description; the user is not forced to retype it
+	// 5 times). The detailed sequence/batch checks happen later in
+	// milestone.NewMilestoneBatch.
 	for _, m := range input.Milestones {
 		if m.Title == "" {
 			return domain.ErrEmptyTitle
-		}
-		if m.Description == "" {
-			return domain.ErrEmptyDescription
 		}
 		if m.Amount <= 0 {
 			return domain.ErrInvalidAmount
@@ -261,6 +284,24 @@ func buildMilestoneDomainInputs(input CreateProposalInput) []milestone.NewMilest
 		})
 	}
 	return out
+}
+
+// latestMilestoneDeadline returns the latest non-nil deadline across
+// the milestone slice, or nil if no milestone has a deadline. Used by
+// CreateProposal to derive the proposal-level deadline in milestone
+// mode when the caller didn't pass one (Contra-style form: the user
+// only sets per-milestone dates; the project deadline is the last one).
+func latestMilestoneDeadline(milestones []*milestone.Milestone) *time.Time {
+	var latest *time.Time
+	for _, m := range milestones {
+		if m.Deadline == nil {
+			continue
+		}
+		if latest == nil || m.Deadline.After(*latest) {
+			latest = m.Deadline
+		}
+	}
+	return latest
 }
 
 func buildDocuments(proposalID uuid.UUID, inputs []DocumentInput) []*domain.ProposalDocument {

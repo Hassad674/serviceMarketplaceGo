@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
@@ -579,4 +580,148 @@ func TestCreateProposal_KYCCompleted_OK(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
+}
+
+// --- Milestone-mode minimum (Contra-style) ---
+
+// TestCreateProposal_MilestoneMode_MinTwo verifies that a caller who
+// explicitly flagged the proposal as milestone-mode but only sent a
+// single milestone is rejected with ErrMilestonesTooFew. A single
+// milestone is the shape of one-time mode; milestone mode is
+// meaningless below 2 entries. Mirrors the frontend's "default to 2
+// empty rows" rule.
+func TestCreateProposal_MilestoneMode_MinTwo(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
+
+	_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Mission with phases",
+		Description:    "Two-phase rollout",
+		PaymentMode:    "milestone",
+		Milestones: []MilestoneInput{
+			{Sequence: 1, Title: "Phase 1", Description: "First", Amount: 2500},
+		},
+	})
+
+	assert.ErrorIs(t, err, milestonedomain.ErrMilestonesTooFew)
+}
+
+// TestCreateProposal_MilestoneMode_TwoAccepted verifies the happy path:
+// a milestone-mode proposal with exactly 2 milestones is accepted, and
+// the persisted total amount is the sum of the milestone amounts (the
+// caller-supplied Amount is ignored in milestone mode).
+func TestCreateProposal_MilestoneMode_TwoAccepted(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Mission with phases",
+		Description:    "Two-phase rollout",
+		PaymentMode:    "milestone",
+		// Amount field is ignored in milestone mode — total is derived
+		// from the milestone sum.
+		Amount: 999999,
+		Milestones: []MilestoneInput{
+			{Sequence: 1, Title: "Phase 1", Description: "First", Amount: 2500},
+			{Sequence: 2, Title: "Phase 2", Description: "Second", Amount: 7500},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	// Total = 2500 + 7500 = 10000 — derived from milestones, not from
+	// the input.Amount field.
+	assert.Equal(t, int64(10000), p.Amount)
+}
+
+// TestCreateProposal_MilestoneMode_OptionalDescription verifies that a
+// milestone with an empty description is accepted (Contra-style: the
+// per-step description is a nice-to-have; the proposal-level
+// description already captures the global intent).
+func TestCreateProposal_MilestoneMode_OptionalDescription(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Mission with phases",
+		Description:    "Top-level brief",
+		PaymentMode:    "milestone",
+		Milestones: []MilestoneInput{
+			{Sequence: 1, Title: "Phase 1", Description: "", Amount: 2500},
+			{Sequence: 2, Title: "Phase 2", Description: "", Amount: 7500},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.Equal(t, int64(10000), p.Amount)
+}
+
+// TestCreateProposal_MilestoneMode_EmptyMilestonesRejected verifies
+// that flagging payment_mode="milestone" without any milestones is
+// rejected with ErrMilestonesTooFew (zero is also < 2).
+func TestCreateProposal_MilestoneMode_EmptyMilestonesRejected(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
+
+	_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Mission",
+		Description:    "Desc",
+		PaymentMode:    "milestone",
+		Milestones:     nil,
+	})
+
+	assert.ErrorIs(t, err, milestonedomain.ErrMilestonesTooFew)
 }

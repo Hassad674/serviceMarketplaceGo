@@ -344,6 +344,100 @@ func TestLifecycleHandler_CreateProposal_MilestoneAfterProjectDeadline(t *testin
 }
 
 // ---------------------------------------------------------------------------
+// Milestone-mode min count (Contra-style): a payment_mode="milestone"
+// proposal MUST carry at least 2 milestones — a single milestone is the
+// shape of one-time mode, not milestone mode. The handler maps the
+// domain ErrMilestonesTooFew to a 400 with the discriminating
+// "milestones_too_few" error code so the frontend can surface the
+// inline message under the milestone editor.
+// ---------------------------------------------------------------------------
+
+func TestLifecycleHandler_CreateProposal_MilestonesTooFew_Single(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Mission",
+		"description":     "Should require at least 2 milestones",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Only one", "description": "", "amount": 5000},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "milestones_too_few")
+}
+
+func TestLifecycleHandler_CreateProposal_MilestonesTooFew_None(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	// payment_mode flagged as milestone but no milestones array — also
+	// rejected (zero is < MinMilestonesPerMilestoneProposal).
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Mission",
+		"description":     "No milestones at all",
+		"payment_mode":    "milestone",
+		"amount":          5000,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "milestones_too_few")
+}
+
+func TestLifecycleHandler_CreateProposal_MilestoneMode_TwoAccepted(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	// Exactly 2 milestones with optional descriptions empty — accepted.
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Mission",
+		"description":     "Top-level brief",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Phase 1", "description": "", "amount": 2500, "deadline": "2026-05-07"},
+			{"sequence": 2, "title": "Phase 2", "description": "", "amount": 7500, "deadline": "2026-05-21"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusCreated, rec.Code)
+}
+
+// ---------------------------------------------------------------------------
 // GetProposal — focused handler tests
 // ---------------------------------------------------------------------------
 

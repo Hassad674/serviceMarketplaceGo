@@ -356,6 +356,10 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "milestones_not_sequential", err.Error())
 	case errors.Is(err, milestonedomain.ErrMilestoneDeadlineAfterProject):
 		res.Error(w, http.StatusBadRequest, "milestone_deadline_after_project", err.Error())
+	case errors.Is(err, milestonedomain.ErrMilestonesTooFew):
+		// 400 with a discriminating code so the frontend can surface
+		// "Add at least 2 milestones" inline near the milestone editor.
+		res.Error(w, http.StatusBadRequest, "milestones_too_few", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotProvider):
 		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotClient):

@@ -25,6 +25,12 @@ import (
 // leaving ample room for legitimate multi-phase projects.
 const MaxMilestonesPerProposal = 20
 
+// MinMilestonesPerMilestoneProposal is the floor for milestone-mode
+// proposals. A proposal with a single milestone is the shape of a one-time
+// proposal — milestone mode is meaningless below 2 entries. The frontend
+// mirrors this rule by initialising milestone mode with 2 empty rows.
+const MinMilestonesPerMilestoneProposal = 2
+
 // Milestone is a single escrow-and-release step within a proposal.
 // Amount is stored in centimes (1 EUR = 100 centimes).
 type Milestone struct {
@@ -78,14 +84,14 @@ type NewMilestoneInput struct {
 // NewMilestone builds a validated, pending_funding Milestone.
 //
 // It is deliberately the only constructor exposed — all new milestones go
-// through the same validation funnel (empty title/description, non-positive
-// amount, sequence < 1).
+// through the same validation funnel (empty title, non-positive amount,
+// sequence < 1). Description is OPTIONAL — a milestone in milestone-mode
+// proposal mirrors Contra's UX where the per-step description is a
+// nice-to-have but not required (the proposal-level description already
+// captures the global intent).
 func NewMilestone(input NewMilestoneInput) (*Milestone, error) {
 	if input.Title == "" {
 		return nil, ErrEmptyTitle
-	}
-	if input.Description == "" {
-		return nil, ErrEmptyDescription
 	}
 	if input.Amount <= 0 {
 		return nil, ErrInvalidAmount

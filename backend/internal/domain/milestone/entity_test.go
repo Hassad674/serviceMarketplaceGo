@@ -55,7 +55,6 @@ func TestNewMilestone_Validation(t *testing.T) {
 		wantErr error
 	}{
 		{"empty title", func(in *milestone.NewMilestoneInput) { in.Title = "" }, milestone.ErrEmptyTitle},
-		{"empty description", func(in *milestone.NewMilestoneInput) { in.Description = "" }, milestone.ErrEmptyDescription},
 		{"zero amount", func(in *milestone.NewMilestoneInput) { in.Amount = 0 }, milestone.ErrInvalidAmount},
 		{"negative amount", func(in *milestone.NewMilestoneInput) { in.Amount = -100 }, milestone.ErrInvalidAmount},
 		{"sequence zero", func(in *milestone.NewMilestoneInput) { in.Sequence = 0 }, milestone.ErrInvalidSequence},
@@ -81,6 +80,17 @@ func TestNewMilestone_NoMinimumAmount(t *testing.T) {
 	in.Amount = 1
 	if _, err := milestone.NewMilestone(in); err != nil {
 		t.Errorf("1-centime milestone should be valid, got %v", err)
+	}
+}
+
+func TestNewMilestone_EmptyDescriptionAllowed(t *testing.T) {
+	// Per Contra-style milestone UX, the per-milestone description is
+	// optional — the proposal-level description already captures the
+	// global intent. The domain accepts an empty description.
+	in := validInput()
+	in.Description = ""
+	if _, err := milestone.NewMilestone(in); err != nil {
+		t.Errorf("empty description should be allowed, got %v", err)
 	}
 }
 

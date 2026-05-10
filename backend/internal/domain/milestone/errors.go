@@ -34,6 +34,13 @@ var (
 	// ErrEmptyBatch is returned when a proposal is created with zero milestones.
 	ErrEmptyBatch = errors.New("proposal must have at least one milestone")
 
+	// ErrMilestonesTooFew is returned when a milestone-mode proposal carries
+	// fewer than MinMilestonesPerMilestoneProposal entries. A milestone-mode
+	// proposal MUST have at least 2 milestones — a single milestone is the
+	// shape of a one-time proposal, not a milestone-based one. The frontend
+	// mirrors this rule by defaulting milestone mode to 2 empty rows.
+	ErrMilestonesTooFew = errors.New("milestone-mode proposals must have at least 2 milestones")
+
 	// ErrNonConsecutiveSequence is returned when a batch of milestones has
 	// non-consecutive sequence numbers (must be 1, 2, 3, ... without gaps).
 	ErrNonConsecutiveSequence = errors.New("milestone sequences must be consecutive starting at 1")
