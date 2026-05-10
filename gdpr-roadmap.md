@@ -49,7 +49,7 @@ Source: `gdpr-audit.md` Section 13 Phase B.
 | B.7 | Wire dedicated `marketplace_app` DB role with `INSERT+SELECT-only` on `audit_logs` | 4h | ⬜ | infra (Railway/Neon dashboards) + `DATABASE_URL` env update | CI smoke test | Manual infra step; document in `MIGRATION_KYC_EMBEDDED.md`-style runbook. |
 | B.8 | Verify EU residency: Neon, Typesense, Stripe Connect EU sub-entity | 2h | ⬜ | `docs/data-residency.md` (new) | n/a (documentary) | Manual vendor-dashboard verification + screenshots. |
 | B.9 | 2FA TOTP for admin role (RGPD art. 32 "raisonnable") | 16h | ⏸️ | follow-up — add `users.totp_secret_encrypted` + endpoints + UI | enrollment + verification tests | Use `pquerna/otp` Go lib. Deferred — not strict GDPR mandate; ship after Phase C. |
-| B.10 | Sanitize `audit_logs.metadata.email` for unknown users (hash on `auth.login_failure`) | 2h | ⬜ | `app/auth/service.go:373-374` | service test | When `users.id` not found, store `email_hash` instead of cleartext. |
+| B.10 | Sanitize `audit_logs.metadata.email` for unknown users (hash on `auth.login_failure`) | 2h | ✅ DONE | `domain/audit/sanitize.go` + `app/audit/sanitizing_repository.go` + migration `144_audit_logs_sanitize_pii` | `domain/audit/sanitize_test.go` + `app/audit/sanitizing_repository_test.go` | Wider than the original brief: redacts every sensitive metadata key (email, to_email, from_email, recipient, phone, iban) at any depth on every audit row, not just `auth.login_failure`. Implemented via a SanitizingRepository decorator wired in `cmd/api/wire_infra.go` so every business service inherits redaction with zero per-call-site changes. Migration 144 backfills existing rows in 5000-row chunks via a recursive plpgsql helper. |
 
 ---
 
