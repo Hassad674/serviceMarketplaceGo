@@ -72,4 +72,33 @@ type GDPRRepository interface {
 	// Returns ok=true when the row was actually purged, false when
 	// the cancel won the race.
 	PurgeUser(ctx context.Context, userID uuid.UUID, before time.Time, salt string) (bool, error)
+
+	// ListUserStorageKeys returns every R2/MinIO object key belonging
+	// to the user across the tables that hold uploaded media:
+	// avatars (organizations.photo_url, profiles.photo_url), profile
+	// videos (freelance/referrer profiles + presentation_video_url),
+	// portfolio media (portfolio_media.media_url + thumbnail_url),
+	// review videos (reviews.video_url), KYC documents
+	// (identity_documents.file_key), job + application videos, and
+	// message attachments (messages.metadata->>'url').
+	//
+	// URLs are converted to bucket keys by stripping the configured
+	// public storage prefix; the implementation receives that prefix
+	// at construction time. Already-empty values are skipped. The
+	// returned slice MUST be deduped — multiple tables may legitimately
+	// reference the same key (e.g. organization avatar mirrored to
+	// profiles).
+	//
+	// Used by the GDPR purge cron right before SQL anonymization so
+	// user-uploaded media is erased from object storage in addition
+	// to being unreferenced from the DB.
+	ListUserStorageKeys(ctx context.Context, userID uuid.UUID) ([]string, error)
+
+	// RecordStoragePurgeAudit appends a row to storage_purge_audits
+	// capturing what the cron attempted to delete from R2 and what
+	// succeeded. Compliance evidence for art. 17 right-to-erasure
+	// requests. Called once per user per purge run, even when zero
+	// keys were touched, so an auditor can verify the scheduler did
+	// look at the user.
+	RecordStoragePurgeAudit(ctx context.Context, manifest gdpr.StoragePurgeManifest) error
 }

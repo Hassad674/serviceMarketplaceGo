@@ -105,6 +105,13 @@ func (bpFakeStorage) Upload(_ context.Context, key string, _ io.Reader, _ string
 	return "https://test-bucket.r2.cloudflarestorage.com/" + key, nil
 }
 func (bpFakeStorage) Delete(_ context.Context, _ string) error           { return nil }
+func (bpFakeStorage) BulkDelete(_ context.Context, keys []string) ([]service.BulkDeleteResult, error) {
+	out := make([]service.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = service.BulkDeleteResult{Key: k}
+	}
+	return out, nil
+}
 func (bpFakeStorage) GetPublicURL(key string) string                     { return "https://test-bucket.r2.cloudflarestorage.com/" + key }
 func (bpFakeStorage) GetPresignedUploadURL(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
 	return "https://test-bucket.r2.cloudflarestorage.com/upload/" + key, nil

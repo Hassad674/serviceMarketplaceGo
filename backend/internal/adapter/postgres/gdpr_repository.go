@@ -47,11 +47,36 @@ import (
 // error, never a raw *pq.Error.
 type GDPRRepository struct {
 	db *sql.DB
+	// storagePublicURL is the public URL prefix the StorageService
+	// uses to serve uploaded objects (STORAGE_PUBLIC_URL env var).
+	// Used by ListUserStorageKeys to convert the URL columns
+	// (organizations.photo_url, profiles.video_url, etc.) back to
+	// bucket keys before the GDPR purge cron BulkDeletes them.
+	// Set via NewGDPRRepositoryWithStoragePrefix; zero string when
+	// the legacy NewGDPRRepository constructor is used (existing
+	// tests + integration suites that don't exercise the storage
+	// purge path).
+	storagePublicURL string
 }
 
-// NewGDPRRepository builds the repo. Wired from cmd/api/wire_gdpr.go.
+// NewGDPRRepository builds the repo without a storage URL prefix.
+// Kept for backwards compatibility with tests + the export/soft-delete
+// path which never converts URLs to keys. Production wiring uses
+// NewGDPRRepositoryWithStoragePrefix instead.
 func NewGDPRRepository(db *sql.DB) *GDPRRepository {
 	return &GDPRRepository{db: db}
+}
+
+// NewGDPRRepositoryWithStoragePrefix builds the repo with the
+// configured storage public URL — required when the GDPR purge
+// scheduler will call ListUserStorageKeys. The trailing slash is
+// added if missing so prefix stripping is consistent.
+func NewGDPRRepositoryWithStoragePrefix(db *sql.DB, storagePublicURL string) *GDPRRepository {
+	prefix := storagePublicURL
+	if prefix != "" && prefix[len(prefix)-1] != '/' {
+		prefix += "/"
+	}
+	return &GDPRRepository{db: db, storagePublicURL: prefix}
 }
 
 // LoadExport gathers every section of the export ZIP. Sections are

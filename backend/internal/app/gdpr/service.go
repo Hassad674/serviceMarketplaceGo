@@ -27,6 +27,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -61,6 +62,12 @@ type Service struct {
 	frontendURL   string
 	clock         func() time.Time
 	preferredLang func(*user.User) string
+	// storage is optional — when nil, the purge skips the R2 object
+	// cleanup step and only runs the SQL anonymization (legacy
+	// behavior, fine for unit tests). Production wiring always
+	// passes a real adapter so art. 17 erasure removes the user's
+	// uploaded media from R2 in addition to anonymizing DB rows.
+	storage service.StorageService
 }
 
 // ServiceDeps groups the constructor dependencies. Locale defaults to
@@ -75,6 +82,13 @@ type ServiceDeps struct {
 	FrontendURL   string
 	Clock         func() time.Time
 	PreferredLang func(*user.User) string
+	// Storage is optional. When set, the purge cron deletes every
+	// R2/MinIO object key tied to the user before SQL
+	// anonymization — gathered via repo.ListUserStorageKeys and
+	// audited via repo.RecordStoragePurgeAudit. When nil the purge
+	// retains its DB-only behavior (acceptable for tests + the
+	// export/soft-delete paths).
+	Storage service.StorageService
 }
 
 // NewService wires the GDPR service. Returns ErrSaltRequired-shaped
@@ -97,6 +111,7 @@ func NewService(deps ServiceDeps) *Service {
 		frontendURL:   deps.FrontendURL,
 		clock:         clock,
 		preferredLang: pref,
+		storage:       deps.Storage,
 	}
 }
 
@@ -273,6 +288,21 @@ type PurgeBatchResult struct {
 // PurgeOnce runs one batch of the scheduled hard-delete. Used by the
 // scheduler in scheduler.go and by integration tests that exercise
 // the full flow.
+//
+// Per art. 17 erasure semantics + the audit's Section 1 sensitivity
+// flags 3 + 6, each user goes through three steps:
+//
+//   1. Gather + bulk-delete every R2/MinIO key owned by the user
+//      (avatar, profile videos, portfolio media, KYC docs, review
+//      videos, job and application videos, message attachments).
+//   2. Persist a storage_purge_audits row (compliance evidence).
+//   3. Anonymize the SQL rows via repo.PurgeUser.
+//
+// Storage failures are logged + recorded in the audit but DO NOT
+// abort the SQL purge — DB anonymization is the legal floor;
+// orphaned objects in R2 are recoverable (next cron run can re-run
+// against the manifest), but a user left with cleartext PII in the
+// DB is a compliance violation we cannot defer.
 func (s *Service) PurgeOnce(ctx context.Context, salt string, batchSize int) (*PurgeBatchResult, error) {
 	if salt == "" {
 		return nil, domaingdpr.ErrSaltRequired
@@ -287,6 +317,8 @@ func (s *Service) PurgeOnce(ctx context.Context, salt string, batchSize int) (*P
 
 	out := &PurgeBatchResult{Examined: len(ids)}
 	for _, id := range ids {
+		s.purgeStorageForUser(ctx, id)
+
 		ok, err := s.repo.PurgeUser(ctx, id, cutoff, salt)
 		if err != nil {
 			out.Errors = append(out.Errors, fmt.Errorf("purge %s: %w", id, err))
@@ -297,6 +329,62 @@ func (s *Service) PurgeOnce(ctx context.Context, salt string, batchSize int) (*P
 		}
 	}
 	return out, nil
+}
+
+// purgeStorageForUser is the R2 cleanup step of the purge cron. Best
+// effort by design: any failure (key listing, bulk delete, audit
+// write) is logged but never bubbled up — see PurgeOnce comment for
+// the rationale. The audit row captures whatever happened so a
+// follow-up runbook can re-issue the BulkDelete against the same
+// keys list if needed.
+func (s *Service) purgeStorageForUser(ctx context.Context, userID uuid.UUID) {
+	if s.storage == nil {
+		return
+	}
+	keys, err := s.repo.ListUserStorageKeys(ctx, userID)
+	if err != nil {
+		slog.Warn("gdpr purge: list storage keys", "user_id", userID, "error", err)
+		// Persist an audit row anyway: regulators want proof the
+		// scheduler attempted the cleanup, even when it could not
+		// enumerate the keys.
+		_ = s.repo.RecordStoragePurgeAudit(ctx, domaingdpr.StoragePurgeManifest{
+			UserID:   userID,
+			Errors:   []string{"list keys: " + err.Error()},
+			PurgedAt: s.clock(),
+		})
+		return
+	}
+	if len(keys) == 0 {
+		_ = s.repo.RecordStoragePurgeAudit(ctx, domaingdpr.StoragePurgeManifest{
+			UserID:   userID,
+			PurgedAt: s.clock(),
+		})
+		return
+	}
+
+	results, batchErr := s.storage.BulkDelete(ctx, keys)
+	manifest := domaingdpr.StoragePurgeManifest{
+		UserID:   userID,
+		Keys:     keys,
+		PurgedAt: s.clock(),
+	}
+	for _, r := range results {
+		if r.Err != nil {
+			manifest.FailedKeys = append(manifest.FailedKeys, r.Key)
+			manifest.Errors = append(manifest.Errors, r.Key+": "+r.Err.Error())
+			continue
+		}
+		manifest.PurgedKeys = append(manifest.PurgedKeys, r.Key)
+	}
+	if batchErr != nil {
+		// Transport-level failure on the whole batch: every key was
+		// already marked failed by the adapter; we just log + record.
+		slog.Warn("gdpr purge: bulk delete batch", "user_id", userID, "error", batchErr)
+	}
+
+	if err := s.repo.RecordStoragePurgeAudit(ctx, manifest); err != nil {
+		slog.Warn("gdpr purge: record audit", "user_id", userID, "error", err)
+	}
 }
 
 // errIs is a typed local helper that re-exports errors.Is so callers

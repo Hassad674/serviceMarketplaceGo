@@ -522,6 +522,16 @@ func (m *mockStorageService) Delete(_ context.Context, key string) error {
 	m.mu.Unlock()
 	return m.deleteErr
 }
+func (m *mockStorageService) BulkDelete(_ context.Context, keys []string) ([]portservice.BulkDeleteResult, error) {
+	m.mu.Lock()
+	m.deleteCalls = append(m.deleteCalls, keys...)
+	m.mu.Unlock()
+	out := make([]portservice.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = portservice.BulkDeleteResult{Key: k, Err: m.deleteErr}
+	}
+	return out, nil
+}
 func (m *mockStorageService) GetPublicURL(_ string) string                              { return "" }
 func (m *mockStorageService) GetPresignedUploadURL(_ context.Context, _ string, _ string, _ time.Duration) (string, error) {
 	return "", nil

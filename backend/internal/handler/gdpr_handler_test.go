@@ -61,6 +61,12 @@ func (f *fakeGDPRRepo) ListPurgeable(ctx context.Context, before time.Time, limi
 func (f *fakeGDPRRepo) PurgeUser(ctx context.Context, id uuid.UUID, before time.Time, salt string) (bool, error) {
 	return f.purgeFn(ctx, id, before, salt)
 }
+func (f *fakeGDPRRepo) ListUserStorageKeys(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+func (f *fakeGDPRRepo) RecordStoragePurgeAudit(_ context.Context, _ domaingdpr.StoragePurgeManifest) error {
+	return nil
+}
 
 type fakeUserRepo struct {
 	getFn func(context.Context, uuid.UUID) (*user.User, error)

@@ -27,12 +27,16 @@ type gdprWiring struct {
 // dozen collaborators (DB, users, hasher, email, frontend URL, salt)
 // that would not fit comfortably as positional arguments.
 type gdprDeps struct {
-	Ctx         context.Context
-	Cfg         *config.Config
-	DB          *sql.DB
-	Users       repository.UserRepository
-	Hasher      service.HasherService
-	Email       service.EmailService
+	Ctx     context.Context
+	Cfg     *config.Config
+	DB      *sql.DB
+	Users   repository.UserRepository
+	Hasher  service.HasherService
+	Email   service.EmailService
+	// Storage is the R2/MinIO adapter used by the purge scheduler
+	// to bulk-delete a user's uploaded media before SQL
+	// anonymization (B.7 right-to-erasure completion).
+	Storage service.StorageService
 }
 
 // wireGDPR brings up the GDPR right-to-erasure + right-to-export
@@ -51,7 +55,11 @@ type gdprDeps struct {
 // config.Validate() refuses to boot without a fresh salt — so this
 // branch does not ship insecure prod deployments.
 func wireGDPR(deps gdprDeps) gdprWiring {
-	repo := postgres.NewGDPRRepository(deps.DB)
+	// Build the repo with the storage public URL so the purge cron
+	// can convert URL columns (organizations.photo_url, profile
+	// videos, message attachments, ...) back to bucket keys before
+	// BulkDelete.
+	repo := postgres.NewGDPRRepositoryWithStoragePrefix(deps.DB, deps.Cfg.StoragePublicURL)
 
 	// Derive a dedicated signing key for the deletion JWT. We never
 	// reuse cfg.JWTSecret directly: a leaked access-token signing
@@ -75,6 +83,7 @@ func wireGDPR(deps gdprDeps) gdprWiring {
 		Email:       deps.Email,
 		Signer:      signer,
 		FrontendURL: deps.Cfg.FrontendURL,
+		Storage:     deps.Storage,
 	})
 	gdprHandler := handler.NewGDPRHandler(svc)
 

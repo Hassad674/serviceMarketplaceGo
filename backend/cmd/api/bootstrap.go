@@ -544,12 +544,13 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	gdprCtx, gdprCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
 	app.closeFns = append(app.closeFns, gdprCancel)
 	gdpr := wireGDPR(gdprDeps{
-		Ctx:    gdprCtx,
-		Cfg:    cfg,
-		DB:     infra.DB,
-		Users:  infra.UserRepo,
-		Hasher: infra.Hasher,
-		Email:  infra.EmailSvc,
+		Ctx:     gdprCtx,
+		Cfg:     cfg,
+		DB:      infra.DB,
+		Users:   infra.UserRepo,
+		Hasher:  infra.Hasher,
+		Email:   infra.EmailSvc,
+		Storage: infra.StorageSvc,
 	})
 	gdprHandler := gdpr.Handler
 

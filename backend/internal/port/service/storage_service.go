@@ -6,9 +6,29 @@ import (
 	"time"
 )
 
+// BulkDeleteResult captures the outcome of a single key inside a
+// best-effort BulkDelete batch. The slice returned by
+// StorageService.BulkDelete contains one entry per requested key, with
+// Err non-nil when the key failed. The implementation MUST NOT abort
+// the batch on the first failure — every key gets its own row so the
+// caller can persist a per-key audit (used by the GDPR purge for
+// right-to-erasure compliance evidence).
+type BulkDeleteResult struct {
+	Key string
+	Err error
+}
+
 type StorageService interface {
 	Upload(ctx context.Context, key string, reader io.Reader, contentType string, size int64) (string, error)
 	Delete(ctx context.Context, key string) error
+	// BulkDelete deletes every key in `keys` in a best-effort manner.
+	// The return slice contains one BulkDeleteResult per requested
+	// key, in the same order, with Err non-nil for failures. The
+	// method itself returns a non-nil error only when the batch
+	// could not be issued at all (e.g. transport failure on every
+	// retry); per-object errors do NOT bubble up so callers can log
+	// + audit the failures without aborting the broader purge tx.
+	BulkDelete(ctx context.Context, keys []string) ([]BulkDeleteResult, error)
 	GetPublicURL(key string) string
 	GetPresignedUploadURL(ctx context.Context, key string, contentType string, expiry time.Duration) (string, error)
 	// GetPresignedDownloadURL returns a short-lived signed GET url for the

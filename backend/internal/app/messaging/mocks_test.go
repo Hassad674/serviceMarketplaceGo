@@ -11,6 +11,7 @@ import (
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 // --- mockMessageRepository ---
@@ -526,6 +527,14 @@ func (m *mockStorageService) Delete(ctx context.Context, key string) error {
 		return m.deleteFn(ctx, key)
 	}
 	return nil
+}
+
+func (m *mockStorageService) BulkDelete(_ context.Context, keys []string) ([]portservice.BulkDeleteResult, error) {
+	out := make([]portservice.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = portservice.BulkDeleteResult{Key: k}
+	}
+	return out, nil
 }
 
 func (m *mockStorageService) GetPublicURL(key string) string {

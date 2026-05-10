@@ -223,6 +223,13 @@ func (f *handlerFakeStorage) Upload(_ context.Context, key string, _ io.Reader, 
 	return "https://r2.test/" + key, nil
 }
 func (f *handlerFakeStorage) Delete(_ context.Context, _ string) error           { return nil }
+func (f *handlerFakeStorage) BulkDelete(_ context.Context, keys []string) ([]portservice.BulkDeleteResult, error) {
+	out := make([]portservice.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = portservice.BulkDeleteResult{Key: k}
+	}
+	return out, nil
+}
 func (f *handlerFakeStorage) GetPublicURL(key string) string                     { return "https://r2.test/" + key }
 func (f *handlerFakeStorage) GetPresignedUploadURL(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
 	return "https://r2.test/upload/" + key, nil

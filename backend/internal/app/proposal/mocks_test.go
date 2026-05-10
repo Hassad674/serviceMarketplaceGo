@@ -570,6 +570,14 @@ func (m *mockStorageService) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (m *mockStorageService) BulkDelete(_ context.Context, keys []string) ([]service.BulkDeleteResult, error) {
+	out := make([]service.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = service.BulkDeleteResult{Key: k}
+	}
+	return out, nil
+}
+
 func (m *mockStorageService) GetPublicURL(key string) string {
 	if m.getPublicURLFn != nil {
 		return m.getPublicURLFn(key)

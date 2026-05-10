@@ -16,6 +16,7 @@ import (
 	domain "marketplace-backend/internal/domain/invoicing"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/handler/middleware"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 // withInvoiceUserCtx attaches user + org IDs to the request context
@@ -39,6 +40,13 @@ func (h hostileStorage) Upload(_ context.Context, _ string, _ io.Reader, _ strin
 	return h.url, nil
 }
 func (hostileStorage) Delete(_ context.Context, _ string) error { return nil }
+func (hostileStorage) BulkDelete(_ context.Context, keys []string) ([]portservice.BulkDeleteResult, error) {
+	out := make([]portservice.BulkDeleteResult, len(keys))
+	for i, k := range keys {
+		out[i] = portservice.BulkDeleteResult{Key: k}
+	}
+	return out, nil
+}
 func (h hostileStorage) GetPublicURL(_ string) string           { return h.url }
 func (h hostileStorage) GetPresignedUploadURL(_ context.Context, _, _ string, _ time.Duration) (string, error) {
 	return h.url, nil

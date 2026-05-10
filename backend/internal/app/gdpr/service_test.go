@@ -27,6 +27,9 @@ type stubGDPRRepo struct {
 	findBlockingFn     func(ctx context.Context, id uuid.UUID) ([]domaingdpr.BlockedOrg, error)
 	listPurgeableFn    func(ctx context.Context, before time.Time, limit int) ([]uuid.UUID, error)
 	purgeFn            func(ctx context.Context, id uuid.UUID, before time.Time, salt string) (bool, error)
+	listKeysFn         func(ctx context.Context, id uuid.UUID) ([]string, error)
+	recordAuditFn      func(ctx context.Context, m domaingdpr.StoragePurgeManifest) error
+	recordedAudits     []domaingdpr.StoragePurgeManifest
 }
 
 func (s *stubGDPRRepo) LoadExport(ctx context.Context, id uuid.UUID) (*domaingdpr.Export, error) {
@@ -46,6 +49,19 @@ func (s *stubGDPRRepo) ListPurgeable(ctx context.Context, before time.Time, limi
 }
 func (s *stubGDPRRepo) PurgeUser(ctx context.Context, id uuid.UUID, before time.Time, salt string) (bool, error) {
 	return s.purgeFn(ctx, id, before, salt)
+}
+func (s *stubGDPRRepo) ListUserStorageKeys(ctx context.Context, id uuid.UUID) ([]string, error) {
+	if s.listKeysFn == nil {
+		return nil, nil
+	}
+	return s.listKeysFn(ctx, id)
+}
+func (s *stubGDPRRepo) RecordStoragePurgeAudit(ctx context.Context, m domaingdpr.StoragePurgeManifest) error {
+	s.recordedAudits = append(s.recordedAudits, m)
+	if s.recordAuditFn != nil {
+		return s.recordAuditFn(ctx, m)
+	}
+	return nil
 }
 
 type stubUserRepo struct {
