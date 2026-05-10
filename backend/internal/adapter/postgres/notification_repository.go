@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/pkg/cursor"
@@ -395,6 +396,28 @@ func (r *NotificationRepository) DeleteDeviceToken(ctx context.Context, userID u
 	_, err := r.db.ExecContext(ctx, queryDeleteDeviceToken, userID, token)
 	if err != nil {
 		return fmt.Errorf("delete device token: %w", err)
+	}
+	return nil
+}
+
+// TouchDeviceTokens marks every supplied token as freshly seen.
+// Called after a successful push delivery so the retention scheduler
+// (Phase B.1) keeps actively used tokens past the 60-day inactivity
+// cutoff.
+//
+// The tokens slice is bounded by the device count of one user — at
+// most a handful in practice. We pass it as a Postgres TEXT array
+// rather than building IN (...) to keep the query plan stable.
+func (r *NotificationRepository) TouchDeviceTokens(ctx context.Context, userID uuid.UUID, tokens []string) error {
+	if len(tokens) == 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, queryTouchDeviceTokens, userID, pq.Array(tokens))
+	if err != nil {
+		return fmt.Errorf("touch device tokens: %w", err)
 	}
 	return nil
 }

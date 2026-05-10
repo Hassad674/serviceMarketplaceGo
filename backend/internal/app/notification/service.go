@@ -305,6 +305,14 @@ func (s *Service) sendPushIfOffline(ctx context.Context, n *notif.Notification) 
 
 	if err := s.push.SendPush(ctx, tokenStrings, n.Title, n.Body, data); err != nil {
 		slog.Error("send push notification", "error", err, "user_id", n.UserID)
+		return
+	}
+	// Phase B.1 of gdpr-roadmap.md: keep last_seen_at fresh so the
+	// retention scheduler does not prune tokens that are still
+	// actively delivered to. Best-effort — a missed bookkeeping
+	// update is logged and ignored, never propagated to the user.
+	if err := s.notifications.TouchDeviceTokens(ctx, n.UserID, tokenStrings); err != nil {
+		slog.Warn("touch device tokens", "error", err, "user_id", n.UserID)
 	}
 }
 

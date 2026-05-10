@@ -310,7 +310,17 @@ func (w *Worker) deliverPush(ctx context.Context, job DeliveryJob, userID uuid.U
 	}
 
 	data := buildPushData(job)
-	return w.push.SendPush(ctx, tokenStrings, job.Title, job.Body, data)
+	if err := w.push.SendPush(ctx, tokenStrings, job.Title, job.Body, data); err != nil {
+		return err
+	}
+	// Phase B.1 retention bookkeeping: refresh last_seen_at on every
+	// token we just delivered to so the scheduler does not prune them
+	// for inactivity. Best-effort — a touch failure must not propagate
+	// because the push itself already succeeded.
+	if err := w.notifs.TouchDeviceTokens(ctx, userID, tokenStrings); err != nil {
+		slog.Warn("notification worker: touch device tokens", "error", err, "user_id", userID)
+	}
+	return nil
 }
 
 // buildPushData merges the job's free-form Data field with the

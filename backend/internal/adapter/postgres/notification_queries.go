@@ -73,3 +73,16 @@ const queryListDeviceTokens = `
 const queryDeleteDeviceToken = `
 	DELETE FROM device_tokens
 	WHERE user_id = $1 AND token = $2`
+
+// queryTouchDeviceTokens refreshes last_seen_at for every token the
+// notification fan-out just delivered to. The retention scheduler
+// uses last_seen_at to prune tokens inactive for > 60 days
+// (migration 141), so this call is what keeps live devices in the
+// table.
+//
+// #nosec G101 -- SQL template
+const queryTouchDeviceTokens = `
+	UPDATE device_tokens
+	   SET last_seen_at = now()
+	 WHERE user_id = $1
+	   AND token = ANY($2::text[])`
