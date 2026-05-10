@@ -52,6 +52,10 @@ func (m *mockTokenService) GenerateRefreshToken(_ uuid.UUID) (string, error) {
 	return "", nil
 }
 
+func (m *mockTokenService) GenerateRefreshTokenWithLineage(_ service.RefreshTokenInput) (string, error) {
+	return "", nil
+}
+
 func (m *mockTokenService) ValidateAccessToken(token string) (*service.TokenClaims, error) {
 	return m.validateAccessFn(token)
 }

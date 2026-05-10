@@ -209,6 +209,13 @@ func (m *mockTokenService) GenerateRefreshToken(userID uuid.UUID) (string, error
 	return "refresh_" + userID.String(), nil
 }
 
+func (m *mockTokenService) GenerateRefreshTokenWithLineage(input service.RefreshTokenInput) (string, error) {
+	if m.generateRefreshFn != nil {
+		return m.generateRefreshFn(input.UserID)
+	}
+	return "refresh_" + input.UserID.String(), nil
+}
+
 func (m *mockTokenService) ValidateAccessToken(token string) (*service.TokenClaims, error) {
 	if m.validateAccessFn != nil {
 		return m.validateAccessFn(token)

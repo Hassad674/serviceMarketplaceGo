@@ -55,6 +55,17 @@ type customClaims struct {
 	// against users.session_version and rejects on mismatch.
 	SessionVersion int `json:"sv,omitempty"`
 
+	// B.8 — refresh-token family lineage (refresh tokens only;
+	// omitempty keeps access tokens unchanged).
+	//
+	// FamilyRootJTI is the JTI of the first token in this rotation
+	// chain. ChainDepth is the number of rotations from that root.
+	// FamilyRootIAT is the unix timestamp of the family-root token's
+	// issuance — used to enforce the absolute family lifetime cap.
+	FamilyRootJTI string `json:"frj,omitempty"`
+	ChainDepth    int    `json:"cd,omitempty"`
+	FamilyRootIAT int64  `json:"fiat,omitempty"`
+
 	jwt.RegisteredClaims
 }
 
@@ -82,13 +93,39 @@ func (s *JWTService) GenerateAccessToken(input service.AccessTokenInput) (string
 }
 
 func (s *JWTService) GenerateRefreshToken(userID uuid.UUID) (string, error) {
+	return s.GenerateRefreshTokenWithLineage(service.RefreshTokenInput{UserID: userID})
+}
+
+// GenerateRefreshTokenWithLineage mints a refresh token, copying
+// family lineage forward when provided. On a fresh family
+// (FamilyRootJTI empty) the new token's JTI is also the root: the
+// family is born self-rooted, ChainDepth is 0, and FamilyRootIAT is
+// "now". On a rotation, the caller passes the parent token's lineage
+// + ChainDepth + 1 and we copy them verbatim.
+func (s *JWTService) GenerateRefreshTokenWithLineage(input service.RefreshTokenInput) (string, error) {
+	now := time.Now()
+	jti := uuid.New().String()
+
+	familyRootJTI := input.FamilyRootJTI
+	if familyRootJTI == "" {
+		// Fresh family — this token is its own root.
+		familyRootJTI = jti
+	}
+	familyRootIAT := input.FamilyRootIAT
+	if familyRootIAT.IsZero() {
+		familyRootIAT = now
+	}
+
 	claims := customClaims{
-		UserID: userID.String(),
-		Type:   "refresh",
+		UserID:        input.UserID.String(),
+		Type:          "refresh",
+		FamilyRootJTI: familyRootJTI,
+		ChainDepth:    input.ChainDepth,
+		FamilyRootIAT: familyRootIAT.Unix(),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.refreshExpiry)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        uuid.New().String(),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.refreshExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        jti,
 		},
 	}
 
@@ -138,6 +175,11 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 		OrgRole:        claims.OrgRole,
 		Permissions:    claims.Permissions,
 		SessionVersion: claims.SessionVersion,
+		FamilyRootJTI:  claims.FamilyRootJTI,
+		ChainDepth:     claims.ChainDepth,
+	}
+	if claims.FamilyRootIAT > 0 {
+		result.FamilyRootIAT = time.Unix(claims.FamilyRootIAT, 0).UTC()
 	}
 	if claims.OrgID != "" {
 		orgID, err := uuid.Parse(claims.OrgID)
