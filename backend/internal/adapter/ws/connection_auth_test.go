@@ -26,6 +26,9 @@ func (fakeTokenSvc) GenerateAccessToken(_ service.AccessTokenInput) (string, err
 func (fakeTokenSvc) GenerateRefreshToken(_ uuid.UUID) (string, error) {
 	return "fake.refresh.token", nil
 }
+func (fakeTokenSvc) GenerateRefreshTokenWithLineage(_ service.RefreshTokenInput) (string, error) {
+	return "fake.refresh.token", nil
+}
 func (fakeTokenSvc) ValidateAccessToken(_ string) (*service.TokenClaims, error) {
 	return &service.TokenClaims{UserID: uuid.New(), ExpiresAt: time.Now().Add(time.Hour)}, nil
 }

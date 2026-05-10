@@ -15,6 +15,7 @@ import (
 	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // resolveOrgContext returns the user's org context at login/refresh time.
@@ -36,39 +37,33 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, user.ErrUnauthorized
 	}
 
-	// SEC-06: refresh-token rotation. Reject the request if the JTI is
-	// already on the blacklist — that means the token has already been
-	// rotated (legitimate user) or revoked (logout) and the caller is
-	// presenting a stale or stolen credential. A blacklist read failure
-	// fails open (we trust the SessionVersion + token signature checks
-	// to catch a real compromise) so a Redis blip does not lock every
-	// user out of the app.
+	// SEC-06 / B.8: refresh-token rotation. Reject the request if the
+	// JTI is already on the blacklist — that means the token has
+	// already been rotated (legitimate user) or revoked (logout) and
+	// the caller is presenting a stale or stolen credential.
 	//
-	// F.5 S2: per RFC OAuth 2.1 §4.13.2 ("Refresh Token Replay
-	// Detection"), a detected replay must invalidate the entire
-	// refresh-token family — both the legitimate session AND any other
-	// access tokens already issued. We achieve that by bumping
-	// session_version on the user row: every existing access token
-	// becomes invalid on its next request because the middleware
-	// version check fails. The bump happens BEFORE we return the 401
-	// so the attacker's parallel access tokens stop working
-	// immediately — not just on the next refresh.
+	// On detection of reuse, B.8 escalates beyond the SEC-06 baseline:
+	// every descendant JTI currently tracked under the family root is
+	// added to the blacklist (so any other in-flight rotated token in
+	// the chain is now also dead), the family set is deleted, and the
+	// audit row carries family_root_jti + descendants_invalidated_count
+	// for SOC forensics. session_version is bumped as before to kill
+	// every parallel access token via the middleware version check.
+	//
+	// A blacklist read failure fails open (we trust the SessionVersion
+	// check to catch a real compromise) so a Redis blip does not lock
+	// every user out.
 	if s.refreshBlacklist != nil && claims.JTI != "" {
 		blacklisted, err := s.refreshBlacklist.Has(ctx, claims.JTI)
 		if err != nil {
 			slog.Warn("refresh blacklist read failed", "jti", claims.JTI, "error", err)
 		} else if blacklisted {
-			s.recordTokenReuse(ctx, claims.UserID, claims.JTI)
-			// Best-effort bump — failures are logged but the 401 still
-			// fires. The next refresh attempt will retry the bump
-			// implicitly (signature path), and the recordTokenReuse
-			// audit row is the SOC's primary forensic trail.
+			descendants := s.invalidateFamily(ctx, claims.FamilyRootJTI)
+			s.recordTokenReuseWithFamily(ctx, claims.UserID, claims, descendants)
 			if _, bumpErr := s.users.BumpSessionVersion(ctx, claims.UserID); bumpErr != nil {
 				slog.Warn("auth: bump session_version on refresh-replay failed",
 					"user_id", claims.UserID, "error", bumpErr)
 			}
-			// Belt + braces — purge any active web session row too so
-			// the cookie path is invalidated immediately as well.
 			if s.sessionSvc != nil {
 				if err := s.sessionSvc.DeleteByUserID(ctx, claims.UserID); err != nil {
 					slog.Warn("auth: delete sessions on refresh-replay failed",
@@ -77,6 +72,15 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 			}
 			return nil, user.ErrUnauthorized
 		}
+	}
+
+	// B.8: chain depth and absolute family-age caps. Even a perfectly
+	// legitimate token must be rejected once it has rotated past the
+	// caps — at that point we force a re-login so leaked credentials
+	// cannot grant indefinite access.
+	if decision := evaluateChainLimits(claims, time.Now()); decision.rejected {
+		s.recordChainLimitRejected(ctx, claims.UserID, claims.JTI, decision)
+		return nil, user.ErrUnauthorized
 	}
 
 	u, err := s.users.GetByID(ctx, claims.UserID)
@@ -101,10 +105,28 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	newRefreshToken, err := s.tokens.GenerateRefreshToken(u.ID)
+	// B.8: copy lineage forward. FamilyRootJTI / FamilyRootIAT are
+	// preserved across rotations; ChainDepth increments by 1.
+	// Legacy tokens (no lineage) re-root themselves: the JWT adapter
+	// substitutes the new JTI / time.Now() when those fields are
+	// zero, so the cap restarts from this rotation.
+	newRefreshToken, err := s.tokens.GenerateRefreshTokenWithLineage(service.RefreshTokenInput{
+		UserID:        u.ID,
+		FamilyRootJTI: claims.FamilyRootJTI,
+		ChainDepth:    claims.ChainDepth + 1,
+		FamilyRootIAT: claims.FamilyRootIAT,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
+
+	// B.8: track the newly minted JTI under the family root so a
+	// future reuse-detection can blacklist every member in one shot.
+	// We have to validate the new token (cheap — same secret) to read
+	// its JTI; the alternative would be to plumb the JTI back through
+	// the token-service interface, which adds API surface for one
+	// call site.
+	s.trackFamilyMember(ctx, newRefreshToken, claims)
 
 	// SEC-13: emit token_refresh audit event.
 	s.logAudit(ctx, audit.NewEntryInput{
@@ -130,6 +152,45 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 	}
 
 	return buildAuthOutput(u, orgCtx, newAccessToken, newRefreshToken), nil
+}
+
+// trackFamilyMember validates the just-issued refresh token to read
+// its JTI, then records that JTI under the family root in Redis. The
+// family TTL is the remaining time until the absolute family-age cap
+// (MaxFamilyAge). Best-effort: any failure is logged and swallowed —
+// a missing family entry only weakens future reuse detection (we
+// fall back to bumping session_version), it does not break the
+// rotation that just succeeded.
+func (s *Service) trackFamilyMember(ctx context.Context, newToken string, parentClaims *service.TokenClaims) {
+	if s.refreshBlacklist == nil || parentClaims == nil {
+		return
+	}
+	familyRoot := parentClaims.FamilyRootJTI
+	familyRootIAT := parentClaims.FamilyRootIAT
+	newClaims, err := s.tokens.ValidateRefreshToken(newToken)
+	if err != nil {
+		slog.Warn("refresh family track: validate new token failed", "error", err)
+		return
+	}
+	// If the parent had no lineage (legacy), the new token has re-rooted
+	// itself — pick up the new root from the freshly-issued claims.
+	if familyRoot == "" {
+		familyRoot = newClaims.FamilyRootJTI
+	}
+	if familyRootIAT.IsZero() {
+		familyRootIAT = newClaims.FamilyRootIAT
+	}
+	ttl := MaxFamilyAge
+	if !familyRootIAT.IsZero() {
+		remaining := time.Until(familyRootIAT.Add(MaxFamilyAge))
+		if remaining > 0 && remaining < ttl {
+			ttl = remaining
+		}
+	}
+	if err := s.refreshBlacklist.AddFamilyMember(ctx, familyRoot, newClaims.JTI, ttl); err != nil {
+		slog.Warn("refresh family track failed",
+			"family_root_jti", familyRoot, "jti", newClaims.JTI, "error", err)
+	}
 }
 
 // Logout records a logout audit event for the given user. Used by the

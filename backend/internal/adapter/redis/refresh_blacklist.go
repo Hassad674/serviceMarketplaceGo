@@ -13,6 +13,13 @@ import (
 // access-token blacklist can use a different namespace without colliding.
 const refreshBlacklistKey = "token_blacklist:"
 
+// refreshFamilyKey is the Redis key prefix for refresh-token family
+// member sets (B.8). Each entry is a Redis SET keyed by the family
+// root JTI; values are descendant JTIs accumulated as the chain
+// rotates. The set TTL tracks the family's absolute lifetime so
+// expired families self-evict.
+const refreshFamilyKey = "token_family:"
+
 // RefreshBlacklistService implements service.RefreshBlacklistService
 // against a Redis 7 backend.
 //
@@ -58,4 +65,53 @@ func (s *RefreshBlacklistService) Has(ctx context.Context, jti string) (bool, er
 		return false, fmt.Errorf("refresh blacklist has: %w", err)
 	}
 	return count > 0, nil
+}
+
+// AddFamilyMember appends jti to the SET keyed by familyRootJTI and
+// refreshes the set's TTL to the family's absolute-lifetime cap.
+// Empty inputs and non-positive ttl are no-ops.
+//
+// SADD + EXPIRE are issued as separate commands rather than via a
+// pipeline because the family-tracking write path is not on the hot
+// request path (only on /auth/refresh) and clarity beats a 1-RTT
+// optimisation here.
+func (s *RefreshBlacklistService) AddFamilyMember(ctx context.Context, familyRootJTI string, jti string, ttl time.Duration) error {
+	if familyRootJTI == "" || jti == "" || ttl <= 0 {
+		return nil
+	}
+	key := refreshFamilyKey + familyRootJTI
+	if err := s.client.SAdd(ctx, key, jti).Err(); err != nil {
+		return fmt.Errorf("refresh family add: %w", err)
+	}
+	if err := s.client.Expire(ctx, key, ttl).Err(); err != nil {
+		return fmt.Errorf("refresh family expire: %w", err)
+	}
+	return nil
+}
+
+// FamilyMembers returns the JTIs currently recorded under
+// familyRootJTI. An empty input or missing key returns (nil, nil)
+// so callers can iterate the result without guards.
+func (s *RefreshBlacklistService) FamilyMembers(ctx context.Context, familyRootJTI string) ([]string, error) {
+	if familyRootJTI == "" {
+		return nil, nil
+	}
+	members, err := s.client.SMembers(ctx, refreshFamilyKey+familyRootJTI).Result()
+	if err != nil {
+		return nil, fmt.Errorf("refresh family members: %w", err)
+	}
+	return members, nil
+}
+
+// DeleteFamily removes the SET entirely. Used after reuse-detection
+// has copied every member to the per-jti blacklist; the SET itself
+// no longer carries useful information.
+func (s *RefreshBlacklistService) DeleteFamily(ctx context.Context, familyRootJTI string) error {
+	if familyRootJTI == "" {
+		return nil
+	}
+	if err := s.client.Del(ctx, refreshFamilyKey+familyRootJTI).Err(); err != nil {
+		return fmt.Errorf("refresh family delete: %w", err)
+	}
+	return nil
 }
