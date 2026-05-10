@@ -59744,14 +59744,6 @@
             "description": "Error envelope"
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
-          }
-        ],
         "summary": "Hybrid Typesense search",
         "tags": [
           "search"
@@ -59854,14 +59846,6 @@
             "description": "Error envelope"
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
-          }
-        ],
         "summary": "Hybrid Typesense search",
         "tags": [
           "search"

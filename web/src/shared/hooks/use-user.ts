@@ -18,12 +18,48 @@ const SESSION_QUERY_KEY = ["session"] as const
 // behaviour. On unauthenticated pages we legitimately expect /auth/me to
 // return 401 (the user isn't logged in yet), and forcing a redirect
 // would break the /login and /register flows.
-const AUTH_PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"]
+//
+// Marketing / public listing routes (`/`, `/agencies`, `/freelancers`,
+// `/referrers`, `/opportunities`, …) are also included: an incognito
+// visitor browsing the catalogue MUST see the public surface, never a
+// surprise hop to /login. The middleware already gates the truly
+// protected paths (see PROTECTED_PATHS in src/middleware.ts), so the
+// list here is the inverse — known public surfaces.
+const AUTH_PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/agencies",
+  "/freelancers",
+  "/freelances",
+  "/referrers",
+  "/opportunities",
+  "/clients",
+]
+
+// Locale prefixes the next-intl router prepends to every URL. Keep
+// in sync with `src/i18n/routing.ts`. We strip them before matching
+// so the public-path test does not depend on the active locale.
+const LOCALE_PREFIXES = ["/fr", "/en"]
+
+function stripLocalePrefix(pathname: string): string {
+  for (const prefix of LOCALE_PREFIXES) {
+    if (pathname === prefix) return "/"
+    if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length)
+  }
+  return pathname
+}
 
 function isOnPublicAuthPath(): boolean {
   if (typeof window === "undefined") return true // SSR — never redirect
-  const path = window.location.pathname
-  return AUTH_PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`) || path.includes(p))
+  const path = stripLocalePrefix(window.location.pathname)
+  if (path === "/") return true
+  return AUTH_PUBLIC_PATHS.some((p) => {
+    if (p === "/") return false // exact-matched above
+    return path === p || path.startsWith(`${p}/`)
+  })
 }
 
 export type CurrentUser = {

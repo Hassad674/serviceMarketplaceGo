@@ -141,6 +141,65 @@ describe("useUser", () => {
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(window.location.href).toBe("")
   })
+
+  // Public marketing / listing routes (`/`, `/agencies`,
+  // `/freelancers`, `/referrers`, `/opportunities`, …) host the
+  // pre-login funnel — an incognito visitor MUST be able to browse
+  // the catalogue without a surprise hop to /login. The fetcher
+  // therefore swallows 401s on these surfaces instead of forcing a
+  // redirect. Locale-prefixed variants (`/fr/freelancers`) are
+  // covered by the same check after stripping the prefix.
+  const publicListingPaths = [
+    "/",
+    "/agencies",
+    "/freelancers",
+    "/freelances",
+    "/referrers",
+    "/opportunities",
+    "/clients",
+    "/agencies/abc-123",
+    "/freelancers/abc-123",
+    "/fr/freelancers",
+    "/en/agencies",
+    "/fr/",
+  ]
+
+  it.each(publicListingPaths)(
+    "does NOT redirect on 401 from public path %s",
+    async (pathname) => {
+      Object.defineProperty(window, "location", {
+        writable: true,
+        value: { ...originalLocation, href: "", pathname },
+      })
+      mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+      const { result } = renderHook(() => useUser(), {
+        wrapper: createWrapper(),
+      })
+
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(window.location.href).toBe("")
+    },
+  )
+
+  // Locale-prefixed protected paths must STILL trigger the
+  // zombie-session redirect. Stripping the locale prefix is only a
+  // routing concern; once stripped, `/dashboard` is protected and
+  // must continue to behave as such.
+  it("DOES redirect on 401 from a locale-prefixed protected path /fr/dashboard", async () => {
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...originalLocation, href: "", pathname: "/fr/dashboard" },
+    })
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    const { result } = renderHook(() => useUser(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(window.location.href).toBe("/login")
+  })
 })
 
 describe("useOrganization", () => {

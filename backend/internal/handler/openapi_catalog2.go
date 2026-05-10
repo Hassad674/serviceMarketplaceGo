@@ -30,7 +30,12 @@ func catalogueOrganizationShared(c map[string]routeSpec) {
 func catalogueSearch(c map[string]routeSpec) {
 	c["GET /api/v1/search"] = routeSpec{
 		Tags: []string{"search"}, Summary: "Hybrid Typesense search",
-		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+		// Public — incognito visitors arriving on /freelancers,
+		// /agencies, /referrers from the landing search bar must
+		// be able to query without a session cookie. The handler
+		// reads the JWT user_id optionally for analytics tagging
+		// only; nothing about the response shape requires auth.
+		AuthRequired: false, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
 	c["GET /api/v1/search/key"] = routeSpec{
 		Tags: []string{"search"}, Summary: "Scoped Typesense API key",
