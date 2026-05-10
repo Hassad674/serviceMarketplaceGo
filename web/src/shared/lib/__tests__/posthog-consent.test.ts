@@ -84,3 +84,21 @@ describe("clearConsent", () => {
     expect(window.localStorage.getItem("marketplace.analytics.consent")).toBeNull()
   })
 })
+
+describe("applyCustomConsent", () => {
+  it("opts in when analytics is in the chosen categories", async () => {
+    const mod = await import("../posthog-consent")
+    mod.applyCustomConsent(true, ["necessary", "analytics"])
+    expect(sdkMock.opt_in_capturing).toHaveBeenCalledTimes(1)
+    expect(sdkMock.opt_out_capturing).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem("marketplace.analytics.consent")).toBe("accepted")
+  })
+
+  it("opts out when analytics is not in the chosen categories", async () => {
+    const mod = await import("../posthog-consent")
+    mod.applyCustomConsent(false, ["necessary"])
+    expect(sdkMock.opt_out_capturing).toHaveBeenCalledTimes(1)
+    expect(sdkMock.opt_in_capturing).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem("marketplace.analytics.consent")).toBe("refused")
+  })
+})
