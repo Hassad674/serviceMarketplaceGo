@@ -2681,5 +2681,33 @@
         "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + protection DDoS" }
       }
     }
+  },
+  "stats": {
+    "eyebrow": "Statistiques",
+    "title": "Tes performances en détail",
+    "subtitle": "Vue détaillée de ta visibilité, de tes apparitions en recherche et des mots-clés qui te ramènent du trafic.",
+    "errorLoading": "Impossible de charger les statistiques. Réessaie dans un instant.",
+    "footnote": "Les statistiques sont mises à jour à chaque visite de profil — un délai de quelques minutes peut s'appliquer.",
+    "topKeywords": "Top mots-clés",
+    "topKeywordsLimit": "Top {count}",
+    "period": {
+      "label": "Période",
+      "days": "{days, plural, one {# jour} other {# jours}}"
+    },
+    "charts": {
+      "profileViews": "Vues du profil",
+      "searchAppearances": "Apparitions en recherche",
+      "avgPosition": "Position moyenne en recherche"
+    },
+    "keywords": {
+      "columnKeyword": "Mot-clé",
+      "columnVolume": "Volume",
+      "columnPosition": "Position",
+      "empty": "Aucun mot-clé n'a encore ramené de visiteur. Patience — il faut quelques jours pour que les données s'accumulent."
+    },
+    "empty": {
+      "notEnoughData": "Données insuffisantes — patiente pendant que ton profil cumule de la visibilité (~7 jours pour des résultats stables).",
+      "notEnoughPosition": "Pas encore assez d'apparitions pour calculer une position moyenne fiable."
+    }
   }
 }

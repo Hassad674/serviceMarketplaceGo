@@ -2681,5 +2681,33 @@
         "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + DDoS protection" }
       }
     }
+  },
+  "stats": {
+    "eyebrow": "Statistics",
+    "title": "Your performance in detail",
+    "subtitle": "Detailed view of your visibility, search impressions, and the keywords driving traffic to your profile.",
+    "errorLoading": "Could not load statistics. Try again in a moment.",
+    "footnote": "Statistics update on every profile visit — a short delay may apply.",
+    "topKeywords": "Top keywords",
+    "topKeywordsLimit": "Top {count}",
+    "period": {
+      "label": "Period",
+      "days": "{days, plural, one {# day} other {# days}}"
+    },
+    "charts": {
+      "profileViews": "Profile views",
+      "searchAppearances": "Search impressions",
+      "avgPosition": "Average search position"
+    },
+    "keywords": {
+      "columnKeyword": "Keyword",
+      "columnVolume": "Volume",
+      "columnPosition": "Position",
+      "empty": "No keyword has driven a visitor yet. Be patient — it takes a few days for data to accumulate."
+    },
+    "empty": {
+      "notEnoughData": "Not enough data — give your profile a few days to build up visibility (~7 days for stable results).",
+      "notEnoughPosition": "Not enough search impressions yet to compute a reliable average position."
+    }
   }
 }
