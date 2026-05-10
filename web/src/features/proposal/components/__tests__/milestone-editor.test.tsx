@@ -28,8 +28,11 @@ function withDeadline(deadline: string): MilestoneFormItem {
 describe("MilestoneEditor", () => {
   it("dynamically computes the min date for milestone N+1 from milestone N's deadline", () => {
     const onChange = vi.fn()
+    // Use a deadline far enough in the future so the previous-day+1
+    // boundary always wins over the today fallback (the picker takes
+    // the LATER of today and prev+1 to avoid past dates).
     const milestones = [
-      withDeadline("2026-05-07"),
+      withDeadline("2099-05-07"),
       withDeadline(""), // user has not set the second one yet
     ]
     render(<MilestoneEditor milestones={milestones} onChange={onChange} />)
@@ -44,8 +47,8 @@ describe("MilestoneEditor", () => {
     const second = screen.getByLabelText(
       /milestone 2 .*deadlineAriaLabel/,
     ) as HTMLInputElement
-    // Min must be 2026-05-08 — strictly after the previous milestone.
-    expect(second.min).toBe("2026-05-08")
+    // Min must be 2099-05-08 — strictly after the previous milestone.
+    expect(second.min).toBe("2099-05-08")
 
     // Sanity check the aggregation didn't break the simpler case.
     const first = screen.getByLabelText(

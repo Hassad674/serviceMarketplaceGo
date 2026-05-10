@@ -7,9 +7,11 @@ import { X, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import type { ProposalFormData, MilestoneFormItem } from "../types"
+import type { ProposalFormData, MilestoneFormItem, PaymentMode } from "../types"
 import {
+  MIN_MILESTONES_PER_MILESTONE_PROPOSAL,
   createEmptyProposalForm,
+  ensureMinimumMilestones,
   sumMilestoneAmounts,
   validateMilestoneDeadlines,
 } from "../types"
@@ -117,24 +119,59 @@ export function CreateProposalPage() {
     [],
   )
 
+  // Toggle handler for the payment-mode segmented control. When the
+  // user picks "milestone" we top the milestones array up to
+  // MIN_MILESTONES_PER_MILESTONE_PROPOSAL (mirrors Contra's UX: the
+  // editor never starts below 2 empty rows). Switching back to
+  // "one_time" leaves the milestone slots in state — toggling a third
+  // time should not destroy what the user typed.
+  const handlePaymentModeChange = useCallback(
+    (mode: PaymentMode) => {
+      setFormData((prev) => {
+        if (mode === "milestone") {
+          return {
+            ...prev,
+            paymentMode: mode,
+            milestones: ensureMinimumMilestones(prev.milestones),
+          }
+        }
+        return { ...prev, paymentMode: mode }
+      })
+    },
+    [],
+  )
+
+  const isMilestoneMode = formData.paymentMode === "milestone"
+
   const isValid = (() => {
-    if (formData.title.trim().length === 0) return false
-    if (formData.description.trim().length === 0) return false
-    if (formData.paymentMode === "milestone") {
-      if (formData.milestones.length === 0) return false
+    if (isMilestoneMode) {
+      // Milestone mode: NO global title/description/amount/deadline
+      // inputs are shown — they are derived from the milestone list at
+      // submit time. Validation focuses on the milestone slice itself.
+      if (
+        formData.milestones.length < MIN_MILESTONES_PER_MILESTONE_PROPOSAL
+      ) {
+        return false
+      }
       for (const m of formData.milestones) {
         if (m.title.trim().length === 0) return false
-        if (m.description.trim().length === 0) return false
+        // Per-milestone description is OPTIONAL in milestone mode
+        // (Contra-style — the project context is captured by the
+        // milestone titles + amounts).
         if (Number(m.amount) <= 0) return false
       }
       if (sumMilestoneAmounts(formData.milestones) <= 0) return false
       const dlErrors = validateMilestoneDeadlines(
         formData.milestones,
-        formData.deadline || undefined,
+        undefined,
       )
       if (Object.keys(dlErrors).length > 0) return false
       return true
     }
+    // One-time mode: keep the legacy global-input contract (title,
+    // description, positive amount).
+    if (formData.title.trim().length === 0) return false
+    if (formData.description.trim().length === 0) return false
     return Number(formData.amount) > 0
   })()
 
@@ -185,16 +222,31 @@ export function CreateProposalPage() {
     }
 
     const payload = buildCreatePayload(formData)
+    // Title/description/deadline are derived from the milestones in
+    // milestone mode (Contra-style: the global inputs are not shown).
+    // The proposalTitleFallback / proposalDescriptionFallback i18n keys
+    // are used when no milestone title is set yet — but isValid() has
+    // already guaranteed every milestone has a title, so the fallback
+    // path is only hit by tests.
+    const submitTitle = isMilestoneMode
+      ? deriveMilestoneTitle(formData, t("proposalTitleFallback"))
+      : formData.title.trim()
+    const submitDescription = isMilestoneMode
+      ? deriveMilestoneDescription(formData)
+      : formData.description.trim()
+    const submitDeadline = isMilestoneMode
+      ? latestMilestoneDeadlineString(formData.milestones)
+      : formData.deadline || undefined
 
     if (modifyId) {
       modifyMutation.mutate(
         {
           id: modifyId,
           data: {
-            title: formData.title.trim(),
-            description: formData.description.trim(),
+            title: submitTitle,
+            description: submitDescription,
             amount: payload.amount,
-            deadline: formData.deadline || undefined,
+            deadline: submitDeadline,
             documents,
             payment_mode: formData.paymentMode,
             milestones: payload.milestones,
@@ -214,10 +266,10 @@ export function CreateProposalPage() {
         {
           recipient_id: recipientId,
           conversation_id: conversationId,
-          title: formData.title.trim(),
-          description: formData.description.trim(),
+          title: submitTitle,
+          description: submitDescription,
           amount: payload.amount,
-          deadline: formData.deadline || undefined,
+          deadline: submitDeadline,
           documents,
           payment_mode: formData.paymentMode,
           milestones: payload.milestones,
@@ -326,63 +378,77 @@ export function CreateProposalPage() {
             className="min-w-0 flex-1 space-y-6"
           >
             {/* Brief section — recipient + payment-mode toggle come before
-                title/description so the user picks the mode first. */}
+                title/description so the user picks the mode first.
+                In milestone mode the global title + description inputs
+                are HIDDEN: each milestone is its own self-contained
+                step (Contra-style). The proposal-level title and
+                description are derived from the milestones at submit
+                time. */}
             <FormSection eyebrow={t("proposalFlow_create_sectionBrief")}>
               <RecipientField name={recipientName} />
 
               <PaymentModeToggle
                 value={formData.paymentMode}
-                onChange={(mode) => updateField("paymentMode", mode)}
+                onChange={handlePaymentModeChange}
                 disabled={isSubmitting}
               />
 
-              <div className="space-y-2 min-w-0">
-                <Label htmlFor="proposal-title" required>
-                  {t("proposalTitle")}
-                </Label>
-                <div className="relative min-w-0">
-                  <Input
-                    id="proposal-title"
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      updateField("title", e.target.value.slice(0, TITLE_MAX_LENGTH))
-                    }
-                    placeholder={t("proposalTitlePlaceholder")}
-                    maxLength={TITLE_MAX_LENGTH}
-                    className={cn(
-                      "h-11 w-full min-w-0 rounded-xl border border-border bg-card px-4 pr-16 text-[14.5px] break-words",
-                      "transition-all duration-200 ease-out",
-                      "placeholder:text-subtle-foreground",
-                      "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
-                    )}
-                    aria-required="true"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] text-subtle-foreground">
-                    {formData.title.length}/{TITLE_MAX_LENGTH}
-                  </span>
-                </div>
-              </div>
+              {!isMilestoneMode && (
+                <>
+                  <div className="space-y-2 min-w-0">
+                    <Label htmlFor="proposal-title" required>
+                      {t("proposalTitle")}
+                    </Label>
+                    <div className="relative min-w-0">
+                      <Input
+                        id="proposal-title"
+                        type="text"
+                        value={formData.title}
+                        onChange={(e) =>
+                          updateField(
+                            "title",
+                            e.target.value.slice(0, TITLE_MAX_LENGTH),
+                          )
+                        }
+                        placeholder={t("proposalTitlePlaceholder")}
+                        maxLength={TITLE_MAX_LENGTH}
+                        className={cn(
+                          "h-11 w-full min-w-0 rounded-xl border border-border bg-card px-4 pr-16 text-[14.5px] break-words",
+                          "transition-all duration-200 ease-out",
+                          "placeholder:text-subtle-foreground",
+                          "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                        )}
+                        aria-required="true"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] text-subtle-foreground">
+                        {formData.title.length}/{TITLE_MAX_LENGTH}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="space-y-2 min-w-0">
-                <Label htmlFor="proposal-description" required>
-                  {t("proposalDescription")}
-                </Label>
-                <textarea
-                  id="proposal-description"
-                  value={formData.description}
-                  onChange={(e) => updateField("description", e.target.value)}
-                  placeholder={t("proposalDescriptionPlaceholder")}
-                  rows={5}
-                  className={cn(
-                    "w-full min-w-0 rounded-xl border border-border bg-card px-4 py-3 text-[14.5px] resize-none break-words",
-                    "transition-all duration-200 ease-out",
-                    "placeholder:text-subtle-foreground",
-                    "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
-                  )}
-                  aria-required="true"
-                />
-              </div>
+                  <div className="space-y-2 min-w-0">
+                    <Label htmlFor="proposal-description" required>
+                      {t("proposalDescription")}
+                    </Label>
+                    <textarea
+                      id="proposal-description"
+                      value={formData.description}
+                      onChange={(e) =>
+                        updateField("description", e.target.value)
+                      }
+                      placeholder={t("proposalDescriptionPlaceholder")}
+                      rows={5}
+                      className={cn(
+                        "w-full min-w-0 rounded-xl border border-border bg-card px-4 py-3 text-[14.5px] resize-none break-words",
+                        "transition-all duration-200 ease-out",
+                        "placeholder:text-subtle-foreground",
+                        "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                      )}
+                      aria-required="true"
+                    />
+                  </div>
+                </>
+              )}
             </FormSection>
 
             {/* Payment section — mode-specific input(s) only. The toggle
@@ -442,24 +508,32 @@ export function CreateProposalPage() {
               />
             </FormSection>
 
-            {/* Deadline section */}
-            <FormSection eyebrow={t("proposalFlow_create_sectionDeadline")}>
-              <div className="space-y-2">
-                <Label htmlFor="proposal-deadline">{t("proposalDeadline")}</Label>
-                <Input
-                  id="proposal-deadline"
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => updateField("deadline", e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
-                  className={cn(
-                    "h-11 w-full rounded-xl border border-border bg-card px-4 text-[14.5px] font-mono",
-                    "transition-all duration-200 ease-out text-foreground",
-                    "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
-                  )}
-                />
-              </div>
-            </FormSection>
+            {/* Deadline section — only in one_time mode. In milestone
+                mode the project deadline is derived from the latest
+                milestone due date (Contra-style). */}
+            {!isMilestoneMode && (
+              <FormSection
+                eyebrow={t("proposalFlow_create_sectionDeadline")}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="proposal-deadline">
+                    {t("proposalDeadline")}
+                  </Label>
+                  <Input
+                    id="proposal-deadline"
+                    type="date"
+                    value={formData.deadline}
+                    onChange={(e) => updateField("deadline", e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className={cn(
+                      "h-11 w-full rounded-xl border border-border bg-card px-4 text-[14.5px] font-mono",
+                      "transition-all duration-200 ease-out text-foreground",
+                      "focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
+                    )}
+                  />
+                </div>
+              </FormSection>
+            )}
 
             {/* Documents section */}
             <FormSection eyebrow={t("proposalFlow_create_sectionDocuments")}>
@@ -579,6 +653,48 @@ function buildCreatePayload(form: ProposalFormData): {
   }))
   const amount = milestones.reduce((sum, m) => sum + m.amount, 0)
   return { amount, milestones }
+}
+
+// deriveMilestoneTitle synthesises a proposal-level title in milestone
+// mode (where the global title input is hidden). Uses the first
+// milestone title — by isValid() invariant every milestone has a title
+// at submit time, but the fallback covers the test/edge case.
+function deriveMilestoneTitle(form: ProposalFormData, fallback: string): string {
+  for (const m of form.milestones) {
+    const trimmed = m.title.trim()
+    if (trimmed.length > 0) return trimmed
+  }
+  return fallback
+}
+
+// deriveMilestoneDescription synthesises a proposal-level description
+// from the milestone titles. The backend stores the description on the
+// proposal envelope (system message + audit + moderation); concatenating
+// the milestone titles gives a meaningful summary without forcing the
+// user to retype the brief.
+function deriveMilestoneDescription(form: ProposalFormData): string {
+  const titles = form.milestones
+    .map((m) => m.title.trim())
+    .filter((t) => t.length > 0)
+  if (titles.length === 0) return ""
+  return titles.map((t, i) => `${i + 1}. ${t}`).join("\n")
+}
+
+// latestMilestoneDeadlineString returns the latest YYYY-MM-DD value
+// across the milestone slice, or undefined if no milestone has a
+// deadline. Used to derive the proposal-level deadline server-side
+// argument in milestone mode.
+function latestMilestoneDeadlineString(
+  milestones: MilestoneFormItem[],
+): string | undefined {
+  let latest: string | undefined
+  for (const m of milestones) {
+    if (!m.deadline) continue
+    if (!latest || m.deadline > latest) {
+      latest = m.deadline
+    }
+  }
+  return latest
 }
 
 function buildFeePreviewMilestones(

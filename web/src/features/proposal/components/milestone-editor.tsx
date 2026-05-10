@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/utils"
 import type { MilestoneDeadlineErrorKey, MilestoneFormItem } from "../types"
 import {
   MAX_MILESTONES_PER_PROPOSAL,
+  MIN_MILESTONES_PER_MILESTONE_PROPOSAL,
   createEmptyMilestoneItem,
   minDateForMilestone,
   sumMilestoneAmounts,
@@ -50,7 +51,12 @@ export function MilestoneEditor({
   }
 
   function removeAt(index: number) {
-    if (milestones.length <= 1) return
+    // Milestone-mode proposals need at least
+    // MIN_MILESTONES_PER_MILESTONE_PROPOSAL entries — a single milestone
+    // is the shape of one-time mode. Below the floor, the trash button
+    // is disabled (canRemove=false) and this guard short-circuits even
+    // if a stale onClick fires.
+    if (milestones.length <= MIN_MILESTONES_PER_MILESTONE_PROPOSAL) return
     onChange(milestones.filter((_, i) => i !== index))
   }
 
@@ -75,6 +81,12 @@ export function MilestoneEditor({
         </span>
       </div>
 
+      <p className="text-[12.5px] leading-snug text-muted-foreground">
+        {t("minimumHint", {
+          min: MIN_MILESTONES_PER_MILESTONE_PROPOSAL,
+        })}
+      </p>
+
       <div className="space-y-3">
         {milestones.map((m, index) => (
           <MilestoneRow
@@ -82,7 +94,7 @@ export function MilestoneEditor({
             sequence={index + 1}
             milestone={m}
             disabled={disabled}
-            canRemove={milestones.length > 1}
+            canRemove={milestones.length > MIN_MILESTONES_PER_MILESTONE_PROPOSAL}
             onChange={(patch) => updateAt(index, patch)}
             onRemove={() => removeAt(index)}
             minDate={minDateForMilestone(milestones, index, todayIso)}

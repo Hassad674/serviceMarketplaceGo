@@ -160,6 +160,10 @@ export function createEmptyProposalForm(): ProposalFormData {
     deadline: "",
     files: [],
     paymentMode: "one_time",
+    // Even in the default one-time mode we hold a single empty
+    // milestone slot so the editor renders cleanly the moment the user
+    // toggles to milestone mode (the toggle handler tops it up to the
+    // MIN_MILESTONES_PER_MILESTONE_PROPOSAL floor).
     milestones: [createEmptyMilestoneItem()],
   }
 }
@@ -173,10 +177,48 @@ export function createEmptyMilestoneItem(): MilestoneFormItem {
   }
 }
 
+// createDefaultMilestoneSlots returns exactly
+// MIN_MILESTONES_PER_MILESTONE_PROPOSAL empty rows. Used when the user
+// toggles into milestone mode so the editor never starts below the
+// required minimum, mirroring Contra's UX (always render ≥ 2 empty
+// rows the first time the user picks "Milestones").
+export function createDefaultMilestoneSlots(): MilestoneFormItem[] {
+  const slots: MilestoneFormItem[] = []
+  for (let i = 0; i < MIN_MILESTONES_PER_MILESTONE_PROPOSAL; i++) {
+    slots.push(createEmptyMilestoneItem())
+  }
+  return slots
+}
+
+// ensureMinimumMilestones tops up the slice to meet
+// MIN_MILESTONES_PER_MILESTONE_PROPOSAL by appending empty milestones.
+// Used when toggling into milestone mode — preserves anything the user
+// might have already typed and only fills the missing trailing slots.
+export function ensureMinimumMilestones(
+  current: MilestoneFormItem[],
+): MilestoneFormItem[] {
+  if (current.length >= MIN_MILESTONES_PER_MILESTONE_PROPOSAL) {
+    return current
+  }
+  const next = [...current]
+  while (next.length < MIN_MILESTONES_PER_MILESTONE_PROPOSAL) {
+    next.push(createEmptyMilestoneItem())
+  }
+  return next
+}
+
 // MAX_MILESTONES_PER_PROPOSAL mirrors the backend constant
 // (MaxMilestonesPerProposal in internal/domain/milestone). Keep the
 // two in sync manually — there is no shared schema.
 export const MAX_MILESTONES_PER_PROPOSAL = 20
+
+// MIN_MILESTONES_PER_MILESTONE_PROPOSAL mirrors
+// MinMilestonesPerMilestoneProposal in internal/domain/milestone — a
+// milestone-mode proposal MUST carry at least 2 milestones. A single
+// milestone is the shape of one-time mode; milestone mode is meaningless
+// below 2 entries. The form mirrors this rule by initialising milestone
+// mode with 2 empty rows.
+export const MIN_MILESTONES_PER_MILESTONE_PROPOSAL = 2
 
 // sumMilestoneAmounts parses each form milestone amount and returns
 // the running total in centimes. Invalid / empty entries contribute

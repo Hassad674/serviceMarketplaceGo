@@ -4,6 +4,7 @@ import { Calendar, Paperclip, User } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { ProposalFormData } from "../types"
+import { sumMilestoneAmounts } from "../types"
 
 // Soleil v2 — Live preview of the proposal as the recipient will see it.
 // Soleil card with Fraunces title + Geist Mono amount + tabac details.
@@ -16,15 +17,32 @@ interface ProposalPreviewProps {
 export function ProposalPreview({ formData, recipientName }: ProposalPreviewProps) {
   const t = useTranslations("proposal")
 
-  const amount = Number(formData.amount) || 0
-  const hasDeadline = formData.deadline.length > 0
+  const isMilestoneMode = formData.paymentMode === "milestone"
+
+  // In milestone mode the global amount/deadline inputs are hidden —
+  // the right-rail summary derives them from the milestone slice
+  // (sum of amounts, latest due date) so the user sees the totals
+  // update live as they type.
+  const amount = isMilestoneMode
+    ? sumMilestoneAmounts(formData.milestones) / 100
+    : Number(formData.amount) || 0
+  const derivedDeadline = isMilestoneMode
+    ? latestMilestoneDeadline(formData.milestones)
+    : formData.deadline
+  const hasDeadline = derivedDeadline.length > 0
   const formattedDeadline = hasDeadline
     ? new Intl.DateTimeFormat("fr-FR", {
         day: "numeric",
         month: "long",
         year: "numeric",
-      }).format(new Date(formData.deadline))
+      }).format(new Date(derivedDeadline))
     : null
+  // Title in milestone mode: prefer the first non-empty milestone title;
+  // otherwise show the generic placeholder so the preview never blanks
+  // out while the user is typing.
+  const previewTitle = isMilestoneMode
+    ? firstMilestoneTitle(formData) || t("proposalTitlePlaceholder")
+    : formData.title || t("proposalTitlePlaceholder")
 
   return (
     <div
@@ -40,7 +58,7 @@ export function ProposalPreview({ formData, recipientName }: ProposalPreviewProp
       <div className="mt-4 space-y-4">
         {/* Title */}
         <p className="font-serif text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground break-words">
-          {formData.title || t("proposalTitlePlaceholder")}
+          {previewTitle}
         </p>
 
         <div className="border-t border-dashed border-border" />
@@ -106,4 +124,32 @@ function PreviewLine({ icon: Icon, label, value }: PreviewLineProps) {
       </div>
     </div>
   )
+}
+
+// firstMilestoneTitle returns the first non-empty trimmed milestone
+// title or empty string. Mirrors the same logic the create handler
+// uses to derive the proposal title at submit time.
+function firstMilestoneTitle(form: ProposalFormData): string {
+  for (const m of form.milestones) {
+    const trimmed = m.title.trim()
+    if (trimmed.length > 0) return trimmed
+  }
+  return ""
+}
+
+// latestMilestoneDeadline returns the YYYY-MM-DD of the latest deadline
+// across the milestone slice, or empty string if none has a deadline.
+// String comparison works because YYYY-MM-DD is lexicographically
+// ordered the same as chronologically.
+function latestMilestoneDeadline(
+  milestones: ProposalFormData["milestones"],
+): string {
+  let latest = ""
+  for (const m of milestones) {
+    if (!m.deadline) continue
+    if (!latest || m.deadline > latest) {
+      latest = m.deadline
+    }
+  }
+  return latest
 }

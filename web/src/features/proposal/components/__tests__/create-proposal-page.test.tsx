@@ -290,4 +290,183 @@ describe("CreateProposalPage", () => {
     // The mode-panel id used by aria-controls also disappears.
     expect(document.getElementById("payment-mode-panel-one_time")).toBeNull()
   })
+
+  it("hides global title, description and deadline inputs when payment mode is milestone", () => {
+    render(<CreateProposalPage />)
+
+    // Defaults to one_time — the four global inputs are visible.
+    expect(screen.queryByLabelText(/proposalTitle/)).not.toBeNull()
+    expect(screen.queryByLabelText(/proposalDescription/)).not.toBeNull()
+    expect(screen.queryByLabelText(/proposalDeadline/)).not.toBeNull()
+
+    // Toggle to milestone — the global title/description/deadline
+    // inputs vanish (Contra-style: per-milestone fields replace them,
+    // proposal-level fields are derived at submit time).
+    fireEvent.click(screen.getByText("milestone"))
+
+    expect(screen.queryByLabelText(/proposalTitle/)).toBeNull()
+    expect(screen.queryByLabelText(/proposalDescription/)).toBeNull()
+    expect(screen.queryByLabelText(/proposalDeadline/)).toBeNull()
+  })
+
+  it("renders 2 empty milestone rows by default when toggling into milestone mode", () => {
+    render(<CreateProposalPage />)
+
+    // Switch to milestone mode.
+    fireEvent.click(screen.getByText("milestone"))
+
+    // Two milestone titles should be rendered (one per row). The aria
+    // label includes the sequence number, so we can target each one.
+    const m1 = screen.getByLabelText(
+      /milestone 1 titleAriaLabel/,
+    )
+    const m2 = screen.getByLabelText(
+      /milestone 2 titleAriaLabel/,
+    )
+    expect(m1).not.toBeNull()
+    expect(m2).not.toBeNull()
+
+    // No third milestone — the floor is exactly 2 and adding more is
+    // explicit (the user clicks "Add a milestone").
+    expect(
+      screen.queryByLabelText(
+        /milestone 3 titleAriaLabel/,
+      ),
+    ).toBeNull()
+  })
+
+  it("submit button is disabled in milestone mode while milestones are incomplete", () => {
+    render(<CreateProposalPage />)
+
+    fireEvent.click(screen.getByText("milestone"))
+
+    // Empty milestones — submit must be disabled even though the
+    // global title/description inputs are no longer required.
+    const submitButtons = screen.getAllByText("proposalSend")
+    const headerSubmit = submitButtons[0].closest("button")
+    expect(headerSubmit?.disabled).toBe(true)
+  })
+
+  it("submit button is enabled when both milestones are filled (min 2)", () => {
+    render(<CreateProposalPage />)
+
+    fireEvent.click(screen.getByText("milestone"))
+
+    // Fill both milestones with title + amount (description is
+    // optional in milestone mode).
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 1 titleAriaLabel/,
+      ),
+      { target: { value: "Phase 1" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 1 amountAriaLabel/,
+      ),
+      { target: { value: "1000" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 2 titleAriaLabel/,
+      ),
+      { target: { value: "Phase 2" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 2 amountAriaLabel/,
+      ),
+      { target: { value: "2000" } },
+    )
+
+    const submitButtons = screen.getAllByText("proposalSend")
+    const headerSubmit = submitButtons[0].closest("button")
+    expect(headerSubmit?.disabled).toBe(false)
+  })
+
+  it("submits the milestones array and a derived title in milestone mode", () => {
+    render(<CreateProposalPage />)
+
+    fireEvent.click(screen.getByText("milestone"))
+
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 1 titleAriaLabel/,
+      ),
+      { target: { value: "Maquettes" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 1 amountAriaLabel/,
+      ),
+      { target: { value: "1500" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 2 titleAriaLabel/,
+      ),
+      { target: { value: "Intégration" } },
+    )
+    fireEvent.change(
+      screen.getByLabelText(
+        /milestone 2 amountAriaLabel/,
+      ),
+      { target: { value: "3500" } },
+    )
+
+    const form = document.getElementById("proposal-form") as HTMLFormElement
+    fireEvent.submit(form)
+
+    expect(createMutateFn).toHaveBeenCalledOnce()
+    const callArgs = createMutateFn.mock.calls[0][0]
+    expect(callArgs.payment_mode).toBe("milestone")
+    expect(callArgs.milestones).toHaveLength(2)
+    expect(callArgs.milestones[0].sequence).toBe(1)
+    expect(callArgs.milestones[0].title).toBe("Maquettes")
+    expect(callArgs.milestones[0].amount).toBe(150000) // 1500 EUR in centimes
+    expect(callArgs.milestones[1].sequence).toBe(2)
+    expect(callArgs.milestones[1].amount).toBe(350000)
+    // Total amount derived from the milestone sum (no global amount
+    // input was filled in milestone mode).
+    expect(callArgs.amount).toBe(500000)
+    // Title derived from the first milestone title — the global
+    // proposalTitle input is not rendered in milestone mode so the
+    // form synthesises a project title at submit time.
+    expect(callArgs.title).toBe("Maquettes")
+  })
+
+  it("toggling back to one_time restores the global inputs and drops milestone-mode payload", () => {
+    render(<CreateProposalPage />)
+
+    // Toggle into milestone mode then back.
+    fireEvent.click(screen.getByText("milestone"))
+    fireEvent.click(screen.getByText("oneTime"))
+
+    // Global inputs are visible again.
+    expect(screen.queryByLabelText(/proposalTitle/)).not.toBeNull()
+    expect(screen.queryByLabelText(/proposalDescription/)).not.toBeNull()
+    expect(screen.queryByLabelText(/proposalAmount/)).not.toBeNull()
+
+    // Fill the legacy global inputs and submit.
+    fireEvent.change(screen.getByLabelText(/proposalTitle/), {
+      target: { value: "Site web" },
+    })
+    fireEvent.change(screen.getByLabelText(/proposalDescription/), {
+      target: { value: "Refonte complète" },
+    })
+    fireEvent.change(screen.getByLabelText(/proposalAmount/), {
+      target: { value: "1500" },
+    })
+
+    const form = document.getElementById("proposal-form") as HTMLFormElement
+    fireEvent.submit(form)
+
+    expect(createMutateFn).toHaveBeenCalledOnce()
+    const callArgs = createMutateFn.mock.calls[0][0]
+    expect(callArgs.payment_mode).toBe("one_time")
+    // milestones are undefined in one_time mode (legacy contract).
+    expect(callArgs.milestones).toBeUndefined()
+    expect(callArgs.amount).toBe(150000)
+    expect(callArgs.title).toBe("Site web")
+  })
 })
