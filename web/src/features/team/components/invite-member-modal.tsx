@@ -209,9 +209,9 @@ export function InviteMemberModal({ open, onClose, orgID }: InviteMemberModalPro
               }
               className={`${inputBase} ${inputOk} cursor-pointer`}
             >
-              <option value="admin">{t("roles.admin")}</option>
-              <option value="member">{t("roles.member")}</option>
-              <option value="viewer">{t("roles.viewer")}</option>
+              <option value="admin">{t("roles.admin.label")}</option>
+              <option value="member">{t("roles.member.label")}</option>
+              <option value="viewer">{t("roles.viewer.label")}</option>
             </select>
             <p className="mt-1 font-serif text-[12px] italic text-[var(--muted-foreground)]">
               {t("roleHelp")}

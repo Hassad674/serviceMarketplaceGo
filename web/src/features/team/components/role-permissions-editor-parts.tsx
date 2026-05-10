@@ -87,20 +87,22 @@ export function PermissionRow({
   disabled,
   onToggle,
 }: PermissionRowProps) {
+  const t = useTranslations("team")
   const state = resolveDisplayState(cell, effectiveGranted, modified)
+  const { label, description } = translatePermission(t, cell)
   return (
     <li className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 transition-colors hover:border-[var(--border-strong)]">
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-[13.5px] font-medium text-[var(--foreground)]">
-              {cell.label || cell.key}
+              {label}
             </p>
             <StateBadge state={state} />
           </div>
-          {cell.description && (
+          {description && (
             <p className="mt-0.5 line-clamp-2 text-[12px] text-[var(--muted-foreground)]">
-              {cell.description}
+              {description}
             </p>
           )}
         </div>
@@ -110,7 +112,7 @@ export function PermissionRow({
         type="button"
         role="switch"
         aria-checked={effectiveGranted}
-        aria-label={cell.label || cell.key}
+        aria-label={label}
         disabled={disabled}
         onClick={onToggle}
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
@@ -345,4 +347,27 @@ export function extractErrorMessage(
 export function capitalize(s: string): string {
   if (!s) return s
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// translatePermission resolves the i18n label + description for a
+// permission cell. The catalogue lives at `team.permissions.<group>.<leaf>`
+// (nested groups, because permission keys like `team.view` contain a
+// dot that next-intl would otherwise interpret as deeper nesting).
+// Falls back to the backend-provided English string when the i18n
+// catalogue does not yet carry the key — that way newly-introduced
+// permissions render correctly before the next translation pass.
+type TeamTranslator = ReturnType<typeof useTranslations>
+
+export function translatePermission(
+  t: TeamTranslator,
+  cell: Pick<RolePermissionCell, "key" | "label" | "description">,
+): { label: string; description: string } {
+  const dot = cell.key.indexOf(".")
+  const group = dot === -1 ? "other" : cell.key.slice(0, dot)
+  const leaf = dot === -1 ? cell.key : cell.key.slice(dot + 1)
+  const labelKey = `permissions.${group}.${leaf}.label`
+  const descKey = `permissions.${group}.${leaf}.description`
+  const label = t.has(labelKey) ? t(labelKey) : cell.label || cell.key
+  const description = t.has(descKey) ? t(descKey) : cell.description || ""
+  return { label, description }
 }

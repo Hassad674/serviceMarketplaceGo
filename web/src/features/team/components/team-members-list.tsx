@@ -175,7 +175,7 @@ function MemberRow({ member, portraitId, canManage, onEdit, onRemove }: MemberRo
 
 function RoleBadge({ role }: { role: TeamMember["role"] }) {
   const t = useTranslations("team")
-  const label = t(`roles.${role}`)
+  const label = t(`roles.${role}.label`)
   if (role === "owner") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-[var(--amber-soft)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--warning)]">
