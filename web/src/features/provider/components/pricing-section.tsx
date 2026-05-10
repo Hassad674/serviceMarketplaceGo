@@ -47,12 +47,12 @@ export function PricingSection({
   return (
     <section
       aria-labelledby={`pricing-section-title-${variant}`}
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+      className="bg-card border border-border rounded-2xl p-7 shadow-[var(--shadow-card)]"
     >
       <header className="mb-4 flex flex-col gap-1">
         <h2
           id={`pricing-section-title-${variant}`}
-          className="text-lg font-semibold text-foreground"
+          className="font-serif text-xl font-medium tracking-[-0.005em] text-foreground"
         >
           {t(titleKey)}
         </h2>

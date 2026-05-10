@@ -32,10 +32,12 @@ import { ProfileCompletionBar } from "@/features/profile-completion/components/p
 // AgencyProfilePage is the editable /profile view for agency orgs.
 // Visual shell mirrors the freelance editable page one-for-one — same
 // max-w-5xl wrapper, editing-mode hint, completion bar, Soleil v2
-// hero header, and section spacing — so the two prestataire personas
-// render as a unified "prestataire" profile surface. Hook wiring stays
-// legacy on purpose; the agency aggregate has not been migrated to
-// the split-profile backend yet.
+// hero header, Soleil v2 card primitives, AND identical section
+// ordering: Header → About → Expertise → Tarifs → Disponibilité →
+// Vidéo → Localisation → Langues → Compétences → Réseaux sociaux →
+// Portfolio (agency-only) → Historique. Hook wiring stays legacy on
+// purpose; the agency aggregate has not been migrated to the
+// split-profile backend yet.
 export function AgencyProfilePage() {
   const { data: user } = useUser()
   const { data: org } = useOrganization()
@@ -129,12 +131,6 @@ export function AgencyProfilePage() {
         readOnly={!canEditProfile}
       />
 
-      <LocationSection orgType="agency" readOnly={!canEditProfile} />
-
-      <LanguagesSection orgType="agency" readOnly={!canEditProfile} />
-
-      <SkillsSection orgType="agency" readOnly={!canEditProfile} />
-
       <ProfileVideoCard
         videoUrl={profile.presentation_video_url ?? ""}
         labels={{
@@ -156,6 +152,12 @@ export function AgencyProfilePage() {
         }
         readOnly={!canEditProfile}
       />
+
+      <LocationSection orgType="agency" readOnly={!canEditProfile} />
+
+      <LanguagesSection orgType="agency" readOnly={!canEditProfile} />
+
+      <SkillsSection orgType="agency" readOnly={!canEditProfile} />
 
       <SocialLinksSection />
 
