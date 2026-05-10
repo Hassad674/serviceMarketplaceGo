@@ -6,6 +6,7 @@ import { z } from "zod"
 import { useState } from "react"
 import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter } from "@i18n/navigation"
 import { login, AuthApiError } from "@/features/auth/api/auth-api"
 import { Input } from "@/shared/components/ui/input"
@@ -28,6 +29,7 @@ type SuspensionInfo = {
 
 export function LoginForm() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [suspension, setSuspension] = useState<SuspensionInfo | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -47,6 +49,14 @@ export function LoginForm() {
     setSuspension(null)
     try {
       await login(values.email, values.password)
+      // PERF-FIX-W-AUTH-ME-FANOUT: explicitly invalidate the cached
+      // session so the post-login navigation refetches /auth/me. The
+      // hook now uses `retryOnMount: false` (which prevents the 401
+      // fan-out on public pages), so a stale "logged out" verdict
+      // would otherwise survive the SPA navigation to /dashboard.
+      // Invalidation forces a refetch regardless of the retry-on-mount
+      // gate.
+      await queryClient.invalidateQueries({ queryKey: ["session"] })
       router.push("/dashboard")
     } catch (err) {
       if (

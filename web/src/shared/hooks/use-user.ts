@@ -156,6 +156,23 @@ async function fetchSession(): Promise<SessionResponse> {
 //     edit must not silently re-enable a refetch storm here).
 //   * retry: false — a 401 means logout, not a transient error. The
 //     fetcher already hard-redirects to /login.
+//   * retryOnMount: false — ROOT-CAUSE FIX for the /auth/me fan-out.
+//     `refetchOnMount: false` only prevents re-fetches when the cache
+//     already holds `data !== undefined`. When the very first /auth/me
+//     fails (401 on a public page, network error, …) the cache stays
+//     in `{ data: undefined, status: "error" }` forever, and TanStack
+//     Query's `shouldLoadOnMount` then triggers a NEW fetch for every
+//     observer that subscribes (see query-core/queryObserver.js
+//     `shouldLoadOnMount`). A public page like /freelancers/[id] mounts
+//     ~30 distinct session consumers (PublicLayout, PostHogProvider,
+//     SendMessageButton, sidebar/header on logged-in branches, …), so
+//     a single 401 turned into a 30-200+ request storm in <1 s,
+//     tripping the global IP rate limit and bricking the page.
+//     `retryOnMount: false` makes that gate close once the first
+//     attempt has resolved (success OR error), so subsequent observers
+//     read the cached verdict instead of re-fetching. Login / register
+//     flows must explicitly `invalidateQueries({ queryKey: ["session"] })`
+//     to force a refetch when the session legitimately changes.
 const SESSION_STALE_TIME_MS = 30 * 60 * 1000
 const SESSION_GC_TIME_MS = 30 * 60 * 1000
 
@@ -168,6 +185,7 @@ const sessionQueryOptions = {
   refetchOnReconnect: false,
   refetchOnMount: false,
   retry: false,
+  retryOnMount: false,
 } as const
 
 /**

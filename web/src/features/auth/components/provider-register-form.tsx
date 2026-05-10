@@ -7,6 +7,7 @@ import { useState } from "react"
 import { useRouter } from "@i18n/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useQueryClient } from "@tanstack/react-query"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { trackSignUp } from "@/shared/lib/analytics-events"
 import { Input } from "@/shared/components/ui/input"
@@ -63,6 +64,7 @@ function inputStateClasses(hasError: boolean, padRight?: boolean): string {
 
 export function ProviderRegisterForm() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -89,6 +91,12 @@ export function ProviderRegisterForm() {
         role: "provider",
       })
       trackSignUp({ method: "email", role: "provider" })
+      // PERF-FIX-W-AUTH-ME-FANOUT: invalidate the cached session so
+      // the post-register navigation refetches /auth/me. The hook
+      // uses `retryOnMount: false` to prevent a 401 fan-out, so a
+      // pre-register "logged out" verdict would otherwise survive
+      // the SPA navigation to /dashboard.
+      await queryClient.invalidateQueries({ queryKey: ["session"] })
       router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))

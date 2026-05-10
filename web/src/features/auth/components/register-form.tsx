@@ -6,6 +6,7 @@ import { z } from "zod"
 import { useState } from "react"
 import { Link, useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
+import { useQueryClient } from "@tanstack/react-query"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { trackSignUp } from "@/shared/lib/analytics-events"
 import { Button } from "@/shared/components/ui/button"
@@ -33,6 +34,7 @@ type RegisterValues = z.infer<typeof registerSchema>
 
 export function RegisterForm() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
@@ -56,6 +58,12 @@ export function RegisterForm() {
     try {
       await registerUser(values)
       trackSignUp({ method: "email", role: values.role })
+      // PERF-FIX-W-AUTH-ME-FANOUT: same rationale as the login form.
+      // The session hook's `retryOnMount: false` keeps a 401 verdict
+      // sticky between observers; an explicit invalidation is the
+      // only way to refresh /auth/me after the cookie has just been
+      // issued by the register endpoint.
+      await queryClient.invalidateQueries({ queryKey: ["session"] })
       router.push("/dashboard")
     } catch (err) {
       setError(
