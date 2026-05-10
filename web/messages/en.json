@@ -2452,5 +2452,11 @@
   "billingProfileInlineModal": {
     "title": "Complete your billing details",
     "subtitle": "Before you pay, we need these details to generate your official receipt. You can review and edit them later in your settings."
+  },
+  "analyticsConsent": {
+    "ariaLabel": "Analytics preferences",
+    "description": "We use an analytics tool to improve the service. You can refuse without losing anything.",
+    "accept": "Accept",
+    "refuse": "Refuse"
   }
 }

@@ -22,6 +22,10 @@ export interface CSPEnv {
   NEXT_PUBLIC_APP_URL?: string
   NEXT_PUBLIC_LIVEKIT_URL?: string
   NEXT_PUBLIC_STORAGE_URL?: string
+  /** PostHog SDK host (eu.posthog.com / us.posthog.com). Optional —
+   * when missing the analytics CSP entry is omitted and the SDK is
+   * inert anyway. */
+  NEXT_PUBLIC_POSTHOG_HOST?: string
 }
 
 const STRIPE_ORIGINS = [
@@ -29,6 +33,17 @@ const STRIPE_ORIGINS = [
   "https://api.stripe.com",
   "https://js.stripe.com",
   "https://hooks.stripe.com",
+] as const
+
+// PostHog browser SDK origins. Both EU and US hosts use a number of
+// regional CDN endpoints — the wildcard captures the assets the SDK
+// requests (config, recorder, decide). Connecting to either eu./us.
+// is whitelisted via NEXT_PUBLIC_POSTHOG_HOST below; the static
+// origin set here covers the vendor JS + the array endpoint that
+// receives capture events.
+const POSTHOG_ORIGINS = [
+  "https://*.posthog.com",
+  "https://*.i.posthog.com",
 ] as const
 
 const R2_ORIGINS = [
@@ -98,6 +113,14 @@ function buildConnectOrigins(env: CSPEnv, isProduction: boolean): string[] {
   STRIPE_ORIGINS.forEach((o) => origins.add(o))
   R2_ORIGINS.forEach((o) => origins.add(o))
   CITY_AUTOCOMPLETE_ORIGINS.forEach((o) => origins.add(o))
+  POSTHOG_ORIGINS.forEach((o) => origins.add(o))
+  if (env.NEXT_PUBLIC_POSTHOG_HOST) {
+    const hostUrl = parseEnvUrl(
+      "NEXT_PUBLIC_POSTHOG_HOST",
+      env.NEXT_PUBLIC_POSTHOG_HOST,
+    )
+    addOrigin(origins, originOf(hostUrl))
+  }
 
   if (env.NEXT_PUBLIC_API_URL) {
     const apiUrl = parseEnvUrl("NEXT_PUBLIC_API_URL", env.NEXT_PUBLIC_API_URL)
@@ -171,9 +194,10 @@ export function buildCSP(env: CSPEnv, isProduction: boolean): string {
 
   // 'unsafe-eval' is required by Next/Turbopack HMR runtime in dev.
   // Production bundles ship only static code → drop it.
+  const scriptOrigins = `${STRIPE_ORIGINS.join(" ")} ${POSTHOG_ORIGINS.join(" ")}`
   const scriptSrc = isProduction
-    ? `script-src 'self' 'unsafe-inline' ${STRIPE_ORIGINS.join(" ")}`
-    : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${STRIPE_ORIGINS.join(" ")}`
+    ? `script-src 'self' 'unsafe-inline' ${scriptOrigins}`
+    : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${scriptOrigins}`
 
   const directives: string[] = [
     "default-src 'self'",

@@ -2452,5 +2452,11 @@
   "billingProfileInlineModal": {
     "title": "Complète tes infos de facturation",
     "subtitle": "Avant de payer, on a besoin de ces informations pour générer ton reçu officiel. Tu pourras les retrouver et les modifier dans tes paramètres."
+  },
+  "analyticsConsent": {
+    "ariaLabel": "Préférences d'analyse",
+    "description": "On utilise un outil d'analyse pour améliorer le service. Tu peux refuser sans rien perdre.",
+    "accept": "Accepter",
+    "refuse": "Refuser"
   }
 }
