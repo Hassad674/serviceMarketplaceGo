@@ -20,13 +20,24 @@ test.describe("Provider dashboard", () => {
     await expect(welcomeBanner).toContainText(firstName, { timeout: 10000 })
   })
 
-  test("shows 3 stat cards for provider", async ({ page }) => {
+  test("shows 4 stat cards for provider (visibility + revenue strip)", async ({ page }) => {
     await registerProvider(page)
 
-    // Provider stats: Active Missions, Unread Messages, Monthly Revenue
-    await expect(page.getByText("Active Missions")).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText("Unread Messages")).toBeVisible()
-    await expect(page.getByText("Monthly Revenue")).toBeVisible()
+    // Provider stats (Soleil v2): Profile views / Search impressions /
+    // Average search position / Monthly revenue. Visibility cards are
+    // role-gated and must NEVER appear on Enterprise (regression
+    // R-DASH-2026-05-10).
+    await expect(page.getByText("Profile views")).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText("Search impressions")).toBeVisible()
+    await expect(page.getByText("Average search position")).toBeVisible()
+    await expect(page.getByText("Monthly revenue")).toBeVisible()
+  })
+
+  test("renders the link to /stats for Provider", async ({ page }) => {
+    await registerProvider(page)
+    await expect(
+      page.getByRole("link", { name: /detailed statistics/i }),
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test("sidebar shows correct provider nav items", async ({ page }) => {
@@ -70,13 +81,13 @@ test.describe("Agency dashboard", () => {
     await expect(welcomeBanner).toContainText(displayName, { timeout: 10000 })
   })
 
-  test("shows 3 stat cards for agency", async ({ page }) => {
+  test("shows the Provider/Agency stat strip (visibility + revenue)", async ({ page }) => {
     await registerAgency(page)
 
-    // Agency stats: Active Missions, Unread Messages, Monthly Revenue
-    await expect(page.getByText("Active Missions")).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText("Unread Messages")).toBeVisible()
-    await expect(page.getByText("Monthly Revenue")).toBeVisible()
+    await expect(page.getByText("Profile views")).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText("Search impressions")).toBeVisible()
+    await expect(page.getByText("Average search position")).toBeVisible()
+    await expect(page.getByText("Monthly revenue")).toBeVisible()
   })
 
   test("sidebar shows correct agency nav items", async ({ page }) => {
@@ -122,13 +133,18 @@ test.describe("Enterprise dashboard", () => {
     await expect(welcomeBanner).toContainText(displayName, { timeout: 10000 })
   })
 
-  test("shows 3 stat cards for enterprise", async ({ page }) => {
+  test("shows the Enterprise stat strip (recruitment + applications)", async ({ page }) => {
     await registerEnterprise(page)
 
-    // Enterprise stats: Active Projects, Unread Messages, Total Budget
-    await expect(page.getByText("Active Projects")).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText("Unread Messages")).toBeVisible()
-    await expect(page.getByText("Total Budget")).toBeVisible()
+    // Enterprise stats (Soleil v2): Active recruitments / Applications received /
+    // Spending / To review. Visibility-only labels (Profile views, etc.)
+    // must NEVER appear on Enterprise.
+    await expect(page.getByText("Active recruitments")).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText("Applications received")).toBeVisible()
+    await expect(page.getByText("Spending")).toBeVisible()
+    await expect(page.getByText("To review")).toBeVisible()
+
+    await expect(page.getByText("Profile views")).not.toBeVisible()
   })
 
   test("sidebar shows correct enterprise nav items", async ({ page }) => {
