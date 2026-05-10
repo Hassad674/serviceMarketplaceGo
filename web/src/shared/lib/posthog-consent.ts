@@ -1,12 +1,32 @@
-// RGPD-friendly consent persistence. The web app stores the user's
-// analytics choice in localStorage so we never re-prompt across
-// sessions, and translates that choice into the matching PostHog SDK
-// flag (opt_in_capturing / opt_out_capturing).
+// RGPD-friendly consent persistence — thin glue between the
+// vanilla-cookieconsent CMP and the analytics SDKs (PostHog + GA4).
 //
-// Why localStorage instead of a cookie: this signal is purely a
-// browser-side preference — no server cares about it. Putting it in
-// localStorage avoids the cookie-banner-about-cookies recursion and
-// keeps the consent-tracking surface as small as possible.
+// Design after Phase A.2:
+//   - The CMP (`vanilla-cookieconsent`) is now the source of truth
+//     for the user's choice. It persists its own cookie + localStorage
+//     state and dispatches our `analytics:consent-changed` event on
+//     every flip.
+//   - `readConsent()` reflects the CMP analytics-category status into
+//     a `"accepted" | "refused" | null` triplet that legacy callers
+//     (GA4 provider, tests) consume. `null` means "no choice yet".
+//   - `applyConsent()` is preserved for tests / programmatic flows
+//     (settings page revoke, etc.). It writes to localStorage,
+//     toggles the PostHog SDK flag, fires `analytics:consent-changed`,
+//     and POSTs the consent receipt to the backend (Phase A.3 wiring).
+//
+// Why we still keep a localStorage flag in addition to the CMP cookie:
+//   - It is the legacy contract for components that mounted before
+//     A.2 (GA4 provider already reads it). Keeping it as a mirror of
+//     the CMP state lets us swap the banner without touching every
+//     analytics consumer in the same dispatch.
+//   - The CMP cookie name (`cc_cookie`) is owned by the library and
+//     could change between major versions; the legacy key shields
+//     consumers from that churn.
+//
+// Why we don't tear out the legacy key entirely: scope discipline.
+// The brief is "swap the banner, gate PostHog + GA4 on the new CMP" —
+// not "rewrite every analytics consumer". The migration to the CMP
+// API as primary will land in a follow-up.
 
 import posthog from "posthog-js"
 
@@ -69,20 +89,61 @@ export function applyConsent(choice: ConsentChoice): void {
     // the persistence + posthog flip.
   }
 
-  void recordConsentOnServer(choice)
+  void recordConsentOnServer(choice, choice === "accepted" ? "accept_all" : "refuse_all")
+}
+
+/**
+ * Persist a custom (per-category) choice. Used by the CMP "save
+ * preferences" path where the user accepted a strict subset of
+ * categories — analytics may be off or on independently of "accept
+ * all" / "refuse all".
+ *
+ * `analyticsAccepted` drives the PostHog opt-in flag and the legacy
+ * localStorage mirror; `categories` is forwarded as-is to the
+ * consent_log audit trail so the server has the full picture.
+ */
+export function applyCustomConsent(
+  analyticsAccepted: boolean,
+  categories: readonly string[],
+): void {
+  if (typeof window === "undefined") return
+  const legacy: ConsentChoice = analyticsAccepted ? "accepted" : "refused"
+  try {
+    window.localStorage.setItem(STORAGE_KEY, legacy)
+  } catch {
+    // best-effort
+  }
+  initPostHog()
+  if (analyticsAccepted) {
+    posthog.opt_in_capturing()
+  } else {
+    posthog.opt_out_capturing()
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("analytics:consent-changed"))
+  } catch {
+    // best-effort
+  }
+  void recordConsentOnServer(legacy, "custom", categories)
 }
 
 // recordConsentOnServer fires the POST to /api/v1/consent/log. Pulled
 // to a private helper so applyConsent stays a side-effect choreographer
 // and the network call can be tested / mocked independently.
-function recordConsentOnServer(choice: ConsentChoice): Promise<void> {
-  // analytics is the only category gated today (PostHog + GA4). When
-  // Tarteaucitron lands in Phase A.2 this list will be richer.
+function recordConsentOnServer(
+  choice: ConsentChoice,
+  action: "accept_all" | "refuse_all" | "custom",
+  customCategories?: readonly string[],
+): Promise<void> {
+  // Default category map mirrors the CMP runtime. When the caller
+  // passes its own list (custom save), we forward it unchanged.
   const categories =
-    choice === "accepted" ? ["analytics"] : ["functional"]
-  const action = choice === "accepted" ? "accept_all" : "refuse_all"
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+    customCategories && customCategories.length > 0
+      ? Array.from(customCategories)
+      : choice === "accepted"
+        ? ["necessary", "analytics"]
+        : ["necessary"]
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
   const body = JSON.stringify({ action, categories })
 
   return fetch(`${apiUrl}/api/v1/consent/log`, {
