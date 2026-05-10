@@ -124,6 +124,9 @@ export default async function AgencyProfilePage({ params }: Props) {
         ariaLabel={tSeo("breadcrumbAriaLabel")}
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
       />
+      <div className="flex justify-end">
+        <SendMessageButton targetOrgId={id} />
+      </div>
       <PublicProfile orgId={id} type="agency" />
       {profile ? (
         <JsonLd
@@ -137,9 +140,6 @@ export default async function AgencyProfilePage({ params }: Props) {
       <BreadcrumbsJsonLd
         crumbs={breadcrumbCrumbs.map((c) => ({ name: c.label, item: c.item }))}
       />
-      <div className="flex justify-center pt-2">
-        <SendMessageButton targetOrgId={id} />
-      </div>
       <RelatedProfiles
         type="agency"
         documents={filteredRelated}

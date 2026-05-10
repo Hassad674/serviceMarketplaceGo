@@ -130,13 +130,16 @@ export default async function FreelancerProfilePage({ params }: Props) {
         ariaLabel={tSeo("breadcrumbAriaLabel")}
         crumbs={breadcrumbCrumbs.map((c) => ({ label: c.label, href: c.href }))}
       />
-      <Link
-        href="/freelancers"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-        {t("backToList")}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/freelancers"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+          {t("backToList")}
+        </Link>
+        <SendMessageButton targetOrgId={id} />
+      </div>
       <FreelancePublicProfileLoader orgId={id} />
       {profile ? (
         <JsonLd
@@ -150,9 +153,6 @@ export default async function FreelancerProfilePage({ params }: Props) {
       <BreadcrumbsJsonLd
         crumbs={breadcrumbCrumbs.map((c) => ({ name: c.label, item: c.item }))}
       />
-      <div className="flex justify-center pt-2">
-        <SendMessageButton targetOrgId={id} />
-      </div>
       <RelatedProfiles
         type="freelancer"
         documents={filteredRelated}
