@@ -9,6 +9,7 @@ import '../../../features/job/presentation/screens/opportunities_screen.dart';
 import '../../../features/job/presentation/screens/opportunity_detail_screen.dart';
 import '../../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../../features/proposal/presentation/screens/projects_list_screen.dart';
+import '../../../features/stats/presentation/screens/stats_screen.dart';
 import '../app_router.dart';
 
 /// Authenticated routes wrapped by the [DashboardShell] bottom-navigation
@@ -25,6 +26,10 @@ List<RouteBase> buildDashboardShellRoutes() => [
       GoRoute(
         path: RoutePaths.dashboardReferrer,
         builder: (context, state) => const ReferrerDashboardScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.stats,
+        builder: (context, state) => const StatsScreen(),
       ),
       GoRoute(
         path: RoutePaths.messaging,

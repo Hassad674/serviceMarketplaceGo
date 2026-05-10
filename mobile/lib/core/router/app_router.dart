@@ -50,6 +50,7 @@ class RoutePaths {
   static const String registerEnterprise = '/register/enterprise';
   static const String dashboard = '/dashboard';
   static const String dashboardReferrer = '/dashboard/referrer';
+  static const String stats = '/stats';
   static const String messaging = '/messaging';
   static const String missions = '/missions';
   static const String projects = '/projects';
