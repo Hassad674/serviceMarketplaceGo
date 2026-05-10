@@ -616,6 +616,14 @@
   "applicationMessage": "Message de candidature",
   "applicationVideo": "Vidéo de présentation",
   "opportunities": "Opportunités",
+  "opportunitiesTabAll": "Toutes les offres",
+  "@opportunitiesTabAll": {
+    "description": "Tab label for the default opportunities feed (all open jobs)."
+  },
+  "opportunitiesTabApplications": "Mes candidatures",
+  "@opportunitiesTabApplications": {
+    "description": "Tab label for the user's own job applications, surfaced inside the Opportunités screen."
+  },
   "noOpportunities": "Aucune opportunité pour le moment",
   "opportunityBeFirstToApply": "Sois le premier à candidater",
   "@opportunityBeFirstToApply": {

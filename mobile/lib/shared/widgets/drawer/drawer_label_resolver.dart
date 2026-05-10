@@ -16,8 +16,6 @@ String resolveDrawerLabel(AppLocalizations l10n, String key) {
       return l10n.drawerJobs;
     case 'drawerOpportunities':
       return 'Opportunités';
-    case 'drawerMyApplications':
-      return 'Mes candidatures';
     case 'drawerTeam':
       return l10n.drawerTeam;
     case 'drawerProfile':

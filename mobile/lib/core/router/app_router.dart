@@ -80,7 +80,6 @@ class RoutePaths {
   static const String proposalDetail = '/projects/detail';
   static const String opportunities = '/opportunities';
   static const String opportunityDetail = '/opportunities/detail';
-  static const String myApplications = '/my-applications';
   static const String jobCandidates = '/jobs/candidates';
   static const String jobDetail = '/jobs/detail';
   static const String jobEdit = '/jobs/edit';

@@ -79,12 +79,6 @@ const drawerPrimaryItems = [
     roles: ['provider', 'agency'],
   ),
   DrawerItem(
-    labelKey: 'drawerMyApplications',
-    icon: Icons.description_outlined,
-    route: RoutePaths.myApplications,
-    roles: ['provider', 'agency'],
-  ),
-  DrawerItem(
     labelKey: 'drawerTeam',
     icon: Icons.group_outlined,
     route: RoutePaths.team,

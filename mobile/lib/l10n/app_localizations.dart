@@ -3254,6 +3254,18 @@ abstract class AppLocalizations {
   /// **'Opportunities'**
   String get opportunities;
 
+  /// Tab label for the default opportunities feed (all open jobs).
+  ///
+  /// In en, this message translates to:
+  /// **'All offers'**
+  String get opportunitiesTabAll;
+
+  /// Tab label for the user's own job applications, surfaced inside the Opportunities screen.
+  ///
+  /// In en, this message translates to:
+  /// **'My applications'**
+  String get opportunitiesTabApplications;
+
   /// No description provided for @noOpportunities.
   ///
   /// In en, this message translates to:

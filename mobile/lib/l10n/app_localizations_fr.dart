@@ -1691,6 +1691,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get opportunities => 'Opportunités';
 
   @override
+  String get opportunitiesTabAll => 'Toutes les offres';
+
+  @override
+  String get opportunitiesTabApplications => 'Mes candidatures';
+
+  @override
   String get noOpportunities => 'Aucune opportunité pour le moment';
 
   @override

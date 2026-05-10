@@ -5,7 +5,6 @@ import '../../../features/job/presentation/screens/candidates_screen.dart';
 import '../../../features/job/presentation/screens/create_job_screen.dart';
 import '../../../features/job/presentation/screens/job_detail_screen.dart';
 import '../../../features/job/presentation/screens/jobs_screen.dart';
-import '../../../features/job/presentation/screens/my_applications_screen.dart';
 import '../../../features/job/presentation/screens/opportunities_screen.dart';
 import '../../../features/job/presentation/screens/opportunity_detail_screen.dart';
 import '../../../features/messaging/presentation/screens/messaging_screen.dart';
@@ -51,10 +50,6 @@ List<RouteBase> buildDashboardShellRoutes() => [
         path: RoutePaths.opportunityDetail,
         builder: (context, state) =>
             OpportunityDetailScreen(jobId: state.extra as String),
-      ),
-      GoRoute(
-        path: RoutePaths.myApplications,
-        builder: (context, state) => const MyApplicationsScreen(),
       ),
       GoRoute(
         path: RoutePaths.jobCandidates,

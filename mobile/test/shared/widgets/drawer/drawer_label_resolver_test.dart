@@ -25,11 +25,21 @@ void main() {
       () async {
     final l10n = await _loadEn();
     expect(resolveDrawerLabel(l10n, 'drawerOpportunities'), 'Opportunités');
+    expect(resolveDrawerLabel(l10n, 'drawerInvoices'), 'Mes factures');
+  });
+
+  test(
+      'resolveDrawerLabel no longer surfaces the removed myApplications key',
+      () async {
+    // The dedicated /my-applications screen was merged into the
+    // Opportunités tab system; the resolver must fall back to the raw
+    // key so any orphaned drawer entry (none expected) renders an
+    // obviously broken label rather than a phantom navigation target.
+    final l10n = await _loadEn();
     expect(
       resolveDrawerLabel(l10n, 'drawerMyApplications'),
-      'Mes candidatures',
+      'drawerMyApplications',
     );
-    expect(resolveDrawerLabel(l10n, 'drawerInvoices'), 'Mes factures');
   });
 
   test('resolveDrawerLabel falls back to the key for unknown values',

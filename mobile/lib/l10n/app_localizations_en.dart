@@ -1684,6 +1684,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get opportunities => 'Opportunities';
 
   @override
+  String get opportunitiesTabAll => 'All offers';
+
+  @override
+  String get opportunitiesTabApplications => 'My applications';
+
+  @override
   String get noOpportunities => 'No opportunities at the moment';
 
   @override

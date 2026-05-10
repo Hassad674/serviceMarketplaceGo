@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -9,13 +10,112 @@ import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/opportunity_card.dart';
 
-/// W-12 mobile parity · Opportunities feed.
+/// W-12 mobile parity · Opportunités feed.
 ///
-/// Soleil v2 ivoire scaffold, AppBar with Fraunces title (themed),
-/// editorial credits chip on top, calm card list. The role-based filter
-/// + applied-set logic is preserved exactly — only the chrome changes.
-class OpportunitiesScreen extends ConsumerWidget {
+/// Mobile equivalent of the merged web `/opportunities` surface: two
+/// tabs share the same screen — "Toutes les offres" (default) and "Mes
+/// candidatures" (lazy-mounted on first activation). The applications
+/// view's Riverpod query never fires until the user touches the second
+/// tab, mirroring the TanStack `enabled` contract on web.
+///
+/// Hamburger leading icon is wired explicitly (via [openShellDrawer])
+/// so the drawer is always reachable from this primary destination —
+/// previously the screen rendered a default AppBar with no leading at
+/// all (the user-reported bug).
+class OpportunitiesScreen extends ConsumerStatefulWidget {
   const OpportunitiesScreen({super.key});
+
+  @override
+  ConsumerState<OpportunitiesScreen> createState() =>
+      _OpportunitiesScreenState();
+}
+
+class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  // Lazy-mount latch: the applications view stays unbuilt until the
+  // user touches the second tab. Once flipped to `true` the view stays
+  // mounted so toggling back and forth is free.
+  bool _applicationsTabEverActivated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChanged);
+  }
+
+  void _handleTabChanged() {
+    // `indexIsChanging` fires twice per tap (start + end of animation);
+    // we only need the post-change state.
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == 1 && !_applicationsTabEverActivated) {
+      setState(() => _applicationsTabEverActivated = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.menu_rounded, color: cs.onSurface, size: 22),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
+        title: Text(
+          l10n.opportunities,
+          style: SoleilTextStyles.titleLarge.copyWith(
+            color: cs.onSurface,
+            fontSize: 20,
+          ),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurfaceVariant,
+          indicatorColor: cs.primary,
+          tabs: [
+            Tab(text: l10n.opportunitiesTabAll),
+            Tab(text: l10n.opportunitiesTabApplications),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          const _AllOffersView(),
+          // Lazy-mount: the applications view is only built once the
+          // user has activated the tab at least once. Until then we
+          // render a tiny placeholder so the TabBarView can keep its
+          // page count without firing the underlying provider.
+          _applicationsTabEverActivated
+              ? const _MyApplicationsView()
+              : const SizedBox.shrink(),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 1 — All offers (the legacy opportunities feed)
+// ---------------------------------------------------------------------------
+
+class _AllOffersView extends ConsumerWidget {
+  const _AllOffersView();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,77 +126,66 @@ class OpportunitiesScreen extends ConsumerWidget {
     final userRole = authState.user?['role'] as String?;
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          l10n.opportunities,
-          style: SoleilTextStyles.titleLarge.copyWith(
-            color: cs.onSurface,
-            fontSize: 20,
-          ),
+    return RefreshIndicator(
+      color: cs.primary,
+      onRefresh: () async {
+        ref.invalidate(openJobsProvider);
+        ref.invalidate(creditsProvider);
+      },
+      child: openJobs.when(
+        loading: () => const _OpportunitySkeleton(),
+        error: (e, _) => _ErrorState(
+          onRetry: () => ref.invalidate(openJobsProvider),
+          message: l10n.somethingWentWrong,
+          retryLabel: l10n.retry,
         ),
-      ),
-      body: RefreshIndicator(
-        color: cs.primary,
-        onRefresh: () async {
-          ref.invalidate(openJobsProvider);
-          ref.invalidate(creditsProvider);
-        },
-        child: openJobs.when(
-          loading: () => const _OpportunitySkeleton(),
-          error: (e, _) => _ErrorState(
-            onRetry: () => ref.invalidate(openJobsProvider),
-            message: l10n.somethingWentWrong,
-            retryLabel: l10n.retry,
-          ),
-          data: (jobs) {
-            final userId = authState.user?['id'] as String?;
-            final filtered = _filterByRole(
-              jobs.where((j) => j.creatorId != userId).toList(),
-              userRole,
-            );
+        data: (jobs) {
+          final userId = authState.user?['id'] as String?;
+          final filtered = _filterByRole(
+            jobs.where((j) => j.creatorId != userId).toList(),
+            userRole,
+          );
 
-            if (filtered.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                children: [
-                  _CreditsHeader(credits: credits, l10n: l10n),
-                  const SizedBox(height: 32),
-                  _EmptyState(message: l10n.noOpportunities),
-                ],
-              );
-            }
-            final myApps = ref.watch(myApplicationsProvider);
-            final appliedJobIds = <String>{};
-            myApps.whenData((apps) {
-              for (final app in apps) {
-                appliedJobIds.add(app.application.jobId);
-              }
-            });
-            return ListView.builder(
+          if (filtered.isEmpty) {
+            return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: filtered.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _CreditsHeader(credits: credits, l10n: l10n),
-                  );
-                }
-                final jobIndex = index - 1;
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: jobIndex < filtered.length - 1 ? 12 : 0,
-                  ),
-                  child: OpportunityCard(
-                    job: filtered[jobIndex],
-                    hasApplied: appliedJobIds.contains(filtered[jobIndex].id),
-                  ),
-                );
-              },
+              children: [
+                _CreditsHeader(credits: credits, l10n: l10n),
+                const SizedBox(height: 32),
+                _EmptyState(message: l10n.noOpportunities),
+              ],
             );
-          },
-        ),
+          }
+          final myApps = ref.watch(myApplicationsProvider);
+          final appliedJobIds = <String>{};
+          myApps.whenData((apps) {
+            for (final app in apps) {
+              appliedJobIds.add(app.application.jobId);
+            }
+          });
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            itemCount: filtered.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _CreditsHeader(credits: credits, l10n: l10n),
+                );
+              }
+              final jobIndex = index - 1;
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: jobIndex < filtered.length - 1 ? 12 : 0,
+                ),
+                child: OpportunityCard(
+                  job: filtered[jobIndex],
+                  hasApplied: appliedJobIds.contains(filtered[jobIndex].id),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -126,6 +215,112 @@ class OpportunitiesScreen extends ConsumerWidget {
             .toList();
       default:
         return jobs;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 2 — Mes candidatures (moved in from the deleted my_applications screen)
+// ---------------------------------------------------------------------------
+
+class _MyApplicationsView extends ConsumerWidget {
+  const _MyApplicationsView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final applications = ref.watch(myApplicationsProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+
+    return RefreshIndicator(
+      color: cs.primary,
+      onRefresh: () async => ref.invalidate(myApplicationsProvider),
+      child: applications.when(
+        loading: () => const _ApplicationSkeleton(),
+        error: (e, _) => _ErrorState(
+          onRetry: () => ref.invalidate(myApplicationsProvider),
+          message: l10n.somethingWentWrong,
+          retryLabel: l10n.retry,
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _EmptyState(message: l10n.noApplications),
+                ),
+              ],
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return Card(
+                child: ListTile(
+                  title: Text(
+                    item.job.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    item.application.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => _confirmAndWithdraw(
+                      context,
+                      ref,
+                      l10n,
+                      applicationId: item.application.id,
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmAndWithdraw(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n, {
+    required String applicationId,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.withdrawApplicationTitle),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              l10n.withdrawAction,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await withdrawApplicationAction(ref, applicationId);
     }
   }
 }
@@ -442,7 +637,7 @@ class _ErrorState extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton shimmer loader (Soleil ivoire surfaces)
+// Skeleton shimmer loaders (Soleil ivoire surfaces)
 // ---------------------------------------------------------------------------
 
 class _OpportunitySkeleton extends StatelessWidget {
@@ -520,6 +715,64 @@ class _OpportunitySkeleton extends StatelessWidget {
               const SizedBox(height: 12),
               Container(
                 width: 100,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicationSkeleton extends StatelessWidget {
+  const _ApplicationSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Shimmer.fromColors(
+      baseColor: cs.outline,
+      highlightColor: cs.surfaceContainerLowest,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 3,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, __) => Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 180,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 140,
                 height: 12,
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerLowest,
