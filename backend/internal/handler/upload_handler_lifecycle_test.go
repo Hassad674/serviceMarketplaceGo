@@ -67,6 +67,23 @@ type recordCall struct {
 	// records the call. Tests use this to assert that SIGTERM truly
 	// propagated through trackUpload's context chain (BUG-17 follow-up).
 	CtxErr error
+	// Ctx captures the live context the goroutine ran with. Used by
+	// the per-persona video handler tests (CodeQL #64 + #65) to assert
+	// `context.WithoutCancel(r.Context())` actually carries the
+	// request-scoped values into the goroutine.
+	Ctx context.Context
+}
+
+// lastCtx returns the context captured during the most recent
+// RecordUpload call, or nil if none happened yet. Safe for
+// concurrent callers.
+func (f *fakeRecorder) lastCtx() context.Context {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.calls) == 0 {
+		return nil
+	}
+	return f.calls[len(f.calls)-1].Ctx
 }
 
 func newFakeRecorder() *fakeRecorder {
@@ -111,6 +128,7 @@ func (f *fakeRecorder) RecordUpload(
 		MediaCtx:   mediaCtx,
 		FileName:   fileName,
 		CtxErr:     ctx.Err(),
+		Ctx:        ctx,
 	})
 	f.mu.Unlock()
 	select {

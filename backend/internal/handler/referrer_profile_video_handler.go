@@ -24,6 +24,7 @@ type ReferrerProfileVideoHandler struct {
 	storage       portservice.StorageService
 	profiles      repository.ReferrerProfileRepository
 	mediaSvc      *mediaapp.Service
+	recorder      mediaRecorder
 	publicURLBase string
 }
 
@@ -38,12 +39,26 @@ func NewReferrerProfileVideoHandler(
 	if storage != nil {
 		base = storage.GetPublicURL("")
 	}
-	return &ReferrerProfileVideoHandler{
+	h := &ReferrerProfileVideoHandler{
 		storage:       storage,
 		profiles:      profiles,
 		mediaSvc:      mediaSvc,
 		publicURLBase: base,
 	}
+	if mediaSvc != nil {
+		h.recorder = mediaSvc
+	}
+	return h
+}
+
+// withRecorder lets unit tests inject a fake mediaRecorder so the
+// goroutine context-propagation behaviour can be asserted without
+// instantiating a real *mediaapp.Service. Production callers use
+// NewReferrerProfileVideoHandler which wires recorder = mediaSvc
+// transparently. Test-only by convention — kept unexported.
+func (h *ReferrerProfileVideoHandler) withRecorder(rec mediaRecorder) *ReferrerProfileVideoHandler {
+	h.recorder = rec
+	return h
 }
 
 // Upload handles POST /api/v1/referrer-profile/video.
@@ -81,9 +96,17 @@ func (h *ReferrerProfileVideoHandler) Upload(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(
-			context.Background(),
+	if h.recorder != nil {
+		// Detach from the request lifetime so the moderation pipeline
+		// (Rekognition video + S3 download) survives the response,
+		// while still inheriting trace/baggage values for log
+		// correlation. Mirrors the BUG-17 pattern in upload_handler.go
+		// and closes CodeQL #64 (go/goroutine-with-background-context)
+		// — the previous `context.Background()` discarded request_id
+		// and user values that downstream loggers rely on.
+		bgCtx := context.WithoutCancel(r.Context())
+		go h.recorder.RecordUpload( // #nosec G118 -- detached after request lifetime; RecordUpload applies its own 60s timeout
+			bgCtx,
 			userID, url, header.Filename, contentType, header.Size,
 			mediadomain.ContextReferrerVideo,
 		)

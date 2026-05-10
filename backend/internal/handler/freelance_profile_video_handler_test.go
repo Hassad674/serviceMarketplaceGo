@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -296,4 +297,83 @@ func TestFreelanceProfileVideoHandler_Delete_NotFound(t *testing.T) {
 
 	h.Delete(rec, req)
 	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+// ---------------------------------------------------------------------------
+// Goroutine context propagation (CodeQL #65)
+// ---------------------------------------------------------------------------
+
+// freelanceVideoCtxKey is a private sentinel used only inside the
+// ctx-propagation tests so collisions with production keys are
+// impossible.
+type freelanceVideoCtxKey struct{}
+
+// TestFreelanceProfileVideoHandler_Upload_GoroutineInheritsRequestValues
+// asserts that the moderation goroutine receives a context derived
+// from r.Context() (carries request-scoped values) and that the
+// goroutine's context is NOT cancelled by the request finishing.
+// Closes CodeQL #65 (go/goroutine-with-background-context).
+func TestFreelanceProfileVideoHandler_Upload_GoroutineInheritsRequestValues(t *testing.T) {
+	uid := uuid.New()
+	orgID := uuid.New()
+	smallVideo := bytes.Repeat([]byte{0x00}, 1024)
+
+	storage := &mockStorageService{
+		uploadFn: func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
+			return "https://storage.example.com/profiles/intro.mp4", nil
+		},
+	}
+	repo := &mockFreelanceProfileRepo{
+		updateVideoFn: func(_ context.Context, _ uuid.UUID, _ string) error { return nil },
+	}
+	h := NewFreelanceProfileVideoHandler(storage, repo, nil)
+
+	rec := newFakeRecorder()
+	h.withRecorder(rec)
+
+	req := buildMultipartRequest(
+		http.MethodPost, "/api/v1/freelance-profile/video",
+		"file", "intro.mp4", "video/mp4", smallVideo,
+	)
+	// Stamp a sentinel value on the request context, then derive a
+	// cancellable ctx so we can simulate the request finishing.
+	reqCtx := context.WithValue(req.Context(), freelanceVideoCtxKey{}, "carry-me")
+	reqCtx = context.WithValue(reqCtx, middleware.ContextKeyUserID, uid)
+	reqCtx = context.WithValue(reqCtx, middleware.ContextKeyOrganizationID, orgID)
+	reqCtx, cancelReq := context.WithCancel(reqCtx)
+	defer cancelReq()
+	req = req.WithContext(reqCtx)
+
+	w := httptest.NewRecorder()
+	h.Upload(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	// Cancel the request context AFTER the response is written.
+	// context.WithoutCancel must shield the goroutine from this
+	// cancellation — otherwise the moderation pipeline aborts before
+	// it can finish.
+	cancelReq()
+
+	// Wait for the goroutine to fire.
+	select {
+	case <-rec.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RecordUpload goroutine never started")
+	}
+
+	rec.mu.Lock()
+	require.Len(t, rec.calls, 1, "RecordUpload must run exactly once")
+	rec.mu.Unlock()
+
+	// The recorder captures ctx.Err() at call time. With proper
+	// WithoutCancel propagation, ctx.Err() is nil (request cancel
+	// did NOT propagate). With the old context.Background() pattern,
+	// the value below would also be nil — but the request_id /
+	// uploader sentinel would be missing. We assert both.
+	gotCtx := rec.lastCtx()
+	require.NotNil(t, gotCtx, "fakeRecorder must have captured a context")
+	assert.Equal(t, "carry-me", gotCtx.Value(freelanceVideoCtxKey{}),
+		"goroutine ctx must inherit request values (WithoutCancel preserves baggage)")
+	assert.NoError(t, gotCtx.Err(),
+		"goroutine ctx must NOT be cancelled when request ctx cancels (fire-and-forget)")
 }
