@@ -168,10 +168,11 @@ func (m *mockHasher) Compare(hashed, password string) error {
 // --- mockTokenService ---
 
 type mockTokenService struct {
-	generateAccessFn   func(input service.AccessTokenInput) (string, error)
-	generateRefreshFn  func(userID uuid.UUID) (string, error)
-	validateAccessFn   func(token string) (*service.TokenClaims, error)
-	validateRefreshFn  func(token string) (*service.TokenClaims, error)
+	generateAccessFn          func(input service.AccessTokenInput) (string, error)
+	generateRefreshFn         func(userID uuid.UUID) (string, error)
+	generateRefreshLineageFn  func(input service.RefreshTokenInput) (string, error)
+	validateAccessFn          func(token string) (*service.TokenClaims, error)
+	validateRefreshFn         func(token string) (*service.TokenClaims, error)
 }
 
 func (m *mockTokenService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
@@ -186,6 +187,16 @@ func (m *mockTokenService) GenerateRefreshToken(userID uuid.UUID) (string, error
 		return m.generateRefreshFn(userID)
 	}
 	return "refresh_token_" + userID.String(), nil
+}
+
+func (m *mockTokenService) GenerateRefreshTokenWithLineage(input service.RefreshTokenInput) (string, error) {
+	if m.generateRefreshLineageFn != nil {
+		return m.generateRefreshLineageFn(input)
+	}
+	if m.generateRefreshFn != nil {
+		return m.generateRefreshFn(input.UserID)
+	}
+	return "refresh_token_" + input.UserID.String(), nil
 }
 
 func (m *mockTokenService) ValidateAccessToken(token string) (*service.TokenClaims, error) {
@@ -210,14 +221,20 @@ func (m *mockTokenService) ValidateRefreshToken(token string) (*service.TokenCla
 // invoked exactly once after a successful refresh" without relying on
 // Redis or fake clocks.
 type mockRefreshBlacklist struct {
-	mu      sync.Mutex
-	entries map[string]time.Duration
-	hasErr  error
-	addErr  error
+	mu       sync.Mutex
+	entries  map[string]time.Duration
+	families map[string]map[string]time.Duration // familyRootJTI -> jti -> ttl
+	hasErr   error
+	addErr   error
+	// familyMembersErr drives a Redis failure path on FamilyMembers.
+	familyMembersErr error
 }
 
 func newMockRefreshBlacklist() *mockRefreshBlacklist {
-	return &mockRefreshBlacklist{entries: make(map[string]time.Duration)}
+	return &mockRefreshBlacklist{
+		entries:  make(map[string]time.Duration),
+		families: make(map[string]map[string]time.Duration),
+	}
 }
 
 var _ service.RefreshBlacklistService = (*mockRefreshBlacklist)(nil)
@@ -252,6 +269,52 @@ func (m *mockRefreshBlacklist) Count() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return len(m.entries)
+}
+
+func (m *mockRefreshBlacklist) AddFamilyMember(_ context.Context, familyRootJTI, jti string, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if familyRootJTI == "" || jti == "" || ttl <= 0 {
+		return nil
+	}
+	if _, ok := m.families[familyRootJTI]; !ok {
+		m.families[familyRootJTI] = make(map[string]time.Duration)
+	}
+	m.families[familyRootJTI][jti] = ttl
+	return nil
+}
+
+func (m *mockRefreshBlacklist) FamilyMembers(_ context.Context, familyRootJTI string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.familyMembersErr != nil {
+		return nil, m.familyMembersErr
+	}
+	if familyRootJTI == "" {
+		return nil, nil
+	}
+	members := m.families[familyRootJTI]
+	if len(members) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(members))
+	for jti := range members {
+		out = append(out, jti)
+	}
+	return out, nil
+}
+
+func (m *mockRefreshBlacklist) DeleteFamily(_ context.Context, familyRootJTI string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.families, familyRootJTI)
+	return nil
+}
+
+func (m *mockRefreshBlacklist) FamilyCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.families)
 }
 
 // --- mockAuditRepo ---
