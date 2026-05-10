@@ -56,12 +56,20 @@ const (
 	// scoped to user_sessions; the adapter rejects the policy for
 	// any other table. B.4.
 	StrategyDeleteRevokedSessions Strategy = "delete_revoked_sessions"
+	// StrategyArchiveToR2 dumps audit_logs_archive rows older than
+	// the cold-tier cutoff to Cloudflare R2 (gzipped JSONL bundle),
+	// marks them with the resulting r2_key, and on the next sweep
+	// hard-deletes the rows that already carry an r2_key. Two-phase
+	// to keep the upload + delete safely interruptible. Scoped to
+	// audit_logs_archive; the adapter rejects the policy for any
+	// other table. B.2.
+	StrategyArchiveToR2 Strategy = "archive_to_r2"
 )
 
 // IsValid reports whether s is one of the supported strategies.
 func (s Strategy) IsValid() bool {
 	switch s {
-	case StrategyDelete, StrategyArchive, StrategyAnonymize, StrategyDeleteRevokedSessions:
+	case StrategyDelete, StrategyArchive, StrategyAnonymize, StrategyDeleteRevokedSessions, StrategyArchiveToR2:
 		return true
 	default:
 		return false
@@ -92,7 +100,7 @@ var (
 	ErrPolicyTableRequired     = errors.New("retention: policy table required")
 	ErrPolicyAgeColumnRequired = errors.New("retention: policy age_column required")
 	ErrPolicyMaxAgeInvalid     = errors.New("retention: policy max_age must be > 0")
-	ErrPolicyStrategyInvalid   = errors.New("retention: policy strategy must be delete, archive or anonymize")
+	ErrPolicyStrategyInvalid   = errors.New("retention: policy strategy must be delete, archive, anonymize, delete_revoked_sessions or archive_to_r2")
 	ErrPolicyArchiveMissing    = errors.New("retention: archive strategy requires archive_table")
 	ErrPolicyAnonymizeMissing  = errors.New("retention: anonymize strategy requires anonymize_columns")
 )
@@ -157,6 +165,12 @@ func (p Policy) Validate() error {
 		if len(p.AnonymizeColumns) == 0 {
 			return fmt.Errorf("%s: %w", p.Name, ErrPolicyAnonymizeMissing)
 		}
+	case StrategyArchiveToR2:
+		// The R2 sweep only operates on the cold-tier table. It
+		// doesn't need ArchiveTable or AnonymizeColumns — the
+		// destination (R2 bucket + prefix) lives in the adapter
+		// config so a deployment can reuse the existing R2 bucket
+		// without forking the policy struct.
 	}
 	return nil
 }

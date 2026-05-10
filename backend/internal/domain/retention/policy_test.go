@@ -20,6 +20,8 @@ func TestStrategy_IsValid(t *testing.T) {
 		{"delete is valid", retention.StrategyDelete, true},
 		{"archive is valid", retention.StrategyArchive, true},
 		{"anonymize is valid", retention.StrategyAnonymize, true},
+		{"delete_revoked_sessions is valid", retention.StrategyDeleteRevokedSessions, true},
+		{"archive_to_r2 is valid", retention.StrategyArchiveToR2, true},
 		{"empty rejected", retention.Strategy(""), false},
 		{"unknown rejected", retention.Strategy("purge"), false},
 	}
@@ -108,6 +110,14 @@ func TestPolicy_Validate(t *testing.T) {
 				p.AnonymizeColumns = []string{"user_id"}
 			},
 		},
+		{
+			name: "archive_to_r2 ok without ArchiveTable",
+			mutate: func(p *retention.Policy) {
+				p.Strategy = retention.StrategyArchiveToR2
+				p.Table = "audit_logs_archive"
+				p.AgeColumn = "archived_at"
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,6 +193,7 @@ func TestDefaultPolicies_StrategyMapping(t *testing.T) {
 		"search_queries_12mo_anonymize":    retention.StrategyAnonymize,
 		"audit_logs_24mo_archive":          retention.StrategyArchive,
 		"user_sessions_revoked_30d_delete": retention.StrategyDeleteRevokedSessions,
+		"audit_logs_archive_to_r2_24mo":    retention.StrategyArchiveToR2,
 	}
 	got := map[string]retention.Strategy{}
 	for _, p := range policies {
