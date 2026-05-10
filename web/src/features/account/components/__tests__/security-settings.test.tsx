@@ -24,6 +24,19 @@ vi.mock("../../hooks/use-security-activity", () => ({
   useSecurityActivity: () => queryShape,
 }))
 
+// The SecuritySettings tab now mounts the 2FA toggle, which reads
+// the current user via `useUser`. Stub it so this suite stays
+// scoped to the activity feed it was originally written for.
+vi.mock("@/shared/hooks/use-user", () => ({
+  useUser: () => ({ data: { two_factor_email_enabled: false } }),
+}))
+
+// Replace the toggle with a plain marker so we don't pull the API
+// hooks into a suite that mocks `next-intl` to a key passthrough.
+vi.mock("../two-factor-toggle", () => ({
+  TwoFactorToggle: () => <div data-testid="two-factor-toggle" />,
+}))
+
 const fetchNextPageMock = vi.fn()
 const refetchMock = vi.fn()
 
