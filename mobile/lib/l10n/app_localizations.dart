@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -7495,6 +7495,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Client presentation'**
   String get profileCompletionSectionClientAbout;
+
+  /// No description provided for @statsScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stats'**
+  String get statsScreenTitle;
+
+  /// No description provided for @statsPeriod7d.
+  ///
+  /// In en, this message translates to:
+  /// **'7d'**
+  String get statsPeriod7d;
+
+  /// No description provided for @statsPeriod30d.
+  ///
+  /// In en, this message translates to:
+  /// **'30d'**
+  String get statsPeriod30d;
+
+  /// No description provided for @statsPeriod90d.
+  ///
+  /// In en, this message translates to:
+  /// **'90d'**
+  String get statsPeriod90d;
+
+  /// No description provided for @statsPeriodSelectorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get statsPeriodSelectorLabel;
+
+  /// No description provided for @statsVisibilityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Visibility'**
+  String get statsVisibilityTitle;
+
+  /// No description provided for @statsVisibilitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Views, search appearances and avg position'**
+  String get statsVisibilitySubtitle;
+
+  /// No description provided for @statsApplicationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Applications received'**
+  String get statsApplicationsTitle;
+
+  /// No description provided for @statsApplicationsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume over the selected window'**
+  String get statsApplicationsSubtitle;
+
+  /// No description provided for @statsKeywordsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 10 keywords'**
+  String get statsKeywordsTitle;
+
+  /// No description provided for @statsKeywordsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Searches that surface your profile'**
+  String get statsKeywordsSubtitle;
+
+  /// No description provided for @statsProfileViews.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile views'**
+  String get statsProfileViews;
+
+  /// No description provided for @statsSearchAppearances.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearances'**
+  String get statsSearchAppearances;
+
+  /// No description provided for @statsAvgPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg position'**
+  String get statsAvgPosition;
+
+  /// No description provided for @statsKeywordHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyword'**
+  String get statsKeywordHeader;
+
+  /// No description provided for @statsKeywordVolumeHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get statsKeywordVolumeHeader;
+
+  /// No description provided for @statsKeywordPositionHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Position'**
+  String get statsKeywordPositionHeader;
+
+  /// No description provided for @statsInsufficientData.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough data yet — your profile needs ~7 days of visibility to surface trends.'**
+  String get statsInsufficientData;
+
+  /// No description provided for @statsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this data. Try again.'**
+  String get statsLoadError;
+
+  /// No description provided for @statsEnterprisePlaceholderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Enterprise stats (applications, active jobs) are coming soon.'**
+  String get statsEnterprisePlaceholderBody;
 }
 
 class _AppLocalizationsDelegate
@@ -7524,8 +7644,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

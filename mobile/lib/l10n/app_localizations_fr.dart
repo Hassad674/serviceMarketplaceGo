@@ -4108,4 +4108,66 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get profileCompletionSectionClientAbout => 'Présentation client';
+
+  @override
+  String get statsScreenTitle => 'Statistiques';
+
+  @override
+  String get statsPeriod7d => '7 j';
+
+  @override
+  String get statsPeriod30d => '30 j';
+
+  @override
+  String get statsPeriod90d => '90 j';
+
+  @override
+  String get statsPeriodSelectorLabel => 'Période';
+
+  @override
+  String get statsVisibilityTitle => 'Visibilité';
+
+  @override
+  String get statsVisibilitySubtitle => 'Vues, apparitions et position moyenne';
+
+  @override
+  String get statsApplicationsTitle => 'Candidatures reçues';
+
+  @override
+  String get statsApplicationsSubtitle => 'Volume sur la période';
+
+  @override
+  String get statsKeywordsTitle => 'Top 10 mots-clés';
+
+  @override
+  String get statsKeywordsSubtitle => 'Recherches qui mènent à ton profil';
+
+  @override
+  String get statsProfileViews => 'Vues du profil';
+
+  @override
+  String get statsSearchAppearances => 'Apparitions';
+
+  @override
+  String get statsAvgPosition => 'Position moy.';
+
+  @override
+  String get statsKeywordHeader => 'Mot-clé';
+
+  @override
+  String get statsKeywordVolumeHeader => 'Volume';
+
+  @override
+  String get statsKeywordPositionHeader => 'Position';
+
+  @override
+  String get statsInsufficientData =>
+      'Données insuffisantes — patiente pendant que ton profil cumule de la visibilité (~7 jours).';
+
+  @override
+  String get statsLoadError => 'Impossible de charger ces données. Réessaie.';
+
+  @override
+  String get statsEnterprisePlaceholderBody =>
+      'Les statistiques entreprise (candidatures, recrutements actifs) arrivent bientôt.';
 }

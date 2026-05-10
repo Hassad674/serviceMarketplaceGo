@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../profile/flag_emoji.dart';
 import '../../profile/money_format.dart';
+import '../../search/profile_route_builder.dart';
 import '../../search/search_document.dart';
 import '../availability_pill.dart';
 
@@ -20,11 +21,29 @@ import '../availability_pill.dart';
 ///
 /// Sized and themed for phones — the card takes the full width of the
 /// parent constraint. Tapping routes to the persona-specific detail
-/// screen via `/profiles/{id}` (the existing public profile route).
+/// screen via [buildProfileRouteFromSearch], optionally appending the
+/// originating query + 1-based position so the destination page (and
+/// stats backend) can attribute the click to a specific keyword/rank
+/// pair.
 class SearchResultCard extends StatelessWidget {
-  const SearchResultCard({super.key, required this.document});
+  const SearchResultCard({
+    super.key,
+    required this.document,
+    this.query,
+    this.position,
+  });
 
   final SearchDocument document;
+
+  /// Originating search query — appended as `?q=...` on the destination
+  /// route. Caller is responsible for passing the same string the user
+  /// typed; lowercasing/trim happens inside the route builder.
+  final String? query;
+
+  /// 1-based position of this result in the list. Appended as `&pos=N`
+  /// when ≥ 1; passed unset / `null` for non-search contexts (e.g. a
+  /// public profile rendering a related card).
+  final int? position;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +55,12 @@ class SearchResultCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         onTap: () => context.push(
-          '/profiles/${document.id}',
+          buildProfileRouteFromSearch(
+            orgId: document.id,
+            persona: document.persona.name,
+            query: query,
+            position: position,
+          ),
           extra: <String, dynamic>{
             'display_name': document.displayName,
             'org_type': document.persona.name,
