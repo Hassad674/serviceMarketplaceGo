@@ -2558,6 +2558,7 @@
       "cgu": "Terms of use",
       "cgv": "Sales terms",
       "subprocessors": "Sub-processors",
+      "automatedDecisions": "Automated decisions",
       "dpoContact": "GDPR contact",
       "copyright": "© {year} Marketplace Service. All rights reserved."
     },
@@ -2573,7 +2574,9 @@
       "rightsTitle": "Your rights",
       "rightsDescription": "You have rights of access, rectification, erasure, portability, restriction, objection, and consent withdrawal. To exercise them, write to our GDPR contact or appeal to the CNIL ({cnilUrl}).",
       "subprocessorsTitle": "Sub-processors",
-      "subprocessorsDescription": "Read the up-to-date list of our sub-processors: {link}."
+      "subprocessorsDescription": "Read the up-to-date list of our sub-processors: {link}.",
+      "automatedDecisionsTitle": "Automated decisions (GDPR art. 22)",
+      "automatedDecisionsDescription": "Three automated processes can affect your experience on the marketplace: AI content moderation, search ranking, and Stripe payment risk scoring. You can request human review at any time via our dedicated form. Full details: {link}."
     },
     "cookies": {
       "title": "Cookies and trackers",
@@ -2680,6 +2683,28 @@
         "photon": { "vendor": "Photon (komoot.io)", "country": "EU (DE)", "purpose": "International city autocomplete" },
         "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + DDoS protection" }
       }
+    },
+    "automatedDecisions": {
+      "title": "Automated decisions and right to human review",
+      "intro": "Pursuant to article 22 of the GDPR, we disclose the automated decisions that may affect your experience on the marketplace. You have the right to obtain human intervention and to contest each of these decisions.",
+      "systems": {
+        "moderationTitle": "Automated content moderation",
+        "moderationDescription": "Our providers OpenAI (omni-moderation) and AWS Rekognition analyze the texts, images, audios and videos posted on the platform to detect prohibited content (hate, harassment, violence, non-consensual sexual content, etc.). Above a configured confidence threshold, the content is automatically rejected.",
+        "moderationConsequence": "Consequence: your message, media or portfolio piece may be blocked or removed from the platform. You can request human review by filing the form below within 30 days.",
+        "rankingTitle": "Search ranking",
+        "rankingDescription": "Our search engine (Typesense) orders the displayed profiles, missions and offers using a deterministic combination of textual relevance, profile quality, activity freshness and engagement signals. No opaque machine learning is used — the weights are documented in our internal documentation.",
+        "rankingConsequence": "Consequence: your ranking in results can vary without manual intervention. If you observe a sudden visibility drop or a ranking error, you can request human review.",
+        "paymentTitle": "Payment risk scoring (Stripe)",
+        "paymentDescription": "Stripe scores every payment against anti-fraud signals (Stripe Radar). Above a risk threshold, the transaction is declined by Stripe before reaching our systems.",
+        "paymentConsequence": "Consequence: a payment may be blocked without us being able to technically override the decision on the platform side — but we support affected users in their dialogue with Stripe and provide the contextual elements required."
+      },
+      "rightsTitle": "Your rights",
+      "rightsDescription": "For each of these decisions, you have the right (1) to obtain an explanation of the underlying logic, (2) to express your point of view, (3) to obtain the intervention of a human member of our team, and (4) to contest the decision.",
+      "appealTitle": "Request human review",
+      "appealDescription": "To exercise your right, write to {email} specifying the type of decision (moderation, ranking or payment), a reference (rejected message ID, transaction ID, etc.) and the reason for your request. We commit to respond within 30 days as required by GDPR art. 12-3.",
+      "appealAlternativeTitle": "Independent recourse",
+      "appealAlternativeDescription": "If our response does not satisfy you, you can refer the matter to the CNIL: {cnilUrl}.",
+      "lastUpdatedISO": "2026-05-10"
     }
   },
   "stats": {

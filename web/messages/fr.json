@@ -2558,6 +2558,7 @@
       "cgu": "CGU",
       "cgv": "CGV",
       "subprocessors": "Sous-processeurs",
+      "automatedDecisions": "Décisions automatisées",
       "dpoContact": "Contact RGPD",
       "copyright": "© {year} Marketplace Service. Tous droits réservés."
     },
@@ -2573,7 +2574,9 @@
       "rightsTitle": "Tes droits",
       "rightsDescription": "Tu disposes des droits d'accès, de rectification, d'effacement, de portabilité, de limitation, d'opposition et de retrait du consentement. Pour les exercer, écris à notre point de contact RGPD ou recours à la CNIL ({cnilUrl}).",
       "subprocessorsTitle": "Sous-processeurs",
-      "subprocessorsDescription": "Consulte la liste à jour de nos sous-processeurs : {link}."
+      "subprocessorsDescription": "Consulte la liste à jour de nos sous-processeurs : {link}.",
+      "automatedDecisionsTitle": "Décisions automatisées (RGPD art. 22)",
+      "automatedDecisionsDescription": "Trois traitements automatisés peuvent influencer ton expérience sur la marketplace : la modération IA des contenus, le classement de recherche et l'évaluation de risque des paiements Stripe. Tu peux à tout moment demander une revue humaine via le formulaire dédié. Détails complets : {link}."
     },
     "cookies": {
       "title": "Cookies et traceurs",
@@ -2680,6 +2683,28 @@
         "photon": { "vendor": "Photon (komoot.io)", "country": "UE (DE)", "purpose": "Auto-complétion de villes internationales" },
         "cloudflare": { "vendor": "Cloudflare", "country": "US/global", "purpose": "CDN + protection DDoS" }
       }
+    },
+    "automatedDecisions": {
+      "title": "Décisions automatisées et droit à une revue humaine",
+      "intro": "Conformément à l'article 22 du RGPD, nous t'informons des décisions prises de manière automatisée qui peuvent affecter ton expérience sur la marketplace. Tu as le droit d'obtenir l'intervention d'un humain et de contester chacune de ces décisions.",
+      "systems": {
+        "moderationTitle": "Modération automatisée des contenus",
+        "moderationDescription": "Nos prestataires OpenAI (omni-moderation) et AWS Rekognition analysent les textes, images, audios et vidéos publiés sur la plateforme pour repérer les contenus interdits (haine, harcèlement, violence, contenus à caractère sexuel non consenti, etc.). Au-delà d'un seuil de confiance configuré, le contenu est automatiquement rejeté.",
+        "moderationConsequence": "Conséquence : ton message, ton média ou ta pièce de portfolio peut être bloqué ou supprimé de la plateforme. Tu peux demander une revue humaine en remplissant le formulaire ci-dessous dans les 30 jours.",
+        "rankingTitle": "Classement de la recherche",
+        "rankingDescription": "Notre moteur de recherche (Typesense) ordonne les profils, missions et offres affichés selon une combinaison déterministe de pertinence textuelle, qualité du profil, fraîcheur d'activité et signaux d'engagement. Aucun apprentissage automatique opaque n'est utilisé — les pondérations sont publiées dans notre documentation interne.",
+        "rankingConsequence": "Conséquence : ton classement dans les résultats peut varier sans intervention manuelle. Si tu constates une perte brutale de visibilité ou une erreur de classement, tu peux demander une revue humaine.",
+        "paymentTitle": "Évaluation de risque des paiements (Stripe)",
+        "paymentDescription": "Stripe évalue chaque paiement au regard de signaux anti-fraude (Stripe Radar). Au-delà d'un seuil de risque, la transaction est refusée par Stripe avant même d'atteindre nos systèmes.",
+        "paymentConsequence": "Conséquence : un paiement peut être bloqué sans que nous puissions techniquement débloquer la décision côté plateforme — mais nous accompagnons les utilisateurs concernés dans le dialogue avec Stripe et fournissons les éléments contextuels nécessaires."
+      },
+      "rightsTitle": "Tes droits",
+      "rightsDescription": "Pour chacune de ces décisions, tu disposes du droit (1) d'obtenir une explication sur la logique sous-jacente, (2) d'exprimer ton point de vue, (3) d'obtenir l'intervention d'une personne physique de notre équipe, et (4) de contester la décision.",
+      "appealTitle": "Demander une revue humaine",
+      "appealDescription": "Pour exercer ton droit, écris à {email} en précisant le type de décision concerné (modération, classement ou paiement), une référence (identifiant du message rejeté, identifiant de la transaction, etc.) et le motif de ta demande. Nous nous engageons à te répondre sous 30 jours conformément au RGPD art. 12-3.",
+      "appealAlternativeTitle": "Recours indépendant",
+      "appealAlternativeDescription": "Si notre réponse ne te satisfait pas, tu peux saisir la CNIL : {cnilUrl}.",
+      "lastUpdatedISO": "2026-05-10"
     }
   },
   "stats": {
