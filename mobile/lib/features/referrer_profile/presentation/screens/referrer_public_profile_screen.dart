@@ -80,6 +80,8 @@ class _Body extends StatelessWidget {
     // label. The raw organization id (a UUID) is intentionally NEVER
     // surfaced — same regression the web fix guards against.
     final name = _resolveDisplayName(
+      firstName: profile.firstName,
+      lastName: profile.lastName,
       explicit: displayName,
       title: profile.title,
       fallback: l10n.referrerDisplayNameFallback,
@@ -208,14 +210,27 @@ class _Body extends StatelessWidget {
   }
 
   /// Resolves the header display name without ever surfacing a raw
-  /// organization UUID. Order: explicit caller-provided name → the
-  /// referrer-set title → the localized fallback label. Pure helper
-  /// (no Flutter state) so it can be unit-tested in isolation.
+  /// organization UUID. Order:
+  ///   1. owner's first_name + last_name (preferred — public referrer
+  ///      heading shows the human, not the title)
+  ///   2. explicit caller-provided name (legacy compat — still
+  ///      honoured by the search → public-profile navigation extra)
+  ///   3. the referrer-set title
+  ///   4. the localized fallback label.
+  /// Pure helper (no Flutter state) so it can be unit-tested.
   static String _resolveDisplayName({
+    required String firstName,
+    required String lastName,
     required String explicit,
     required String title,
     required String fallback,
   }) {
+    final parts = <String>[];
+    final f = firstName.trim();
+    if (f.isNotEmpty) parts.add(f);
+    final l = lastName.trim();
+    if (l.isNotEmpty) parts.add(l);
+    if (parts.isNotEmpty) return parts.join(' ');
     if (explicit.trim().isNotEmpty) return explicit;
     if (title.trim().isNotEmpty) return title;
     return fallback;

@@ -75,6 +75,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>['fr'],
       languagesConversational: <String>['en'],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       pricing: ReferrerPricing(
         type: ReferrerPricingType.commissionPct,
         minAmount: 800,
@@ -118,6 +121,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>[],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       pricing: null,
     );
     await tester.pumpWidget(_buildTestable(profile));
@@ -154,6 +160,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>[],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       pricing: null,
     );
     await tester.pumpWidget(_buildTestable(profile, displayName: ''));
@@ -184,6 +193,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>[],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       pricing: null,
     );
     await tester.pumpWidget(

@@ -22,6 +22,9 @@ class ReferrerProfile {
     required this.travelRadiusKm,
     required this.languagesProfessional,
     required this.languagesConversational,
+    required this.orgName,
+    required this.firstName,
+    required this.lastName,
     required this.pricing,
   });
 
@@ -42,6 +45,9 @@ class ReferrerProfile {
     travelRadiusKm: null,
     languagesProfessional: <String>[],
     languagesConversational: <String>[],
+    orgName: '',
+    firstName: '',
+    lastName: '',
     pricing: null,
   );
 
@@ -63,6 +69,13 @@ class ReferrerProfile {
   final int? travelRadiusKm;
   final List<String> languagesProfessional;
   final List<String> languagesConversational;
+
+  /// Identity (joined from organizations + owner user). Used by the
+  /// public profile screen as the heading; falls back to `title` and
+  /// finally to a localised "Business referrer" label.
+  final String orgName;
+  final String firstName;
+  final String lastName;
 
   final ReferrerPricing? pricing;
 
@@ -88,6 +101,9 @@ class ReferrerProfile {
       travelRadiusKm: _readInt(json['travel_radius_km']),
       languagesProfessional: _stringList(json['languages_professional']),
       languagesConversational: _stringList(json['languages_conversational']),
+      orgName: json['org_name'] as String? ?? '',
+      firstName: json['first_name'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? '',
       pricing: pricingJson is Map<String, dynamic>
           ? ReferrerPricing.fromJson(pricingJson)
           : null,

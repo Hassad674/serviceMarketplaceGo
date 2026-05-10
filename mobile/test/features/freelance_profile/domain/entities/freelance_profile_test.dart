@@ -72,6 +72,40 @@ void main() {
     test('empty constant entity is not loaded', () {
       expect(FreelanceProfile.empty.isLoaded, isFalse);
       expect(FreelanceProfile.empty.availabilityStatus, 'available_now');
+      expect(FreelanceProfile.empty.firstName, '');
+      expect(FreelanceProfile.empty.lastName, '');
+      expect(FreelanceProfile.empty.orgName, '');
+    });
+
+    test('parses identity fields from the joined backend payload', () {
+      final profile = FreelanceProfile.fromJson(<String, dynamic>{
+        'id': 'abc',
+        'organization_id': 'xyz',
+        'title': '',
+        'about': '',
+        'video_url': '',
+        'availability_status': 'available_now',
+        'org_name': 'Atelier Solo',
+        'first_name': 'Ada',
+        'last_name': 'Lovelace',
+      });
+      expect(profile.firstName, 'Ada');
+      expect(profile.lastName, 'Lovelace');
+      expect(profile.orgName, 'Atelier Solo');
+    });
+
+    test('falls back to empty strings when identity keys are missing', () {
+      final profile = FreelanceProfile.fromJson(<String, dynamic>{
+        'id': 'abc',
+        'organization_id': 'xyz',
+        'title': '',
+        'about': '',
+        'video_url': '',
+        'availability_status': 'available_now',
+      });
+      expect(profile.firstName, '');
+      expect(profile.lastName, '');
+      expect(profile.orgName, '');
     });
   });
 }

@@ -26,6 +26,9 @@ class FreelanceProfile {
     required this.travelRadiusKm,
     required this.languagesProfessional,
     required this.languagesConversational,
+    required this.orgName,
+    required this.firstName,
+    required this.lastName,
     required this.skills,
     required this.pricing,
   });
@@ -49,6 +52,9 @@ class FreelanceProfile {
     travelRadiusKm: null,
     languagesProfessional: <String>[],
     languagesConversational: <String>[],
+    orgName: '',
+    firstName: '',
+    lastName: '',
     skills: <Map<String, dynamic>>[],
     pricing: null,
   );
@@ -73,6 +79,15 @@ class FreelanceProfile {
   final int? travelRadiusKm;
   final List<String> languagesProfessional;
   final List<String> languagesConversational;
+
+  // ---- Identity (joined from organizations + owner user) ----
+  // Used by the public profile screen to render
+  // `${firstName} ${lastName}` as the heading and the persona-specific
+  // [title] as the italic subtitle. Empty strings on legacy payloads
+  // — the screen falls back to title and finally to a localised label.
+  final String orgName;
+  final String firstName;
+  final String lastName;
 
   // ---- Decorations ----
   //
@@ -107,6 +122,9 @@ class FreelanceProfile {
       travelRadiusKm: _readInt(json['travel_radius_km']),
       languagesProfessional: _stringList(json['languages_professional']),
       languagesConversational: _stringList(json['languages_conversational']),
+      orgName: json['org_name'] as String? ?? '',
+      firstName: json['first_name'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? '',
       skills: skillsJson is List
           ? skillsJson
               .whereType<Map<String, dynamic>>()

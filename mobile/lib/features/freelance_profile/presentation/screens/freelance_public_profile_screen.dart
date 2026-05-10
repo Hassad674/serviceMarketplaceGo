@@ -75,7 +75,18 @@ class _Body extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final locale = Localizations.localeOf(context).languageCode;
-    final name = displayName.isNotEmpty ? displayName : 'Freelancer';
+    // Public profile heading: prefer the owner's first_name +
+    // last_name, fall back to the navName the previous screen passed
+    // in, then the persona title, finally to a localised "Freelancer"
+    // label so we never render an empty H1.
+    final fullName = _buildFullName(profile.firstName, profile.lastName);
+    final name = fullName.isNotEmpty
+        ? fullName
+        : displayName.isNotEmpty
+            ? displayName
+            : profile.title.isNotEmpty
+                ? profile.title
+                : 'Freelancer';
     final radius = profile.travelRadiusKm;
 
     // Soleil v2 W-16 v3 (BATCH-PROFIL-FIX items #3 + #6) — public
@@ -207,6 +218,18 @@ class _Body extends StatelessWidget {
             : null;
         return max != null ? '$min – $max' : min;
     }
+  }
+
+  /// Joins the owner's first_name + last_name with whitespace
+  /// trimming so a profile that only has one of the two still
+  /// renders cleanly. Returns an empty string when both are absent.
+  String _buildFullName(String firstName, String lastName) {
+    final parts = <String>[];
+    final f = firstName.trim();
+    if (f.isNotEmpty) parts.add(f);
+    final l = lastName.trim();
+    if (l.isNotEmpty) parts.add(l);
+    return parts.join(' ');
   }
 
   String _buildInitials(String name) {

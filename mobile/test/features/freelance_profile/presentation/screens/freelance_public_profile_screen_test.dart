@@ -52,6 +52,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>['fr'],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       skills: <Map<String, dynamic>>[],
       pricing: FreelancePricing(
         type: FreelancePricingType.daily,
@@ -95,6 +98,9 @@ void main() {
       travelRadiusKm: null,
       languagesProfessional: <String>[],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       skills: <Map<String, dynamic>>[],
       pricing: null,
     );
@@ -123,6 +129,9 @@ void main() {
       travelRadiusKm: 50,
       languagesProfessional: <String>['fr'],
       languagesConversational: <String>[],
+      orgName: '',
+      firstName: '',
+      lastName: '',
       skills: <Map<String, dynamic>>[],
       pricing: FreelancePricing(
         type: FreelancePricingType.daily,
