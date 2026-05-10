@@ -29,6 +29,15 @@ class ProposalRepositoryImpl implements ProposalRepository {
     if (data.deadline != null) {
       body['deadline'] = data.deadline;
     }
+    // Phase 6: milestone-mode payload. The backend sums milestone
+    // amounts server-side and ignores the top-level amount when the
+    // milestones array is non-empty.
+    if (data.paymentMode != null) {
+      body['payment_mode'] = data.paymentMode;
+    }
+    if (data.milestones != null && data.milestones!.isNotEmpty) {
+      body['milestones'] = data.milestones!.map((m) => m.toJson()).toList();
+    }
 
     final response = await apiClient.post(
       '/api/v1/proposals',
@@ -69,6 +78,12 @@ class ProposalRepositoryImpl implements ProposalRepository {
     };
     if (data.deadline != null) {
       body['deadline'] = data.deadline;
+    }
+    if (data.paymentMode != null) {
+      body['payment_mode'] = data.paymentMode;
+    }
+    if (data.milestones != null && data.milestones!.isNotEmpty) {
+      body['milestones'] = data.milestones!.map((m) => m.toJson()).toList();
     }
 
     final response = await apiClient.post(

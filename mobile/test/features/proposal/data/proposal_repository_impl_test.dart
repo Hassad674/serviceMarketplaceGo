@@ -75,6 +75,76 @@ void main() {
 
       expect(capturedBody!['deadline'], '2026-04-15');
     });
+
+    test(
+        'includes payment_mode and milestones array when in milestone mode',
+        () async {
+      // Phase 6 (Contra-style milestones): the mobile create handler
+      // submits a `payment_mode='milestone'` flag and the per-milestone
+      // payload. The backend uses milestones[] verbatim and ignores
+      // the top-level amount.
+      Map<String, dynamic>? capturedBody;
+
+      fakeApi.postHandlers['/api/v1/proposals'] = (data) async {
+        capturedBody = data as Map<String, dynamic>;
+        return FakeApiClient.ok({'data': sampleProposal});
+      };
+
+      await repo.createProposal(CreateProposalData(
+        recipientId: 'user-2',
+        conversationId: 'conv-1',
+        title: 'Phase 1',
+        description: 'Multi-step build',
+        amount: 1000000,
+        paymentMode: 'milestone',
+        milestones: const [
+          MilestoneInputData(
+            sequence: 1,
+            title: 'Phase 1',
+            description: '',
+            amount: 250000,
+            deadline: '2026-06-01',
+          ),
+          MilestoneInputData(
+            sequence: 2,
+            title: 'Phase 2',
+            description: '',
+            amount: 750000,
+            deadline: '2026-07-01',
+          ),
+        ],
+      ));
+
+      expect(capturedBody!['payment_mode'], 'milestone');
+      final milestones = capturedBody!['milestones'] as List;
+      expect(milestones, hasLength(2));
+      expect((milestones[0] as Map)['sequence'], 1);
+      expect((milestones[0] as Map)['title'], 'Phase 1');
+      expect((milestones[0] as Map)['amount'], 250000);
+      expect((milestones[1] as Map)['sequence'], 2);
+      expect((milestones[1] as Map)['amount'], 750000);
+    });
+
+    test('omits payment_mode and milestones when one_time without flags',
+        () async {
+      Map<String, dynamic>? capturedBody;
+
+      fakeApi.postHandlers['/api/v1/proposals'] = (data) async {
+        capturedBody = data as Map<String, dynamic>;
+        return FakeApiClient.ok({'data': sampleProposal});
+      };
+
+      await repo.createProposal(CreateProposalData(
+        recipientId: 'user-2',
+        conversationId: 'conv-1',
+        title: 'Single',
+        description: 'No phases',
+        amount: 5000,
+      ));
+
+      expect(capturedBody!.containsKey('payment_mode'), false);
+      expect(capturedBody!.containsKey('milestones'), false);
+    });
   });
 
   group('ProposalRepositoryImpl.getProposal', () {

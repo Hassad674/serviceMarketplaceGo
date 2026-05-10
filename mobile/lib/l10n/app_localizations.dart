@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -1999,6 +1999,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create a proposal'**
   String get proposalCreate;
+
+  /// No description provided for @proposalTitleFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone-based mission'**
+  String get proposalTitleFallback;
+
+  /// No description provided for @proposalSectionPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment terms'**
+  String get proposalSectionPayment;
+
+  /// No description provided for @paymentModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment mode'**
+  String get paymentModeLabel;
+
+  /// No description provided for @paymentModeOneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time payment'**
+  String get paymentModeOneTime;
+
+  /// No description provided for @paymentModeMilestone.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone payments'**
+  String get paymentModeMilestone;
+
+  /// No description provided for @paymentModeOneTimeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A single payment on acceptance triggers the start of work.'**
+  String get paymentModeOneTimeHint;
+
+  /// No description provided for @paymentModeMilestoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Break the project into steps. Each milestone is funded right before its kickoff.'**
+  String get paymentModeMilestoneHint;
+
+  /// No description provided for @milestoneEditorMilestone.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone'**
+  String get milestoneEditorMilestone;
+
+  /// No description provided for @milestoneEditorAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a milestone'**
+  String get milestoneEditorAdd;
+
+  /// No description provided for @milestoneEditorRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove milestone'**
+  String get milestoneEditorRemove;
+
+  /// No description provided for @milestoneEditorTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Project total'**
+  String get milestoneEditorTotal;
+
+  /// No description provided for @milestoneEditorTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone title'**
+  String get milestoneEditorTitleLabel;
+
+  /// No description provided for @milestoneEditorTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Wireframes'**
+  String get milestoneEditorTitleHint;
+
+  /// No description provided for @milestoneEditorDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get milestoneEditorDescriptionLabel;
+
+  /// No description provided for @milestoneEditorDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected deliverables for this milestone'**
+  String get milestoneEditorDescriptionHint;
+
+  /// No description provided for @milestoneEditorAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get milestoneEditorAmountLabel;
+
+  /// No description provided for @milestoneEditorDeadlineLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Deadline'**
+  String get milestoneEditorDeadlineLabel;
+
+  /// No description provided for @milestoneEditorMinimumHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A milestone-based mission must have at least {min} steps. Each milestone has its own title, amount and due date.'**
+  String milestoneEditorMinimumHint(int min);
 
   /// No description provided for @proposalTitle.
   ///
@@ -7404,9 +7512,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

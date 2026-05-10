@@ -15,6 +15,38 @@ enum ProposalStatus {
   completed,
 }
 
+/// Payment mode for a proposal — mirrors the web `PaymentMode` type and
+/// the backend `payment_mode` column. Either a one-time lump sum or a
+/// milestone-based phased payout.
+enum ProposalPaymentMode {
+  oneTime,
+  milestone,
+}
+
+/// Per-milestone form item used by the milestone editor inside the
+/// create proposal screen. Mirrors the web `MilestoneFormItem`.
+class MilestoneFormItem {
+  MilestoneFormItem({
+    this.title = '',
+    this.description = '',
+    this.amount = 0,
+    this.deadline,
+  });
+
+  String title;
+  String description;
+  double amount;
+  DateTime? deadline;
+}
+
+/// Minimum count of milestones a milestone-mode proposal must hold.
+/// Mirrors `MinMilestonesPerMilestoneProposal` in the backend domain
+/// and `MIN_MILESTONES_PER_MILESTONE_PROPOSAL` on the web.
+const int kMinMilestonesPerMilestoneProposal = 2;
+
+/// Maximum count, mirrors the backend cap.
+const int kMaxMilestonesPerProposal = 20;
+
 /// Holds all data collected by the proposal creation form.
 class ProposalFormData {
   ProposalFormData({
@@ -25,7 +57,9 @@ class ProposalFormData {
     this.amount = 0,
     this.deadline,
     this.recipientName = '',
-  });
+    this.paymentMode = ProposalPaymentMode.oneTime,
+    List<MilestoneFormItem>? milestones,
+  }) : milestones = milestones ?? <MilestoneFormItem>[MilestoneFormItem()];
 
   String recipientId;
   String conversationId;
@@ -34,6 +68,8 @@ class ProposalFormData {
   double amount;
   DateTime? deadline;
   String recipientName;
+  ProposalPaymentMode paymentMode;
+  List<MilestoneFormItem> milestones;
 }
 
 /// Metadata embedded in a chat message of type `proposal_sent`.

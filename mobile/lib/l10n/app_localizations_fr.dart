@@ -1016,6 +1016,65 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalCreate => 'Créer une proposition';
 
   @override
+  String get proposalTitleFallback => 'Mission à jalons';
+
+  @override
+  String get proposalSectionPayment => 'Modalités de paiement';
+
+  @override
+  String get paymentModeLabel => 'Mode de paiement';
+
+  @override
+  String get paymentModeOneTime => 'Paiement unique';
+
+  @override
+  String get paymentModeMilestone => 'Paiements par jalons';
+
+  @override
+  String get paymentModeOneTimeHint =>
+      'Un seul paiement à l\'acceptation, déclenche le démarrage du travail.';
+
+  @override
+  String get paymentModeMilestoneHint =>
+      'Découpez le projet en étapes. Chaque jalon est financé juste avant son démarrage.';
+
+  @override
+  String get milestoneEditorMilestone => 'Jalon';
+
+  @override
+  String get milestoneEditorAdd => 'Ajouter un jalon';
+
+  @override
+  String get milestoneEditorRemove => 'Supprimer le jalon';
+
+  @override
+  String get milestoneEditorTotal => 'Total du projet';
+
+  @override
+  String get milestoneEditorTitleLabel => 'Titre du jalon';
+
+  @override
+  String get milestoneEditorTitleHint => 'ex. Maquettes';
+
+  @override
+  String get milestoneEditorDescriptionLabel => 'Description (optionnel)';
+
+  @override
+  String get milestoneEditorDescriptionHint =>
+      'Livrables attendus pour ce jalon';
+
+  @override
+  String get milestoneEditorAmountLabel => 'Montant';
+
+  @override
+  String get milestoneEditorDeadlineLabel => 'Date limite';
+
+  @override
+  String milestoneEditorMinimumHint(int min) {
+    return 'Une mission à jalons doit comporter au moins $min étapes. Chaque jalon a son propre titre, montant et échéance.';
+  }
+
+  @override
   String get proposalTitle => 'Titre de la mission';
 
   @override

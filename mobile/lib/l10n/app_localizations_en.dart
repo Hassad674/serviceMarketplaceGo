@@ -1015,6 +1015,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proposalCreate => 'Create a proposal';
 
   @override
+  String get proposalTitleFallback => 'Milestone-based mission';
+
+  @override
+  String get proposalSectionPayment => 'Payment terms';
+
+  @override
+  String get paymentModeLabel => 'Payment mode';
+
+  @override
+  String get paymentModeOneTime => 'One-time payment';
+
+  @override
+  String get paymentModeMilestone => 'Milestone payments';
+
+  @override
+  String get paymentModeOneTimeHint =>
+      'A single payment on acceptance triggers the start of work.';
+
+  @override
+  String get paymentModeMilestoneHint =>
+      'Break the project into steps. Each milestone is funded right before its kickoff.';
+
+  @override
+  String get milestoneEditorMilestone => 'Milestone';
+
+  @override
+  String get milestoneEditorAdd => 'Add a milestone';
+
+  @override
+  String get milestoneEditorRemove => 'Remove milestone';
+
+  @override
+  String get milestoneEditorTotal => 'Project total';
+
+  @override
+  String get milestoneEditorTitleLabel => 'Milestone title';
+
+  @override
+  String get milestoneEditorTitleHint => 'e.g. Wireframes';
+
+  @override
+  String get milestoneEditorDescriptionLabel => 'Description (optional)';
+
+  @override
+  String get milestoneEditorDescriptionHint =>
+      'Expected deliverables for this milestone';
+
+  @override
+  String get milestoneEditorAmountLabel => 'Amount';
+
+  @override
+  String get milestoneEditorDeadlineLabel => 'Deadline';
+
+  @override
+  String milestoneEditorMinimumHint(int min) {
+    return 'A milestone-based mission must have at least $min steps. Each milestone has its own title, amount and due date.';
+  }
+
+  @override
   String get proposalTitle => 'Mission title';
 
   @override
