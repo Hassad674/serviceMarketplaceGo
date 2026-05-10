@@ -37,6 +37,14 @@ const AUTH_PUBLIC_PATHS = [
   "/referrers",
   "/opportunities",
   "/clients",
+  // `/invitation/<token>` is reached from the email link by an
+  // unauthenticated visitor — `/auth/me` legitimately returns 401
+  // here (the new member has no session yet) and a hard-redirect
+  // to /login would prevent them from accepting the invitation.
+  // The PostHogProvider mounted in the locale layout fires
+  // `useSession()` on every page, so this whitelist is the only
+  // thing standing between the visitor and a surprise hop to /login.
+  "/invitation",
 ]
 
 // Locale prefixes the next-intl router prepends to every URL. Keep
