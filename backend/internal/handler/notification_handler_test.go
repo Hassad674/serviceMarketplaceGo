@@ -119,6 +119,10 @@ func (m *mockNotificationRepo) DeleteDeviceToken(ctx context.Context, userID uui
 	return nil
 }
 
+func (m *mockNotificationRepo) TouchDeviceTokens(ctx context.Context, userID uuid.UUID, tokens []string) error {
+	return nil
+}
+
 type mockPresenceService struct {
 	isOnlineFn func(ctx context.Context, userID uuid.UUID) (bool, error)
 }

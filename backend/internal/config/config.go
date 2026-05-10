@@ -132,6 +132,14 @@ type Config struct {
 	// production with that value.
 	GDPRAnonymizationSalt string
 
+	// RetentionInterval overrides the cadence at which the retention
+	// scheduler (Phase B.1 of the GDPR roadmap) sweeps stale rows
+	// from messages, notifications, device_tokens, search_queries and
+	// audit_logs. Default is 1h in production and 1m in development —
+	// see app/retention/scheduler.go for the constants. Setting this
+	// to zero falls back to the per-env default.
+	RetentionInterval time.Duration
+
 	// PostHogProjectKey is the public project token used by the
 	// posthog-go SDK to ship server-side events. Same value as the
 	// browser-side NEXT_PUBLIC_POSTHOG_KEY — PostHog deliberately
@@ -212,6 +220,12 @@ func Load() *Config {
 		// production Validate() refuses to boot if the value is
 		// still the fallback.
 		GDPRAnonymizationSalt: getEnv("GDPR_ANONYMIZATION_SALT", devGDPRSaltFallback),
+
+		// Phase B.1 retention scheduler. Empty value means "unset" —
+		// the wire layer interprets that as the per-env default (1h
+		// in prod, 1m in dev). Non-empty is parsed; bogus values fall
+		// back to zero so the wire-layer default applies.
+		RetentionInterval: retentionIntervalFromEnv(getEnv("RETENTION_INTERVAL", "")),
 
 		// PostHog analytics. Same project token shared with the web
 		// SDK (NEXT_PUBLIC_POSTHOG_KEY) — the public project token
@@ -388,6 +402,22 @@ func parseDuration(s string) time.Duration {
 	d, err := time.ParseDuration(s)
 	if err != nil {
 		return 15 * time.Minute
+	}
+	return d
+}
+
+// retentionIntervalFromEnv parses an explicit duration when set, and
+// returns zero (= "use the per-env default") when the env var is
+// blank. Kept distinct from parseDuration because the latter falls
+// back to 15m on any parse failure — fine for JWT expiry, wrong here
+// where blank means "wire decides".
+func retentionIntervalFromEnv(s string) time.Duration {
+	if s == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0
 	}
 	return d
 }

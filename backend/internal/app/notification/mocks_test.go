@@ -29,6 +29,7 @@ type mockNotificationRepo struct {
 	createDeviceTokenFn        func(ctx context.Context, dt *notif.DeviceToken) error
 	listDeviceTokensFn  func(ctx context.Context, userID uuid.UUID) ([]*notif.DeviceToken, error)
 	deleteDeviceTokenFn func(ctx context.Context, userID uuid.UUID, token string) error
+	touchDeviceTokensFn func(ctx context.Context, userID uuid.UUID, tokens []string) error
 }
 
 func (m *mockNotificationRepo) Create(ctx context.Context, n *notif.Notification) error {
@@ -111,6 +112,13 @@ func (m *mockNotificationRepo) ListDeviceTokens(ctx context.Context, userID uuid
 func (m *mockNotificationRepo) DeleteDeviceToken(ctx context.Context, userID uuid.UUID, token string) error {
 	if m.deleteDeviceTokenFn != nil {
 		return m.deleteDeviceTokenFn(ctx, userID, token)
+	}
+	return nil
+}
+
+func (m *mockNotificationRepo) TouchDeviceTokens(ctx context.Context, userID uuid.UUID, tokens []string) error {
+	if m.touchDeviceTokensFn != nil {
+		return m.touchDeviceTokensFn(ctx, userID, tokens)
 	}
 	return nil
 }

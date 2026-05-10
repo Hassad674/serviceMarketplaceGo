@@ -560,6 +560,20 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	consentSvc := consentapp.NewService(consentRepo)
 	consentHandler := handler.NewConsentHandler(consentSvc)
 
+	// Phase B.1 of gdpr-roadmap.md — retention scheduler. Sweeps stale
+	// rows from messages (3y), notifications (90d), device_tokens
+	// (60d inactivity), search_queries (12mo → anonymize) and
+	// audit_logs (24mo → archive). Runs hourly in prod, every minute
+	// in dev. Tagged as a system actor so the routed DB pool picks
+	// the BYPASSRLS connection.
+	retentionCtx, retentionCancel := context.WithCancel(ctx) // #nosec G118 -- cancel func appended to app.closeFns, invoked at graceful shutdown
+	app.closeFns = append(app.closeFns, retentionCancel)
+	wireRetention(retentionDeps{
+		Ctx: retentionCtx,
+		Cfg: cfg,
+		DB:  infra.AdminDB,
+	})
+
 	// Security activity — read-only feed of the caller's recent
 	// authentication audit events. Wired AFTER infra so the audit
 	// repository is fully initialised; the handler short-circuits
