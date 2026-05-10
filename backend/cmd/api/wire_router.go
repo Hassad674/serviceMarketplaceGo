@@ -129,6 +129,8 @@ type routerDepsBundle struct {
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
 	AdminSearchStats      *handler.AdminSearchStatsHandler
+	Stats                 *handler.StatsHandler
+	StatsRecorder         handler.StatsRecorder
 	WSHandler             http.HandlerFunc
 	Cfg                   *config.Config
 	TokenService          service.TokenService
@@ -200,6 +202,8 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		Referral:             b.Referral,
 		Search:               b.Search,
 		AdminSearchStats:     b.AdminSearchStats,
+		Stats:                b.Stats,
+		StatsRecorder:        b.StatsRecorder,
 		WSHandler:            b.WSHandler,
 		Config:               b.Cfg,
 		TokenService:         b.TokenService,
