@@ -11,6 +11,82 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// ProjectionStatus is the bucket the wallet groups a projected
+// commission into. Mirrors the wallet's "escrowed / pending / paid /
+// failed" grammar so the UI can render projections alongside paid rows
+// without a second taxonomy.
+//
+// Run B (WALLET-UNIFY) — introduced by ProjectedCommissions so the
+// /wallet/summary endpoint can compose missions + commissions with the
+// same status shape.
+type ProjectionStatus string
+
+const (
+	// ProjectionEscrowed — the milestone holds escrow (funded /
+	// submitted / disputed). The commission would be paid out on
+	// milestone release; for now it sits in the apporteur's "à venir"
+	// pile and the UI flags it accordingly.
+	ProjectionEscrowed ProjectionStatus = "escrowed"
+	// ProjectionPending — the milestone has been approved by the
+	// client (commission row should exist) but the row could not be
+	// found for race-condition / safety-net reasons. Treated as
+	// "pending Stripe transfer" by the UI.
+	ProjectionPending ProjectionStatus = "pending"
+	// ProjectionPaid — the commission row exists and is in paid
+	// status. Money has reached the apporteur's Stripe.
+	ProjectionPaid ProjectionStatus = "paid"
+	// ProjectionFailed — the commission row exists but its Stripe
+	// transfer failed. Retry-eligible.
+	ProjectionFailed ProjectionStatus = "failed"
+)
+
+// ProjectionSource discriminates whether a row in the response was
+// computed from an actual `referral_commissions` row (source=row) or
+// projected speculatively from an active milestone with no commission
+// row yet (source=projection). The UI uses this to decide between
+// "Versée" and "À venir" labelling without re-deriving the status
+// from the bucket.
+type ProjectionSource string
+
+const (
+	// SourceProjection — no DB row backs this entry; computed from
+	// milestone.amount × attribution.rate_pct_snapshot.
+	SourceProjection ProjectionSource = "projection"
+	// SourceRow — backed by an existing referral_commissions row.
+	SourceRow ProjectionSource = "row"
+)
+
+// ProjectedCommission is one row of the apporteur's "projected
+// commissions" wallet section. Carries enough context for the UI to
+// deep-link to the parent referral / proposal and to label the line
+// with the right mission title.
+//
+// ProjectedCents is computed snapshot-style:
+//   - SourceRow rows expose the commission row's CommissionCents
+//     directly (which itself was snapshot-locked to the rate at
+//     milestone-approval time).
+//   - SourceProjection rows compute milestone.Amount *
+//     attribution.RatePctSnapshot / 10000 so a future rate change
+//     never retroactively shifts the projected amount.
+type ProjectedCommission struct {
+	AttributionID  uuid.UUID
+	MilestoneID    uuid.UUID
+	ProposalID     uuid.UUID
+	MissionTitle   string
+	ProjectedCents int64
+	Currency       string
+	Status         ProjectionStatus
+	Source         ProjectionSource
+	ProjectedAt    time.Time
+}
+
+// MaxProjections is the hard cap on the size of the slice returned by
+// ProjectedCommissions. A noisy apporteur with thousands of attributed
+// milestones cannot blow up the /wallet/summary response payload. Set
+// to 200 — at 20 visible rows on a wallet tile, that's 10 pages of
+// history, well past what any UI surfaces.
+const MaxProjections = 200
+
 // paid30dWindow is the rolling window used for the "Versées 30j" tile
 // on the apporteur wallet. Kept as a package-level constant so tests
 // can compare against the same boundary without re-deriving it.

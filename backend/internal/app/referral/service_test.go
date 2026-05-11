@@ -43,6 +43,11 @@ type testFixture struct {
 type fakeProposalSummaryResolver struct {
 	mu      sync.Mutex
 	entries map[uuid.UUID]*referralapp.ProposalSummary
+	// forceErr — when non-nil, ResolveProposalSummaries returns this
+	// error verbatim. Used by Run B (WALLET-UNIFY) tests to verify
+	// the projection algorithm tolerates a broken title resolver
+	// without breaking the wallet payload.
+	forceErr error
 }
 
 func newFakeProposalSummaryResolver() *fakeProposalSummaryResolver {
@@ -68,6 +73,9 @@ func (f *fakeProposalSummaryResolver) ResolveProposalSummaries(
 ) (map[uuid.UUID]*referralapp.ProposalSummary, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.forceErr != nil {
+		return nil, f.forceErr
+	}
 	out := make(map[uuid.UUID]*referralapp.ProposalSummary, len(ids))
 	for _, id := range ids {
 		if s, ok := f.entries[id]; ok {

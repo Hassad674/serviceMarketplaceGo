@@ -57,6 +57,18 @@ type ServiceDeps struct {
 	// always passes a non-nil repository so anti-fraud attempts are
 	// recorded for forensic review.
 	Audits repository.AuditRepository
+	// MilestonesByProposal batch-loads milestones for a slice of
+	// proposal ids. Used by ProjectedCommissions (Run B WALLET-UNIFY)
+	// to compose the projection × commission row picture in one sweep.
+	// Optional: when nil, ProjectedCommissions degrades to returning
+	// nil (graceful degradation in worktrees that skipped milestone
+	// wiring).
+	MilestonesByProposal MilestonesByProposalLister
+	// OrgMembersLister resolves org id → member user ids. Required by
+	// ProjectedCommissions to fan a per-org wallet query onto the
+	// underlying users (referrals.referrer_id is a user id). Optional:
+	// nil disables projected commissions for the deployment.
+	OrgMembersLister OrgMemberLister
 }
 
 // Service is the referral feature's application service. It implements the
@@ -75,6 +87,9 @@ type Service struct {
 	proposalSummaries ProposalSummaryResolver
 	relationships    RelationshipChecker
 	audits           repository.AuditRepository
+	// Run B (WALLET-UNIFY) — narrow ports for ProjectedCommissions.
+	milestonesByProposal MilestonesByProposalLister
+	orgMemberLister      OrgMemberLister
 }
 
 // Compile-time assertions that the Service satisfies the eight exposed ports.
@@ -104,5 +119,7 @@ func NewService(deps ServiceDeps) *Service {
 		proposalSummaries: deps.ProposalSummaries,
 		relationships:    deps.Relationships,
 		audits:           deps.Audits,
+		milestonesByProposal: deps.MilestonesByProposal,
+		orgMemberLister:      deps.OrgMembersLister,
 	}
 }

@@ -50,6 +50,11 @@ type fakeReferralRepo struct {
 	findByIDForceErr      error // affects FindAttributionByID after first call
 	findByIDForceErrAfterN int  // 0 = always; N>0 = trigger after N calls
 	findByIDCalls         int
+
+	// Run B (WALLET-UNIFY) projection-path injectors.
+	listByReferrerForceErr        error
+	listAttsByRefIDsForceErr      error
+	listCommissionsByRefForceErr  error
 }
 
 func newFakeReferralRepo() *fakeReferralRepo {
@@ -111,6 +116,9 @@ func (f *fakeReferralRepo) FindActiveByCouple(ctx context.Context, providerID, c
 func (f *fakeReferralRepo) ListByReferrer(ctx context.Context, referrerID uuid.UUID, _ repository.ReferralListFilter) ([]*referral.Referral, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.listByReferrerForceErr != nil {
+		return nil, "", f.listByReferrerForceErr
+	}
 	var out []*referral.Referral
 	for _, r := range f.rows {
 		if r.ReferrerID == referrerID {
@@ -252,6 +260,9 @@ func (f *fakeReferralRepo) EndAttribution(ctx context.Context, attributionID, re
 func (f *fakeReferralRepo) ListAttributionsByReferralIDs(ctx context.Context, ids []uuid.UUID) ([]*referral.Attribution, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.listAttsByRefIDsForceErr != nil {
+		return nil, f.listAttsByRefIDsForceErr
+	}
 	want := make(map[uuid.UUID]struct{}, len(ids))
 	for _, id := range ids {
 		want[id] = struct{}{}
@@ -332,6 +343,9 @@ func (f *fakeReferralRepo) FindCommissionByStripeTransferID(ctx context.Context,
 func (f *fakeReferralRepo) ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.listCommissionsByRefForceErr != nil {
+		return nil, f.listCommissionsByRefForceErr
+	}
 	var out []*referral.Commission
 	for _, c := range f.commissions {
 		if a, ok := f.attributionsByID[c.AttributionID]; ok && a.ReferralID == referralID {

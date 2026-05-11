@@ -91,6 +91,11 @@ func wireReferral(deps referralDeps) referralWiring {
 		// to messaging.
 		Relationships: referralapp.NewConversationRelationshipChecker(deps.Conversations),
 		Audits:        deps.Audits,
+		// Run B (WALLET-UNIFY) — projection ports for the unified
+		// wallet/summary endpoint. Both adapters are pass-throughs to
+		// the underlying repositories.
+		MilestonesByProposal: deps.Milestones,
+		OrgMembersLister:     deps.OrganizationMems,
 	})
 	// Setter-based wiring to avoid import cycles between
 	// proposal/payment/embedded.
