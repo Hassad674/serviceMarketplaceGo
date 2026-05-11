@@ -44,6 +44,7 @@ type authDeps struct {
 	OrganizationInvitationRepo repository.OrganizationInvitationRepository
 	AuditRepo                  repository.AuditRepository
 	UserSessionRepo            repository.UserSessionRepository
+	GeoIPSvc                   service.GeoIPLookup
 	Hasher                     service.HasherService
 	TokenSvc                   service.TokenService
 	EmailSvc                   service.EmailService
@@ -81,6 +82,7 @@ func wireAuth(deps authDeps) authWiring {
 		RefreshBlacklist: deps.RefreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
 		Audits:           deps.AuditRepo,          // SEC-13 — emit auth audit events
 		UserSessions:     deps.UserSessionRepo,    // B.4 — server-side session audit trail
+		GeoIP:            deps.GeoIPSvc,          // SEC-SESSIONS — best-effort city / country enrichment
 		FrontendURL:      deps.Cfg.FrontendURL,
 	})
 

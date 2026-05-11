@@ -76,6 +76,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		OrganizationInvitationRepo: infra.OrganizationInvitationRepo,
 		AuditRepo:                  infra.AuditRepo,
 		UserSessionRepo:            infra.UserSessionRepo,
+		GeoIPSvc:                   infra.GeoIPSvc,
 		Hasher:                     infra.Hasher,
 		TokenSvc:                   infra.TokenSvc,
 		EmailSvc:                   infra.EmailSvc,
@@ -625,6 +626,13 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	})
 	securityHandler := securityWire.Handler
 
+	// SEC-SESSIONS: user-facing Sécurité-page session management. Reads
+	// the same user_sessions table that B.4 already audits, but exposes
+	// the Malt-style display columns added by migration 150 plus
+	// revocation endpoints. Wired right after the security activity
+	// feed so the two handlers ship as one cohesive surface.
+	sessionsHandler := handler.NewSessionsHandler(infra.UserSessionRepo, "session_id")
+
 	wsHandler := wireWSHandler(wsHandlerDeps{
 		Cfg:          cfg,
 		WSHub:        infra.WSHub,
@@ -671,6 +679,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 			Skill:   skillHandler, Referral: referralHandler,
 			Search:  searchHandler, AdminSearchStats: adminSearchStatsHandler,
 			Security:      securityHandler,
+			Sessions:      sessionsHandler,
 			Stats:         statsHandler,
 			StatsRecorder: statsSvc,
 		}),

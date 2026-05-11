@@ -3,11 +3,20 @@ package auth
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/session"
 )
+
+// geoLookupTimeout caps the fire-and-forget GeoIP goroutine. Even
+// though the goroutine is detached from the request context, we keep
+// a hard budget so a misbehaving provider cannot pile up goroutines
+// during an outage. 3s leaves headroom over the adapter's 2s HTTP
+// timeout so the parent context is the binding constraint when the
+// upstream is slow but reachable.
+const geoLookupTimeout = 3 * time.Second
 
 // recordSession writes a server-side audit row for a freshly issued
 // refresh token (B.4). The helper:
@@ -66,6 +75,12 @@ func (s *Service) recordSession(
 		IPAnonymized:  fp.IPAnonymized,
 		LoginMethod:   method,
 		ExpiresAt:     claims.ExpiresAt,
+
+		// SEC-SESSIONS — display columns. The handler already parsed
+		// the UA; the service treats every field as opaque.
+		DeviceLabel: fp.DeviceLabel,
+		Browser:     fp.Browser,
+		OS:          fp.OS,
 	})
 	if err != nil {
 		slog.Warn("auth: session audit build failed",
@@ -79,6 +94,54 @@ func (s *Service) recordSession(
 			"user_id", userID,
 			"login_method", method,
 			"error", err)
+		return
+	}
+
+	// Fire-and-forget GeoIP enrichment. The session row is already
+	// committed with empty city / country_code defaults — this
+	// goroutine patches them in if the lookup succeeds within the
+	// budget. Any failure mode (timeout, rate-limit, private IP) is
+	// silent at the adapter layer; here we just propagate the patch.
+	if s.geoIP != nil && fp.RemoteIP != "" {
+		jti := claims.JTI
+		ip := fp.RemoteIP
+		go s.enrichSessionGeo(jti, ip)
+	}
+}
+
+// enrichSessionGeo runs the GeoIP lookup off the request goroutine
+// and patches the freshly created user_sessions row in-place. The
+// context is detached from the request (no parent cancellation) but
+// bounded by geoLookupTimeout so misbehaving providers cannot stack
+// up goroutines.
+func (s *Service) enrichSessionGeo(jti string, rawIP string) {
+	defer func() {
+		// Defensive: a panic in a fire-and-forget goroutine would
+		// kill the process if not recovered. The geoip adapter and
+		// repo methods are well-behaved but we belt-and-suspenders
+		// the boundary.
+		if rec := recover(); rec != nil {
+			slog.Warn("auth: session geo enrichment panicked", "jti", jti, "panic", rec)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), geoLookupTimeout)
+	defer cancel()
+
+	loc, err := s.geoIP.Lookup(ctx, rawIP)
+	if err != nil {
+		slog.Warn("auth: session geo lookup failed", "jti", jti, "error", err)
+		return
+	}
+	if loc.City == "" && loc.CountryCode == "" {
+		// Nothing to patch — keep the row's '' defaults and avoid a
+		// no-op UPDATE round-trip.
+		return
+	}
+	if s.userSessions == nil {
+		return
+	}
+	if err := s.userSessions.UpdateGeoCity(ctx, jti, loc.City, loc.CountryCode); err != nil {
+		slog.Warn("auth: session geo patch failed", "jti", jti, "error", err)
 	}
 }
 

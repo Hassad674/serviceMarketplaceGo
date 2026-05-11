@@ -64,6 +64,7 @@ type routerHandlers struct {
 	Consent               *handler.ConsentHandler
 	AutomatedDecisionAppeal *handler.AutomatedDecisionAppealHandler
 	Security              *handler.SecurityHandler
+	Sessions              *handler.SessionsHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
@@ -134,6 +135,7 @@ type finalHandlers struct {
 	Consent               *handler.ConsentHandler
 	AutomatedDecisionAppeal *handler.AutomatedDecisionAppealHandler
 	Security              *handler.SecurityHandler
+	Sessions              *handler.SessionsHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
@@ -196,6 +198,7 @@ func buildRouterHandlers(h finalHandlers) routerHandlers {
 		Consent:                 h.Consent,
 		AutomatedDecisionAppeal: h.AutomatedDecisionAppeal,
 		Security:                h.Security,
+		Sessions:                h.Sessions,
 		Skill:                 h.Skill,
 		Referral:              h.Referral,
 		Search:                h.Search,
@@ -258,6 +261,7 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Consent:                 b.Handlers.Consent,
 		AutomatedDecisionAppeal: b.Handlers.AutomatedDecisionAppeal,
 		Security:                b.Handlers.Security,
+		Sessions:                b.Handlers.Sessions,
 		Skill:                 b.Handlers.Skill,
 		Referral:              b.Handlers.Referral,
 		Search:                b.Handlers.Search,

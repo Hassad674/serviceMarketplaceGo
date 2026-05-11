@@ -77,6 +77,30 @@ func (m *mockUserSessionRepo) ListActiveByUser(_ context.Context, _ uuid.UUID) (
 	return nil, nil
 }
 
+// UpdateGeoCity / FindByID / RevokeByID / RevokeAllForUserExceptJTI
+// are no-op stubs satisfying the SEC-SESSIONS additions to the port.
+// The B.4 tests do not assert on these — the SEC-SESSIONS test
+// surface lives in sessions_handler_test.go and exercises the
+// postgres adapter directly.
+func (m *mockUserSessionRepo) UpdateGeoCity(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+func (m *mockUserSessionRepo) FindByID(_ context.Context, id uuid.UUID) (*session.Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range m.created {
+		if s.ID == id {
+			cp := *s
+			return &cp, nil
+		}
+	}
+	return nil, session.ErrNotFound
+}
+func (m *mockUserSessionRepo) RevokeByID(_ context.Context, _ uuid.UUID) error  { return nil }
+func (m *mockUserSessionRepo) RevokeAllForUserExceptJTI(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 func (m *mockUserSessionRepo) snapshot() (created []*session.Session, revokedJTIs []string, revokedUsers []uuid.UUID) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

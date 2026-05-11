@@ -126,6 +126,7 @@ type routerDepsBundle struct {
 	Consent               *handler.ConsentHandler
 	AutomatedDecisionAppeal *handler.AutomatedDecisionAppealHandler
 	Security              *handler.SecurityHandler
+	Sessions              *handler.SessionsHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
@@ -200,6 +201,7 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		Consent:                 b.Consent,
 		AutomatedDecisionAppeal: b.AutomatedDecisionAppeal,
 		Security:                b.Security,
+		Sessions:                b.Sessions,
 		Skill:                b.Skill,
 		Referral:             b.Referral,
 		Search:               b.Search,

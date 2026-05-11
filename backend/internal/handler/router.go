@@ -76,6 +76,7 @@ type RouterDeps struct {
 	Consent             *ConsentHandler          // optional — nil disables POST /consent/log
 	AutomatedDecisionAppeal *AutomatedDecisionAppealHandler // optional — nil disables POST /me/automated-decision-appeals (RGPD art. 22)
 	Security            *SecurityHandler         // optional — nil disables /me/security/activity route
+	Sessions            *SessionsHandler         // optional — nil disables /me/sessions routes (SEC-SESSIONS)
 	Stats               *StatsHandler            // optional — nil disables /me/stats/* routes
 	StatsRecorder       StatsRecorder            // optional — nil disables view-tracking middleware on public profile reads
 	WSHandler           http.HandlerFunc
@@ -180,6 +181,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		mountConsentRoutes(r, deps, auth)
 		mountAutomatedDecisionAppealRoutes(r, deps, auth)
 		mountSecurityRoutes(r, deps, auth)
+		mountSessionsRoutes(r, deps, auth)
 		mountStatsRoutes(r, deps, auth)
 		mountWebSocketRoute(r, deps)
 		mountAdminRoutes(r, deps, auth)

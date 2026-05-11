@@ -1021,6 +1021,31 @@
         "passwordResetRequest": "Password reset requested",
         "passwordResetComplete": "Password reset completed",
         "unknown": "Security event"
+      },
+      "sessions": {
+        "title": "Active sessions",
+        "subtitle": "Devices that currently have access to your account. Revoke any session you do not recognize.",
+        "currentBadge": "This session",
+        "revoke": "Revoke",
+        "revoking": "Revoking...",
+        "revokeOthers": "Revoke every other session",
+        "revokeOthersConfirm": "Every other session will be signed out. You stay signed in here.",
+        "empty": "No active session to display.",
+        "error": "We could not load your sessions. Please try again in a moment.",
+        "unknownLocation": "Unknown location",
+        "loginMethod": {
+          "password": "Password sign-in",
+          "invitation": "Invitation sign-in",
+          "token_bridge": "Mobile sign-in",
+          "refresh": "Automatic refresh",
+          "admin_impersonation": "Support sign-in"
+        },
+        "toast": {
+          "revoked": "Session revoked.",
+          "revokedError": "We could not revoke this session.",
+          "revokedOthers": "Other sessions revoked.",
+          "revokedOthersError": "We could not revoke the other sessions."
+        }
       }
     },
     "gdpr": {

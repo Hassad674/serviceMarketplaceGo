@@ -1021,6 +1021,31 @@
         "passwordResetRequest": "Demande de réinitialisation du mot de passe",
         "passwordResetComplete": "Mot de passe réinitialisé",
         "unknown": "Évènement de sécurité"
+      },
+      "sessions": {
+        "title": "Sessions actives",
+        "subtitle": "Voici les appareils qui ont accès à ton compte. Révoque toute session que tu ne reconnais pas.",
+        "currentBadge": "Cette session",
+        "revoke": "Révoquer",
+        "revoking": "Révocation...",
+        "revokeOthers": "Tout révoquer sauf cette session",
+        "revokeOthersConfirm": "Toutes les autres sessions vont être déconnectées. Tu restes connecté ici.",
+        "empty": "Aucune session active à afficher.",
+        "error": "Impossible de charger les sessions. Réessaie dans un instant.",
+        "unknownLocation": "Localisation inconnue",
+        "loginMethod": {
+          "password": "Connexion par mot de passe",
+          "invitation": "Connexion via invitation",
+          "token_bridge": "Connexion mobile",
+          "refresh": "Renouvellement automatique",
+          "admin_impersonation": "Connexion d'assistance"
+        },
+        "toast": {
+          "revoked": "Session révoquée.",
+          "revokedError": "Impossible de révoquer cette session.",
+          "revokedOthers": "Autres sessions révoquées.",
+          "revokedOthersError": "Impossible de révoquer les autres sessions."
+        }
       }
     },
     "gdpr": {
