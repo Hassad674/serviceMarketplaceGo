@@ -5,16 +5,22 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Loader2,
   Sparkles,
   Undo2,
   UserCheck,
   XCircle,
 } from "lucide-react"
+import { useState } from "react"
+
+import { ApiError } from "@/shared/lib/api-client"
 import { cn } from "@/shared/lib/utils"
 import {
   BalanceCard,
   SectionHeader,
 } from "./wallet-transactions-list"
+import { CommissionKYCRequiredModal } from "./commission-kyc-required-modal"
+import { useRetryCommission } from "../hooks/use-wallet"
 import type {
   CommissionWallet,
   WalletCommissionRecord,
@@ -58,8 +64,44 @@ export function WalletCommissionList({
     summary.pending_kyc_cents +
     summary.paid_cents +
     summary.clawed_back_cents
+
+  // KYC modal state for the Retirer fallback (D1+D2). When the 422
+  // response comes back from POST /wallet/commissions/{id}/retry, we
+  // open this modal with the onboarding URL embedded in the error
+  // body so the apporteur can deep-link straight to Stripe to finish
+  // KYC. The URL is optional — the modal falls back to the in-app
+  // /payment-info redirect when absent.
+  const [kycModalOpen, setKycModalOpen] = useState(false)
+  const [kycOnboardingURL, setKycOnboardingURL] = useState<string | undefined>(
+    undefined,
+  )
+  // Track which row's Retirer button is currently in-flight so we
+  // render a spinner on that specific row (instead of disabling every
+  // Retirer button while one is loading).
+  const [retryingID, setRetryingID] = useState<string | null>(null)
+  const retryMutation = useRetryCommission()
+
   if (totalActivity === 0 && records.length === 0) {
     return null
+  }
+
+  function handleRetire(commissionID: string) {
+    setRetryingID(commissionID)
+    retryMutation.mutate(commissionID, {
+      onSettled: () => setRetryingID(null),
+      onError: (err: unknown) => {
+        if (err instanceof ApiError && err.status === 422 && err.code === "kyc_required") {
+          const url =
+            (err.body as { onboarding_url?: string } | null)?.onboarding_url
+          setKycOnboardingURL(typeof url === "string" && url ? url : undefined)
+          setKycModalOpen(true)
+        }
+        // 409 / 502 → silent; the global toaster (if wired) will pick
+        // up generic errors. We don't render an inline error to keep
+        // the row compact — the wallet refresh after onSettled will
+        // update the row to its actual state.
+      },
+    })
   }
 
   return (
@@ -121,11 +163,19 @@ export function WalletCommissionList({
                 key={r.id}
                 record={r}
                 isLast={index === records.length - 1}
+                isRetrying={retryingID === r.id}
+                onRetire={() => handleRetire(r.id)}
               />
             ))}
           </div>
         )}
       </div>
+
+      <CommissionKYCRequiredModal
+        open={kycModalOpen}
+        onClose={() => setKycModalOpen(false)}
+        onboardingURL={kycOnboardingURL}
+      />
     </section>
   )
 }
@@ -133,13 +183,26 @@ export function WalletCommissionList({
 function CommissionRow({
   record,
   isLast,
+  isRetrying,
+  onRetire,
 }: {
   record: WalletCommissionRecord
   isLast: boolean
+  isRetrying: boolean
+  onRetire: () => void
 }) {
   const statusBadge = commissionStatusLabel(record.status)
   const isPending =
     record.status === "pending" || record.status === "pending_kyc"
+
+  // D1+D2 — show the "Retirer" button only when the row is retire-
+  // eligible. We trust the backend flag when present and fall back
+  // to deriving from status so older API responses still surface
+  // the button correctly.
+  const retireEligible =
+    typeof record.retire_eligible === "boolean"
+      ? record.retire_eligible
+      : record.status === "pending_kyc" || record.status === "failed"
 
   // 3px left accent rail per status — same pattern as the missions
   // history. Pending = amber, clawed_back = corail (warm), failed =
@@ -208,6 +271,32 @@ function CommissionRow({
           {statusBadge.label}
         </span>
       </div>
+      {retireEligible ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            // Stop the click from bubbling to the parent <Link> so
+            // pressing Retirer doesn't also navigate to the parent
+            // referral.
+            event.preventDefault()
+            event.stopPropagation()
+            if (!isRetrying) onRetire()
+          }}
+          disabled={isRetrying}
+          aria-label="Retirer cette commission"
+          className={cn(
+            "ml-1 inline-flex shrink-0 items-center justify-center gap-1 rounded-full px-2.5 py-1",
+            "text-[11px] font-semibold transition-colors",
+            "bg-primary text-primary-foreground hover:bg-primary-deep",
+            isRetrying && "cursor-wait opacity-70",
+          )}
+        >
+          {isRetrying ? (
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+          ) : null}
+          Retirer
+        </button>
+      ) : null}
       {record.referral_id ? (
         <ChevronRight
           className="h-4 w-4 shrink-0 text-subtle-foreground transition-colors group-hover:text-primary"

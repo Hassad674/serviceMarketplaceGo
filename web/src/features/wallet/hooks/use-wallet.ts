@@ -1,7 +1,12 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getWallet, requestPayout, retryFailedTransfer } from "../api/wallet-api"
+import {
+  getWallet,
+  requestPayout,
+  retryCommission,
+  retryFailedTransfer,
+} from "../api/wallet-api"
 
 const WALLET_KEY = ["wallet"]
 
@@ -33,6 +38,25 @@ export function useRetryTransfer() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (recordId: string) => retryFailedTransfer(recordId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WALLET_KEY })
+    },
+  })
+}
+
+/**
+ * Mutation for the apporteur-side "Retirer" button on a commission
+ * row stuck in pending_kyc or failed (D1+D2). Takes the commission id
+ * (NOT the milestone id — the commission row is the unambiguous
+ * target). The caller is responsible for handling the 422
+ * kyc_required branch by inspecting the rejected error and opening
+ * the onboarding modal. On 200 (paid) we invalidate the wallet
+ * query so the row flips to "Reçue" without a refresh.
+ */
+export function useRetryCommission() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (commissionId: string) => retryCommission(commissionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WALLET_KEY })
     },
