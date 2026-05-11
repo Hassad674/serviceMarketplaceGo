@@ -255,6 +255,82 @@ func TestProfileCache_ZeroTTLs_FallBackToDefaults(t *testing.T) {
 	assert.Greater(t, ttl, time.Duration(0))
 }
 
+// TestProfileCache_DefaultPositiveTTLMatchesD7Spec pins the contracted
+// positive TTL produced by NewCachedPublicProfileReader when callers
+// pass a non-positive value (or rely on the published default). D7
+// Target C bumped this from 60s to 5min — production observability
+// of cache-hit-rate depends on this value, so any future tweak must
+// touch this test deliberately.
+func TestProfileCache_DefaultPositiveTTLMatchesD7Spec(t *testing.T) {
+	assert.Equal(t, 5*time.Minute, adapter.DefaultPublicProfileCacheTTL,
+		"D7 Target C — public profile positive TTL is contracted at 5min")
+}
+
+// TestProfileCache_DefaultNegativeTTLMatchesD7Spec pins the contracted
+// negative TTL. D7 Target C bumped this from 30s to 2min — long enough
+// to absorb 404 spam, short enough to surface a newly-created org.
+func TestProfileCache_DefaultNegativeTTLMatchesD7Spec(t *testing.T) {
+	assert.Equal(t, 2*time.Minute, adapter.DefaultPublicProfileNegativeTTL,
+		"D7 Target C — public profile negative TTL is contracted at 2min")
+}
+
+// TestProfileCache_DefaultTTLAppliedAtMiniredisKey is the runtime
+// counterpart to the constant test above. It verifies the actual
+// Redis EXPIRE applied to a freshly-cached entry matches the
+// contracted positive TTL — guards against a refactor that
+// accidentally reads the value from a stale config struct.
+func TestProfileCache_DefaultTTLAppliedAtMiniredisKey(t *testing.T) {
+	orgID := uuid.New()
+	inner := newStubProfile(samplePresentProfile(orgID), nil)
+	cache, mr := newProfileTestCache(t,
+		inner,
+		adapter.DefaultPublicProfileCacheTTL,
+		adapter.DefaultPublicProfileNegativeTTL,
+	)
+
+	_, _ = cache.GetProfile(context.Background(), orgID)
+
+	ttl := mr.TTL("profile:agency:" + orgID.String())
+	// Miniredis returns the exact TTL with second precision; we
+	// assert within a 1s tolerance to avoid flakiness on slow CI.
+	assert.InDelta(t,
+		float64(adapter.DefaultPublicProfileCacheTTL.Seconds()),
+		float64(ttl.Seconds()),
+		1.0,
+		"expected ~%s TTL on freshly-cached profile, got %s",
+		adapter.DefaultPublicProfileCacheTTL, ttl,
+	)
+}
+
+// TestProfileCache_InvalidateStillFiresAfterTTLBump pins the "TTL is
+// only a safety net" contract: an explicit Invalidate after a profile
+// edit must remove the cached entry IMMEDIATELY, regardless of how
+// long the TTL is. This is the regression guard for the D7 bump —
+// if a future refactor "skips" Invalidate because "TTL will eventually
+// catch it", the bump silently turns into a 5-minute staleness
+// window for every profile edit.
+func TestProfileCache_InvalidateStillFiresAfterTTLBump(t *testing.T) {
+	orgID := uuid.New()
+	inner := newStubProfile(samplePresentProfile(orgID), nil)
+	cache, mr := newProfileTestCache(t,
+		inner,
+		adapter.DefaultPublicProfileCacheTTL,
+		adapter.DefaultPublicProfileNegativeTTL,
+	)
+
+	// Warm the cache.
+	_, _ = cache.GetProfile(context.Background(), orgID)
+	require.True(t, mr.Exists("profile:agency:"+orgID.String()),
+		"sanity: warmed entry must exist")
+
+	// Explicit invalidate — DB-write path triggers this via
+	// WithCacheInvalidator after a successful UPDATE.
+	cache.Invalidate(context.Background(), orgID)
+
+	assert.False(t, mr.Exists("profile:agency:"+orgID.String()),
+		"Invalidate must remove the entry immediately, NOT defer to TTL")
+}
+
 // --- Edge cases for higher coverage ---
 
 func TestProfileCache_CorruptCachedEntry_TreatedAsMiss(t *testing.T) {

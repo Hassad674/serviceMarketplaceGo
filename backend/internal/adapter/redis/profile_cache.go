@@ -16,17 +16,22 @@ import (
 )
 
 // Cache TTLs are tuned per signal volatility:
-//   - 60s for the hit / present case: short enough that operator-
-//     visible edits surface within a minute even if the explicit
-//     invalidate fails, long enough to absorb the read burst that
-//     follows a profile being shared on social.
-//   - 30s for the negative (not-found) case: 404 spam from broken
-//     deep-links is the typical pattern; we want the second hit
-//     to come from Redis but fast-forward back to the DB if the
-//     org gets created in the meantime.
+//   - 5min for the hit / present case (D7 Target C bump from 60s):
+//     public profile edits go through profile.Service which fires
+//     WithCacheInvalidator on every write, so freshness is bounded
+//     by the explicit invalidate path, not the TTL. The TTL is only
+//     a safety net for the (very rare) invalidate failure. Bumping
+//     from 60s to 5min slashes the steady-state DB read rate by 5×
+//     on a profile receiving sustained traffic (e.g. a profile
+//     shared on LinkedIn / X) without trading any correctness — the
+//     invalidate still wins for normal edits.
+//   - 2min for the negative (not-found) case (bump from 30s): 404
+//     spam from broken deep-links is the typical pattern. A 2-minute
+//     ceiling absorbs ~4× more spam than 30s while still letting a
+//     newly-created org surface within a couple of minutes.
 const (
-	DefaultPublicProfileCacheTTL    = 60 * time.Second
-	DefaultPublicProfileNegativeTTL = 30 * time.Second
+	DefaultPublicProfileCacheTTL    = 5 * time.Minute
+	DefaultPublicProfileNegativeTTL = 2 * time.Minute
 )
 
 // agencyProfileKeyPrefix is short on purpose — there is one entry

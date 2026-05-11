@@ -249,6 +249,13 @@ func mountGlobalMiddleware(r chi.Router, deps RouterDeps) {
 	r.Use(middleware.Recovery)
 	r.Use(middleware.SecurityHeaders(deps.Config))
 	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
+	// D7 Target B: transparent gzip on JSON/text responses larger than
+	// CompressionMinBytes (1 KiB). Sits AFTER Recovery so panics still
+	// bubble a recognisable 500, and BEFORE the rate-limiter so a
+	// throttled 429 carries the encoded body too. The middleware
+	// honours `Accept-Encoding: gzip` and is a no-op for clients that
+	// did not advertise it (mobile telemetry, k8s readiness probes).
+	r.Use(middleware.Compression)
 
 	// SEC-11: global per-IP throttle. Default cap is 100 req/min as
 	// documented in CLAUDE.md, but PERF-FIX-W-IDLE-CPU made it

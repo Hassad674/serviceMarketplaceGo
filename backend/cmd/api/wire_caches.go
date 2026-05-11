@@ -53,8 +53,9 @@ type cachesDeps struct {
 // → cache delete; reverse order opens a split-brain window).
 //
 // TTLs are tuned per signal volatility:
-//   - profile:agency:{org}      60s (operator edits are rare)
-//   - profile:freelance:{org}   60s (same)
+//   - profile:agency:{org}      5min (D7 — invalidate on write covers
+//                                     freshness; TTL is the safety net)
+//   - profile:freelance:{org}   5min (same)
 //   - expertise:org:{org}       5min (lists change very rarely)
 //   - skills:curated:{key}:{n}  10min (catalog is curator-seeded)
 //

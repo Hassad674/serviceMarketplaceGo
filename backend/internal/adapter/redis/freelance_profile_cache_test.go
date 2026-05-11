@@ -245,6 +245,53 @@ func TestFreelanceCache_ZeroTTLs_FallBackToDefaults(t *testing.T) {
 	assert.Greater(t, ttl, time.Duration(0))
 }
 
+// TestFreelanceCache_DefaultTTLAppliedAtMiniredisKey verifies the
+// D7 Target C bumped default TTL (5min) is applied to a freshly-
+// cached freelance profile entry. The freelance cache shares the
+// agency cache's TTL constants, so both grew together.
+func TestFreelanceCache_DefaultTTLAppliedAtMiniredisKey(t *testing.T) {
+	orgID := uuid.New()
+	inner := newStubFreelance(sampleFreelanceView(orgID), nil)
+	cache, mr := newFreelanceTestCache(t,
+		inner,
+		adapter.DefaultPublicProfileCacheTTL,
+		adapter.DefaultPublicProfileNegativeTTL,
+	)
+
+	_, _ = cache.GetPublicByOrgID(context.Background(), orgID)
+
+	ttl := mr.TTL("profile:freelance:" + orgID.String())
+	assert.InDelta(t,
+		float64(adapter.DefaultPublicProfileCacheTTL.Seconds()),
+		float64(ttl.Seconds()),
+		1.0,
+		"expected ~%s TTL on freshly-cached freelance profile, got %s",
+		adapter.DefaultPublicProfileCacheTTL, ttl,
+	)
+}
+
+// TestFreelanceCache_InvalidateStillFiresAfterTTLBump pins the
+// invariant that an explicit Invalidate removes the entry
+// immediately even when TTL is now 5min — regression guard for
+// the same class of bug as the agency-side test.
+func TestFreelanceCache_InvalidateStillFiresAfterTTLBump(t *testing.T) {
+	orgID := uuid.New()
+	inner := newStubFreelance(sampleFreelanceView(orgID), nil)
+	cache, mr := newFreelanceTestCache(t,
+		inner,
+		adapter.DefaultPublicProfileCacheTTL,
+		adapter.DefaultPublicProfileNegativeTTL,
+	)
+
+	_, _ = cache.GetPublicByOrgID(context.Background(), orgID)
+	require.True(t, mr.Exists("profile:freelance:"+orgID.String()))
+
+	cache.Invalidate(context.Background(), orgID)
+
+	assert.False(t, mr.Exists("profile:freelance:"+orgID.String()),
+		"Invalidate must remove the freelance entry immediately, not defer to TTL")
+}
+
 // --- Edge cases for higher coverage ---
 
 func TestFreelanceCache_CorruptCachedEntry_TreatedAsMiss(t *testing.T) {
