@@ -210,6 +210,7 @@ func scanInvoiceFrom(s invoiceRowScanner) (*invoicing.Invoice, error) {
 		pdfR2Key              sql.NullString
 		finalizedAt           sql.NullTime
 		mentions              pq.StringArray
+		milestoneID           uuid.NullUUID
 	)
 	err := s.Scan(
 		&inv.ID, &inv.Number, &inv.RecipientOrganizationID, &recipientJSON, &issuerJSON,
@@ -218,9 +219,14 @@ func scanInvoiceFrom(s invoiceRowScanner) (*invoicing.Invoice, error) {
 		&taxRegime, &mentions, &sourceType,
 		&stripeEventID, &stripePaymentIntentID, &stripeInvoiceID,
 		&pdfR2Key, &status, &finalizedAt, &inv.CreatedAt, &inv.UpdatedAt,
+		&milestoneID,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if milestoneID.Valid {
+		id := milestoneID.UUID
+		inv.MilestoneID = &id
 	}
 	if err := json.Unmarshal(recipientJSON, &inv.RecipientSnapshot); err != nil {
 		return nil, fmt.Errorf("unmarshal recipient snapshot: %w", err)
@@ -329,4 +335,15 @@ func invoiceNullableString(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// invoiceNullableUUID returns a value that maps a nil/zero uuid pointer
+// to a SQL NULL. Used by the invoice INSERT path so subscription /
+// monthly_commission rows write NULL into milestone_id while the
+// per-milestone path writes the actual uuid.
+func invoiceNullableUUID(id *uuid.UUID) interface{} {
+	if id == nil || *id == uuid.Nil {
+		return nil
+	}
+	return *id
 }

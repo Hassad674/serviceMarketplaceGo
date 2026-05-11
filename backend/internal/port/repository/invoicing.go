@@ -98,6 +98,18 @@ type InvoiceRepository interface {
 	// FindCreditNoteByID returns the credit-note row for the admin
 	// PDF redirect. Returns invoicing.ErrNotFound when no row matches.
 	FindCreditNoteByID(ctx context.Context, id uuid.UUID) (*invoicing.CreditNote, error)
+
+	// FindPlatformFeeByMilestoneID returns the platform_fee invoice
+	// emitted for the given milestone, if any. Returns
+	// invoicing.ErrNotFound when no row matches — used as the
+	// idempotence probe by the per-milestone emission path AND by the
+	// monthly safety-net to skip milestones already invoiced.
+	//
+	// The query is scoped to source_type='platform_fee' so a milestone
+	// id that incidentally matches another row type (should be
+	// impossible thanks to the column invariant) cannot trip a false
+	// positive.
+	FindPlatformFeeByMilestoneID(ctx context.Context, milestoneID uuid.UUID) (*invoicing.Invoice, error)
 }
 
 // AdminInvoiceFilters are the optional filter axes the admin listing

@@ -28,4 +28,12 @@ var (
 	ErrCounterScopeUnknown        = errors.New("invoicing: counter scope must be 'invoice' or 'credit_note'")
 	ErrCreditNoteOriginalRequired = errors.New("invoicing: credit note must reference an existing invoice")
 	ErrPDFKeyRequired             = errors.New("invoicing: cannot finalize without a stored PDF key")
+	// ErrMilestoneIDRequired surfaces when a SourcePlatformFee invoice
+	// is built without a MilestoneID — the per-milestone path must
+	// always reference the milestone it bills for.
+	ErrMilestoneIDRequired = errors.New("invoicing: platform_fee invoice requires a milestone id")
+	// ErrMilestoneIDUnexpected surfaces when a SourceSubscription or
+	// SourceMonthlyCommission input carries a non-nil MilestoneID — the
+	// non-platform-fee paths must NEVER set the field.
+	ErrMilestoneIDUnexpected = errors.New("invoicing: only platform_fee invoices may carry a milestone id")
 )

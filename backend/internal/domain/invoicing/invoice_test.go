@@ -211,7 +211,70 @@ func TestInvoiceItem_Validate(t *testing.T) {
 func TestSourceType_IsValid(t *testing.T) {
 	assert.True(t, invoicing.SourceSubscription.IsValid())
 	assert.True(t, invoicing.SourceMonthlyCommission.IsValid())
+	assert.True(t, invoicing.SourcePlatformFee.IsValid())
 	assert.False(t, invoicing.SourceType("nope").IsValid())
+	assert.False(t, invoicing.SourceType("").IsValid())
+}
+
+func TestInvoice_IsPlatformFee(t *testing.T) {
+	tests := []struct {
+		name string
+		src  invoicing.SourceType
+		want bool
+	}{
+		{"platform_fee", invoicing.SourcePlatformFee, true},
+		{"subscription", invoicing.SourceSubscription, false},
+		{"monthly_commission", invoicing.SourceMonthlyCommission, false},
+		{"empty", invoicing.SourceType(""), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			inv := &invoicing.Invoice{SourceType: tc.src}
+			assert.Equal(t, tc.want, inv.IsPlatformFee())
+		})
+	}
+}
+
+func TestNewInvoice_PlatformFee_RequiresMilestoneID(t *testing.T) {
+	in := validNewInvoiceInput()
+	in.SourceType = invoicing.SourcePlatformFee
+	in.MilestoneID = nil // missing
+	inv, err := invoicing.NewInvoice(in)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, invoicing.ErrMilestoneIDRequired)
+	assert.Nil(t, inv)
+}
+
+func TestNewInvoice_PlatformFee_RejectsZeroMilestoneID(t *testing.T) {
+	in := validNewInvoiceInput()
+	in.SourceType = invoicing.SourcePlatformFee
+	zero := uuid.Nil
+	in.MilestoneID = &zero
+	_, err := invoicing.NewInvoice(in)
+	require.ErrorIs(t, err, invoicing.ErrMilestoneIDRequired)
+}
+
+func TestNewInvoice_PlatformFee_HappyPath(t *testing.T) {
+	in := validNewInvoiceInput()
+	in.SourceType = invoicing.SourcePlatformFee
+	mid := uuid.New()
+	in.MilestoneID = &mid
+	in.StripeEventID = "" // platform_fee invoices have no stripe event
+	inv, err := invoicing.NewInvoice(in)
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+	assert.True(t, inv.IsPlatformFee())
+	require.NotNil(t, inv.MilestoneID)
+	assert.Equal(t, mid, *inv.MilestoneID)
+}
+
+func TestNewInvoice_NonPlatformFee_RejectsMilestoneID(t *testing.T) {
+	in := validNewInvoiceInput()
+	in.SourceType = invoicing.SourceSubscription
+	mid := uuid.New()
+	in.MilestoneID = &mid
+	_, err := invoicing.NewInvoice(in)
+	require.ErrorIs(t, err, invoicing.ErrMilestoneIDUnexpected)
 }
 
 func TestStatus_IsValid(t *testing.T) {

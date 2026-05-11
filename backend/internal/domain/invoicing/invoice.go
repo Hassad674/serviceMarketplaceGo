@@ -64,12 +64,26 @@ type Invoice struct {
 	StripeEventID           string
 	StripePaymentIntentID   string
 	StripeInvoiceID         string
-	PDFR2Key                string
-	Status                  Status
-	FinalizedAt             *time.Time
-	Items                   []InvoiceItem
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	// MilestoneID is set ONLY on SourcePlatformFee invoices — the
+	// per-milestone immediate emission path. Subscription and
+	// monthly_commission rows leave it nil. The DB enforces
+	// at-most-one-platform-fee-invoice-per-milestone via the partial
+	// UNIQUE index idx_invoice_milestone_platform_fee_unique.
+	MilestoneID  *uuid.UUID
+	PDFR2Key     string
+	Status       Status
+	FinalizedAt  *time.Time
+	Items        []InvoiceItem
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+// IsPlatformFee reports whether this invoice was emitted by the
+// per-milestone immediate path. Useful in caller branches that need
+// to differentiate the per-milestone flow from the subscription /
+// monthly-commission flows without inspecting SourceType verbatim.
+func (i *Invoice) IsPlatformFee() bool {
+	return i.SourceType == SourcePlatformFee
 }
 
 // NewInvoiceInput groups the constructor arguments. Validated as a
@@ -85,7 +99,12 @@ type NewInvoiceInput struct {
 	StripeEventID           string
 	StripePaymentIntentID   string
 	StripeInvoiceID         string
-	Items                   []InvoiceItem
+	// MilestoneID is REQUIRED when SourceType==SourcePlatformFee and
+	// MUST be nil for any other source type — NewInvoice enforces the
+	// invariant. Used by the per-milestone immediate emission path so
+	// the row carries the milestone it bills for.
+	MilestoneID *uuid.UUID
+	Items       []InvoiceItem
 }
 
 // NewInvoice builds a draft invoice with the totals computed from its
@@ -110,6 +129,15 @@ func NewInvoice(in NewInvoiceInput) (*Invoice, error) {
 	}
 	if strings.TrimSpace(in.Recipient.Country) == "" {
 		return nil, ErrCountryRequired
+	}
+	// Milestone id invariants — platform_fee MUST carry one, every
+	// other source type MUST NOT.
+	if in.SourceType == SourcePlatformFee {
+		if in.MilestoneID == nil || *in.MilestoneID == uuid.Nil {
+			return nil, ErrMilestoneIDRequired
+		}
+	} else if in.MilestoneID != nil {
+		return nil, ErrMilestoneIDUnexpected
 	}
 
 	// Sum + per-item validation in a single pass.
@@ -147,6 +175,7 @@ func NewInvoice(in NewInvoiceInput) (*Invoice, error) {
 		StripeEventID:           in.StripeEventID,
 		StripePaymentIntentID:   in.StripePaymentIntentID,
 		StripeInvoiceID:         in.StripeInvoiceID,
+		MilestoneID:             in.MilestoneID,
 		Status:                  StatusDraft,
 		Items:                   append([]InvoiceItem(nil), in.Items...),
 		CreatedAt:               now,
