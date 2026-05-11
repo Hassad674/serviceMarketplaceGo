@@ -55,16 +55,16 @@ const _knownGapsToFlagInReport = <String>{
 };
 
 void main() {
-  late final String _libDir;
-  late final String _routesSource;
-  late final String _auditSource;
+  late final String libDir;
+  late final String routesSource;
+  late final String auditSource;
 
   setUpAll(() {
-    _libDir = '${Directory.current.path}/lib';
-    _routesSource = File(
-      '$_libDir/shared/widgets/drawer/drawer_items.dart',
+    libDir = '${Directory.current.path}/lib';
+    routesSource = File(
+      '$libDir/shared/widgets/drawer/drawer_items.dart',
     ).readAsStringSync();
-    _auditSource = File(
+    auditSource = File(
       '${Directory.current.path}/test/shared/widgets/drawer/'
       'drawer_hamburger_audit_test.dart',
     ).readAsStringSync();
@@ -74,13 +74,13 @@ void main() {
       () {
     final missing = <String>[];
     for (final route in _expectedAuditPairings.keys) {
-      if (!_routesSource.contains("'$route'") &&
-          !_routesSource.contains('"$route"')) {
+      if (!routesSource.contains("'$route'") &&
+          !routesSource.contains('"$route"')) {
         // The route is referenced through a RoutePaths constant — accept
         // both literal and constant declarations.
         final tail = route.split('/').last;
-        if (!_routesSource.contains('RoutePaths.') &&
-            !_routesSource.contains(tail)) {
+        if (!routesSource.contains('RoutePaths.') &&
+            !routesSource.contains(tail)) {
           missing.add(route);
         }
       }
@@ -96,7 +96,7 @@ void main() {
       // Search screens collapse onto a single source file — accept
       // "covered" if the source file path is present anywhere in the
       // audit list.
-      if (!_auditSource.contains(entry.value)) {
+      if (!auditSource.contains(entry.value)) {
         notCovered.add('${entry.key} -> ${entry.value}');
       }
     }
@@ -115,21 +115,21 @@ void main() {
     // source uses RoutePaths.notifications / RoutePaths.paymentInfo
     // identifiers — both must still be declared (they're the routes
     // the user can reach from the drawer).
-    const _routeIdentifiers = {
+    const routeIdentifiers = {
       '/notifications': 'RoutePaths.notifications',
       '/payment-info': 'RoutePaths.paymentInfo',
     };
 
     for (final route in _knownGapsToFlagInReport) {
-      final identifier = _routeIdentifiers[route];
+      final identifier = routeIdentifiers[route];
       expect(
         identifier,
         isNotNull,
         reason: 'Known-gap $route lacks a routes-identifier mapping in '
-            'this test — add it to _routeIdentifiers.',
+            'this test — add it to routeIdentifiers.',
       );
       expect(
-        _routesSource.contains(identifier!),
+        routesSource.contains(identifier!),
         isTrue,
         reason: '$route disappeared from drawer_items.dart — clean up '
             'the known-gaps list in this test.',

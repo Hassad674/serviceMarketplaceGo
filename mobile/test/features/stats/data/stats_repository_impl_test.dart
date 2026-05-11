@@ -14,7 +14,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/features/stats/data/stats_repository_impl.dart';
 import 'package:marketplace_mobile/features/stats/domain/entities/applications_series.dart';
-import 'package:marketplace_mobile/features/stats/domain/entities/keyword_row.dart';
 import 'package:marketplace_mobile/features/stats/domain/entities/visibility_stats.dart';
 
 import '../../../helpers/fake_api_client.dart';
