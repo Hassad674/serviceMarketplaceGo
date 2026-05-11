@@ -238,6 +238,7 @@ POST /api/v1/proposals/{id}/pay mw=11
 POST /api/v1/proposals/{id}/reject-completion mw=10
 POST /api/v1/proposals/{id}/request-completion mw=10
 POST /api/v1/referrals/ mw=9
+POST /api/v1/referrals/attributions/{id}/end mw=10
 POST /api/v1/referrals/{id}/respond mw=9
 POST /api/v1/referrer-profile/video mw=10
 POST /api/v1/reports/ mw=9

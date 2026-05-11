@@ -75,6 +75,9 @@ func (f *fakeReferralRepo) FindAttributionByID(context.Context, uuid.UUID) (*ref
 func (f *fakeReferralRepo) ListAttributionsByReferral(context.Context, uuid.UUID) ([]*referraldomain.Attribution, error) {
 	return nil, nil
 }
+func (f *fakeReferralRepo) EndAttribution(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
 func (f *fakeReferralRepo) ListAttributionsByReferralIDs(_ context.Context, ids []uuid.UUID) ([]*referraldomain.Attribution, error) {
 	if f.counters != nil {
 		f.counters.listAttributionsByIDs.Add(1)

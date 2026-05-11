@@ -30,6 +30,21 @@ type Attribution struct {
 	ClientID        uuid.UUID
 	RatePctSnapshot float64
 	AttributedAt    time.Time
+	// EndedAt is non-nil when the apporteur has explicitly terminated
+	// the intro for this proposal. Once set, NEW milestones approved on
+	// or after EndedAt MUST NOT generate commissions (gate enforced in
+	// commission_distributor). Milestones approved BEFORE EndedAt keep
+	// their commission rows — fair to the apporteur for work delivered
+	// during the active window. Nil = active, attribution still earns.
+	EndedAt *time.Time
+}
+
+// IsEnded reports whether the attribution has been explicitly
+// terminated by the apporteur. Equivalent to a non-nil EndedAt; named
+// method exists so callers (e.g. the commission gate) read as the
+// business intent rather than poking at the pointer.
+func (a *Attribution) IsEnded() bool {
+	return a != nil && a.EndedAt != nil
 }
 
 // NewAttributionInput is the validated input for NewAttribution.

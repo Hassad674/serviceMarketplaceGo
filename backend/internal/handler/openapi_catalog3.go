@@ -147,6 +147,10 @@ func catalogueReferral(c map[string]routeSpec) {
 		Tags: []string{"referral"}, Summary: "List commission negotiation rounds",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	c["POST /api/v1/referrals/attributions/{id}/end"] = routeSpec{
+		Tags: []string{"referral"}, Summary: "End a referral intro attribution",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
 }
 
 func catalogueDispute(c map[string]routeSpec) {

@@ -355,6 +355,43 @@ func (h *ReferralHandler) ListCommissions(w http.ResponseWriter, r *http.Request
 	res.JSON(w, http.StatusOK, response.NewCommissionList(rows))
 }
 
+// EndAttribution handles POST /api/v1/referrals/attributions/{id}/end —
+// the wallet "Terminer l'intro" action. Only the apporteur of the
+// parent referral can end it; the app service performs the RBAC check
+// (handler relies on the service's ErrNotAuthorized signal).
+//
+// Idempotent: a second call returns 200 with the same payload — the
+// service short-circuits when ended_at is already set, so no
+// duplicate audit / notification is emitted.
+func (h *ReferralHandler) EndAttribution(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	attributionID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid attribution id")
+		return
+	}
+
+	updated, err := h.svc.EndIntroAttribution(r.Context(), attributionID, userID)
+	if err != nil {
+		handleReferralError(w, err)
+		return
+	}
+
+	body := map[string]any{
+		"id":          updated.ID.String(),
+		"referral_id": updated.ReferralID.String(),
+		"proposal_id": updated.ProposalID.String(),
+	}
+	if updated.EndedAt != nil {
+		body["ended_at"] = updated.EndedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+	}
+	res.JSON(w, http.StatusOK, body)
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 func filterFromQuery(r *http.Request) repository.ReferralListFilter {

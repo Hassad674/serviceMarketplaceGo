@@ -10,6 +10,13 @@ var (
 	ErrAttributionNotFound = errors.New("referral attribution not found")
 	ErrCommissionNotFound  = errors.New("referral commission not found")
 
+	// ErrAttributionAlreadyEnded is returned by the repository when an
+	// EndAttribution call targets a row whose ended_at is already set.
+	// The app service treats this as the idempotent success path (200
+	// no-op) but the repo surfaces it so callers can distinguish "I
+	// just ended it" from "it was already ended".
+	ErrAttributionAlreadyEnded = errors.New("referral attribution is already ended")
+
 	// Identity / authorization
 	ErrSelfReferral      = errors.New("a referrer cannot introduce themselves")
 	ErrSameOrganization  = errors.New("provider and client must belong to different organizations")

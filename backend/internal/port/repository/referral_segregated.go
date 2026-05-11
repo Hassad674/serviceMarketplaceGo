@@ -70,6 +70,7 @@ type ReferralAttributionStore interface {
 	FindAttributionByID(ctx context.Context, id uuid.UUID) (*referral.Attribution, error)
 	ListAttributionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Attribution, error)
 	ListAttributionsByReferralIDs(ctx context.Context, referralIDs []uuid.UUID) ([]*referral.Attribution, error)
+	EndAttribution(ctx context.Context, attributionID, referrerID uuid.UUID) error
 }
 
 // ReferralCommissionStore covers commission rows — written by the

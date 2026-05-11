@@ -228,14 +228,52 @@ func (r *ReferralRepository) ListNegotiations(ctx context.Context, referralID uu
 
 // ─── Attributions ──────────────────────────────────────────────────────────
 
+// attributionScanner is the narrow interface satisfied by both *sql.Row
+// (single) and *sql.Rows (iterated). Using it lets scanAttribution serve
+// both single-row and list call-sites without duplicating the Scan
+// column list. Centralising the scan also keeps the column list locked
+// to attributionColumns — adding/removing a column requires editing one
+// place, not five.
+type attributionScanner interface {
+	Scan(dest ...any) error
+}
+
+// scanAttribution decodes a single attribution row from a Row/Rows
+// scanner. The column order must match attributionColumns exactly.
+// ended_at is a nullable TIMESTAMPTZ — scanned via sql.NullTime then
+// promoted to *time.Time on the domain entity.
+func scanAttribution(row attributionScanner) (*referral.Attribution, error) {
+	a := &referral.Attribution{}
+	var endedAt sql.NullTime
+	if err := row.Scan(
+		&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID,
+		&a.RatePctSnapshot, &a.AttributedAt, &endedAt,
+	); err != nil {
+		return nil, err
+	}
+	if endedAt.Valid {
+		t := endedAt.Time
+		a.EndedAt = &t
+	}
+	return a, nil
+}
+
 func (r *ReferralRepository) CreateAttribution(ctx context.Context, a *referral.Attribution) error {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 
 	// ON CONFLICT (proposal_id) DO NOTHING — the attributor port contract
 	// says a second call for the same proposal is a no-op, not an error.
+	// ended_at is nullable — pass via sql.NullTime so a fresh insert
+	// always writes NULL even when callers leave the field at its zero
+	// value.
+	var endedAt sql.NullTime
+	if a.EndedAt != nil {
+		endedAt = sql.NullTime{Time: *a.EndedAt, Valid: true}
+	}
 	_, err := r.db.ExecContext(ctx, queryInsertAttribution,
-		a.ID, a.ReferralID, a.ProposalID, a.ProviderID, a.ClientID, a.RatePctSnapshot, a.AttributedAt,
+		a.ID, a.ReferralID, a.ProposalID, a.ProviderID, a.ClientID,
+		a.RatePctSnapshot, a.AttributedAt, endedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert attribution: %w", err)
@@ -247,10 +285,7 @@ func (r *ReferralRepository) FindAttributionByProposal(ctx context.Context, prop
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 
-	a := &referral.Attribution{}
-	err := r.db.QueryRowContext(ctx, queryFindAttributionByProposal, proposalID).Scan(
-		&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt,
-	)
+	a, err := scanAttribution(r.db.QueryRowContext(ctx, queryFindAttributionByProposal, proposalID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, referral.ErrAttributionNotFound
 	}
@@ -264,10 +299,7 @@ func (r *ReferralRepository) FindAttributionByID(ctx context.Context, id uuid.UU
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 
-	a := &referral.Attribution{}
-	err := r.db.QueryRowContext(ctx, queryFindAttributionByID, id).Scan(
-		&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt,
-	)
+	a, err := scanAttribution(r.db.QueryRowContext(ctx, queryFindAttributionByID, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, referral.ErrAttributionNotFound
 	}
@@ -289,8 +321,8 @@ func (r *ReferralRepository) ListAttributionsByReferral(ctx context.Context, ref
 
 	var out []*referral.Attribution
 	for rows.Next() {
-		a := &referral.Attribution{}
-		if err := rows.Scan(&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt); err != nil {
+		a, err := scanAttribution(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan attribution: %w", err)
 		}
 		out = append(out, a)
@@ -321,11 +353,61 @@ func (r *ReferralRepository) ListAttributionsByReferralIDs(ctx context.Context, 
 
 	out := make([]*referral.Attribution, 0)
 	for rows.Next() {
-		a := &referral.Attribution{}
-		if err := rows.Scan(&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt); err != nil {
+		a, err := scanAttribution(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan attribution: %w", err)
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// EndAttribution marks a referral attribution as ended. RBAC is enforced
+// in SQL via the JOIN to referrals.referrer_id — only the apporteur of
+// the parent referral can end its attributions. Idempotency lives in the
+// `ended_at IS NULL` guard: a second call affects zero rows and is
+// disambiguated via a follow-up state read.
+//
+// Returns:
+//   - nil on success.
+//   - referral.ErrAttributionAlreadyEnded when the row exists, is owned
+//     by referrerID, but already has ended_at set.
+//   - referral.ErrAttributionNotFound when no row matches (id+referrer)
+//     — either the attribution does not exist or it belongs to a
+//     different apporteur.
+func (r *ReferralRepository) EndAttribution(ctx context.Context, attributionID, referrerID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	res, err := r.db.ExecContext(ctx, queryEndAttribution, attributionID, referrerID)
+	if err != nil {
+		return fmt.Errorf("end attribution: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("end attribution rows affected: %w", err)
+	}
+	if affected > 0 {
+		return nil
+	}
+
+	// 0 rows — either already ended OR not owned by this referrer.
+	// Distinguish via a single targeted SELECT against the same JOIN.
+	var alreadyEnded bool
+	err = r.db.QueryRowContext(ctx, queryGetAttributionEndedStateForReferrer,
+		attributionID, referrerID).Scan(&alreadyEnded)
+	if errors.Is(err, sql.ErrNoRows) {
+		return referral.ErrAttributionNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read attribution ended state: %w", err)
+	}
+	if alreadyEnded {
+		return referral.ErrAttributionAlreadyEnded
+	}
+	// Defensive: the row exists, is owned, ended_at is NULL, but the
+	// UPDATE still affected 0 rows. This should be unreachable but we
+	// return NotFound rather than silently succeeding to surface the
+	// inconsistency in tests.
+	return referral.ErrAttributionNotFound
 }
