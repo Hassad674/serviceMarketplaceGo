@@ -3,6 +3,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -58,6 +59,15 @@ class PaymentInfoScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu_rounded,
+            color: theme.colorScheme.onSurface,
+            size: 22,
+          ),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
         title: Text(
           l10n.drawerPaymentInfo,
           style: SoleilTextStyles.titleMedium.copyWith(
