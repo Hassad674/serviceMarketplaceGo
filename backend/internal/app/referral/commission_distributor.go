@@ -10,6 +10,83 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// PrepareCommissionForMilestone implements
+// service.ReferralCommissionPreparer.
+//
+// Called by the proposal service when a milestone is APPROVED — independent
+// from the provider auto-transfer eligibility gate that historically guarded
+// commission creation. The row lands in pending so the referrer wallet shows
+// the income immediately; the scheduler (or the legacy DistributeIfApplicable
+// path when the provider transfer eventually fires) is responsible for the
+// Stripe transfer itself.
+//
+// Idempotency strategy mirrors DistributeIfApplicable:
+//
+//  1. Look up the attribution row for the proposal_id. No attribution = no-op.
+//  2. INSERT the commission row in pending state. The DB unique index on
+//     (attribution_id, milestone_id) raises ErrCommissionAlreadyExists on a
+//     retry, in which case we return without touching anything else.
+//  3. Below-the-dust commissions (CommissionCents == 0) are marked cancelled
+//     immediately so the operator can still audit the attempt.
+func (s *Service) PrepareCommissionForMilestone(ctx context.Context, in service.ReferralCommissionPrepareInput) error {
+	if in.GrossAmountCents <= 0 {
+		return nil
+	}
+
+	att, err := s.referrals.FindAttributionByProposal(ctx, in.ProposalID)
+	if errors.Is(err, referral.ErrAttributionNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("find attribution: %w", err)
+	}
+
+	commission, err := referral.NewCommission(referral.NewCommissionInput{
+		AttributionID:    att.ID,
+		MilestoneID:      in.MilestoneID,
+		GrossAmountCents: in.GrossAmountCents,
+		RatePct:          att.RatePctSnapshot,
+		Currency:         in.Currency,
+	})
+	if err != nil {
+		return fmt.Errorf("build commission: %w", err)
+	}
+
+	if err := s.referrals.CreateCommission(ctx, commission); err != nil {
+		if errors.Is(err, referral.ErrCommissionAlreadyExists) {
+			// Already prepared / distributed — silent no-op.
+			return nil
+		}
+		return fmt.Errorf("persist commission: %w", err)
+	}
+
+	// Dust threshold — keep the row for audit but mark it cancelled so
+	// no one ever tries to transfer it.
+	if commission.CommissionCents == 0 {
+		if err := commission.MarkCancelled(); err != nil {
+			slog.Warn("commission preparer: MarkCancelled state transition failed",
+				"error", err, "commission_id", commission.ID)
+		}
+		if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
+			slog.Warn("commission preparer: persist cancelled commission failed",
+				"error", err, "commission_id", commission.ID)
+		}
+		return nil
+	}
+
+	// Row stays in pending. The scheduler (DrainPendingCommissions) and the
+	// legacy DistributeIfApplicable path are both authorized to drain it to
+	// Stripe — whichever fires first wins, the other becomes a no-op via the
+	// status check.
+	slog.Info("referral: commission prepared (pending)",
+		"commission_id", commission.ID,
+		"attribution_id", att.ID,
+		"proposal_id", in.ProposalID,
+		"milestone_id", in.MilestoneID,
+		"commission_cents", commission.CommissionCents)
+	return nil
+}
+
 // DistributeIfApplicable implements service.ReferralCommissionDistributor.
 //
 // Called by the payment service after a milestone has been transferred to the
@@ -54,9 +131,27 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 
 	if err := s.referrals.CreateCommission(ctx, commission); err != nil {
 		if errors.Is(err, referral.ErrCommissionAlreadyExists) {
-			return service.ReferralCommissionSkipped, nil
+			// A commission row already exists — either because
+			// PrepareCommissionForMilestone ran on milestone APPROVAL (the
+			// expected post-fix flow) or because this distributor itself was
+			// retried. Reload the existing row and continue with the Stripe
+			// transfer if (and only if) it is still in pending state — paid /
+			// pending_kyc / failed / cancelled / clawed_back rows are
+			// terminal-or-owned-elsewhere and must NOT be re-driven from
+			// here.
+			existing, ferr := s.referrals.FindCommissionByMilestone(ctx, in.MilestoneID)
+			if ferr != nil {
+				slog.Warn("commission distributor: load existing pending commission failed",
+					"error", ferr, "milestone_id", in.MilestoneID)
+				return service.ReferralCommissionSkipped, nil
+			}
+			if existing == nil || existing.Status != referral.CommissionPending {
+				return service.ReferralCommissionSkipped, nil
+			}
+			commission = existing
+		} else {
+			return service.ReferralCommissionFailed, fmt.Errorf("persist commission: %w", err)
 		}
-		return service.ReferralCommissionFailed, fmt.Errorf("persist commission: %w", err)
 	}
 
 	// Below the dust threshold — skip the Stripe call but keep the row in
