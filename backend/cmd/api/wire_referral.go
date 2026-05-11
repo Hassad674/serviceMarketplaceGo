@@ -95,6 +95,13 @@ func wireReferral(deps referralDeps) referralWiring {
 	// Setter-based wiring to avoid import cycles between
 	// proposal/payment/embedded.
 	deps.Proposal.SetReferralAttributor(referralSvc)
+	// CRIT-REF fix: the apporteur commission row used to be created only
+	// inside payments.TransferMilestone — which never fires for fresh
+	// providers who haven't clicked manual payout yet. The preparer hook
+	// creates the pending commission row on milestone APPROVAL so the
+	// apporteur wallet is hydrated immediately, independent from the
+	// provider auto-transfer eligibility gate.
+	deps.Proposal.SetReferralCommissionPreparer(referralSvc)
 	deps.Payment.SetReferralDistributor(referralSvc)
 	deps.Payment.SetReferralClawback(referralSvc)
 	deps.Payment.SetReferralWalletReader(referralSvc)

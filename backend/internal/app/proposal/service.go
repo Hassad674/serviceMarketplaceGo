@@ -78,6 +78,15 @@ type Service struct {
 	// break the import cycle. Nil when the referral feature is not active.
 	referralAttributor service.ReferralAttributor
 
+	// Referrer commission preparer — wired post-construction via
+	// SetReferralCommissionPreparer for the same import-cycle reason. Fired
+	// when a milestone is APPROVED so the apporteur commission row lands in
+	// pending state immediately, independent from the provider auto-transfer
+	// eligibility gate that historically guarded commission creation through
+	// payments.TransferMilestone (CRIT-REF: new providers' referrers never
+	// got any commission row because TransferMilestone was skipped).
+	referralCommissionPreparer service.ReferralCommissionPreparer
+
 	// moderationOrchestrator runs an async scan on the proposal title +
 	// description after a successful create. Optional: when nil, the
 	// proposal goes through unchecked (legacy behaviour).
@@ -93,6 +102,15 @@ type Service struct {
 // any active referral covering the (provider, client) couple.
 func (s *Service) SetReferralAttributor(a service.ReferralAttributor) {
 	s.referralAttributor = a
+}
+
+// SetReferralCommissionPreparer plugs the referrer commission preparer in
+// post-construction (same import-cycle constraint as SetReferralAttributor).
+// Called on every milestone APPROVAL so the apporteur commission row is
+// created even when the provider auto-transfer is not eligible — the missing
+// link that previously caused CRIT-REF (referrer wallet always empty).
+func (s *Service) SetReferralCommissionPreparer(p service.ReferralCommissionPreparer) {
+	s.referralCommissionPreparer = p
 }
 
 // SetModerationOrchestrator wires the central moderation pipeline.
