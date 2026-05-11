@@ -9,19 +9,22 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
 import '../../../invoicing/presentation/providers/invoicing_providers.dart';
 import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
-import '../../../invoicing/presentation/widgets/current_month_aggregate_card.dart';
 import '../../data/exceptions/commission_kyc_required_exception.dart';
 import '../../data/exceptions/kyc_incomplete_exception.dart';
-import '../../domain/entities/wallet_entity.dart';
+import '../../domain/entities/wallet_summary_entity.dart';
 import '../providers/wallet_provider.dart';
 import '../widgets/commission_kyc_required_dialog.dart';
-import '../widgets/wallet_commissions_section.dart';
-import '../widgets/wallet_hero_card.dart';
-import '../widgets/wallet_missions_section.dart';
+import '../widgets/wallet_unified_header.dart';
+import '../widgets/wallet_unified_history.dart';
+import '../widgets/wallet_withdraw_result_sheet.dart';
 
-/// Wallet screen — mirrors the web redesign: hero (total + stripe + payout),
-/// missions section (3 cards + history), commissions section (3 cards +
-/// history). Escrow rows are visually distinct with an amber left accent.
+/// Wallet screen — WALLET-UNIFY Run D refonte. Consumes the
+/// consolidated GET /wallet/summary endpoint and wires the single
+/// POST /wallet/withdraw flow through the existing KYC +
+/// billing-profile gating modals (D1+D2). Mirrors the web Run C
+/// experience: hero card + 3 stat cards + unified history. The
+/// legacy per-row "Retirer" button on commission tiles is GONE —
+/// the single hero CTA drains both legs.
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -30,97 +33,92 @@ class WalletScreen extends ConsumerStatefulWidget {
 }
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
-  bool _payingOut = false;
-  // Tracks the record id currently being retried (one at a time) so
-  // the UI can show an inline spinner on the correct row. Holds a
-  // payment-record id, NOT a proposal id.
-  String? _retryingRecordId;
-  // D1+D2 — separate spinner state for the apporteur commission
-  // retry button. A commission and a payment record can be in flight
-  // at the same time without their spinners stepping on each other.
-  String? _retryingCommissionId;
+  bool _withdrawing = false;
 
-  Future<void> _requestPayout() async {
-    // Proactive gate ORDER MATTERS — KYC first, billing second.
-    // The backend enforces the same order so the user fixes their
-    // actual blocker before round-tripping a doomed request.
-    final asyncWallet = ref.read(walletProvider);
-    final wallet = asyncWallet.valueOrNull;
-    if (wallet != null && !wallet.payoutsEnabled) {
-      if (!mounted) return;
-      await _showKYCIncompleteDialog();
-      return;
-    }
+  Future<void> _onWithdraw() async {
+    if (_withdrawing) return;
+    final l10n = AppLocalizations.of(context)!;
+    final summary =
+        ref.read(walletSummaryProvider(null)).valueOrNull;
+    if (summary != null && summary.availableCents <= 0) return;
 
+    // Billing-profile pre-flight. The web/wallet-unified-page flow
+    // checks this first before firing the mutation so we don't
+    // waste a Stripe round-trip.
     final completeness = ref.read(billingProfileCompletenessProvider);
     if (!completeness.isLoading && !completeness.isComplete) {
       if (!mounted) return;
       await showBillingProfileCompletionModal(
         context,
         missingFields: completeness.missingFields,
-        message:
-            'Complète ton profil de facturation pour pouvoir retirer.',
+        message: l10n.walletUnifiedSubtitle,
         returnTo: '/wallet',
       );
       return;
     }
 
-    setState(() => _payingOut = true);
+    setState(() => _withdrawing = true);
     try {
       final repo = ref.read(walletRepositoryProvider);
-      await repo.requestPayout();
+      final result = await repo.withdraw();
+      ref.invalidate(walletSummaryProvider);
       ref.invalidate(walletProvider);
-      if (mounted) {
+      if (!mounted) return;
+      if (result.isPartialSuccess) {
+        await showWalletWithdrawResultSheet(
+          context: context,
+          result: result,
+        );
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context)!.walletPayoutRequested,
-            ),
-          ),
+          SnackBar(content: Text(l10n.walletUnifiedToastPartial)),
+        );
+      } else if (result.isFullSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.walletUnifiedToastSuccess)),
         );
       }
+    } on CommissionKYCRequiredException catch (kyc) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => CommissionKYCRequiredDialog(
+          onboardingUrl: kyc.onboardingUrl,
+          onPaymentInfoTap: () => context.push(RoutePaths.paymentInfo),
+        ),
+      );
     } on DioException catch (e) {
-      // Defensive gates — the cached snapshots can be stale, so 403s
-      // may still come back. Decode in the SAME ORDER as the backend.
+      if (!mounted) return;
       final kycIncomplete = tryDecodeKYCIncomplete(e);
       if (kycIncomplete != null) {
-        ref.invalidate(walletProvider);
-        if (mounted) {
-          await _showKYCIncompleteDialog(message: kycIncomplete.message);
-        }
+        await _showKYCIncompleteDialog(message: kycIncomplete.message);
         return;
       }
-      final incomplete = tryDecodeBillingProfileIncomplete(e);
-      if (incomplete != null) {
+      final billingIncomplete = tryDecodeBillingProfileIncomplete(e);
+      if (billingIncomplete != null) {
         ref.invalidate(billingProfileProvider);
-        if (mounted) {
-          await showBillingProfileCompletionModal(
-            context,
-            missingFields: incomplete.missingFields,
-            message:
-                'Complète ton profil de facturation pour pouvoir retirer.',
-            returnTo: '/wallet',
-          );
-        }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payout failed: $e')),
+        if (!mounted) return;
+        await showBillingProfileCompletionModal(
+          context,
+          missingFields: billingIncomplete.missingFields,
+          message: l10n.walletUnifiedSubtitle,
+          returnTo: '/wallet',
         );
+        return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Withdraw failed: ${e.message}')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payout failed: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Withdraw failed: $e')),
+      );
     } finally {
-      if (mounted) setState(() => _payingOut = false);
+      if (mounted) setState(() => _withdrawing = false);
     }
   }
 
-  /// Surfaces a small AlertDialog explaining the user must finish
-  /// their Stripe onboarding before they can withdraw. Mirrors the
-  /// BillingProfileCompletionModal pattern for consistency.
   Future<void> _showKYCIncompleteDialog({String? message}) async {
     await showDialog<void>(
       context: context,
@@ -154,145 +152,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Future<void> _retryTransfer(String recordId) async {
-    setState(() => _retryingRecordId = recordId);
-    try {
-      final repo = ref.read(walletRepositoryProvider);
-      await repo.retryFailedTransfer(recordId);
-      ref.invalidate(walletProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transfer retried')),
-        );
-      }
-    } on DioException catch (e) {
-      // 412 provider_kyc_incomplete is the most common real-world
-      // failure mode (account exists but payouts_enabled=false).
-      if (_isKYCIncomplete(e)) {
-        if (mounted) {
-          await _showKYCIncompleteDialog(
-            message:
-                'Termine ton onboarding Stripe pour pouvoir recevoir le virement.',
-          );
-        }
-      } else if (mounted) {
-        final code = _errorCode(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_retryFailureCopy(code))),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Retry failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _retryingRecordId = null);
-    }
-  }
-
-  /// Returns true when the 412 envelope carries the
-  /// `provider_kyc_incomplete` discriminator. Distinct from the
-  /// `kyc_incomplete` code returned by the payout flow.
-  bool _isKYCIncomplete(DioException e) {
-    if (e.response?.statusCode != 412) return false;
-    return _errorCode(e) == 'provider_kyc_incomplete';
-  }
-
-  /// Reads `error` off the flat envelope produced by pkg/response.Error.
-  String _errorCode(DioException e) {
-    final body = e.response?.data;
-    if (body is Map && body['error'] is String) {
-      return body['error'] as String;
-    }
-    return '';
-  }
-
-  /// Maps the backend error code to the user-facing copy.
-  String _retryFailureCopy(String code) {
-    switch (code) {
-      case 'transfer_not_retriable':
-        return 'Ce transfert ne peut plus être relancé — la mission doit être terminée et le précédent transfert en échec.';
-      case 'stripe_account_missing':
-        return "Configure d'abord tes informations de paiement avant de relancer ce transfert.";
-      case 'payment_record_not_found':
-        return 'Ce transfert est introuvable.';
-      case 'retry_failed':
-        return 'Le virement a de nouveau échoué côté Stripe. Réessaie dans quelques minutes ou contacte le support.';
-      default:
-        return 'Erreur lors de la nouvelle tentative.';
-    }
-  }
-
-  /// D1+D2 — retry an apporteur commission stuck in pending_kyc or
-  /// failed. On 422 kyc_required we open the
-  /// [CommissionKYCRequiredDialog] with the onboarding URL the
-  /// backend embedded in the envelope so the user can deep-link to
-  /// Stripe to finish onboarding.
-  Future<void> _retryCommission(CommissionRecord record) async {
-    if (_retryingCommissionId != null) return;
-    setState(() => _retryingCommissionId = record.id);
-    try {
-      final repo = ref.read(walletRepositoryProvider);
-      await repo.retryCommission(record.id);
-      ref.invalidate(walletProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Retrait en cours.')),
-        );
-      }
-    } on CommissionKYCRequiredException catch (kyc) {
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => CommissionKYCRequiredDialog(
-          onboardingUrl: kyc.onboardingUrl,
-          onPaymentInfoTap: () => context.push('/payment-info'),
-        ),
-      );
-    } on DioException catch (e) {
-      if (mounted) {
-        final code = _errorCode(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_commissionRetryFailureCopy(code))),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Retry failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _retryingCommissionId = null);
-    }
-  }
-
-  /// Maps the commission retry error codes to user-facing copy.
-  /// Distinct from _retryFailureCopy because the commission flow has
-  /// its own set of codes (already_paid / not_retriable / retry_failed).
-  String _commissionRetryFailureCopy(String code) {
-    switch (code) {
-      case 'already_paid':
-        return 'Cette commission a déjà été versée.';
-      case 'not_retriable':
-        return 'Cette commission ne peut pas être relancée.';
-      case 'retry_failed':
-        return 'Le virement a de nouveau échoué côté Stripe. Réessaie dans quelques minutes.';
-      case 'commission_not_found':
-        return 'Cette commission est introuvable.';
-      case 'forbidden':
-        return "Tu n'es pas autorisé à relancer cette commission.";
-      default:
-        return 'Erreur lors de la relance de la commission.';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final asyncWallet = ref.watch(walletProvider);
+    final asyncSummary = ref.watch(walletSummaryProvider(null));
 
     return Scaffold(
       appBar: AppBar(
@@ -300,9 +163,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           icon: Icon(Icons.menu),
           onPressed: openShellDrawer,
         ),
-        title: Text(l10n.walletTitle),
+        title: Text(l10n.walletUnifiedTitle),
       ),
-      body: asyncWallet.when(
+      body: asyncSummary.when(
         loading: () =>
             const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -312,59 +175,36 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Text('Error: $error'),
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: () => ref.invalidate(walletProvider),
+                onPressed: () =>
+                    ref.invalidate(walletSummaryProvider),
                 child: Text(l10n.retry),
               ),
             ],
           ),
         ),
-        data: (wallet) => _buildContent(context, ref, wallet),
+        data: (summary) => _buildContent(summary),
       ),
     );
   }
 
-  Widget _buildContent(
-    BuildContext context,
-    WidgetRef ref,
-    WalletOverview wallet,
-  ) {
+  Widget _buildContent(WalletSummary summary) {
     final canWithdraw = ref.watch(
       hasPermissionProvider(OrgPermission.walletWithdraw),
     );
-    final totalEarned =
-        wallet.transferredAmount + wallet.commissions.paidCents;
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CurrentMonthAggregateCard(),
-            const SizedBox(height: 16),
-            WalletHeroCard(
-              wallet: wallet,
-              totalEarned: totalEarned,
+            WalletUnifiedHeader(
+              summary: summary,
+              payoutPending: _withdrawing,
               canWithdraw: canWithdraw,
-              payingOut: _payingOut,
-              onPayout: _requestPayout,
+              onWithdraw: _onWithdraw,
             ),
-            const SizedBox(height: 24),
-            WalletMissionsSection(
-              wallet: wallet,
-              retryingRecordId: _retryingRecordId,
-              onRetry: _retryTransfer,
-            ),
-            if (!wallet.commissions.isEmpty ||
-                wallet.commissionRecords.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              WalletCommissionsSection(
-                summary: wallet.commissions,
-                records: wallet.commissionRecords,
-                onRetireCommission: _retryCommission,
-                retiringCommissionId: _retryingCommissionId,
-              ),
-            ],
+            const SizedBox(height: 16),
+            const WalletUnifiedHistory(),
           ],
         ),
       ),

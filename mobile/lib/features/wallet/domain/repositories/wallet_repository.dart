@@ -1,4 +1,5 @@
 import '../entities/wallet_entity.dart';
+import '../entities/wallet_summary_entity.dart';
 
 /// Abstract repository for wallet operations.
 abstract class WalletRepository {
@@ -27,4 +28,23 @@ abstract class WalletRepository {
   /// onboarding dialog. Other 4xx / 5xx errors propagate as
   /// [DioException] for the screen to surface a generic toast.
   Future<void> retryCommission(String commissionId);
+
+  /// Fetches the WALLET-UNIFY Run B consolidated wallet view.
+  /// Optional [cursor] paginates the embedded `recent_transactions`
+  /// list; the top-level totals and per-leg breakdown remain stable
+  /// across pages. Limit defaults to 20 server-side.
+  Future<WalletSummary> fetchSummary({String? cursor});
+
+  /// Drains BOTH mission earnings and apporteur commissions in a
+  /// single Stripe orchestration (WALLET-UNIFY Run B). Pass
+  /// [amountCents] to cap the drain; omit for "everything".
+  ///
+  /// Branches:
+  ///   - 200 → [WithdrawResult.isFullSuccess]
+  ///   - 207 → [WithdrawResult.isPartialSuccess] with [errors]
+  ///   - 422 kyc_required → throws [CommissionKYCRequiredException]
+  ///     so the screen can open the onboarding dialog
+  ///   - 403 billing_profile_incomplete → propagates as DioException;
+  ///     the screen extracts `missing_fields` via existing helpers
+  Future<WithdrawResult> withdraw({int? amountCents});
 }

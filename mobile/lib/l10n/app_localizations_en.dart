@@ -4380,4 +4380,188 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountLegalCta => 'Read documents';
+
+  @override
+  String get walletUnifiedTitle => 'Wallet';
+
+  @override
+  String get walletUnifiedSubtitle =>
+      'Your mission and referral earnings, in a single screen.';
+
+  @override
+  String get walletUnifiedTotalEarned => 'Total earnings';
+
+  @override
+  String get walletUnifiedWithdraw => 'Withdraw';
+
+  @override
+  String get walletUnifiedWithdrawing => 'Withdrawing…';
+
+  @override
+  String get walletUnifiedNoFunds => 'No funds available';
+
+  @override
+  String get walletUnifiedCardEscrowed => 'Escrowed';
+
+  @override
+  String get walletUnifiedCardEscrowedHint =>
+      'Held on milestones not yet approved.';
+
+  @override
+  String get walletUnifiedCardAvailable => 'Available';
+
+  @override
+  String get walletUnifiedCardAvailableHint =>
+      'Ready to be paid out to your Stripe account.';
+
+  @override
+  String get walletUnifiedCardTransmitted => 'Transferred';
+
+  @override
+  String get walletUnifiedCardTransmittedHint =>
+      'Already paid out to your bank account.';
+
+  @override
+  String get walletUnifiedToastSuccess =>
+      'Withdrawal in progress — you will get an email when Stripe confirms.';
+
+  @override
+  String get walletUnifiedToastPartial =>
+      'Withdrawal partially succeeded — see the details.';
+
+  @override
+  String get walletUnifiedResultTitle => 'Withdrawal details';
+
+  @override
+  String walletUnifiedResultDrained(String amount) {
+    return '$amount withdrawn';
+  }
+
+  @override
+  String walletUnifiedResultMissionsLine(String amount) {
+    return 'Missions: $amount';
+  }
+
+  @override
+  String walletUnifiedResultCommissionsLine(String amount) {
+    return 'Commissions: $amount';
+  }
+
+  @override
+  String get walletUnifiedResultErrorsHeading => 'Errors';
+
+  @override
+  String get walletUnifiedResultErrorMissions => 'Missions side';
+
+  @override
+  String get walletUnifiedResultErrorCommissions => 'Commissions side';
+
+  @override
+  String get walletUnifiedResultClose => 'Close';
+
+  @override
+  String get walletUnifiedHistoryTitle => 'Earnings history';
+
+  @override
+  String get walletUnifiedHistorySubtitle =>
+      'Your payments and commissions, newest first.';
+
+  @override
+  String get walletUnifiedHistoryLoadMore => 'Load more';
+
+  @override
+  String get walletUnifiedHistoryEmpty => 'No wallet activity yet.';
+
+  @override
+  String get walletUnifiedHistoryRowMission => 'Mission';
+
+  @override
+  String get walletUnifiedHistoryRowCommission => 'Commission';
+
+  @override
+  String get walletUnifiedHistoryRowUntitled => 'Untitled';
+
+  @override
+  String get walletUnifiedHistoryStatusPaid => 'Paid';
+
+  @override
+  String get walletUnifiedHistoryStatusPending => 'Pending';
+
+  @override
+  String get walletUnifiedHistoryStatusEscrowed => 'Escrowed';
+
+  @override
+  String get walletUnifiedHistoryStatusFailed => 'Failed';
+
+  @override
+  String get referralEndIntroCtaLabel => 'End intro';
+
+  @override
+  String get referralEndIntroModalTitle => 'End the referral';
+
+  @override
+  String referralEndIntroModalBody(String provider, String client) {
+    return 'You are about to end your referral between $provider and $client. You will no longer earn commission on milestones approved from today. Earned commissions remain due. Confirm?';
+  }
+
+  @override
+  String get referralEndIntroModalFallbackProvider => 'the provider';
+
+  @override
+  String get referralEndIntroModalFallbackClient => 'the client';
+
+  @override
+  String get referralEndIntroModalCancel => 'Cancel';
+
+  @override
+  String get referralEndIntroModalConfirm => 'End for good';
+
+  @override
+  String referralEndIntroBadge(String date) {
+    return 'Intro ended on $date';
+  }
+
+  @override
+  String get referralEndIntroErrorForbidden =>
+      'You are not allowed to end this referral.';
+
+  @override
+  String get referralEndIntroErrorNotFound =>
+      'This referral can no longer be found.';
+
+  @override
+  String get referralEndIntroErrorGeneric =>
+      'Could not end this referral right now.';
+
+  @override
+  String get referralIdentityRevealProviderLink => 'View provider profile';
+
+  @override
+  String get referralIdentityRevealClientLink => 'View client profile';
+
+  @override
+  String get referralProjectionPerMilestoneTitle => 'Per-milestone projection';
+
+  @override
+  String referralProjectionStatusEscrowed(String amount) {
+    return '≈ $amount (escrowed)';
+  }
+
+  @override
+  String referralProjectionStatusPending(String amount) {
+    return '$amount pending';
+  }
+
+  @override
+  String referralProjectionStatusPaid(String amount) {
+    return '+$amount received';
+  }
+
+  @override
+  String referralProjectionStatusFailed(String amount) {
+    return '$amount failed';
+  }
+
+  @override
+  String get referralProjectionEmpty => 'No commissionable milestones yet.';
 }

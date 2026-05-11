@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -8041,6 +8041,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Read documents'**
   String get accountLegalCta;
+
+  /// No description provided for @walletUnifiedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get walletUnifiedTitle;
+
+  /// No description provided for @walletUnifiedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your mission and referral earnings, in a single screen.'**
+  String get walletUnifiedSubtitle;
+
+  /// No description provided for @walletUnifiedTotalEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Total earnings'**
+  String get walletUnifiedTotalEarned;
+
+  /// No description provided for @walletUnifiedWithdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get walletUnifiedWithdraw;
+
+  /// No description provided for @walletUnifiedWithdrawing.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawing…'**
+  String get walletUnifiedWithdrawing;
+
+  /// No description provided for @walletUnifiedNoFunds.
+  ///
+  /// In en, this message translates to:
+  /// **'No funds available'**
+  String get walletUnifiedNoFunds;
+
+  /// No description provided for @walletUnifiedCardEscrowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrowed'**
+  String get walletUnifiedCardEscrowed;
+
+  /// No description provided for @walletUnifiedCardEscrowedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Held on milestones not yet approved.'**
+  String get walletUnifiedCardEscrowedHint;
+
+  /// No description provided for @walletUnifiedCardAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get walletUnifiedCardAvailable;
+
+  /// No description provided for @walletUnifiedCardAvailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to be paid out to your Stripe account.'**
+  String get walletUnifiedCardAvailableHint;
+
+  /// No description provided for @walletUnifiedCardTransmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Transferred'**
+  String get walletUnifiedCardTransmitted;
+
+  /// No description provided for @walletUnifiedCardTransmittedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Already paid out to your bank account.'**
+  String get walletUnifiedCardTransmittedHint;
+
+  /// No description provided for @walletUnifiedToastSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal in progress — you will get an email when Stripe confirms.'**
+  String get walletUnifiedToastSuccess;
+
+  /// No description provided for @walletUnifiedToastPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal partially succeeded — see the details.'**
+  String get walletUnifiedToastPartial;
+
+  /// No description provided for @walletUnifiedResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal details'**
+  String get walletUnifiedResultTitle;
+
+  /// No description provided for @walletUnifiedResultDrained.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} withdrawn'**
+  String walletUnifiedResultDrained(String amount);
+
+  /// No description provided for @walletUnifiedResultMissionsLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Missions: {amount}'**
+  String walletUnifiedResultMissionsLine(String amount);
+
+  /// No description provided for @walletUnifiedResultCommissionsLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Commissions: {amount}'**
+  String walletUnifiedResultCommissionsLine(String amount);
+
+  /// No description provided for @walletUnifiedResultErrorsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors'**
+  String get walletUnifiedResultErrorsHeading;
+
+  /// No description provided for @walletUnifiedResultErrorMissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Missions side'**
+  String get walletUnifiedResultErrorMissions;
+
+  /// No description provided for @walletUnifiedResultErrorCommissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Commissions side'**
+  String get walletUnifiedResultErrorCommissions;
+
+  /// No description provided for @walletUnifiedResultClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get walletUnifiedResultClose;
+
+  /// No description provided for @walletUnifiedHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Earnings history'**
+  String get walletUnifiedHistoryTitle;
+
+  /// No description provided for @walletUnifiedHistorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your payments and commissions, newest first.'**
+  String get walletUnifiedHistorySubtitle;
+
+  /// No description provided for @walletUnifiedHistoryLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get walletUnifiedHistoryLoadMore;
+
+  /// No description provided for @walletUnifiedHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No wallet activity yet.'**
+  String get walletUnifiedHistoryEmpty;
+
+  /// No description provided for @walletUnifiedHistoryRowMission.
+  ///
+  /// In en, this message translates to:
+  /// **'Mission'**
+  String get walletUnifiedHistoryRowMission;
+
+  /// No description provided for @walletUnifiedHistoryRowCommission.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission'**
+  String get walletUnifiedHistoryRowCommission;
+
+  /// No description provided for @walletUnifiedHistoryRowUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get walletUnifiedHistoryRowUntitled;
+
+  /// No description provided for @walletUnifiedHistoryStatusPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get walletUnifiedHistoryStatusPaid;
+
+  /// No description provided for @walletUnifiedHistoryStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get walletUnifiedHistoryStatusPending;
+
+  /// No description provided for @walletUnifiedHistoryStatusEscrowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrowed'**
+  String get walletUnifiedHistoryStatusEscrowed;
+
+  /// No description provided for @walletUnifiedHistoryStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get walletUnifiedHistoryStatusFailed;
+
+  /// No description provided for @referralEndIntroCtaLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'End intro'**
+  String get referralEndIntroCtaLabel;
+
+  /// No description provided for @referralEndIntroModalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'End the referral'**
+  String get referralEndIntroModalTitle;
+
+  /// No description provided for @referralEndIntroModalBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to end your referral between {provider} and {client}. You will no longer earn commission on milestones approved from today. Earned commissions remain due. Confirm?'**
+  String referralEndIntroModalBody(String provider, String client);
+
+  /// No description provided for @referralEndIntroModalFallbackProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'the provider'**
+  String get referralEndIntroModalFallbackProvider;
+
+  /// No description provided for @referralEndIntroModalFallbackClient.
+  ///
+  /// In en, this message translates to:
+  /// **'the client'**
+  String get referralEndIntroModalFallbackClient;
+
+  /// No description provided for @referralEndIntroModalCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get referralEndIntroModalCancel;
+
+  /// No description provided for @referralEndIntroModalConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'End for good'**
+  String get referralEndIntroModalConfirm;
+
+  /// No description provided for @referralEndIntroBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Intro ended on {date}'**
+  String referralEndIntroBadge(String date);
+
+  /// No description provided for @referralEndIntroErrorForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not allowed to end this referral.'**
+  String get referralEndIntroErrorForbidden;
+
+  /// No description provided for @referralEndIntroErrorNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This referral can no longer be found.'**
+  String get referralEndIntroErrorNotFound;
+
+  /// No description provided for @referralEndIntroErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not end this referral right now.'**
+  String get referralEndIntroErrorGeneric;
+
+  /// No description provided for @referralIdentityRevealProviderLink.
+  ///
+  /// In en, this message translates to:
+  /// **'View provider profile'**
+  String get referralIdentityRevealProviderLink;
+
+  /// No description provided for @referralIdentityRevealClientLink.
+  ///
+  /// In en, this message translates to:
+  /// **'View client profile'**
+  String get referralIdentityRevealClientLink;
+
+  /// No description provided for @referralProjectionPerMilestoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-milestone projection'**
+  String get referralProjectionPerMilestoneTitle;
+
+  /// No description provided for @referralProjectionStatusEscrowed.
+  ///
+  /// In en, this message translates to:
+  /// **'≈ {amount} (escrowed)'**
+  String referralProjectionStatusEscrowed(String amount);
+
+  /// No description provided for @referralProjectionStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} pending'**
+  String referralProjectionStatusPending(String amount);
+
+  /// No description provided for @referralProjectionStatusPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'+{amount} received'**
+  String referralProjectionStatusPaid(String amount);
+
+  /// No description provided for @referralProjectionStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} failed'**
+  String referralProjectionStatusFailed(String amount);
+
+  /// No description provided for @referralProjectionEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No commissionable milestones yet.'**
+  String get referralProjectionEmpty;
 }
 
 class _AppLocalizationsDelegate
@@ -8070,9 +8382,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }
