@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/handler/middleware"
@@ -35,6 +36,16 @@ const DefaultOrgOverridesCacheTTL = 30 * time.Second
 // orgOverridesKeyPrefix is the Redis namespace.
 const orgOverridesKeyPrefix = "org_overrides:"
 
+// orgOverridesEnvelope wraps the cached payload so the helper's
+// generic peek/load shape can distinguish "cache miss" from "cache
+// hit returning nil overrides" — both look the same when the type is
+// `organization.RoleOverrides` (a map) directly. The envelope is a
+// pointer; coalesceWithDoubleCheck's nil-check on the result then
+// only fires when load itself returned a nil envelope.
+type orgOverridesEnvelope struct {
+	Overrides organization.RoleOverrides
+}
+
 // CachedOrgOverridesResolver wraps an inner
 // middleware.OrgOverridesResolver (the postgres-backed adapter, in
 // production) with a Redis-backed hot cache. Implements
@@ -51,10 +62,21 @@ const orgOverridesKeyPrefix = "org_overrides:"
 //     resolver errors out.
 //   - Redis read error: log + fall through to the inner reader.
 //   - Redis write error: log, return the inner result.
+//
+// QW-HARDENING: a singleflight.Group coalesces concurrent misses on
+// the same org id into a single inner call — under burst load (e.g.
+// the 30s TTL expiring while 100 authenticated requests for the same
+// org are in flight), a naive cache stamps 100 SELECTs onto Postgres.
+// With singleflight, exactly one goroutine performs the inner call
+// and every other waiter receives the same answer. See
+// coalesceWithDoubleCheck for the inner-peek-after-miss recipe that
+// closes the residual race when the winner finishes between the
+// outer peek and the singleflight slot.
 type CachedOrgOverridesResolver struct {
 	client *goredis.Client
 	inner  middleware.OrgOverridesResolver
 	ttl    time.Duration
+	group  singleflight.Group
 }
 
 // NewCachedOrgOverridesResolver returns a Redis-fronted decorator over
@@ -76,51 +98,88 @@ func NewCachedOrgOverridesResolver(
 }
 
 // GetRoleOverrides satisfies middleware.OrgOverridesResolver.
+//
+// QW-HARDENING: delegates the outer-peek / singleflight / inner-peek /
+// load orchestration to coalesceWithDoubleCheck. The wrapping
+// envelope lets the helper carry a nil map ("no overrides yet") as a
+// legitimate cached value without colliding with the miss sentinel.
 func (c *CachedOrgOverridesResolver) GetRoleOverrides(
 	ctx context.Context,
 	orgID uuid.UUID,
 ) (organization.RoleOverrides, error) {
 	key := orgOverridesKeyPrefix + orgID.String()
+	env, err := coalesceWithDoubleCheck(
+		&c.group, key,
+		func() (*orgOverridesEnvelope, bool, error) {
+			return c.peek(ctx, key, orgID)
+		},
+		func() (*orgOverridesEnvelope, error) {
+			return c.load(ctx, key, orgID)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if env == nil {
+		// coalesceWithDoubleCheck normalises (nil, nil) to the typed
+		// zero; for *orgOverridesEnvelope that means "load returned
+		// nil envelope, nil error" — surface nil overrides.
+		return nil, nil
+	}
+	return env.Overrides, nil
+}
 
-	// 1. Cache hit?
+// peek attempts a cache read. Returns:
+//   - (envelope, true, nil) → cache hit; envelope.Overrides may be nil.
+//   - (nil,      false, nil) → miss (or transient Redis blip).
+func (c *CachedOrgOverridesResolver) peek(
+	ctx context.Context,
+	key string,
+	orgID uuid.UUID,
+) (*orgOverridesEnvelope, bool, error) {
 	val, err := c.client.Get(ctx, key).Result()
 	if err == nil {
 		var overrides organization.RoleOverrides
 		if jErr := json.Unmarshal([]byte(val), &overrides); jErr == nil {
-			return overrides, nil
+			return &orgOverridesEnvelope{Overrides: overrides}, true, nil
 		} else {
 			slog.Warn("org overrides cache: malformed payload, refreshing",
 				"org_id", orgID, "error", jErr)
+			return nil, false, nil
 		}
-	} else if !errors.Is(err, goredis.Nil) {
+	}
+	if !errors.Is(err, goredis.Nil) {
 		slog.Warn("org overrides cache: redis get failed, falling back to inner",
 			"org_id", orgID, "error", err)
 	}
+	return nil, false, nil
+}
 
-	// 2. Cache miss — consult the inner resolver.
-	overrides, ierr := c.inner.GetRoleOverrides(ctx, orgID)
-	if ierr != nil {
-		// Do not cache errors — the middleware fails open on resolver
-		// errors and uses the session snapshot. Caching an empty value
-		// here would convert that fail-open into a fail-closed
-		// (no overrides → defaults only) for the entire TTL window.
-		return overrides, ierr
+// load consults the inner resolver on a true miss and write-throughs
+// the result on success. Errors are never cached (see semantics on
+// the type doc).
+func (c *CachedOrgOverridesResolver) load(
+	ctx context.Context,
+	key string,
+	orgID uuid.UUID,
+) (*orgOverridesEnvelope, error) {
+	overrides, err := c.inner.GetRoleOverrides(ctx, orgID)
+	if err != nil {
+		return nil, err
 	}
-
-	// 3. Write-through. Best-effort.
 	payload, mErr := json.Marshal(overrides)
 	if mErr != nil {
 		// Marshalling our own JSONB payload should never fail; log and
 		// return the authoritative answer.
 		slog.Warn("org overrides cache: marshal failed",
 			"org_id", orgID, "error", mErr)
-		return overrides, nil
+		return &orgOverridesEnvelope{Overrides: overrides}, nil
 	}
 	if sErr := c.client.Set(ctx, key, payload, c.ttl).Err(); sErr != nil {
 		slog.Warn("org overrides cache: redis set failed",
 			"org_id", orgID, "error", sErr)
 	}
-	return overrides, nil
+	return &orgOverridesEnvelope{Overrides: overrides}, nil
 }
 
 // Invalidate evicts the cached entry for orgID. Call this from any
