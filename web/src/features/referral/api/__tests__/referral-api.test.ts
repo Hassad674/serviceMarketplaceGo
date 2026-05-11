@@ -8,6 +8,7 @@ import {
   listNegotiations,
   listAttributions,
   listCommissions,
+  endIntroAttribution,
 } from "../referral-api"
 
 const mockApiClient = vi.fn()
@@ -138,6 +139,40 @@ describe("referral-api / nested resources", () => {
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/referrals/r-1/commissions",
     )
+  })
+})
+
+describe("referral-api / endIntroAttribution (Run C)", () => {
+  it("POSTs to /attributions/{id}/end", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      id: "att-1",
+      referral_id: "ref-1",
+      proposal_id: "prop-1",
+      ended_at: "2026-05-11T10:00:00Z",
+    })
+    const result = await endIntroAttribution("att-1")
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/v1/referrals/attributions/att-1/end",
+      { method: "POST" },
+    )
+    expect(result.ended_at).toBe("2026-05-11T10:00:00Z")
+  })
+
+  it("returns the bare body without envelope unwrapping (backend ships unwrapped)", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      id: "att-2",
+      referral_id: "ref-2",
+      proposal_id: "prop-2",
+      ended_at: "2026-05-11T12:00:00Z",
+    })
+    const result = await endIntroAttribution("att-2")
+    expect(result.id).toBe("att-2")
+    expect(result.referral_id).toBe("ref-2")
+  })
+
+  it("propagates 403 errors from the backend", async () => {
+    mockApiClient.mockRejectedValueOnce(new Error("forbidden"))
+    await expect(endIntroAttribution("att-x")).rejects.toThrow("forbidden")
   })
 })
 

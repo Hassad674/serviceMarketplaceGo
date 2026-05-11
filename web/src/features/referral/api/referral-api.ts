@@ -93,3 +93,37 @@ export async function listCommissions(id: string): Promise<ReferralCommission[]>
     `${BASE}/${id}/commissions`,
   )
 }
+
+/**
+ * Body returned by POST /api/v1/referrals/attributions/{id}/end. The
+ * backend returns it NOT envelope-wrapped (bare `{id, referral_id,
+ * proposal_id, ended_at}` — see backend/internal/handler/referral_handler.go
+ * EndAttribution). Idempotent: a second call returns the same payload
+ * with the original `ended_at`.
+ */
+export type EndIntroAttributionResult = {
+  id: string
+  referral_id: string
+  proposal_id: string
+  ended_at?: string
+}
+
+/**
+ * Terminate an intro between provider + client. RBAC: only the
+ * apporteur of the parent referral can call this; the backend
+ * responds 403 otherwise. Idempotent — re-calling on an
+ * already-terminated attribution returns 200 with the original
+ * `ended_at` timestamp.
+ *
+ * After success the apporteur stops accruing commission on
+ * milestones approved from `ended_at` onwards. Commissions already
+ * generated remain due.
+ */
+export async function endIntroAttribution(
+  attributionId: string,
+): Promise<EndIntroAttributionResult> {
+  return apiClient<EndIntroAttributionResult>(
+    `${BASE}/attributions/${attributionId}/end`,
+    { method: "POST" },
+  )
+}

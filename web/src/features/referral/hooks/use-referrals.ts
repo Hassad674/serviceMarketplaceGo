@@ -4,11 +4,13 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 
 import {
   createReferral,
+  endIntroAttribution,
   listAttributions,
   listCommissions,
   listIncomingReferrals,
   listMyReferrals,
   listNegotiations,
+  type EndIntroAttributionResult,
   type ListReferralsFilter,
 } from "../api/referral-api"
 import type {
@@ -132,3 +134,20 @@ export function useCreateReferral() {
 
 // `useRespondToReferral` lives in `@/shared/hooks/referral/use-referral`
 // (P9 — re-exported at the top of this file).
+
+/**
+ * Terminates an intro between provider + client. Only the apporteur
+ * can call this — the backend returns 403 to anyone else. Invalidates
+ * the broad referrals tree AND the unified wallet summary so the
+ * apporteur sees the badge + summary update without a manual refresh.
+ */
+export function useEndIntroAttribution() {
+  const queryClient = useQueryClient()
+  return useMutation<EndIntroAttributionResult, Error, string>({
+    mutationFn: (attributionId) => endIntroAttribution(attributionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: referralKeys.all })
+      queryClient.invalidateQueries({ queryKey: ["wallet"] })
+    },
+  })
+}

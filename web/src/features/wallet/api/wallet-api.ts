@@ -121,3 +121,125 @@ export function retryCommission(commissionId: string): Promise<CommissionRetryRe
     { method: "POST" },
   )
 }
+
+// ─── WALLET-UNIFY Run C — /wallet/summary + /wallet/withdraw ──────────────
+
+/**
+ * One leg of the unified wallet summary (missions side OR commissions
+ * side). Same shape on both sides so the UI can iterate without
+ * branching.
+ */
+export type WalletSummaryLeg = {
+  total_cents: number
+  available_cents: number
+  escrowed_cents: number
+  transmitted_cents: number
+}
+
+/**
+ * One row in the unified transaction history. `type` is either
+ * "mission" or "commission"; the UI picks the icon + tone from it.
+ * `status` is a free-form backend string — the UI maps it to a
+ * limited tone palette via `wallet-status-badge`.
+ */
+export type WalletSummaryTransaction = {
+  type: "mission" | "commission"
+  amount_cents: number
+  currency: string
+  status: string
+  mission_title?: string
+  occurred_at: string
+  reference_id: string
+}
+
+/**
+ * Envelope returned by GET /api/v1/wallet/summary. Mirrors the
+ * `summaryResponse` struct in backend/internal/handler/wallet_summary.go.
+ * Top-level totals are the sum of `breakdown.missions` and
+ * `breakdown.commissions` — they are duplicated for the UI's hero
+ * card convenience.
+ */
+export type WalletSummary = {
+  currency: string
+  total_cents: number
+  available_cents: number
+  escrowed_cents: number
+  transmitted_cents: number
+  breakdown: {
+    missions: WalletSummaryLeg
+    commissions: WalletSummaryLeg
+  }
+  recent_transactions: WalletSummaryTransaction[]
+  next_cursor?: string
+}
+
+type WalletSummaryEnvelope = { data: WalletSummary }
+
+/**
+ * Fetches the unified wallet view. Optional cursor for the
+ * `recent_transactions` pagination — the totals/breakdown are
+ * stable across pages. limit defaults to 20 server-side (max 100).
+ */
+export async function getWalletSummary(
+  cursor?: string,
+): Promise<WalletSummary> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
+  const envelope = await apiClient<WalletSummaryEnvelope>(
+    `/api/v1/wallet/summary${qs}`,
+  )
+  return envelope.data
+}
+
+/**
+ * One error sub-entry on a 207 Multi-Status response. Identifies
+ * which leg failed (missions vs commissions) plus a machine code +
+ * human message. Surfaced in the partial-success modal.
+ */
+export type WithdrawLegError = {
+  source: "missions" | "commissions"
+  code: string
+  message: string
+}
+
+/**
+ * Body of the success envelope for POST /api/v1/wallet/withdraw.
+ * `errors` is present on a 207 Multi-Status; empty on 200.
+ */
+export type WithdrawResult = {
+  drained_cents: number
+  missions_cents: number
+  commissions_cents: number
+  stripe_transfer_ids: string[]
+  currency: string
+  errors: WithdrawLegError[]
+}
+
+type WithdrawResultEnvelope = { data: WithdrawResult }
+
+/**
+ * Unified withdraw — drains BOTH missions and apporteur commissions
+ * in a single Stripe orchestration. Pass no amount to drain
+ * everything; pass an explicit amount in cents to cap the drain.
+ *
+ * Branches surfaced to the caller via the ApiError thrown by
+ * apiClient on non-2xx responses:
+ *   - 200  → full success — return { data: { drained_cents, … } }
+ *   - 207  → partial success — apiClient sees 2xx, returns { data }
+ *            but `errors[]` is populated for the failed leg
+ *   - 422  → kyc_required — ApiError with `code === "kyc_required"`
+ *            and `body.onboarding_url`
+ *   - 403  → billing_profile_incomplete — ApiError with same code,
+ *            `body.missing_fields` describes the gaps
+ */
+export async function withdrawWallet(
+  amountCents?: number,
+): Promise<WithdrawResult> {
+  const envelope = await apiClient<WithdrawResultEnvelope>(
+    "/api/v1/wallet/withdraw",
+    {
+      method: "POST",
+      body: amountCents !== undefined ? { amount_cents: amountCents } : {},
+    },
+  )
+  return envelope.data
+}
