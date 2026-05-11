@@ -180,18 +180,116 @@ Same test plan, swap types accordingly.
 
 ---
 
-## Per-vector verdict (PART 2 in flight)
+## Per-vector verdict — PART 2 EXECUTION COMPLETE (2026-05-11)
 
-| Vector | Description | Status |
-|--------|-------------|--------|
-| A | Race between bump and read | IN-FLIGHT |
-| B | Invalidate fails but bump succeeds | IN-FLIGHT |
-| C | Cache poisoning after Redis recovery | IN-FLIGHT |
-| D | Singleflight identity confusion | IN-FLIGHT |
-| E | Negative cache poisoning | IN-FLIGHT |
-| F | TTL bypass attack | IN-FLIGHT |
-| G | Concurrent invalidation idempotency | IN-FLIGHT |
-| H | Org-overrides (A-G repeated) | IN-FLIGHT |
+Test files (pushed to `chore/sec-audit-cache-part2`):
+- `backend/internal/adapter/redis/session_version_cache_security_test.go` — 6 tests, vectors A/B/C/D/E/G.
+- `backend/internal/adapter/redis/org_overrides_cache_security_test.go` — 6 tests, vectors A/B/C/D/E/G.
+
+Validation pipeline (run from `backend/`):
+
+```
+$ timeout 90 go build ./...
+(silent — green)
+
+$ timeout 480 go test ./internal/adapter/redis/... -count=3 -race -run "Security"
+ok      marketplace-backend/internal/adapter/redis      12.033s
+
+$ timeout 300 go test ./internal/adapter/redis/... -count=1 -race
+ok      marketplace-backend/internal/adapter/redis      43.356s
+```
+
+All 12 security tests pass 3× under `-race`. The wider redis suite
+also passes under `-race`, confirming no regression on the existing
+happy-path tests.
+
+| Vector | Description | session_version | org_overrides | Verdict |
+|--------|-------------|-----------------|---------------|---------|
+| A | Race between mutation+Invalidate and concurrent read (1000 iter) | PASS | PASS | **GREEN** |
+| B | Invalidate fails but inner mutation succeeds | PASS (error surfaced) | PASS (error surfaced) | **YELLOW** — see residual risk below |
+| C | Cache poisoning after Redis recovery | PASS | PASS | **GREEN** |
+| D | Singleflight key isolation across 2 ids (100×2 concurrent callers) | PASS — 1 inner call per uid, NO cross-key leak | PASS — 1 inner call per orgID, NO cross-key leak | **GREEN** |
+| E | Negative cache poisoning (ErrUserNotFound / transient error) | PASS — no Redis key written | PASS — no Redis key written | **GREEN** |
+| F | TTL bypass | Not directly tested (pre-existing happy-path test `TestSessionVersionCache_DefaultTTLAppliedWhenZero` and `TestOrgOverridesCache_DefaultTTLAppliedWhenZero` already pin TTL on every write — no user-controlled write path exists). | same | **GREEN by construction** |
+| G | Concurrent invalidation idempotency (100 parallel DEL) | PASS — 0 errors, key absent | PASS — 0 errors, key absent | **GREEN** |
+| H | Org-overrides A-G repeated | — | covered by the dedicated org_overrides test file | **GREEN** (5 / 6 GREEN, 1 YELLOW — same shape as session_version) |
+
+### Net verdict
+
+**GREEN** on 5 of 6 functional vectors for BOTH caches under the
+QW-HARDENING post-merge state. **YELLOW** on vector B — the cache
+surfaces a non-nil error when DEL fails (so the call-site CAN log /
+alert), but the cache does NOT currently:
+
+1. Retry the DEL with backoff.
+2. Force-write the new version into the Redis key (so even a missed
+   DEL would not produce a stale read).
+3. Log the failure inside `Invalidate` itself (the warn log only
+   fires on the SET path in `load` / `peek`).
+
+**Residual risk (vector B):**
+
+- Window of staleness: bounded by the cache TTL (30 s) per the
+  `DefaultSessionVersionCacheTTL` / `DefaultOrgOverridesCacheTTL`
+  constants.
+- Caller responsibility: every site that calls
+  `BumpSessionVersion` + `Invalidate` MUST check the Invalidate
+  return value and log it at WARN/ERROR. The current code base
+  does NOT do this consistently — `BumpSessionVersion` is
+  uniformly called via `s.users.BumpSessionVersion(ctx, ...)`
+  with a best-effort log, but the **`Invalidate` wiring at the 13
+  BumpSessionVersion call sites listed in the pre-merge baseline
+  was NOT shipped** by QW-HARDENING (which only added
+  singleflight).
+- Impact: any successful Bump followed by a Redis DEL failure
+  will leave the previous session_version cached for up to 30 s.
+  A revoked session can therefore continue to authenticate for
+  the residual TTL.
+
+### Remediation brief (recommended follow-up)
+
+A separate `chore/sec-audit-cache-part3` agent should:
+
+1. **Wire `sessionVersionCache.Invalidate` at every BumpSessionVersion
+   call site** (13 sites listed in the pre-merge baseline section
+   above). Each call site MUST log the Invalidate error at WARN
+   level so failures are observable.
+2. **Wire `orgOverridesCache.Invalidate` at the single
+   `role_overrides` write path** (already a single site, just needs
+   the call inserted).
+3. **Optional hardening — force-write fallback inside
+   `Invalidate`:** if DEL fails, attempt a `SET` of the new
+   version-or-empty payload with TTL. This collapses the residual
+   stale window from 30 s to ~0 s even when DEL fails. Tradeoff is
+   one extra Redis round-trip on the rare failure path —
+   acceptable.
+4. **Add an internal `slog.Warn` inside `Invalidate` itself** so a
+   forgotten call site still produces an observable warning rather
+   than a silent stale-read tail. The existing pattern from
+   `peek` / `load` makes this trivial.
+
+The audit tests in this branch will continue to enforce the
+GREEN/YELLOW verdicts so that any regression on the singleflight,
+cache-poisoning, or negative-cache surface is caught in CI.
+
+---
+
+## Vector C nuance — "load" semantics under SetError
+
+A subtle point caught while writing the test:
+
+- During `mr.SetError(...)`, the cache's `load` path performs the
+  `SET key value TTL` on the write-through. That SET errors out,
+  but the cache returns the inner value to the caller (per the
+  documented "Redis write error → log, return inner result"
+  semantics). On Redis recovery, the next read is therefore a
+  **fresh miss** (no value was actually persisted) and `load`
+  successfully populates the cache. The third step of the test
+  (mutate inner, assert cached value held) proves the write was
+  durable post-recovery.
+- This confirms there is NO PATH where Redis-during-blip ingests
+  user-controlled state. The only writer is the cache's `load`
+  method, which sources its value from the inner DB reader.
 
 ---
 
