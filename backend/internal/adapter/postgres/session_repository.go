@@ -48,8 +48,10 @@ func (r *UserSessionRepository) Create(ctx context.Context, s *session.Session) 
 		INSERT INTO user_sessions (
 			id, user_id, jti, parent_jti, user_agent_hash,
 			ip_anonymized, login_method, created_at, last_used_at,
-			expires_at, revoked_at
-		) VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $9, $10, $11)
+			expires_at, revoked_at,
+			device_label, browser, os, city, country_code
+		) VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $9, $10, $11,
+		          $12, $13, $14, $15, $16)
 	`
 	var revoked any
 	if s.RevokedAt != nil {
@@ -67,6 +69,11 @@ func (r *UserSessionRepository) Create(ctx context.Context, s *session.Session) 
 		s.LastUsedAt,
 		s.ExpiresAt,
 		revoked,
+		s.DeviceLabel,
+		s.Browser,
+		s.OS,
+		s.City,
+		s.CountryCode,
 	)
 	if err != nil {
 		return fmt.Errorf("user_sessions: insert: %w", err)
@@ -86,7 +93,8 @@ func (r *UserSessionRepository) FindByJTI(ctx context.Context, jti string) (*ses
 	const stmt = `
 		SELECT id, user_id, jti, COALESCE(parent_jti, ''), user_agent_hash,
 		       text(ip_anonymized), login_method, created_at, last_used_at,
-		       expires_at, revoked_at
+		       expires_at, revoked_at,
+		       device_label, browser, os, city, country_code
 		FROM user_sessions
 		WHERE jti = $1
 	`
@@ -165,7 +173,8 @@ func (r *UserSessionRepository) ListActiveByUser(ctx context.Context, userID uui
 	const stmt = `
 		SELECT id, user_id, jti, COALESCE(parent_jti, ''), user_agent_hash,
 		       text(ip_anonymized), login_method, created_at, last_used_at,
-		       expires_at, revoked_at
+		       expires_at, revoked_at,
+		       device_label, browser, os, city, country_code
 		FROM user_sessions
 		WHERE user_id = $1
 		  AND revoked_at IS NULL
@@ -195,9 +204,14 @@ func (r *UserSessionRepository) ListActiveByUser(ctx context.Context, userID uui
 
 // scanSession decodes a row into a Session value object. Reuses the
 // package-level rowScanner type (declared next to scanModerationResult)
-// so the column order stays in lock-step between FindByJTI and
-// ListActiveByUser — drift here would silently corrupt the audit
-// trail.
+// so the column order stays in lock-step between FindByJTI,
+// ListActiveByUser and FindByID — drift here would silently corrupt
+// the audit trail.
+//
+// The display-grade columns (device_label, browser, os, city,
+// country_code) were added by migration 150 (SEC-SESSIONS). Pre-150
+// rows return '' for every new column because the migration sets
+// DEFAULT '' on the ALTER, so the scan is unconditional.
 func scanSession(row rowScanner) (*session.Session, error) {
 	var (
 		s         session.Session
@@ -218,6 +232,11 @@ func scanSession(row rowScanner) (*session.Session, error) {
 		&s.LastUsedAt,
 		&s.ExpiresAt,
 		&revokedAt,
+		&s.DeviceLabel,
+		&s.Browser,
+		&s.OS,
+		&s.City,
+		&s.CountryCode,
 	); err != nil {
 		return nil, err
 	}
@@ -229,4 +248,96 @@ func scanSession(row rowScanner) (*session.Session, error) {
 		s.RevokedAt = &t
 	}
 	return &s, nil
+}
+
+// UpdateGeoCity patches the city + country_code columns for the row
+// matching jti. Idempotent and best-effort: a missing row is silent.
+// Used by the fire-and-forget GeoIP goroutine.
+func (r *UserSessionRepository) UpdateGeoCity(ctx context.Context, jti string, city string, countryCode string) error {
+	if jti == "" {
+		return session.ErrJTIRequired
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const stmt = `UPDATE user_sessions SET city = $2, country_code = $3 WHERE jti = $1`
+	if _, err := r.db.ExecContext(ctx, stmt, jti, city, countryCode); err != nil {
+		return fmt.Errorf("user_sessions: update_geo_city: %w", err)
+	}
+	return nil
+}
+
+// FindByID returns the session row matching id, or session.ErrNotFound
+// when nothing matches. Used by the Sécurité endpoint to verify
+// ownership before revoking.
+func (r *UserSessionRepository) FindByID(ctx context.Context, id uuid.UUID) (*session.Session, error) {
+	if id == uuid.Nil {
+		return nil, fmt.Errorf("user_sessions: nil id")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const stmt = `
+		SELECT id, user_id, jti, COALESCE(parent_jti, ''), user_agent_hash,
+		       text(ip_anonymized), login_method, created_at, last_used_at,
+		       expires_at, revoked_at,
+		       device_label, browser, os, city, country_code
+		FROM user_sessions
+		WHERE id = $1
+	`
+	row := r.db.QueryRowContext(ctx, stmt, id)
+	out, err := scanSession(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, session.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("user_sessions: find_by_id: %w", err)
+	}
+	return out, nil
+}
+
+// RevokeByID stamps revoked_at on the row matching id, only when it
+// was previously NULL. Idempotent.
+func (r *UserSessionRepository) RevokeByID(ctx context.Context, id uuid.UUID) error {
+	if id == uuid.Nil {
+		return fmt.Errorf("user_sessions: nil id")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const stmt = `UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL`
+	if _, err := r.db.ExecContext(ctx, stmt, id); err != nil {
+		return fmt.Errorf("user_sessions: revoke_by_id: %w", err)
+	}
+	return nil
+}
+
+// RevokeAllForUserExceptJTI revokes every still-active session for
+// userID, excluding the row whose jti matches exceptJTI. When
+// exceptJTI is empty, falls back to revoking every active row.
+func (r *UserSessionRepository) RevokeAllForUserExceptJTI(ctx context.Context, userID uuid.UUID, exceptJTI string) error {
+	if userID == uuid.Nil {
+		return session.ErrUserIDRequired
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if exceptJTI == "" {
+		const stmt = `UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`
+		if _, err := r.db.ExecContext(ctx, stmt, userID); err != nil {
+			return fmt.Errorf("user_sessions: revoke_all_except: %w", err)
+		}
+		return nil
+	}
+	const stmt = `
+		UPDATE user_sessions
+		   SET revoked_at = NOW()
+		 WHERE user_id = $1
+		   AND revoked_at IS NULL
+		   AND jti <> $2
+	`
+	if _, err := r.db.ExecContext(ctx, stmt, userID, exceptJTI); err != nil {
+		return fmt.Errorf("user_sessions: revoke_all_except: %w", err)
+	}
+	return nil
 }

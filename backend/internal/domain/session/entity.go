@@ -88,6 +88,21 @@ type Session struct {
 	LastUsedAt    time.Time
 	ExpiresAt     time.Time
 	RevokedAt     *time.Time // nil when still active
+
+	// SEC-SESSIONS / migration 150 — display-grade enrichment of the
+	// row, written at session creation so the Sécurité page can
+	// render a Malt-style row ("Ordinateur de bureau (Chrome) — Paris
+	// — 11/05/2026 10:48:46") without parsing the UA at read time.
+	//
+	// All four fields are optional ('' is the documented "unknown"
+	// value, matching the SQL DEFAULT ''). The forensic columns above
+	// (UserAgentHash, IPAnonymized) stay the source of truth for
+	// security workflows — these new columns are display-only.
+	DeviceLabel string // "Ordinateur de bureau (Chrome)" / "iPhone (Safari)" / "Appareil inconnu"
+	Browser     string // "Chrome" / "Safari" / "Firefox" / "Edge" / "Opera" — '' when unknown
+	OS          string // "Windows" / "macOS" / "Linux" / "iOS" / "Android" — '' when unknown
+	City        string // free-form, returned by the GeoIP adapter — '' when unknown
+	CountryCode string // ISO 3166-1 alpha-2, uppercase — '' when unknown
 }
 
 // Active reports whether the session is currently usable: not
@@ -112,6 +127,14 @@ type NewInput struct {
 	IPAnonymized  string
 	LoginMethod   LoginMethod
 	ExpiresAt     time.Time
+
+	// Display-grade enrichment (SEC-SESSIONS / migration 150). All
+	// optional — the empty string is the explicit "unknown" value.
+	DeviceLabel string
+	Browser     string
+	OS          string
+	City        string
+	CountryCode string
 }
 
 // New constructs and validates a Session value. The ID, CreatedAt,
@@ -149,5 +172,10 @@ func New(in NewInput) (*Session, error) {
 		CreatedAt:     now,
 		LastUsedAt:    now,
 		ExpiresAt:     in.ExpiresAt,
+		DeviceLabel:   in.DeviceLabel,
+		Browser:       in.Browser,
+		OS:            in.OS,
+		City:          in.City,
+		CountryCode:   strings.ToUpper(strings.TrimSpace(in.CountryCode)),
 	}, nil
 }

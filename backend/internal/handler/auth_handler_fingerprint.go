@@ -9,21 +9,29 @@ import (
 	"marketplace-backend/internal/domain/gdpr"
 )
 
-// sessionFingerprint extracts the (anonymized IP, hashed user-agent)
-// pair used to fill the user_sessions audit row (B.4).
+// sessionFingerprint extracts the request-side metadata used to fill
+// the user_sessions audit row (B.4 + SEC-SESSIONS / migration 150).
 //
-//   - IP comes from the configured ipExtractor (which already
-//     applies the trusted-proxy allowlist) and is then truncated to
-//     /24 (IPv4) or /64 (IPv6) via gdpr.TruncateIP. Persisted as
-//     CIDR notation through the INET column.
-//   - User-Agent is SHA-256 hashed and the first 16 hex characters
-//     kept. 16 hex = 64 bits of identity which is plenty to
-//     distinguish realistic UAs (browser+OS+major version) without
-//     creating a per-device fingerprint that would itself be PII.
+// Two flavours of data come out of this helper, written to two
+// different sets of columns:
 //
-// Returns an empty fingerprint when ipExtractor is nil or the
-// request lacks an IP — the auth service then logs a slog.Warn and
-// skips the audit row, keeping the auth flow itself unaffected.
+//  1. Forensic (security): UserAgentHash (SHA-256 first 16 hex of the
+//     raw UA) + IPAnonymized (/24 IPv4 or /64 IPv6). Loaded onto the
+//     pre-existing columns from migration 147. Untouched by the
+//     SEC-SESSIONS work — security and audit tooling keep relying on
+//     these.
+//
+//  2. Display (Sécurité page): DeviceLabel + Browser + OS parsed from
+//     the raw UA by handler.ParseUserAgent, and the raw (un-anonymized)
+//     RemoteIP used downstream by the GeoIP goroutine to resolve
+//     {city, country_code}. The raw IP is NEVER persisted — only its
+//     /24 truncation lands in the row. The full IP only exists in
+//     memory for the short window of the GeoIP lookup.
+//
+// Returns an empty fingerprint (UserAgentHash + IPAnonymized both
+// empty) when ipExtractor is nil or the request lacks an IP — the
+// auth service then logs a slog.Warn and skips the audit row,
+// keeping the auth flow itself unaffected.
 func (h *AuthHandler) sessionFingerprint(r *http.Request) auth.SessionFingerprint {
 	var ip string
 	if h.ipExtractor != nil {
@@ -32,9 +40,19 @@ func (h *AuthHandler) sessionFingerprint(r *http.Request) auth.SessionFingerprin
 	if ip == "" {
 		return auth.SessionFingerprint{}
 	}
+
+	rawUA := r.UserAgent()
+	parsed := ParseUserAgent(rawUA)
+
 	return auth.SessionFingerprint{
-		UserAgentHash: hashUserAgentForSession(r.UserAgent()),
+		UserAgentHash: hashUserAgentForSession(rawUA),
 		IPAnonymized:  gdpr.TruncateIP(ip),
+
+		// SEC-SESSIONS — display columns + raw IP carrier.
+		DeviceLabel: parsed.Label,
+		Browser:     parsed.Browser,
+		OS:          parsed.OS,
+		RemoteIP:    ip,
 	}
 }
 

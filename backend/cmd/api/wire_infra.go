@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	geoipadapter "marketplace-backend/internal/adapter/geoip"
 	noopadapter "marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/posthog"
 	"marketplace-backend/internal/adapter/postgres"
@@ -98,6 +99,11 @@ type infrastructure struct {
 	// RefreshBlacklistSvc since both belong to the refresh-token
 	// rotation pipeline.
 	UserSessionRepo            repository.UserSessionRepository
+	// GeoIPSvc enriches new session rows with {city, country_code}
+	// for the Malt-style Sécurité page row (SEC-SESSIONS / migration
+	// 150). Best-effort: a nil value disables the enrichment and the
+	// row's city / country_code columns stay at their SQL default ''.
+	GeoIPSvc                   service.GeoIPLookup
 	PresenceSvc                service.PresenceService
 	StreamBroadcaster          *redisadapter.StreamBroadcaster
 	MessagingRateLimiter       *redisadapter.MessagingRateLimiter
@@ -235,6 +241,7 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		// tokens age out.
 		RefreshBlacklistSvc:   redisadapter.NewRefreshBlacklistService(redisClient),
 		UserSessionRepo:       postgres.NewUserSessionRepository(db),
+		GeoIPSvc:              geoipadapter.NewClient(),
 		MessagingRateLimiter:  redisadapter.NewMessagingRateLimiter(redisClient),
 		InvitationRateLimiter: redisadapter.NewInvitationRateLimiter(redisClient),
 	}
