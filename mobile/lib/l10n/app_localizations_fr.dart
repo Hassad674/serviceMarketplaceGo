@@ -1281,6 +1281,32 @@ class AppLocalizationsFr extends AppLocalizations {
       'Avant de payer, on a besoin de ces informations pour générer ton reçu officiel. Tu pourras les retrouver et les modifier dans tes paramètres.';
 
   @override
+  String get billingEmbedSummaryTitle => 'Identité de facturation';
+
+  @override
+  String get billingEmbedEditCta => 'Modifier';
+
+  @override
+  String get billingEmbedCountry => 'Pays';
+
+  @override
+  String get billingEmbedAddress => 'Adresse';
+
+  @override
+  String get billingEmbedEntity => 'Entité légale';
+
+  @override
+  String get billingEmbedTax => 'Identifiants fiscaux';
+
+  @override
+  String get billingEmbedCompletePromptTitle =>
+      'Renseigne ton identité de facturation';
+
+  @override
+  String get billingEmbedCompletePromptBody =>
+      'Avant de confirmer le paiement, complète les informations qui apparaîtront sur ton reçu.';
+
+  @override
   String get noActiveProjects => 'Aucun projet actif';
 
   @override
