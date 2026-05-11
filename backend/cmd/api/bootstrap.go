@@ -535,6 +535,12 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	if walletHandler != nil && referralSvc != nil {
 		walletHandler = walletHandler.WithCommissionRetrier(referralSvc)
 	}
+	// D1+D2 — same wiring story for the Stripe webhook handler: hook
+	// the transfer.failed listener so failed commission transfers land
+	// in the failed state with the Stripe failure_message recorded.
+	if stripeHandler != nil && referralSvc != nil {
+		stripeHandler = stripeHandler.WithReferralTransferFailureListener(referralSvc)
+	}
 	billingHandler := billing.BillingHandler
 	subscriptionHandler := billing.SubscriptionHandler
 	billingProfileHandler := billing.BillingProfileHandler

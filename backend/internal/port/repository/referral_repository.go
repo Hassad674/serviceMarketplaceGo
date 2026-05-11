@@ -120,6 +120,14 @@ type ReferralRepository interface {
 	// before driving the retry.
 	FindCommissionByID(ctx context.Context, id uuid.UUID) (*referral.Commission, error)
 
+	// FindCommissionByStripeTransferID looks up a commission by the
+	// Stripe Transfer id stamped on the row when MarkPaid succeeded.
+	// Returns ErrCommissionNotFound when no row matches — common when
+	// the transfer.failed event belongs to a different platform flow
+	// (e.g. milestone payouts to providers). Used by the Stripe
+	// webhook handler (D1+D2 — transfer.failed projection).
+	FindCommissionByStripeTransferID(ctx context.Context, transferID string) (*referral.Commission, error)
+
 	// ListCommissionsByReferral lists commissions across all attributions of
 	// a referral, for the apporteur dashboard.
 	ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error)

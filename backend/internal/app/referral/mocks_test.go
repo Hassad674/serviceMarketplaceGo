@@ -271,6 +271,21 @@ func (f *fakeReferralRepo) FindCommissionByID(ctx context.Context, id uuid.UUID)
 	return nil, referral.ErrCommissionNotFound
 }
 
+func (f *fakeReferralRepo) FindCommissionByStripeTransferID(ctx context.Context, transferID string) (*referral.Commission, error) {
+	if transferID == "" {
+		return nil, referral.ErrCommissionNotFound
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.commissions {
+		if c.StripeTransferID == transferID {
+			cp := *c
+			return &cp, nil
+		}
+	}
+	return nil, referral.ErrCommissionNotFound
+}
+
 func (f *fakeReferralRepo) ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -155,6 +155,21 @@ const queryFindCommissionByID = `
 	FROM referral_commissions
 	WHERE id = $1`
 
+// queryFindCommissionByStripeTransferID — used by the Stripe webhook
+// handler on transfer.failed (D1+D2) to locate the matching commission
+// row from the failed transfer id. Stripe Transfer ids (tr_*) are
+// unique platform-wide so the lookup is unambiguous. The matching
+// column is indexed in migration 108_create_referral_commissions.up.sql
+// via the unique partial index on (stripe_transfer_id) WHERE
+// stripe_transfer_id IS NOT NULL.
+const queryFindCommissionByStripeTransferID = `
+	SELECT id, attribution_id, milestone_id,
+	       gross_amount_cents, commission_cents, currency,
+	       status, stripe_transfer_id, stripe_reversal_id, failure_reason,
+	       paid_at, clawed_back_at, created_at, updated_at
+	FROM referral_commissions
+	WHERE stripe_transfer_id = $1`
+
 const queryListCommissionsByReferral = `
 	SELECT c.id, c.attribution_id, c.milestone_id,
 	       c.gross_amount_cents, c.commission_cents, c.currency,

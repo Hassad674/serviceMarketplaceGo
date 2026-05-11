@@ -113,6 +113,17 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 			return nil, fmt.Errorf("unmarshal charge (refunded): %w", err)
 		}
 		populateChargeRefunded(result, &ch)
+
+	case "transfer.failed":
+		// transfer.failed fires when a Transfer to a connected
+		// account is rejected post-creation. We project the
+		// transfer id + failure_message so the referral commission
+		// flow can mark the matching commission row as failed (D1+D2).
+		var tr stripe.Transfer
+		if err := json.Unmarshal(event.Data.Raw, &tr); err != nil {
+			return nil, fmt.Errorf("unmarshal transfer: %w", err)
+		}
+		populateTransferFailed(result, &tr)
 	}
 
 	return result, nil
@@ -261,6 +272,31 @@ func extractPaymentBillingDetails(pi *stripe.PaymentIntent) *portservice.Payment
 		return nil
 	}
 	return &out
+}
+
+// populateTransferFailed copies the fields the referral feature needs
+// out of a freshly-decoded stripe.Transfer on the transfer.failed
+// event (D1+D2). The transfer.id maps back to a commission row's
+// stripe_transfer_id field; the failure_message is recorded for
+// support / forensic review.
+//
+// Stripe occasionally emits transfer.failed without a Reversed flag
+// — the webhook handler treats every transfer.failed as authoritative
+// regardless because the alternative ("wait for a transfer.reversed
+// to confirm") would leave commissions stuck in `paid` while the
+// money never reached the apporteur.
+func populateTransferFailed(result *portservice.StripeWebhookEvent, tr *stripe.Transfer) {
+	result.TransferFailed = true
+	result.TransferID = tr.ID
+	if tr.Description != "" {
+		result.TransferFailureMessage = tr.Description
+	}
+	// Stripe puts the destination account id on Destination.ID — kept
+	// for forensic correlation even though the commission lookup keys
+	// off transfer_id alone.
+	if tr.Destination != nil {
+		result.TransferDestinationAccount = tr.Destination.ID
+	}
 }
 
 // populateChargeRefunded copies the fields the invoicing app service needs

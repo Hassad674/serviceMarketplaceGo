@@ -86,6 +86,24 @@ func (r *ReferralRepository) FindCommissionByID(ctx context.Context, id uuid.UUI
 	return c, nil
 }
 
+// FindCommissionByStripeTransferID — Stripe-webhook-side lookup for
+// the D1+D2 `transfer.failed` event. Returns ErrCommissionNotFound
+// when the transfer id is unknown (the event may belong to a
+// non-referral feature, e.g. provider milestone payouts).
+func (r *ReferralRepository) FindCommissionByStripeTransferID(ctx context.Context, transferID string) (*referral.Commission, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	c, err := scanCommission(r.db.QueryRowContext(ctx, queryFindCommissionByStripeTransferID, transferID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, referral.ErrCommissionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find commission by stripe transfer id: %w", err)
+	}
+	return c, nil
+}
+
 func (r *ReferralRepository) ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
