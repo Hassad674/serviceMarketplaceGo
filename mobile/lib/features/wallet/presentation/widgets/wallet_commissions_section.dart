@@ -4,9 +4,13 @@ import '../../domain/entities/wallet_entity.dart';
 import 'wallet_atoms.dart';
 
 import '../../../../core/theme/app_theme.dart';
-/// Commissions block: 3 balance cards (Pending / Received / Clawed
-/// back) + history list. Hidden by the parent when commission summary
-/// is empty AND no records exist.
+/// Commissions block: 4 balance cards (Available / In escrow / Paid
+/// 30d / Lifetime) + history list. Hidden by the parent when commission
+/// summary is empty AND no records exist.
+///
+/// WALLET-UX parity with the web wallet — same grammar as the missions
+/// wallet (Disponible / En séquestre / Versées 30j / Cumul lifetime),
+/// translated to English on mobile per the locale.
 class WalletCommissionsSection extends StatelessWidget {
   const WalletCommissionsSection({
     super.key,
@@ -19,6 +23,13 @@ class WalletCommissionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppColors>();
+    final warning = ext?.warning ?? theme.colorScheme.tertiary;
+    final success = ext?.success ?? theme.colorScheme.primary;
+    final primary = theme.colorScheme.primary;
+    final escrowCents = summary.pendingCents + summary.pendingKycCents;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -27,32 +38,47 @@ class WalletCommissionsSection extends StatelessWidget {
           title: 'My referral commissions',
         ),
         const SizedBox(height: 12),
+        // Top row — Available + Escrow (the actionable money).
         Row(
           children: [
             Expanded(
               child: WalletBalanceCard(
-                icon: Icons.schedule,
-                label: 'Pending',
-                amount: summary.pendingCents + summary.pendingKycCents,
-                color: (Theme.of(context).extension<AppColors>()?.warning ?? Theme.of(context).colorScheme.tertiary),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: WalletBalanceCard(
-                icon: Icons.verified_outlined,
-                label: 'Received',
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Available',
                 amount: summary.paidCents,
-                color: (Theme.of(context).extension<AppColors>()?.success ?? Theme.of(context).colorScheme.primary),
+                color: success,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: WalletBalanceCard(
-                icon: Icons.undo,
-                label: 'Clawed back',
-                amount: summary.clawedBackCents,
-                color: Theme.of(context).colorScheme.primary,
+                icon: Icons.schedule,
+                label: 'In escrow',
+                amount: escrowCents,
+                color: warning,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Bottom row — Paid 30d + Lifetime (the historical context).
+        Row(
+          children: [
+            Expanded(
+              child: WalletBalanceCard(
+                icon: Icons.calendar_today_outlined,
+                label: 'Paid 30d',
+                amount: summary.paid30dCents,
+                color: primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: WalletBalanceCard(
+                icon: Icons.savings_outlined,
+                label: 'Lifetime',
+                amount: summary.lifetimeCents,
+                color: success,
               ),
             ),
           ],

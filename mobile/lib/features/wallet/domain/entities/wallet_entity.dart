@@ -63,6 +63,17 @@ class CommissionWallet {
   final int pendingKycCents;
   final int paidCents;
   final int clawedBackCents;
+
+  /// Rolling 30-day sum of commissions paid out. Drives the
+  /// "Versées 30j" tile on the apporteur wallet (WALLET-UX). Defaults
+  /// to 0 when the backend hasn't been redeployed yet — old payloads
+  /// omit the field and the UI must degrade gracefully.
+  final int paid30dCents;
+
+  /// Cumulative paid-out lifetime total (paid + clawed_back). Kept
+  /// explicit so the UI does not depend on the invariant.
+  final int lifetimeCents;
+
   final String currency;
 
   const CommissionWallet({
@@ -70,15 +81,23 @@ class CommissionWallet {
     this.pendingKycCents = 0,
     this.paidCents = 0,
     this.clawedBackCents = 0,
+    this.paid30dCents = 0,
+    this.lifetimeCents = 0,
     this.currency = 'EUR',
   });
 
   factory CommissionWallet.fromJson(Map<String, dynamic> json) {
+    final paid = json['paid_cents'] as int? ?? 0;
+    final clawed = json['clawed_back_cents'] as int? ?? 0;
     return CommissionWallet(
       pendingCents: json['pending_cents'] as int? ?? 0,
       pendingKycCents: json['pending_kyc_cents'] as int? ?? 0,
-      paidCents: json['paid_cents'] as int? ?? 0,
-      clawedBackCents: json['clawed_back_cents'] as int? ?? 0,
+      paidCents: paid,
+      clawedBackCents: clawed,
+      paid30dCents: json['paid_30d_cents'] as int? ?? 0,
+      // Lifetime falls back to paid + clawed_back when the backend
+      // hasn't been redeployed yet so the UI never renders blanks.
+      lifetimeCents: json['lifetime_cents'] as int? ?? (paid + clawed),
       currency: json['currency'] as String? ?? 'EUR',
     );
   }
