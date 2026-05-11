@@ -47,6 +47,13 @@ type RoleOverridesService struct {
 	audits      repository.AuditRepository
 	email       service.EmailService
 	rateLimiter RolePermissionsRateLimiter
+	// overridesCache is the optional Redis-backed cache the auth
+	// middleware consults to resolve per-request permissions. After
+	// a successful SaveRoleOverrides we call Invalidate(orgID) so the
+	// next request sees the new matrix immediately instead of waiting
+	// for the 30s TTL. nil disables the eviction (test/CLI wiring).
+	// QW-HARDENING.
+	overridesCache service.OrgOverridesInvalidator
 }
 
 // roleOverridesUsers is the local composite the role-overrides
@@ -66,16 +73,22 @@ type RoleOverridesServiceDeps struct {
 	Audits      repository.AuditRepository
 	Email       service.EmailService
 	RateLimiter RolePermissionsRateLimiter
+	// OverridesCache is the (optional) cache eviction hook called
+	// after every successful SaveRoleOverrides. Wired in production
+	// to the Redis CachedOrgOverridesResolver; nil in tests/CLI.
+	// QW-HARDENING.
+	OverridesCache service.OrgOverridesInvalidator
 }
 
 func NewRoleOverridesService(deps RoleOverridesServiceDeps) *RoleOverridesService {
 	return &RoleOverridesService{
-		orgs:        deps.Orgs,
-		members:     deps.Members,
-		users:       deps.Users,
-		audits:      deps.Audits,
-		email:       deps.Email,
-		rateLimiter: deps.RateLimiter,
+		orgs:           deps.Orgs,
+		members:        deps.Members,
+		users:          deps.Users,
+		audits:         deps.Audits,
+		email:          deps.Email,
+		rateLimiter:    deps.RateLimiter,
+		overridesCache: deps.OverridesCache,
 	}
 }
 
@@ -253,6 +266,18 @@ func (s *RoleOverridesService) UpdateRoleOverrides(
 	// Persist the change.
 	if err := s.orgs.SaveRoleOverrides(ctx, org.ID, org.RoleOverrides); err != nil {
 		return nil, fmt.Errorf("update role overrides: persist: %w", err)
+	}
+
+	// QW-HARDENING: evict the cached overrides for this org so the
+	// auth middleware re-reads the new matrix on the next
+	// authenticated request instead of waiting up to 30s for the
+	// TTL. Best-effort — the cache heals on its own if the DEL
+	// fails, so we never propagate the eviction error.
+	if s.overridesCache != nil {
+		if iErr := s.overridesCache.Invalidate(ctx, org.ID); iErr != nil {
+			slog.Warn("update role overrides: cache invalidation failed",
+				"org_id", org.ID, "error", iErr)
+		}
 	}
 
 	// Compute the diff relative to the PREVIOUS state so the audit

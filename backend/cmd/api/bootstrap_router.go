@@ -282,11 +282,13 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		// Invalidates the cache after a write so the propagation lag
 		// stays bounded to "next request" for live edits and to the
 		// TTL for direct-SQL operator edits.
-		OrgOverridesResolver: redisadapter.NewCachedOrgOverridesResolver(
-			b.Infra.Redis,
-			orgOverridesAdapter{repo: b.Infra.OrganizationRepo},
-			redisadapter.DefaultOrgOverridesCacheTTL,
-		),
+		//
+		// QW-HARDENING: the cache is now constructed in
+		// wire_infra.go so the role-overrides app service can reach
+		// the same instance via b.Infra.OrgOverridesCache and call
+		// Invalidate after a SaveRoleOverrides write — closing the
+		// 30s revocation window the original wiring left open.
+		OrgOverridesResolver: b.Infra.OrgOverridesCache,
 		// is_admin propagation fix — the auth middleware reads the live
 		// (is_admin, status) pair on every request and overrides the
 		// session/JWT snapshot. Postgres adapter behind a 30s Redis
@@ -304,11 +306,13 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		// paths (BumpSessionVersion / logout-all) must call
 		// Invalidate on the cache so the new version propagates
 		// immediately instead of waiting for the TTL.
-		SessionVersionChecker: redisadapter.NewCachedSessionVersionChecker(
-			b.Infra.Redis,
-			b.Infra.UserRepo,
-			redisadapter.DefaultSessionVersionCacheTTL,
-		),
+		//
+		// QW-HARDENING: the cache is now constructed in
+		// wire_infra.go so the InvalidatingUserRepo wrapper (passed
+		// to every service that calls BumpSessionVersion) can call
+		// Invalidate on the same instance after each successful bump
+		// — closing the 30s revocation window.
+		SessionVersionChecker: b.Infra.SessionVersionCache,
 		Metrics:     b.Metrics,
 		RateLimiter: b.RateLimiter,
 		// SEC-FINAL-02: idempotency middleware on the 6 critical
