@@ -125,6 +125,56 @@ Future<CreateReferralResult> createReferral(
   }
 }
 
+/// Outcome of [endIntroAttribution]. `endedAt` is the server-issued
+/// ISO timestamp; [errorCode] is 'forbidden' | 'not_found' | 'unknown'
+/// on failure so the UI can map to the right toast copy without
+/// inspecting raw exceptions.
+class EndIntroResult {
+  const EndIntroResult._({this.endedAt, this.errorCode});
+
+  final String? endedAt;
+  final String? errorCode;
+
+  bool get isSuccess => endedAt != null;
+
+  factory EndIntroResult.success(String endedAt) =>
+      EndIntroResult._(endedAt: endedAt);
+  factory EndIntroResult.failure({String? code}) =>
+      EndIntroResult._(errorCode: code);
+}
+
+/// Terminates a single attribution (WALLET-UNIFY Run D). Idempotent
+/// on the backend, so the caller is safe to retry on flaky networks.
+/// Invalidates the parent referral providers so the page refreshes
+/// immediately on success — same pattern as the web TanStack Query
+/// invalidate.
+Future<EndIntroResult> endIntroAttribution(
+  WidgetRef ref, {
+  required String referralId,
+  required String attributionId,
+}) async {
+  try {
+    final repo = ref.read(referralRepositoryProvider);
+    final endedAt = await repo.endAttribution(attributionId);
+    ref.invalidate(referralByIdProvider(referralId));
+    ref.invalidate(referralAttributionsProvider(referralId));
+    ref.invalidate(referralCommissionsProvider(referralId));
+    return EndIntroResult.success(
+      endedAt ?? DateTime.now().toUtc().toIso8601String(),
+    );
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 403) {
+      return EndIntroResult.failure(code: 'forbidden');
+    }
+    if (e.response?.statusCode == 404) {
+      return EndIntroResult.failure(code: 'not_found');
+    }
+    return EndIntroResult.failure(code: 'unknown');
+  } catch (_) {
+    return EndIntroResult.failure(code: 'unknown');
+  }
+}
+
 Future<Referral?> respondToReferral(
   WidgetRef ref, {
   required String id,

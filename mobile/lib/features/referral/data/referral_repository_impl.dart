@@ -102,6 +102,26 @@ class ReferralRepositoryImpl implements ReferralRepository {
   }
 
   @override
+  Future<String?> endAttribution(String attributionId) async {
+    // WALLET-UNIFY Run D — terminates one attribution. The backend
+    // is idempotent so a retry on flaky networks does not produce
+    // a duplicate audit event; the response carries the persisted
+    // `ended_at` timestamp on both first-call and replay.
+    final response = await _apiClient.post(
+      '/api/v1/referrals/attributions/$attributionId/end',
+    );
+    final body = response.data;
+    if (body is Map<String, dynamic>) {
+      final dataObj = body['data'];
+      if (dataObj is Map<String, dynamic>) {
+        return dataObj['ended_at'] as String?;
+      }
+      return body['ended_at'] as String?;
+    }
+    return null;
+  }
+
+  @override
   Future<List<ReferralCommission>> listCommissions(String id) async {
     final response =
         await _apiClient.get('/api/v1/referrals/$id/commissions');

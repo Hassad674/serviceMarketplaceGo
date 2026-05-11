@@ -53,4 +53,11 @@ abstract class ReferralRepository {
   /// its attributions. Reserved for apporteur + provider — the backend
   /// returns 403 when called by a client.
   Future<List<ReferralCommission>> listCommissions(String id);
+
+  /// Terminates one attribution (WALLET-UNIFY Run D). Idempotent —
+  /// a second call returns the same `ended_at` without emitting a
+  /// duplicate audit event. Only the apporteur of the parent
+  /// referral can call it; the backend returns 403 otherwise.
+  /// Returns the `ended_at` ISO-8601 timestamp the server recorded.
+  Future<String?> endAttribution(String attributionId);
 }
