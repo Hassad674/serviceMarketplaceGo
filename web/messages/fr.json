@@ -2762,17 +2762,27 @@
     "charts": {
       "profileViews": "Vues du profil",
       "searchAppearances": "Apparitions en recherche",
-      "avgPosition": "Position moyenne en recherche"
+      "avgPosition": "Position moyenne en recherche",
+      "emptyChart": "Pas de pic d'activité sur la période sélectionnée."
+    },
+    "metrics": {
+      "totalViewsLabel": "Vues du profil",
+      "totalViewsEmpty": "Aucune vue encore",
+      "searchAppearancesLabel": "Apparitions en recherche",
+      "searchAppearancesEmpty": "Aucune apparition encore",
+      "avgPositionLabel": "Position moyenne",
+      "avgPositionUnit": "{value, plural, one {# place} other {# places}}",
+      "avgPositionPatience": "~7 jours pour des résultats stables"
     },
     "keywords": {
       "columnKeyword": "Mot-clé",
       "columnVolume": "Volume",
       "columnPosition": "Position",
-      "empty": "Aucun mot-clé n'a encore ramené de visiteur. Patience — il faut quelques jours pour que les données s'accumulent."
+      "empty": "Aucun mot-clé n'a encore ramené de visiteur."
     },
     "empty": {
-      "notEnoughData": "Données insuffisantes — patiente pendant que ton profil cumule de la visibilité (~7 jours pour des résultats stables).",
-      "notEnoughPosition": "Pas encore assez d'apparitions pour calculer une position moyenne fiable."
+      "notEnoughData": "Pas de pic d'activité sur la période sélectionnée.",
+      "notEnoughPosition": "Pas encore assez d'apparitions pour calculer une position moyenne fiable (~7 jours pour des résultats stables)."
     }
   }
 }

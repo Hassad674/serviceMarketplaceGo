@@ -2762,17 +2762,27 @@
     "charts": {
       "profileViews": "Profile views",
       "searchAppearances": "Search impressions",
-      "avgPosition": "Average search position"
+      "avgPosition": "Average search position",
+      "emptyChart": "No activity peaks for the selected period."
+    },
+    "metrics": {
+      "totalViewsLabel": "Profile views",
+      "totalViewsEmpty": "No views yet",
+      "searchAppearancesLabel": "Search impressions",
+      "searchAppearancesEmpty": "No impressions yet",
+      "avgPositionLabel": "Average position",
+      "avgPositionUnit": "{value, plural, one {# spot} other {# spots}}",
+      "avgPositionPatience": "~7 days for stable results"
     },
     "keywords": {
       "columnKeyword": "Keyword",
       "columnVolume": "Volume",
       "columnPosition": "Position",
-      "empty": "No keyword has driven a visitor yet. Be patient — it takes a few days for data to accumulate."
+      "empty": "No keyword has driven a visitor yet."
     },
     "empty": {
-      "notEnoughData": "Not enough data — give your profile a few days to build up visibility (~7 days for stable results).",
-      "notEnoughPosition": "Not enough search impressions yet to compute a reliable average position."
+      "notEnoughData": "No activity peaks for the selected period.",
+      "notEnoughPosition": "Not enough search impressions yet to compute a reliable average position (~7 days for stable results)."
     }
   }
 }
