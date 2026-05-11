@@ -30,6 +30,22 @@ const STATIC_PATHS = [
   { path: "/opportunities", changeFrequency: "daily" as const, priority: 0.9 },
   { path: "/login", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/register", changeFrequency: "yearly" as const, priority: 0.3 },
+  // D4 (GDPR Phase C) — legal documents index + 6 sub-pages.
+  { path: "/legal", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/legal/registre", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/legal/aipd", changeFrequency: "yearly" as const, priority: 0.3 },
+  {
+    path: "/legal/dpa-template",
+    changeFrequency: "yearly" as const,
+    priority: 0.3,
+  },
+  {
+    path: "/legal/politique-confidentialite",
+    changeFrequency: "yearly" as const,
+    priority: 0.3,
+  },
+  { path: "/legal/cgu", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/legal/cgv", changeFrequency: "yearly" as const, priority: 0.3 },
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

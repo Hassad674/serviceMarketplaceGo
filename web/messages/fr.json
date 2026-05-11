@@ -2624,6 +2624,7 @@
       "cgv": "CGV",
       "subprocessors": "Sous-processeurs",
       "automatedDecisions": "Décisions automatisées",
+      "documents": "Documents complets",
       "dpoContact": "Contact RGPD",
       "copyright": "© {year} Marketplace Service. Tous droits réservés."
     },
@@ -2770,6 +2771,151 @@
       "appealAlternativeTitle": "Recours indépendant",
       "appealAlternativeDescription": "Si notre réponse ne te satisfait pas, tu peux saisir la CNIL : {cnilUrl}.",
       "lastUpdatedISO": "2026-05-10"
+    },
+    "docs": {
+      "indexTitle": "Documents légaux et conformité RGPD",
+      "indexIntro": "Cette section regroupe l'ensemble des documents publiés à des fins de transparence (RGPD art. 13, 14, 28, 30, 35) et la documentation contractuelle de la marketplace. Les sources Markdown canoniques restent disponibles dans le dépôt sous /legal/.",
+      "sectionDocs": "Documents disponibles",
+      "englishNotice": "Version anglaise complète disponible sur demande à dpo@designedtrust.com. Les titres et la navigation sont disponibles en anglais ; le contenu reste en français pour préserver la précision juridique.",
+      "lastUpdatedISO": "2026-05-11",
+      "sourceLabel": "Voir la source Markdown",
+      "back": "Revenir au sommaire /legal",
+      "items": {
+        "registre": {
+          "title": "Registre des activités de traitement",
+          "summary": "11 traitements documentés (comptes, profils, messagerie, paiements, recherche, KYC biométrique, modération IA, mesure d'audience, support, journal d'audit) avec finalités, bases légales, sous-traitants et durées de conservation.",
+          "reference": "RGPD art. 30"
+        },
+        "aipd": {
+          "title": "Analyse d'impact (AIPD)",
+          "summary": "Trois AIPD couvrant la vérification biométrique KYC, la modération automatisée IA et le profilage de matching prestataire/client.",
+          "reference": "RGPD art. 35"
+        },
+        "dpaTemplate": {
+          "title": "Modèle de contrat de sous-traitance (DPA)",
+          "summary": "Modèle générique conforme à l'article 28 RGPD : objet, durée, obligations, sous-sous-traitance, sécurité, transferts hors UE, audit, fin de contrat.",
+          "reference": "RGPD art. 28"
+        },
+        "politiqueConfidentialite": {
+          "title": "Politique de confidentialité (version longue)",
+          "summary": "Version étendue de la politique avec tableaux complets des durées, des sous-traitants et des transferts hors UE.",
+          "reference": "RGPD art. 13/14"
+        },
+        "cgu": {
+          "title": "Conditions Générales d'Utilisation",
+          "summary": "17 articles couvrant inscription, comportement, contenus, modération DSA, propriété intellectuelle, responsabilité LCEN, sanctions, médiation, droit applicable.",
+          "reference": "À valider avocat"
+        },
+        "cgv": {
+          "title": "Conditions Générales de Vente",
+          "summary": "15 articles couvrant modèle économique, KYC, cycle de transaction Stripe Connect, paiements, apport d'affaires, factures, DAC 7 et dispositif Eckert.",
+          "reference": "À valider avocat + commissaire aux comptes"
+        }
+      },
+      "labels": {
+        "viewDocument": "Lire le document",
+        "reference": "Référence"
+      },
+      "registre": {
+        "title": "Registre des activités de traitement",
+        "subtitle": "Document de conformité tenu en application de l'article 30 du RGPD. Pour chaque traitement, sont précisés la finalité, la base légale, les catégories de données, les destinataires, les durées de conservation et les mesures de sécurité.",
+        "introHeading": "Périmètre",
+        "introBody": "Le présent registre couvre toutes les activités opérées sur services.designedtrust.com. Il est mis à jour au moins annuellement et à chaque nouveau traitement. Le statut « [À COMPLÉTER] » signale les zones nécessitant la signature finale du DPO ou du responsable légal.",
+        "treatmentsHeading": "Traitements documentés",
+        "treatmentsIntro": "Onze (11) traitements sont décrits dans la version Markdown canonique. Chaque traitement comporte les éléments suivants :",
+        "treatmentsItems": "Finalité|Base légale RGPD art. 6 (et art. 9 le cas échéant)|Catégories de données|Catégories de personnes concernées|Destinataires internes et sous-traitants|Transferts hors UE et garanties associées|Durée de conservation|Mesures techniques et organisationnelles spécifiques|Droits exerçables par la personne",
+        "subprocessorsHeading": "Sous-traitants",
+        "subprocessorsBody": "La liste publique des sous-traitants est disponible sur /sous-processeurs. Le registre Markdown détaille pour chacun la finalité, le pays principal et les garanties (DPA, CCT 2021/914, EU-US DPF) applicables.",
+        "tomHeading": "Mesures techniques et organisationnelles communes",
+        "tomBody": "TLS 1.2+ obligatoire, chiffrement at-rest, JWT short-lived avec rotation single-use, bcrypt cost 12, anti brute-force Redis (5 tentatives / 15 min), RBAC à trois niveaux, RLS PostgreSQL, audit log append-only, sauvegardes PITR + snapshots, modération automatique avant publication, en-têtes de sécurité HTTP, rate-limiting Redis.",
+        "referenceHeading": "Références juridiques",
+        "referenceItems": "RGPD — Règlement (UE) 2016/679|Loi Informatique et Libertés n° 78-17 modifiée|LCEN n° 2004-575 du 21 juin 2004|Code de commerce art. L.123-22 (10 ans)|Code monétaire et financier art. L.561-2 et suivants (5 ans LCB-FT)|DSA — Règlement (UE) 2022/2065|Décision d'adéquation EU-US DPF n° 2023/1795|Clauses contractuelles types n° 2021/914"
+      },
+      "aipd": {
+        "title": "Analyse d'impact relative à la protection des données (AIPD)",
+        "subtitle": "Document tenu en application de l'article 35 du RGPD pour les traitements présentant un risque élevé. Trois AIPD distinctes sont menées.",
+        "scopeHeading": "Périmètre",
+        "scopeBody": "Trois traitements ont été identifiés comme nécessitant une AIPD : la vérification biométrique d'identité, la modération automatisée par modèles IA tiers, et le profilage commercial pour matching prestataire/client.",
+        "methodHeading": "Méthodologie",
+        "methodBody": "L'analyse suit la méthode CNIL (guide PIA 1/2/3) : description, évaluation de la nécessité et proportionnalité, identification des risques, mesures envisagées, avis du DPO, décision du responsable.",
+        "aipd1Heading": "AIPD-01 — Vérification biométrique d'identité (AWS Rekognition)",
+        "aipd1Body": "Traitement encadré par l'obligation LCB-FT (Code monétaire et financier art. L.561-2). Risques principaux : vol des frames vidéo en transit, accès non autorisé aux pièces, faux positifs/négatifs, biais algorithmique. Mesures retenues : chiffrement TLS + at-rest, pas de stockage des frames, revue humaine obligatoire en cas de score limite, statistiques trimestrielles pour détecter un biais.",
+        "aipd2Heading": "AIPD-02 — Modération automatisée par modèles IA tiers (OpenAI + Anthropic)",
+        "aipd2Body": "Traitement encadré par le DSA et la LCEN. Risques principaux : fausse-positivité, biais, fuite via les logs sous-traitants, réutilisation à des fins d'entraînement. Mesures retenues : anonymisation des identifiants, clause opt-out training contractuelle, double-modération sur les médias, droit à une intervention humaine sous 30 jours.",
+        "aipd3Heading": "AIPD-03 — Profilage commercial et matching prestataire/client",
+        "aipd3Body": "Classement déterministe Typesense — pas d'apprentissage automatique opaque. Risques principaux : effet de bord économique, biais structurel, drift après mise à jour. Mesures retenues : transparence des pondérations publiées, toggle de visibilité, désindexation immédiate sur opposition.",
+        "residualHeading": "Risques résiduels",
+        "residualBody": "Après mesures, aucun des trois traitements ne présente de risque résiduel élevé. La consultation préalable de la CNIL (RGPD art. 36) n'est pas requise. Une revue annuelle est planifiée.",
+        "dpoHeading": "Avis du DPO et décision du responsable",
+        "dpoBody": "L'avis circonstancié du DPO et la décision motivée du responsable de traitement sont consignés dans la version Markdown canonique. Les signatures restent à compléter par les personnes habilitées."
+      },
+      "dpaTemplate": {
+        "title": "Modèle de contrat de sous-traitance (DPA)",
+        "subtitle": "Modèle générique conforme à l'article 28 du RGPD. À compléter avec les informations spécifiques au sous-traitant signataire avant signature.",
+        "scopeHeading": "Objet",
+        "scopeBody": "Le DPA définit les conditions dans lesquelles un sous-traitant traite des données à caractère personnel pour le compte de Marketplace Service en qualité de responsable de traitement. Il prévaut sur le contrat principal pour toute question de protection des données.",
+        "articlesHeading": "Articles couverts",
+        "articlesItems": "Article 1 — Objet|Article 2 — Description du traitement|Article 3 — Obligations du Sous-traitant|Article 4 — Notification des violations de données (48h)|Article 5 — Sous-sous-traitance (autorisation J-30)|Article 6 — Droits des personnes concernées|Article 7 — Mesures de sécurité (art. 32 RGPD)|Article 8 — Durée de conservation|Article 9 — Transferts hors UE (CCT 2021/914)|Article 10 — Audit annuel ou sur demande motivée|Article 11 — Fin du contrat (restitution ou destruction)|Article 12 — Responsabilités et indemnisation|Article 13 — Droit applicable (France) et juridiction|Article 14 — Entrée en vigueur",
+        "transferHeading": "Transferts hors UE",
+        "transferBody": "Le modèle référence la décision EU-US DPF (UE 2023/1795 du 10 juillet 2023) pour les sous-traitants US auto-certifiés et les clauses contractuelles types 2021/914 (Module 2) pour les autres cas. Une évaluation TIA (Transfer Impact Assessment) est requise quand des mesures supplémentaires sont nécessaires.",
+        "appendicesHeading": "Annexes",
+        "appendicesBody": "Annexe I — Clauses contractuelles types (CCT 2021/914 — Module 2). Annexe II — Liste des sous-sous-traitants autorisés. Annexe III — Mesures techniques et organisationnelles spécifiques au sous-traitant.",
+        "signatureBody": "Le modèle laisse en attente la signature des deux Parties (Client + Sous-traitant) avec date et fonction. Les zones [À COMPLÉTER] correspondent aux champs à renseigner contrat par contrat."
+      },
+      "politiqueConfidentialite": {
+        "title": "Politique de confidentialité — version longue",
+        "subtitle": "Version étendue couvrant l'ensemble des durées, sous-traitants et transferts. La version publique synthétique reste accessible sur /privacy.",
+        "summaryHeading": "En résumé",
+        "summaryItems": "Qui collecte tes données : Marketplace Service|Pourquoi : t'inscrire, publier ton profil, échanger, recevoir des paiements, bénéficier des fonctionnalités|Combien de temps : tant que le compte est actif + 30 jours, sauf obligations légales (paiement 10 ans, KYC 5 ans, audit 4 ans)|Tes droits : accès, rectification, effacement, portabilité, opposition, limitation, retrait du consentement|Une question : dpo@designedtrust.com sous 30 jours",
+        "rightsHeading": "Tes droits RGPD",
+        "rightsItems": "Accès (art. 15) — /dashboard/account/gdpr|Rectification (art. 16) — /dashboard/profile|Effacement (art. 17) — /dashboard/account/gdpr|Portabilité (art. 20) — export JSON|Limitation (art. 18) — dpo@designedtrust.com|Opposition (art. 21) — dpo@designedtrust.com|Retrait du consentement — centre de préférences|Revue humaine des décisions automatisées (art. 22) — /decisions-automatisees|Post-mortem (art. 85 LIL) — directives à dpo@designedtrust.com",
+        "retentionHeading": "Durées de conservation",
+        "retentionBody": "Comptes : tant qu'actifs + 30 jours. Messages : 3 ans. Notifications : 90 jours. Tokens push : 60 jours inactivité. Recherches : 12 mois puis anonymisation. Sessions révoquées : 30 jours. Audit log : 24 mois en chaud + 24 mois en archive R2. Paiement : 10 ans (Code de commerce). KYC : 5 ans après fin de relation (LCB-FT).",
+        "transferHeading": "Transferts hors UE",
+        "transferBody": "Cadres applicables : EU-US Data Privacy Framework (décision UE 2023/1795 du 10 juillet 2023) pour les sous-traitants US auto-certifiés ; clauses contractuelles types (décision UE 2021/914 du 4 juin 2021) ; mesures supplémentaires (chiffrement TLS, opt-out training IA, minimisation).",
+        "contactHeading": "Contact et recours",
+        "contactBody": "Pour toute question, écris à dpo@designedtrust.com — réponse sous 30 jours (RGPD art. 12-3). Si tu n'es pas satisfait de notre réponse, tu peux saisir la CNIL : cnil.fr/fr/plaintes — 3 place de Fontenoy, TSA 80715, 75334 PARIS CEDEX 07."
+      },
+      "cgu": {
+        "title": "Conditions Générales d'Utilisation (CGU)",
+        "subtitle": "Conditions encadrant l'usage de la marketplace par les agences, freelances, entreprises et apporteurs d'affaires. À valider par un conseil juridique avant déploiement public.",
+        "objectHeading": "Objet et acceptation",
+        "objectBody": "Les CGU définissent les modalités de mise à disposition et d'utilisation des services. L'acceptation est matérialisée par la création d'un compte ou la simple navigation pour les visiteurs.",
+        "accessHeading": "Accès et inscription",
+        "accessBody": "Réservé aux personnes physiques majeures agissant à titre professionnel. Un seul compte par personne. Vérification KYC requise pour recevoir des paiements (cf. CGV art. 4). Sécurité du compte : l'utilisateur est responsable de la confidentialité de ses identifiants.",
+        "behaviorHeading": "Comportement et contenus interdits",
+        "behaviorBody": "Sont interdits : contenus haineux, sexuels non consentis, violents, diffamatoires, contraires à la propriété intellectuelle, illégaux. Modération automatique (OpenAI + AWS Rekognition) doublée d'une modération humaine sur signalement.",
+        "financeHeading": "Engagements financiers et commission",
+        "financeBody": "Tout flux financier découlant d'une mise en relation sur le Service doit transiter par la Plateforme. Commission prélevée selon les CGV. Possibilité d'apport d'affaires (toggle referrer_enabled).",
+        "ipHeading": "Propriété intellectuelle",
+        "ipBody": "L'utilisateur reste propriétaire de ses contenus mais concède une licence non exclusive à des fins strictement nécessaires (affichage, sauvegarde, indexation). Les éléments du Service (logo, code) restent la propriété exclusive de l'Éditeur.",
+        "liabilityHeading": "Responsabilité",
+        "liabilityBody": "L'Éditeur agit en qualité d'intermédiaire technique au sens LCEN (art. 6) et DSA. Sa responsabilité totale est plafonnée comme indiqué dans l'article 9 (limite contractuelle de 10 000 € indicative, à confirmer).",
+        "terminationHeading": "Résiliation",
+        "terminationBody": "L'utilisateur peut fermer son compte à tout moment via /dashboard/account/gdpr. Suppression définitive sous 30 jours, sauf obligations légales (paiement 10 ans, KYC 5 ans, audit 4 ans).",
+        "lawHeading": "Loi applicable et médiation",
+        "lawBody": "Droit français. Juridiction du siège social. Médiation conventionnelle ouverte sur accord des Parties. Médiateur de la consommation pour les utilisateurs non professionnels (référence à compléter)."
+      },
+      "cgv": {
+        "title": "Conditions Générales de Vente (CGV)",
+        "subtitle": "Conditions encadrant les relations commerciales et les paiements transitant par la marketplace. Service B2B exclusivement. À valider par un conseil juridique et un commissaire aux comptes.",
+        "modelHeading": "Modèle économique",
+        "modelBody": "Inscription et navigation gratuites. Rémunération via commission prélevée sur chaque transaction. Taux par défaut indicatif (à confirmer) : 5 % HT côté Client + 10 % HT côté Prestataire + commission apporteur d'affaires éventuelle. Frais Stripe refacturés au coût.",
+        "kycHeading": "Vérification d'identité (KYC)",
+        "kycBody": "Conformément aux obligations LCB-FT (Code monétaire et financier art. L.561-2) et aux exigences Stripe Connect, toute organisation souhaitant recevoir des paiements passe une vérification d'identité préalable. Vérification biométrique exigée. Délai cible 5 jours ouvrés.",
+        "cycleHeading": "Cycle d'une transaction",
+        "cycleBody": "Publication mission → proposal du Prestataire → acceptation Client → provisionnement Stripe (séquestre) → exécution → validation (7 jours d'opposition) → reversement au Prestataire sous 1 à 3 jours ouvrés → émission de la facture et reçu.",
+        "paymentHeading": "Paiements",
+        "paymentBody": "Provisionnement intégral à l'acceptation. Moyens : carte bancaire Stripe + virement SEPA. Validation tacite à l'expiration du délai de 7 jours sauf litige formalisé. TVA sous la responsabilité du Prestataire. Opérations intra-UE : validation VIES obligatoire.",
+        "disputeHeading": "Litiges",
+        "disputeBody": "Résolution amiable préalable obligatoire. Ouverture d'un litige formel via /dashboard/disputes. Instruction par l'équipe support sous 15 jours ouvrés. La décision ne préjuge pas du droit de saisir un tribunal compétent.",
+        "referrerHeading": "Apport d'affaires",
+        "referrerBody": "Activable par le toggle referrer_enabled. Commission par défaut indicative (5 % HT après commission Plateforme) avec accord exprès des trois Parties. L'apporteur n'a pas accès à la conversation 1-1 après la mise en relation initiale, sauf accord exprès.",
+        "invoicesHeading": "Factures et obligations comptables",
+        "invoicesBody": "Émission automatique de facture Prestataire → Client + reçu Plateforme + facture apporteur le cas échéant. Conservation 10 ans (Code de commerce art. L.123-22). Conformité au dispositif DAC 7 (Directive UE 2021/514) : récapitulatif annuel transmis au Prestataire et aux autorités fiscales.",
+        "dormantHeading": "Comptes inactifs et fonds dormants",
+        "dormantBody": "Compte inactif pendant 24 mois : notification puis clôture sous 90 jours en l'absence de réponse. Fonds non réclamés au-delà de 5 ans : reversement à la Caisse des Dépôts et Consignations (loi Eckert n° 2014-617)."
+      }
     }
   },
   "stats": {

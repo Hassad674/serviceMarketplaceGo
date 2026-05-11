@@ -2624,6 +2624,7 @@
       "cgv": "Sales terms",
       "subprocessors": "Sub-processors",
       "automatedDecisions": "Automated decisions",
+      "documents": "Full documents",
       "dpoContact": "GDPR contact",
       "copyright": "© {year} Marketplace Service. All rights reserved."
     },
@@ -2770,6 +2771,151 @@
       "appealAlternativeTitle": "Independent recourse",
       "appealAlternativeDescription": "If our response does not satisfy you, you can refer the matter to the CNIL: {cnilUrl}.",
       "lastUpdatedISO": "2026-05-10"
+    },
+    "docs": {
+      "indexTitle": "Legal documents and GDPR compliance",
+      "indexIntro": "This section gathers the documents we publish for transparency purposes (GDPR art. 13, 14, 28, 30, 35) along with the marketplace contractual documentation. The canonical Markdown sources remain available in the repository under /legal/.",
+      "sectionDocs": "Available documents",
+      "englishNotice": "A full English translation is available on request at dpo@designedtrust.com. Headings and navigation are translated; the body content remains in French to preserve legal accuracy.",
+      "lastUpdatedISO": "2026-05-11",
+      "sourceLabel": "View the Markdown source",
+      "back": "Back to the /legal index",
+      "items": {
+        "registre": {
+          "title": "Records of processing activities",
+          "summary": "11 documented activities (accounts, profiles, messaging, payments, search, KYC biometrics, AI moderation, audience measurement, support, audit log) with purposes, legal bases, sub-processors and retention durations.",
+          "reference": "GDPR art. 30"
+        },
+        "aipd": {
+          "title": "Data Protection Impact Assessment (DPIA)",
+          "summary": "Three DPIAs covering biometric KYC verification, automated AI moderation, and matching profiling between providers and clients.",
+          "reference": "GDPR art. 35"
+        },
+        "dpaTemplate": {
+          "title": "Data Processing Agreement (DPA) template",
+          "summary": "Generic template compliant with GDPR art. 28: scope, duration, obligations, sub-processing, security, non-EU transfers, audit, contract end.",
+          "reference": "GDPR art. 28"
+        },
+        "politiqueConfidentialite": {
+          "title": "Privacy policy (long version)",
+          "summary": "Extended version of the policy with full tables of retention durations, sub-processors and non-EU transfers.",
+          "reference": "GDPR art. 13/14"
+        },
+        "cgu": {
+          "title": "Terms of use",
+          "summary": "17 articles covering registration, conduct, content, DSA moderation, intellectual property, LCEN responsibility, sanctions, mediation, applicable law.",
+          "reference": "Pending counsel validation"
+        },
+        "cgv": {
+          "title": "Sales terms",
+          "summary": "15 articles covering business model, KYC, Stripe Connect transaction cycle, payments, business referral, invoices, DAC 7, and dormant funds (Eckert law).",
+          "reference": "Pending counsel + auditor validation"
+        }
+      },
+      "labels": {
+        "viewDocument": "Read the document",
+        "reference": "Reference"
+      },
+      "registre": {
+        "title": "Records of processing activities",
+        "subtitle": "Compliance document maintained under GDPR art. 30. For each activity, we list the purpose, legal basis, data categories, recipients, retention durations and security measures.",
+        "introHeading": "Scope",
+        "introBody": "This record covers all activities operated on services.designedtrust.com. It is updated at least yearly and at every new processing activity. The [À COMPLÉTER] marker signals areas pending final DPO or legal-officer signature.",
+        "treatmentsHeading": "Documented activities",
+        "treatmentsIntro": "Eleven (11) activities are described in the canonical Markdown version. Each entry contains:",
+        "treatmentsItems": "Purpose|Legal basis GDPR art. 6 (and art. 9 where applicable)|Data categories|Categories of data subjects|Internal recipients and sub-processors|Non-EU transfers and applicable safeguards|Retention duration|Activity-specific technical and organisational measures|Rights of the data subject",
+        "subprocessorsHeading": "Sub-processors",
+        "subprocessorsBody": "The public list of sub-processors is available on /sous-processeurs. The Markdown record details for each one the purpose, primary country and applicable safeguards (DPA, SCC 2021/914, EU-US DPF).",
+        "tomHeading": "Common technical and organisational measures",
+        "tomBody": "Mandatory TLS 1.2+, at-rest encryption, short-lived JWTs with single-use rotation, bcrypt cost 12, Redis brute-force protection (5 attempts / 15 min), three-layer RBAC, PostgreSQL RLS, append-only audit log, PITR + snapshot backups, pre-publication automated moderation, HTTP security headers, Redis rate-limiting.",
+        "referenceHeading": "Legal references",
+        "referenceItems": "GDPR — Regulation (EU) 2016/679|French Data Protection Act n° 78-17 as amended|LCEN n° 2004-575 of 21 June 2004|French Commercial Code art. L.123-22 (10 years)|French Monetary and Financial Code art. L.561-2 et seq. (5-year AML)|DSA — Regulation (EU) 2022/2065|EU-US DPF adequacy decision n° 2023/1795|Standard contractual clauses n° 2021/914"
+      },
+      "aipd": {
+        "title": "Data Protection Impact Assessment (DPIA)",
+        "subtitle": "Document maintained under GDPR art. 35 for processing activities presenting high risk. Three distinct DPIAs are conducted.",
+        "scopeHeading": "Scope",
+        "scopeBody": "Three activities have been identified as requiring a DPIA: biometric identity verification, automated moderation by third-party AI models, and commercial profiling for matching providers and clients.",
+        "methodHeading": "Methodology",
+        "methodBody": "The analysis follows the CNIL method (PIA guide 1/2/3): description, evaluation of necessity and proportionality, identification of risks, planned measures, DPO opinion, controller decision.",
+        "aipd1Heading": "DPIA-01 — Biometric identity verification (AWS Rekognition)",
+        "aipd1Body": "Activity framed by AML obligations (French Monetary and Financial Code art. L.561-2). Main risks: video frame interception in transit, unauthorised access to ID documents, false positives/negatives, algorithmic bias. Measures retained: TLS + at-rest encryption, no frame storage, mandatory human review at marginal scores, quarterly bias statistics.",
+        "aipd2Heading": "DPIA-02 — Automated moderation by third-party AI models (OpenAI + Anthropic)",
+        "aipd2Body": "Activity framed by the DSA and the LCEN. Main risks: false positives, bias, leakage via sub-processor logs, reuse for training. Measures retained: identifier anonymisation, contractual opt-out training clause, double moderation on media, right to human review within 30 days.",
+        "aipd3Heading": "DPIA-03 — Commercial profiling and provider/client matching",
+        "aipd3Body": "Deterministic Typesense ranking — no opaque machine learning. Main risks: economic side effects, structural bias, drift after update. Measures retained: public transparency of weights, visibility toggle, immediate de-indexing on opt-out.",
+        "residualHeading": "Residual risks",
+        "residualBody": "After measures, none of the three activities presents a high residual risk. Prior consultation with the CNIL (GDPR art. 36) is not required. An annual review is planned.",
+        "dpoHeading": "DPO opinion and controller decision",
+        "dpoBody": "The DPO's reasoned opinion and the controller's motivated decision are recorded in the canonical Markdown. Signatures remain to be completed by the authorised individuals."
+      },
+      "dpaTemplate": {
+        "title": "Data Processing Agreement (DPA) template",
+        "subtitle": "Generic template compliant with GDPR art. 28. To be completed with sub-processor-specific information before signature.",
+        "scopeHeading": "Scope",
+        "scopeBody": "The DPA defines the conditions under which a sub-processor processes personal data on behalf of Marketplace Service as controller. It prevails over the main agreement on any data protection matter.",
+        "articlesHeading": "Articles covered",
+        "articlesItems": "Article 1 — Scope|Article 2 — Description of processing|Article 3 — Sub-processor obligations|Article 4 — Data breach notification (48h)|Article 5 — Sub-sub-processing (J-30 authorisation)|Article 6 — Data subject rights|Article 7 — Security measures (GDPR art. 32)|Article 8 — Retention duration|Article 9 — Non-EU transfers (SCC 2021/914)|Article 10 — Annual or motivated audit|Article 11 — Contract end (return or destruction)|Article 12 — Responsibilities and indemnification|Article 13 — Applicable law (France) and jurisdiction|Article 14 — Entry into force",
+        "transferHeading": "Non-EU transfers",
+        "transferBody": "The template references the EU-US DPF (EU 2023/1795 of 10 July 2023) for self-certified US sub-processors and the standard contractual clauses 2021/914 (Module 2) for other cases. A Transfer Impact Assessment (TIA) is required where supplementary measures are needed.",
+        "appendicesHeading": "Appendices",
+        "appendicesBody": "Appendix I — Standard contractual clauses (SCC 2021/914 — Module 2). Appendix II — List of authorised sub-sub-processors. Appendix III — Sub-processor-specific technical and organisational measures.",
+        "signatureBody": "The template leaves the signature of both Parties (Client + Sub-processor) pending with date and role. The [À COMPLÉTER] markers correspond to fields to be filled in on a per-contract basis."
+      },
+      "politiqueConfidentialite": {
+        "title": "Privacy policy — long version",
+        "subtitle": "Extended version covering all durations, sub-processors and transfers. The public summary version remains available on /privacy.",
+        "summaryHeading": "In a nutshell",
+        "summaryItems": "Who collects your data: Marketplace Service|Why: sign you in, publish your profile, exchange, receive payments, access features|How long: while the account is active + 30 days, except legal obligations (payment 10 years, KYC 5 years, audit 4 years)|Your rights: access, rectification, erasure, portability, objection, restriction, consent withdrawal|Any question: dpo@designedtrust.com within 30 days",
+        "rightsHeading": "Your GDPR rights",
+        "rightsItems": "Access (art. 15) — /dashboard/account/gdpr|Rectification (art. 16) — /dashboard/profile|Erasure (art. 17) — /dashboard/account/gdpr|Portability (art. 20) — JSON export|Restriction (art. 18) — dpo@designedtrust.com|Objection (art. 21) — dpo@designedtrust.com|Consent withdrawal — preference centre|Human review of automated decisions (art. 22) — /decisions-automatisees|Post-mortem (LIL art. 85) — directives to dpo@designedtrust.com",
+        "retentionHeading": "Retention durations",
+        "retentionBody": "Accounts: while active + 30 days. Messages: 3 years. Notifications: 90 days. Push tokens: 60 inactive days. Searches: 12 months then anonymisation. Revoked sessions: 30 days. Audit log: 24 months hot + 24 months cold R2. Payment: 10 years (French Commercial Code). KYC: 5 years after end of relationship (AML).",
+        "transferHeading": "Non-EU transfers",
+        "transferBody": "Applicable frameworks: EU-US Data Privacy Framework (EU decision 2023/1795 of 10 July 2023) for self-certified US sub-processors; standard contractual clauses (EU decision 2021/914 of 4 June 2021); supplementary measures (TLS encryption, AI training opt-out, minimisation).",
+        "contactHeading": "Contact and recourse",
+        "contactBody": "For any question, write to dpo@designedtrust.com — reply within 30 days (GDPR art. 12-3). If our reply does not satisfy you, you may refer the matter to the CNIL: cnil.fr/fr/plaintes — 3 place de Fontenoy, TSA 80715, 75334 PARIS CEDEX 07."
+      },
+      "cgu": {
+        "title": "Terms of use",
+        "subtitle": "Terms governing the use of the marketplace by agencies, freelancers, enterprises and business referrers. Pending legal counsel validation before public deployment.",
+        "objectHeading": "Scope and acceptance",
+        "objectBody": "The Terms define the conditions for making the services available. Acceptance occurs at account creation or, for visitors, by simple browsing.",
+        "accessHeading": "Access and registration",
+        "accessBody": "Reserved for adult individuals acting in a professional capacity. One account per person. KYC verification required to receive payments (see Sales Terms art. 4). Account security: the user is responsible for credential confidentiality.",
+        "behaviorHeading": "Conduct and prohibited content",
+        "behaviorBody": "Prohibited: hateful, non-consensual sexual, violent, defamatory, IP-infringing, illegal content. Automated moderation (OpenAI + AWS Rekognition) combined with human moderation on report.",
+        "financeHeading": "Financial commitments and commission",
+        "financeBody": "Every financial flow stemming from a Service-initiated relationship must transit through the Platform. Commission applied per the Sales Terms. Business referral available (referrer_enabled toggle).",
+        "ipHeading": "Intellectual property",
+        "ipBody": "Users keep ownership of their content but grant a non-exclusive licence strictly limited to necessary purposes (display, backup, indexation). Service elements (logo, code) remain the Editor's exclusive property.",
+        "liabilityHeading": "Liability",
+        "liabilityBody": "The Editor acts as a technical intermediary under the LCEN (art. 6) and DSA. Total liability is capped as stated in article 9 (indicative contractual limit of 10,000 €, to be confirmed).",
+        "terminationHeading": "Termination",
+        "terminationBody": "The user can close their account at any time via /dashboard/account/gdpr. Definitive deletion within 30 days, except for legal obligations (payment 10 years, KYC 5 years, audit 4 years).",
+        "lawHeading": "Applicable law and mediation",
+        "lawBody": "French law. Jurisdiction of the registered office. Contractual mediation open by mutual agreement. Consumer mediator for non-professional users (reference to be completed)."
+      },
+      "cgv": {
+        "title": "Sales terms",
+        "subtitle": "Terms governing the commercial relationships and payments handled through the marketplace. B2B service exclusively. Pending counsel and auditor validation.",
+        "modelHeading": "Business model",
+        "modelBody": "Free registration and browsing. Revenue derived from commission on each transaction. Indicative default rate (to be confirmed): 5 % HT on the Client side + 10 % HT on the Provider side + optional referrer commission. Stripe fees passed through at cost.",
+        "kycHeading": "Identity verification (KYC)",
+        "kycBody": "Pursuant to AML obligations (French Monetary and Financial Code art. L.561-2) and Stripe Connect requirements, any organisation wishing to receive payments must pass a prior identity verification. Biometric verification required. Target turnaround 5 business days.",
+        "cycleHeading": "Transaction lifecycle",
+        "cycleBody": "Job posting → Provider proposal → Client acceptance → Stripe provisioning (escrow) → execution → validation (7-day objection window) → payout to the Provider within 1 to 3 business days → invoice and receipt issuance.",
+        "paymentHeading": "Payments",
+        "paymentBody": "Full provisioning at acceptance. Means: Stripe credit card + SEPA transfer. Tacit validation upon expiry of the 7-day window unless a dispute is formalised. VAT is the Provider's responsibility. Intra-EU operations: VIES validation required.",
+        "disputeHeading": "Disputes",
+        "disputeBody": "Mandatory prior amicable resolution. Formal dispute opening via /dashboard/disputes. Support-team review within 15 business days. The decision does not preclude either Party's right to seek a competent court.",
+        "referrerHeading": "Business referral",
+        "referrerBody": "Activated via the referrer_enabled toggle. Indicative default commission (5 % HT after Platform commission) with express agreement of all three Parties. The referrer does not access the 1-1 conversation after the initial connection, unless all parties expressly agree.",
+        "invoicesHeading": "Invoices and accounting obligations",
+        "invoicesBody": "Automated issuance of Provider → Client invoice + Platform receipt + referrer invoice where applicable. Storage for 10 years (French Commercial Code art. L.123-22). DAC 7 compliance (EU Directive 2021/514): annual summary delivered to Provider and tax authorities.",
+        "dormantHeading": "Dormant accounts and unclaimed funds",
+        "dormantBody": "Account inactive for 24 months: notification followed by closure within 90 days absent reply. Funds unclaimed beyond 5 years: transfer to the Caisse des Dépôts et Consignations (Eckert law n° 2014-617)."
+      }
     }
   },
   "stats": {
