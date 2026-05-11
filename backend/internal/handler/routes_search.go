@@ -22,9 +22,15 @@ func mountSearchRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 	// must hit it without a session cookie. The handler already
 	// reads the JWT user_id optionally (analytics tagging only),
 	// so dropping auth here only removes the gate, not the
-	// behaviour. NoCache is kept so the response stays fresh.
+	// behaviour.
+	//
+	// PublicCache lets the CDN edge cache repeated identical
+	// queries (60s browser / 300s shared). Different query strings
+	// hit different cache entries — the CDN keys on full URL,
+	// including ?q=&pos=&filters. Authenticated callers bypass
+	// the public cache automatically.
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.NoCache)
+		r.Use(middleware.PublicCache)
 		r.Get("/search", deps.Search.Search)
 	})
 	// Scoped-key minting and click tracking remain authenticated:

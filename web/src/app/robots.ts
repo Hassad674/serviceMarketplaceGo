@@ -9,6 +9,12 @@ import { siteConfig } from "@/config/site"
 // each as "block this and everything below". The list mirrors the
 // PROTECTED_PATHS from `src/middleware.ts` plus the auth flow URLs
 // that should never appear in search results.
+//
+// PERF-B: `revalidate = 86400` lets Vercel cache the rendered
+// robots.txt for a full day. The content only changes when we ship
+// a new build; a longer cache window has no downside.
+export const revalidate = 86400
+
 export default function robots(): MetadataRoute.Robots {
   const base = siteConfig.url.replace(/\/$/, "")
   return {

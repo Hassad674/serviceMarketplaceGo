@@ -164,24 +164,37 @@ func mountSkillsCatalog(r chi.Router, deps RouterDeps, auth func(http.Handler) h
 }
 
 func mountPublicProfileReads(r chi.Router, deps RouterDeps) {
-	// Public profiles (keyed by organization id since phase R2)
+	// All public profile detail GETs in this group receive
+	// `Cache-Control: public, max-age=60, s-maxage=300` via
+	// the PublicCache middleware so the Vercel/CDN edge can serve
+	// subsequent hits without reaching the backend. Authenticated
+	// callers (session cookie or bearer token) bypass the public
+	// cache automatically — see `middleware/public_cache.go`.
+	//
+	// We intentionally do NOT chain PublicCache on the search
+	// endpoint (`/profiles/search`): the query-string permutation
+	// makes shared caching low-value and pollutes the CDN.
 	r.Get("/profiles/search", deps.Profile.SearchProfiles)
 	// Wrap the public profile detail GETs with the view-tracking
 	// middleware. The wrapper is a passthrough when StatsRecorder
 	// is nil — feature-isolation rule.
-	r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaAgency, "orgId")).
-		Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
+	r.With(
+		middleware.PublicCache,
+		TrackProfileViews(deps.StatsRecorder, domainstats.PersonaAgency, "orgId"),
+	).Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 
 	// Public client profile (migration 114). Keyed on organization
 	// id so the URL scheme stays symmetrical with /profiles/{orgId}.
 	// Nil ClientProfile handler disables the route entirely —
 	// feature-isolation rule.
 	if deps.ClientProfile != nil {
-		r.Get("/clients/{orgId}", deps.ClientProfile.GetPublicClientProfile)
+		r.With(middleware.PublicCache).
+			Get("/clients/{orgId}", deps.ClientProfile.GetPublicClientProfile)
 	}
 
 	if deps.ProjectHistory != nil {
-		r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
+		r.With(middleware.PublicCache).
+			Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
 	}
 
 	// Public read routes for the split-profile personas
@@ -189,16 +202,21 @@ func mountPublicProfileReads(r chi.Router, deps RouterDeps) {
 	// so the URL scheme stays symmetrical with the legacy
 	// /profiles/{orgId} and the frontend's existing routes.
 	if deps.FreelanceProfile != nil {
-		r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaFreelance, "orgID")).
-			Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
+		r.With(
+			middleware.PublicCache,
+			TrackProfileViews(deps.StatsRecorder, domainstats.PersonaFreelance, "orgID"),
+		).Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
 	}
 	if deps.ReferrerProfile != nil {
-		r.With(TrackProfileViews(deps.StatsRecorder, domainstats.PersonaReferrer, "orgID")).
-			Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
+		r.With(
+			middleware.PublicCache,
+			TrackProfileViews(deps.StatsRecorder, domainstats.PersonaReferrer, "orgID"),
+		).Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
 		// Apporteur reputation surface — keyed on orgID for URL
 		// symmetry with the rest of the referrer-profile read
 		// surface. The handler translates internally to the
 		// owner user_id because referrals reference users.
-		r.Get("/referrer-profiles/{orgID}/reputation", deps.ReferrerProfile.GetReputation)
+		r.With(middleware.PublicCache).
+			Get("/referrer-profiles/{orgID}/reputation", deps.ReferrerProfile.GetReputation)
 	}
 }
