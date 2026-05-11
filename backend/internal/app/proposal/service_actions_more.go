@@ -84,6 +84,12 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	// false on fresh providers meant zero commission rows ever landed.
 	s.prepareReferrerCommission(ctx, p.ID, current.ID, current.Amount)
 
+	// Per-milestone platform_fee invoice — emit synchronously so the
+	// provider sees the invoice on /fr/invoices the moment the client
+	// approves. Best-effort: a failure HERE never rolls back the
+	// approval (the monthly safety-net scheduler catches missed rows).
+	s.emitPerMilestoneInvoice(ctx, current.ID)
+
 	// If the macro status is now completed, this was the LAST milestone
 	// of the proposal: run the end-of-project side effects (shared with
 	// AutoApproveMilestone via runEndOfProjectEffects).

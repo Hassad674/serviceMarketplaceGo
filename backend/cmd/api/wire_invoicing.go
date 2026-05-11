@@ -11,12 +11,15 @@ import (
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	viesadapter "marketplace-backend/internal/adapter/vies"
 	invoicingapp "marketplace-backend/internal/app/invoicing"
+	proposalapp "marketplace-backend/internal/app/proposal"
 	subscriptionapp "marketplace-backend/internal/app/subscription"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/system"
 	"marketplace-backend/pkg/confighelpers"
+
+	"github.com/google/uuid"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -52,6 +55,15 @@ type invoicingDeps struct {
 	// its prior fail-open behaviour.
 	ProposalHandler *handler.ProposalHandler
 	SubscriptionSvc *subscriptionapp.Service
+	// ProposalSvc receives the per-milestone invoicer adapter so each
+	// milestone approval emits a platform_fee invoice synchronously.
+	// Optional — when nil the proposal flow stays on the legacy monthly
+	// consolidation path.
+	ProposalSvc *proposalapp.Service
+	// PaymentRecords resolves the payment record from a milestone id —
+	// fed to the per-milestone invoicer adapter so the proposal app
+	// service never has to import the payment package directly.
+	PaymentRecords repository.PaymentRecordRepository
 }
 
 // invoicingWiring carries the products of the invoicing feature
@@ -174,6 +186,22 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 		deps.SubscriptionSvc.SetBillingProfileReader(invoicingSvc)
 	}
 
+	// Per-milestone platform_fee invoicer — every milestone approval
+	// emits a platform_fee invoice synchronously through the proposal
+	// service. Best-effort: nil deps fall back to the legacy
+	// monthly-consolidation flow.
+	if deps.ProposalSvc != nil && deps.PaymentRecords != nil && deps.Organizations != nil {
+		orgsReader := orgsOfUserAdapter{orgs: deps.Organizations}
+		adapter := invoicingapp.NewPerMilestoneInvoicerAdapter(invoicingSvc, deps.PaymentRecords, orgsReader)
+		deps.ProposalSvc.SetPerMilestoneInvoicer(adapter)
+		slog.Info("invoicing per-milestone emitter wired into proposal service")
+	} else {
+		slog.Warn("invoicing per-milestone emitter NOT wired",
+			"has_proposal_svc", deps.ProposalSvc != nil,
+			"has_payment_records", deps.PaymentRecords != nil,
+			"has_organizations", deps.Organizations != nil)
+	}
+
 	// Monthly-consolidation scheduler — issues the consolidated
 	// commission invoice on the 1st of each month between 02:00 and
 	// 04:00 UTC. Runs in-process: V1 ships with a single API instance
@@ -213,4 +241,25 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 		StripeHandler:   stripeHandler,
 		WalletHandler:   walletHandler,
 	}
+}
+
+// orgsOfUserAdapter satisfies invoicingapp.OrganizationOfUserReader by
+// reaching into the wider OrganizationRepository.FindByUserID method
+// and unwrapping the returned organization into its bare id. Keeps the
+// invoicing app port narrow without forcing it to know the full org
+// domain type.
+type orgsOfUserAdapter struct {
+	orgs repository.OrganizationRepository
+}
+
+// FindByUserID implements invoicingapp.OrganizationOfUserReader.
+func (a orgsOfUserAdapter) FindByUserID(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	org, err := a.orgs.FindByUserID(ctx, userID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if org == nil {
+		return uuid.Nil, nil
+	}
+	return org.ID, nil
 }

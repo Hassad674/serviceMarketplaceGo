@@ -65,13 +65,16 @@ func (r *InvoiceRepository) WithTxRunner(runner *TxRunner) *InvoiceRepository {
 
 // invoiceColumns is the canonical projection used by every SELECT scan
 // path so the column order never drifts between callers.
+// milestone_id is at the tail so the existing column order before the
+// per-milestone migration stays stable for code reading older rows.
 const invoiceColumns = `
 	id, number, recipient_organization_id, recipient_snapshot, issuer_snapshot,
 	issued_at, service_period_start, service_period_end,
 	currency, amount_excl_tax_cents, vat_rate, vat_amount_cents, amount_incl_tax_cents,
 	tax_regime, mentions_rendered, source_type,
 	stripe_event_id, stripe_payment_intent_id, stripe_invoice_id,
-	pdf_r2_key, status, finalized_at, created_at, updated_at
+	pdf_r2_key, status, finalized_at, created_at, updated_at,
+	milestone_id
 `
 
 // creditNoteColumns is the canonical column projection for SELECTs
@@ -171,14 +174,16 @@ func (r *InvoiceRepository) CreateInvoice(ctx context.Context, inv *invoicing.In
 				currency, amount_excl_tax_cents, vat_rate, vat_amount_cents, amount_incl_tax_cents,
 				tax_regime, mentions_rendered, source_type,
 				stripe_event_id, stripe_payment_intent_id, stripe_invoice_id,
-				pdf_r2_key, status, finalized_at, created_at, updated_at
+				pdf_r2_key, status, finalized_at, created_at, updated_at,
+				milestone_id
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
 				$9, $10, $11, $12, $13,
 				$14, $15, $16,
 				$17, $18, $19,
-				$20, $21, $22, $23, $24
+				$20, $21, $22, $23, $24,
+				$25
 			)`,
 			inv.ID, inv.Number, inv.RecipientOrganizationID, recipientJSON, issuerJSON,
 			inv.IssuedAt, inv.ServicePeriodStart, inv.ServicePeriodEnd,
@@ -186,6 +191,7 @@ func (r *InvoiceRepository) CreateInvoice(ctx context.Context, inv *invoicing.In
 			string(inv.TaxRegime), pq.Array(inv.MentionsRendered), string(inv.SourceType),
 			invoiceNullableString(inv.StripeEventID), invoiceNullableString(inv.StripePaymentIntentID), invoiceNullableString(inv.StripeInvoiceID),
 			invoiceNullableString(inv.PDFR2Key), string(inv.Status), inv.FinalizedAt, inv.CreatedAt, inv.UpdatedAt,
+			invoiceNullableUUID(inv.MilestoneID),
 		); err != nil {
 			return fmt.Errorf("create invoice: insert invoice: %w", err)
 		}

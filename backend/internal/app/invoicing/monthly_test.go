@@ -277,6 +277,92 @@ func TestIssueMonthlyConsolidated_MixedPremiumAndPaidRecords_OnlyBillsPaid(t *te
 	assert.Equal(t, 1, pdf.calls)
 }
 
+// TestIssueMonthlyConsolidated_SafetyNet_SkipsAlreadyInvoiced covers the
+// per-milestone safety-net behaviour: when a milestone already carries
+// a platform_fee invoice (the new synchronous emission path), the
+// monthly consolidation must SKIP that milestone so it is never billed
+// twice. If every milestone is already invoiced, the consolidation must
+// be a no-op (no 0 € or duplicate row).
+func TestIssueMonthlyConsolidated_SafetyNet_SkipsAlreadyInvoiced(t *testing.T) {
+	svc, invRepo, profileRepo, pdf, storage, deliverer, _ := newSvc(t)
+	orgID := uuid.New()
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+	periodStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	mid1 := uuid.New()
+	mid2 := uuid.New()
+	records := []repository.ReleasedPaymentRecord{
+		{
+			ID: uuid.New(), MilestoneID: mid1, ProposalID: uuid.New(),
+			ProposalAmountCents: 100_00, PlatformFeeCents: 5_00,
+			Currency: "EUR", TransferredAt: periodStart.Add(24 * time.Hour),
+		},
+		{
+			ID: uuid.New(), MilestoneID: mid2, ProposalID: uuid.New(),
+			ProposalAmountCents: 100_00, PlatformFeeCents: 5_00,
+			Currency: "EUR", TransferredAt: periodStart.Add(48 * time.Hour),
+		},
+	}
+	invRepo.listReleasedForOrgFn = func(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
+		return records, nil
+	}
+	// Both milestones already have a synchronous per-milestone invoice
+	// → the safety net must skip them entirely.
+	invRepo.findPlatformFeeByMilFn = func(_ context.Context, mid uuid.UUID) (*invoicing.Invoice, error) {
+		return &invoicing.Invoice{Number: "FAC-EXISTING", MilestoneID: &mid}, nil
+	}
+
+	out, err := svc.IssueMonthlyConsolidated(context.Background(), monthlyInput(orgID))
+	require.NoError(t, err)
+	assert.Nil(t, out, "consolidation must be a no-op when every milestone is already invoiced")
+	assert.Empty(t, invRepo.persistedInvoices)
+	assert.Equal(t, 0, pdf.calls)
+	assert.Equal(t, 0, storage.uploadCalls)
+	assert.Equal(t, 0, deliverer.calls)
+}
+
+// TestIssueMonthlyConsolidated_SafetyNet_BillsOnlyUninvoiced covers the
+// mixed case: of two released milestones, one is already invoiced
+// per-milestone (skipped) and one is not (billed by the safety net).
+func TestIssueMonthlyConsolidated_SafetyNet_BillsOnlyUninvoiced(t *testing.T) {
+	svc, invRepo, profileRepo, _, _, _, _ := newSvc(t)
+	orgID := uuid.New()
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+	periodStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	alreadyInvoicedMID := uuid.New()
+	missedMID := uuid.New()
+	missed := repository.ReleasedPaymentRecord{
+		ID: uuid.New(), MilestoneID: missedMID, ProposalID: uuid.New(),
+		ProposalAmountCents: 100_00, PlatformFeeCents: 5_00,
+		Currency: "EUR", TransferredAt: periodStart.Add(24 * time.Hour),
+	}
+	alreadyInvoiced := repository.ReleasedPaymentRecord{
+		ID: uuid.New(), MilestoneID: alreadyInvoicedMID, ProposalID: uuid.New(),
+		ProposalAmountCents: 100_00, PlatformFeeCents: 5_00,
+		Currency: "EUR", TransferredAt: periodStart.Add(48 * time.Hour),
+	}
+	invRepo.listReleasedForOrgFn = func(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
+		return []repository.ReleasedPaymentRecord{missed, alreadyInvoiced}, nil
+	}
+	invRepo.findPlatformFeeByMilFn = func(_ context.Context, mid uuid.UUID) (*invoicing.Invoice, error) {
+		if mid == alreadyInvoicedMID {
+			return &invoicing.Invoice{Number: "FAC-EXISTING", MilestoneID: &mid}, nil
+		}
+		return nil, invoicing.ErrNotFound
+	}
+
+	out, err := svc.IssueMonthlyConsolidated(context.Background(), monthlyInput(orgID))
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Len(t, out.Items, 1, "only the not-yet-invoiced milestone is billed")
+	require.NotNil(t, out.Items[0].MilestoneID)
+	assert.Equal(t, missedMID, *out.Items[0].MilestoneID,
+		"the surviving line must be the one without a synchronous invoice")
+}
+
 func TestGetCurrentMonthAggregate_SumsCorrectly(t *testing.T) {
 	svc, invRepo, _, _, _, _, _ := newSvc(t)
 	orgID := uuid.New()

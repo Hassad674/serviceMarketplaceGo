@@ -42,17 +42,31 @@ type RecipientInfo struct {
 	Email          string `json:"email"`
 }
 
-// SourceType discriminates between the two invoice origins.
+// SourceType discriminates between the three invoice origins.
+//
+//   - SourceSubscription: Stripe invoice.paid for a Premium subscription.
+//   - SourceMonthlyCommission: monthly batch consolidation of released
+//     milestones (legacy + safety-net path).
+//   - SourcePlatformFee: per-milestone immediate platform-fee invoice
+//     emitted at milestone approval for non-Premium providers. Carries a
+//     non-nil milestone_id on the row; the partial UNIQUE index on
+//     invoice (milestone_id) WHERE source_type='platform_fee' enforces
+//     at-most-one at the DB layer.
 type SourceType string
 
 const (
-	SourceSubscription       SourceType = "subscription"
-	SourceMonthlyCommission  SourceType = "monthly_commission"
+	SourceSubscription      SourceType = "subscription"
+	SourceMonthlyCommission SourceType = "monthly_commission"
+	SourcePlatformFee       SourceType = "platform_fee"
 )
 
 // IsValid reports whether the value matches the DB CHECK constraint.
 func (s SourceType) IsValid() bool {
-	return s == SourceSubscription || s == SourceMonthlyCommission
+	switch s {
+	case SourceSubscription, SourceMonthlyCommission, SourcePlatformFee:
+		return true
+	}
+	return false
 }
 
 // Status mirrors the invoice/credit_note row status column.

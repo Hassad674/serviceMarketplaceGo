@@ -98,6 +98,9 @@ func (bpFakeInvoiceRepo) ListInvoicesAdmin(_ context.Context, _ repository.Admin
 func (bpFakeInvoiceRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*domain.CreditNote, error) {
 	return nil, domain.ErrNotFound
 }
+func (bpFakeInvoiceRepo) FindPlatformFeeByMilestoneID(_ context.Context, _ uuid.UUID) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
 
 type bpFakeStorage struct{}
 

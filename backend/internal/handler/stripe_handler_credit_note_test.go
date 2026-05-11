@@ -104,6 +104,9 @@ func (f *refundFakeRepo) ListInvoicesAdmin(_ context.Context, _ repository.Admin
 func (f *refundFakeRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*invoicing.CreditNote, error) {
 	return nil, invoicing.ErrNotFound
 }
+func (f *refundFakeRepo) FindPlatformFeeByMilestoneID(_ context.Context, _ uuid.UUID) (*invoicing.Invoice, error) {
+	return nil, invoicing.ErrNotFound
+}
 
 type refundFakeIdem struct{ t *refundTracking }
 

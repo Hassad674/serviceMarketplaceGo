@@ -523,6 +523,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		PaymentInfoSvc:    paymentInfoSvc,
 		ReferralSvc:       referralSvc,
 		PendingEventsRepo: pendingEventsRepo,
+		PaymentRecordRepo: paymentRecordRepo,
 	})
 	stripeHandler := billing.StripeHandler
 	walletHandler := billing.WalletHandler

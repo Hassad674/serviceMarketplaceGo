@@ -91,6 +91,9 @@ func (r *adminInvoiceFakeRepo) FindCreditNoteByID(_ context.Context, id uuid.UUI
 	}
 	return nil, domain.ErrNotFound
 }
+func (r *adminInvoiceFakeRepo) FindPlatformFeeByMilestoneID(_ context.Context, _ uuid.UUID) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
 
 // adminInvoiceHarness wires the handler to a fake repo + the same
 // trivial PDF/Storage/Deliverer fakes the credit-note tests use.

@@ -39,6 +39,11 @@ type billingFeatureDeps struct {
 	PaymentInfoSvc    *paymentapp.Service
 	ReferralSvc       *referralapp.Service
 	PendingEventsRepo *postgres.PendingEventRepository
+	// PaymentRecordRepo is forwarded to wireInvoicing so the
+	// per-milestone invoice emitter can resolve the platform fee from
+	// the milestone id. Optional — when nil the per-milestone hook is
+	// disabled and the monthly safety-net path still covers emission.
+	PaymentRecordRepo *postgres.PaymentRecordRepository
 }
 
 // billingFeature is the bundle of handlers / services the rest of
@@ -111,6 +116,8 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 			WalletHandler:   walletHandler,
 			ProposalHandler: deps.ProposalHandler,
 			SubscriptionSvc: subscriptionAppSvc,
+			ProposalSvc:     deps.ProposalSvc,
+			PaymentRecords:  deps.PaymentRecordRepo,
 		})
 		billingProfileHandler = invoicing.BillingProfile
 		invoiceHandler = invoicing.Invoice

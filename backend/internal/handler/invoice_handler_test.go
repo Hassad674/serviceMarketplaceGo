@@ -107,6 +107,9 @@ func (r *invFakeRepo) ListInvoicesAdmin(_ context.Context, _ repository.AdminInv
 func (r *invFakeRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*domain.CreditNote, error) {
 	return nil, domain.ErrNotFound
 }
+func (r *invFakeRepo) FindPlatformFeeByMilestoneID(_ context.Context, _ uuid.UUID) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
 
 // ---------- harness ----------
 
