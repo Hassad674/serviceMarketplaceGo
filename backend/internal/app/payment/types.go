@@ -71,7 +71,13 @@ type CommissionWallet struct {
 	PendingKYCCents int64  `json:"pending_kyc_cents"`
 	PaidCents       int64  `json:"paid_cents"`
 	ClawedBackCents int64  `json:"clawed_back_cents"`
-	Currency        string `json:"currency"`
+	// Paid30dCents is the rolling 30-day sum of commissions paid out.
+	// Powers the "Versées 30j" tile on the apporteur wallet.
+	Paid30dCents int64 `json:"paid_30d_cents"`
+	// LifetimeCents is the cumulative paid-out total — kept as a separate
+	// field (instead of derived in the UI) so the contract is explicit.
+	LifetimeCents int64  `json:"lifetime_cents"`
+	Currency      string `json:"currency"`
 }
 
 // WalletCommissionRecord is one row of the apporteur's commission
