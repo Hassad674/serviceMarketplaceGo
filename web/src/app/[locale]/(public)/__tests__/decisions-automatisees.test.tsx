@@ -34,10 +34,10 @@ vi.mock("@i18n/navigation", () => ({
 
 import frMessages from "@/../messages/fr.json"
 import enMessages from "@/../messages/en.json"
-import * as Page from "@/app/[locale]/(public)/decisions-automatisees/page"
 
 describe("/decisions-automatisees metadata", () => {
   it("FR: generateMetadata returns localized title + description", async () => {
+    vi.resetModules()
     vi.doMock("next-intl/server", () => ({
       getTranslations: async ({ namespace }: { namespace: string }) => {
         return (key: string) => {
@@ -88,19 +88,58 @@ describe("/decisions-automatisees rendering", () => {
     // and let React Testing Library hydrate the resulting tree. We
     // bypass the next-intl/server stub by providing a synchronous
     // mock identical to the Phase A.4 placeholder test pattern.
+    vi.resetModules()
     vi.doMock("next-intl/server", () => ({
       getTranslations: async ({ namespace }: { namespace: string }) => {
-        return (key: string) => {
+        const lookup = (key: string): string => {
           const fr = frMessages as unknown as Record<string, unknown>
-          const ns = namespace
-            .split(".")
-            .reduce<Record<string, unknown> | undefined>(
-              (acc, segment) =>
-                acc?.[segment] as Record<string, unknown> | undefined,
-              fr,
-            )
-          return (ns?.[key] as string) ?? `[${namespace}.${key}]`
+          const fullPath = `${namespace}.${key}`.split(".")
+          let cursor: unknown = fr
+          for (const segment of fullPath) {
+            if (typeof cursor !== "object" || cursor === null) {
+              return `[${namespace}.${key}]`
+            }
+            cursor = (cursor as Record<string, unknown>)[segment]
+          }
+          return typeof cursor === "string"
+            ? cursor
+            : `[${namespace}.${key}]`
         }
+        const t = (key: string) => lookup(key)
+        const rich = (
+          key: string,
+          values?: Record<string, (chunks?: unknown) => unknown>,
+        ) => {
+          const raw = lookup(key)
+          // Replace `{name}` placeholders with the result of values[name]()
+          // and string-typed values, so the test can assert the rendered
+          // tree contains the React nodes from the callbacks.
+          const parts: unknown[] = []
+          const pattern = /\{(\w+)\}/g
+          let lastIndex = 0
+          let match: RegExpExecArray | null
+          while ((match = pattern.exec(raw)) !== null) {
+            if (match.index > lastIndex) {
+              parts.push(raw.slice(lastIndex, match.index))
+            }
+            const name = match[1]
+            const value = values?.[name]
+            if (typeof value === "function") {
+              parts.push(value())
+            } else if (value !== undefined) {
+              parts.push(String(value))
+            } else {
+              parts.push(match[0])
+            }
+            lastIndex = pattern.lastIndex
+          }
+          if (lastIndex < raw.length) {
+            parts.push(raw.slice(lastIndex))
+          }
+          return parts as unknown as string
+        }
+        ;(t as unknown as { rich: typeof rich }).rich = rich
+        return t
       },
     }))
     vi.doMock("next-intl", () => ({
@@ -163,7 +202,3 @@ describe("/decisions-automatisees rendering", () => {
     vi.doUnmock("next-intl")
   })
 })
-
-// silence unused-import warnings on the eager module — we rely on
-// dynamic imports inside the tests so the next-intl mocks apply.
-void Page

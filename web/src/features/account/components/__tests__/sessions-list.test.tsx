@@ -102,23 +102,27 @@ describe("SessionsList", () => {
   })
 
   it("revokes a session on click and removes the row optimistically", async () => {
-    vi.spyOn(sessionsApi, "listSessions").mockResolvedValue({
-      data: [
-        {
-          id: "33333333-3333-3333-3333-333333333333",
-          device_label: "Android (Chrome)",
-          os: "Android",
-          city: "",
-          country_code: "",
-          ip_anonymized: "192.0.2.0/24",
-          login_method: "password",
-          created_at: "2026-05-10T08:00:00Z",
-          last_used_at: "2026-05-10T08:00:00Z",
-          expires_at: "2026-05-25T08:00:00Z",
-          is_current: false,
-        },
-      ],
-    })
+    const androidSession = {
+      id: "33333333-3333-3333-3333-333333333333",
+      device_label: "Android (Chrome)",
+      os: "Android",
+      city: "",
+      country_code: "",
+      ip_anonymized: "192.0.2.0/24",
+      login_method: "password",
+      created_at: "2026-05-10T08:00:00Z",
+      last_used_at: "2026-05-10T08:00:00Z",
+      expires_at: "2026-05-25T08:00:00Z",
+      is_current: false,
+    }
+    // First fetch returns the row; after revoke succeeds, `onSettled`
+    // invalidates the query — the backend would no longer return the
+    // revoked session, so the mock returns an empty array on the second
+    // call. Without this, the cache invalidation undoes the optimistic
+    // removal and the row reappears.
+    const listSpy = vi.spyOn(sessionsApi, "listSessions")
+    listSpy.mockResolvedValueOnce({ data: [androidSession] })
+    listSpy.mockResolvedValue({ data: [] })
     const revokeSpy = vi
       .spyOn(sessionsApi, "revokeSession")
       .mockResolvedValue(undefined)
