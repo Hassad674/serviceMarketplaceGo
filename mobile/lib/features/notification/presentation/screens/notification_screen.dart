@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/app_notification.dart';
@@ -56,7 +57,15 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: const _BackButton(),
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu_rounded,
+            color: colorScheme.onSurface,
+            size: 22,
+          ),
+          onPressed: openShellDrawer,
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        ),
         title: const SizedBox.shrink(),
         toolbarHeight: 56,
       ),
@@ -75,44 +84,6 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             const SizedBox(height: 14),
             Expanded(child: _Body(state: state, l10n: l10n)),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Top-bar back button — calm 36px ivoire round button (Soleil v2 signature).
-// ---------------------------------------------------------------------------
-
-class _BackButton extends StatelessWidget {
-  const _BackButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final colors = theme.extension<AppColors>()!;
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8),
-      child: Material(
-        color: colorScheme.surfaceContainerLowest,
-        shape: CircleBorder(
-          side: BorderSide(color: colors.border),
-        ),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () => Navigator.of(context).maybePop(),
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(
-              Icons.arrow_back_rounded,
-              size: 18,
-              color: colorScheme.onSurface,
-            ),
-          ),
         ),
       ),
     );
