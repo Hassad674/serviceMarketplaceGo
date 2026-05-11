@@ -380,7 +380,7 @@ describe("TwoFactorToggle", () => {
     expect(mockConfirmEnable).not.toHaveBeenCalled()
   })
 
-  it("locks the enable CTA while a request is in flight", async () => {
+  it("disables the enable CTA while a request is in flight", async () => {
     let resolveRequest: ((value: { requires_confirmation: true; challenge_id: string }) => void) | undefined
     mockRequestEnable.mockImplementationOnce(
       () =>
@@ -392,14 +392,19 @@ describe("TwoFactorToggle", () => {
     const user = userEvent.setup()
     renderToggle({ initialEnabled: false })
 
-    await user.click(screen.getByRole("button", { name: "enableCta" }))
-    // While the request is pending the parent CTA is hidden — the
-    // confirm form has not yet opened (the resolution would open it).
-    // Sanity: a second click does NOT fire a second request because
-    // the button is gone.
-    expect(
-      screen.queryByRole("button", { name: "enableCta" }),
-    ).not.toBeInTheDocument()
+    const enableButton = screen.getByRole("button", { name: "enableCta" })
+    await user.click(enableButton)
+    // While the request is pending the same CTA button stays mounted
+    // but its `disabled` attribute is set — a second click is a no-op
+    // (the React handler bails on `busy === true`).
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "enableCta" }),
+      ).toBeDisabled()
+    })
+    // The label switches to the "saving" key to signal the in-flight
+    // state to the user.
+    expect(screen.getByText("saving")).toBeInTheDocument()
     expect(mockRequestEnable).toHaveBeenCalledTimes(1)
 
     resolveRequest?.({ requires_confirmation: true, challenge_id: "x" })
