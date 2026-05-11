@@ -1,0 +1,3 @@
+-- PERF-E: covering indexes on hot read paths (placeholder, agent in-flight)
+-- See perf-audit.md for context.
+-- This file will be populated with concrete indexes per analysis.

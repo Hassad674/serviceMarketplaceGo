@@ -1,0 +1,1 @@
+-- PERF-E: rollback for 152_perf_indexes_hot_queries (placeholder)
