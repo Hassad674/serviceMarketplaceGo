@@ -105,6 +105,14 @@ const (
 	// parent referral id so the audit row is self-describing without a
 	// JOIN.
 	ActionReferralIntroAttributionEnded Action = "referral.intro_attribution_ended"
+
+	// Wallet withdraw executed — emitted by the unified wallet
+	// withdraw endpoint (Run B WALLET-UNIFY) after a successful
+	// drain. Metadata captures the breakdown {missions_cents,
+	// commissions_cents, stripe_transfer_ids} so audit reviewers
+	// can reconstruct what was actually moved without joining the
+	// payment_records / referral_commissions tables.
+	ActionWalletWithdrawExecuted Action = "wallet.withdraw_executed"
 )
 
 // ResourceType is the kind of resource the audit entry refers to.
@@ -122,6 +130,7 @@ const (
 	ResourceTypeReferral            ResourceType = "referral"
 	ResourceTypeReferralCommission  ResourceType = "referral_commission"
 	ResourceTypeReferralAttribution ResourceType = "referral_attribution"
+	ResourceTypeWallet              ResourceType = "wallet"
 )
 
 // Entry is a single audit log row. Construct via NewEntry — the struct

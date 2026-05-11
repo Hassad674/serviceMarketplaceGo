@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -55,6 +56,26 @@ type kycOnboardingURLResolver interface {
 	GetOnboardingURL(ctx context.Context, userID uuid.UUID) (string, error)
 }
 
+// walletAuditLogger is the narrow append-only audit contract used by
+// the unified /wallet/withdraw endpoint. Defined locally so the
+// handler does not pull the entire audit.Entry constructor / repo
+// from the test surface — the real *audit.AuditRepository implements
+// the contract by delegating to its existing Log method.
+type walletAuditLogger interface {
+	Log(ctx context.Context, entry *auditEntry) error
+}
+
+// auditEntry is the field-level projection of audit.Entry used by
+// the wallet handler so wiring stays minimal. The bootstrap maps it
+// to domain audit.Entry before persisting (see WithAuditLogger).
+type auditEntry struct {
+	UserID       uuid.UUID
+	OrgID        uuid.UUID
+	Action       string
+	ResourceType string
+	Metadata     map[string]any
+}
+
 type WalletHandler struct {
 	paymentSvc  *paymentapp.Service
 	proposalSvc *proposalapp.Service
@@ -88,6 +109,15 @@ type WalletHandler struct {
 	// 422 response omits the URL and the UI falls back to its
 	// generic /payment-info redirect.
 	kycOnboardingURL kycOnboardingURLResolver
+
+	// Run B (WALLET-UNIFY) — extra deps for the new /wallet/summary
+	// and /wallet/withdraw endpoints. Each is wired via a builder
+	// method so worktrees without the referral feature still boot —
+	// degraded mode is "no projections / no commission drain"
+	// rather than 500.
+	commissionProjector commissionProjector
+	commissionRecorder  commissionRecorder
+	auditLogger         walletAuditLogger
 }
 
 func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service) *WalletHandler {
@@ -143,6 +173,15 @@ func (h *WalletHandler) WithCommissionRetrier(r commissionRetrier) *WalletHandle
 // the response omits the URL and the UI falls back to a generic redirect.
 func (h *WalletHandler) WithKYCOnboardingURLResolver(r kycOnboardingURLResolver) *WalletHandler {
 	h.kycOnboardingURL = r
+	return h
+}
+
+// WithAuditLogger wires the narrow audit logger used by the unified
+// /wallet/withdraw endpoint to record successful drains. Optional —
+// when nil the endpoint still works, audit emission is silently
+// skipped. Builder pattern keeps the constructor stable.
+func (h *WalletHandler) WithAuditLogger(l walletAuditLogger) *WalletHandler {
+	h.auditLogger = l
 	return h
 }
 
@@ -451,6 +490,25 @@ func (h *WalletHandler) mapCommissionRetryError(
 	slog.Error("wallet commission retry: orchestrator failed",
 		"commission_id", commissionID, "user_id", userID, "error", err)
 	res.Error(w, http.StatusBadGateway, "retry_failed", "Le retrait n'a pas pu être lancé. Réessaie dans quelques minutes.")
+}
+
+// RetryCommissionDeprecated wraps RetryCommission with the Deprecation
+// + Sunset headers per the back-compat brief (Run B WALLET-UNIFY).
+// The unified /wallet/withdraw endpoint replaces this — frontend
+// (Run C) migrates within the 30-day window.
+func (h *WalletHandler) RetryCommissionDeprecated(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
+	w.Header().Set("Sunset", deprecationSunset())
+	w.Header().Set("Link", `</api/v1/wallet/withdraw>; rel="successor-version"`)
+	h.RetryCommission(w, r)
+}
+
+// deprecationSunset returns the HTTP-Date sunset value (30 days out)
+// for the back-compat headers on the legacy commission retry
+// endpoint. Computed at request time so a long-running process never
+// serves a stale sunset.
+func deprecationSunset() string {
+	return time.Now().UTC().Add(30 * 24 * time.Hour).Format(http.TimeFormat)
 }
 
 // respondCommissionKYCRequired writes the 422 envelope the UI uses to

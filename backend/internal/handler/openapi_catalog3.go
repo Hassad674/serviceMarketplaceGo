@@ -12,8 +12,17 @@ func catalogueBilling(c map[string]routeSpec) {
 		Tags: []string{"billing"}, Summary: "Read wallet balance and pending operations",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	c["GET /api/v1/wallet/summary"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "Unified wallet summary — missions + commissions composed (Run B WALLET-UNIFY)",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
 	c["POST /api/v1/wallet/payout"] = routeSpec{
 		Tags: []string{"billing"}, Summary: "Initiate a wallet payout",
+		AuthRequired: true, RequestBody: rawJSONRequestBody(),
+		SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
+	c["POST /api/v1/wallet/withdraw"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "Unified wallet withdraw — drains missions + commissions in one call (Run B WALLET-UNIFY)",
 		AuthRequired: true, RequestBody: rawJSONRequestBody(),
 		SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
@@ -22,7 +31,7 @@ func catalogueBilling(c map[string]routeSpec) {
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
 	c["POST /api/v1/wallet/commissions/{id}/retry"] = routeSpec{
-		Tags: []string{"billing"}, Summary: "Retry an apporteur commission stuck in pending_kyc or failed (D1+D2)",
+		Tags: []string{"billing"}, Summary: "Retry an apporteur commission stuck in pending_kyc or failed (D1+D2 — deprecated, see /wallet/withdraw)",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
 	c["GET /api/v1/me/invoices"] = routeSpec{
