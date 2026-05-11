@@ -21,6 +21,10 @@ func catalogueBilling(c map[string]routeSpec) {
 		Tags: []string{"billing"}, Summary: "Retry a failed wallet transfer",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	c["POST /api/v1/wallet/commissions/{id}/retry"] = routeSpec{
+		Tags: []string{"billing"}, Summary: "Retry an apporteur commission stuck in pending_kyc or failed (D1+D2)",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
 	c["GET /api/v1/me/invoices"] = routeSpec{
 		Tags: []string{"billing"}, Summary: "List my invoices (transactions + commission)",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",

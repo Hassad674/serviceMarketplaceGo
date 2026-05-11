@@ -112,6 +112,12 @@ type StripeHandler struct {
 	// captured here because the webhook is the canonical truth source
 	// and immune to ad-blockers / browser closure mid-flow.
 	analytics portservice.AnalyticsService
+
+	// referralTransferFailureListener handles `transfer.failed` events
+	// against apporteur commission rows (D1+D2). Optional — when nil
+	// the dispatcher logs the event and continues without touching any
+	// referral state. Production wiring passes the referral service.
+	referralTransferFailureListener portservice.ReferralTransferFailureListener
 }
 
 func NewStripeHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service, publishableKey string) *StripeHandler {
@@ -190,6 +196,17 @@ type UserOrgResolver func(ctx context.Context, userID uuid.UUID) (uuid.UUID, err
 // disable hydration without disabling the rest of the dispatcher.
 func (h *StripeHandler) WithUserOrgResolver(r UserOrgResolver) *StripeHandler {
 	h.userOrgResolver = r
+	return h
+}
+
+// WithReferralTransferFailureListener attaches the referral feature's
+// transfer.failed handler (D1+D2). The webhook dispatcher invokes it
+// on every transfer.failed event so failed commission transfers land
+// in the failed state with the Stripe failure_message recorded.
+// Pass nil to leave the feature off — the dispatcher then logs the
+// event and skips.
+func (h *StripeHandler) WithReferralTransferFailureListener(l portservice.ReferralTransferFailureListener) *StripeHandler {
+	h.referralTransferFailureListener = l
 	return h
 }
 
@@ -459,8 +476,41 @@ func (h *StripeHandler) Dispatch(ctx context.Context, event *portservice.StripeW
 		// can't be matched to one of our subscription invoices —
 		// non-invoiced charges are out of scope.
 		return h.handleChargeRefunded(ctx, event)
+	case "transfer.failed":
+		// transfer.failed marks a commission row as failed when the
+		// destination connected account rejected the transfer (D1+D2).
+		// Best-effort: the listener is optional and silently no-ops
+		// when no commission row matches the transfer id.
+		return h.handleTransferFailed(ctx, event)
 	default:
 		slog.Debug("unhandled stripe event", "type", event.Type)
 		return nil
 	}
+}
+
+// handleTransferFailed forwards the projected transfer id +
+// failure_message to the referral transfer failure listener. Returns
+// nil when the listener is not wired (feature disabled).
+func (h *StripeHandler) handleTransferFailed(ctx context.Context, event *portservice.StripeWebhookEvent) error {
+	if h.referralTransferFailureListener == nil {
+		slog.Debug("transfer.failed received, but no referral listener wired", "transfer_id", event.TransferID)
+		return nil
+	}
+	if event.TransferID == "" {
+		// Defensive — Stripe shouldn't fire a transfer.failed without
+		// a transfer id, but treat the empty case as a silent no-op
+		// so a malformed payload never takes the webhook down.
+		slog.Warn("transfer.failed received with empty transfer id, skipping")
+		return nil
+	}
+	if err := h.referralTransferFailureListener.OnTransferFailed(ctx, event.TransferID, event.TransferFailureMessage); err != nil {
+		// Log but do NOT return the error — we never want Stripe
+		// retry storms on a transient DB blip. The audit trail in
+		// slog is the source of truth.
+		slog.Error("stripe webhook: referral transfer.failed listener failed",
+			"transfer_id", event.TransferID,
+			"failure_message", event.TransferFailureMessage,
+			"error", err)
+	}
+	return nil
 }

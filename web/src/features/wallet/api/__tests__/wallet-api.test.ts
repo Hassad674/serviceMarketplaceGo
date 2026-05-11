@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { getWallet, requestPayout, retryFailedTransfer } from "../wallet-api"
+import {
+  getWallet,
+  requestPayout,
+  retryCommission,
+  retryFailedTransfer,
+} from "../wallet-api"
 
 const mockApiClient = vi.fn()
 
@@ -30,6 +35,14 @@ describe("wallet-api", () => {
     retryFailedTransfer("rec-1")
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/wallet/transfers/rec-1/retry",
+      { method: "POST" },
+    )
+  })
+
+  it("retryCommission POSTs to the commission-scoped endpoint (D1+D2)", () => {
+    retryCommission("com-1")
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/v1/wallet/commissions/com-1/retry",
       { method: "POST" },
     )
   })

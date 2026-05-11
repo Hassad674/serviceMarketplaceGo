@@ -113,6 +113,21 @@ type ReferralRepository interface {
 	// ErrCommissionNotFound. Used by the clawback flow on refund.
 	FindCommissionByMilestone(ctx context.Context, milestoneID uuid.UUID) (*referral.Commission, error)
 
+	// FindCommissionByID returns a single commission by its primary key,
+	// or ErrCommissionNotFound when no row matches. Used by the wallet
+	// retry endpoint (D1+D2) and the audit-log resolver. The handler
+	// uses this lookup to assert ownership via the parent referral
+	// before driving the retry.
+	FindCommissionByID(ctx context.Context, id uuid.UUID) (*referral.Commission, error)
+
+	// FindCommissionByStripeTransferID looks up a commission by the
+	// Stripe Transfer id stamped on the row when MarkPaid succeeded.
+	// Returns ErrCommissionNotFound when no row matches — common when
+	// the transfer.failed event belongs to a different platform flow
+	// (e.g. milestone payouts to providers). Used by the Stripe
+	// webhook handler (D1+D2 — transfer.failed projection).
+	FindCommissionByStripeTransferID(ctx context.Context, transferID string) (*referral.Commission, error)
+
 	// ListCommissionsByReferral lists commissions across all attributions of
 	// a referral, for the apporteur dashboard.
 	ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error)

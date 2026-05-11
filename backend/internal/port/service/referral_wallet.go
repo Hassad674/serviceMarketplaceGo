@@ -18,9 +18,30 @@ import (
 //   - `RecentCommissions` returns the most recent N commission rows
 //     for the referrer, newest first. A hard cap of 100 is applied
 //     upstream.
+//   - `GroupedCommissions` returns the most recent commission rows
+//     partitioned by the four wallet-relevant statuses (pending_kyc,
+//     paid, failed, cancelled). Used by the D1+D2 "Retirer fallback"
+//     UI to render each group as its own card with the Retirer button
+//     only on retriable rows. The total cap mirrors RecentCommissions
+//     so a noisy apporteur cannot blow up the payload.
 type ReferralWalletReader interface {
 	GetReferrerSummary(ctx context.Context, referrerID uuid.UUID) (ReferrerCommissionSummary, error)
 	RecentCommissions(ctx context.Context, referrerID uuid.UUID, limit int) ([]ReferralCommissionRecord, error)
+	GroupedCommissions(ctx context.Context, referrerID uuid.UUID, limit int) (ReferralCommissionGroups, error)
+}
+
+// ReferralCommissionGroups partitions an apporteur's recent commissions
+// by the four wallet-relevant statuses. The TotalAmounts struct
+// mirrors ReferrerCommissionSummary for the same grouping, computed
+// from the returned rows so the UI never has to re-derive the totals.
+//
+// RetireEligible on each ReferralCommissionRecord identifies the rows
+// the wallet "Retirer" button should be active on.
+type ReferralCommissionGroups struct {
+	PendingKYC []ReferralCommissionRecord
+	Paid       []ReferralCommissionRecord
+	Failed     []ReferralCommissionRecord
+	Cancelled  []ReferralCommissionRecord
 }
 
 // ReferrerCommissionSummary aggregates the 4 wallet-relevant statuses
@@ -51,6 +72,12 @@ type ReferrerCommissionSummary struct {
 // ReferralCommissionRecord is one history row for the /wallet
 // commissions section. Mirrors the shape of the internal Commission
 // entity but uses primitive types only (no referral package import).
+//
+// RetireEligible is the precomputed flag that mirrors the retry
+// orchestrator's eligibility rule (pending_kyc OR failed). Computed
+// in the referral service so the UI can drive the Retirer button
+// without ever embedding the status → eligibility table on the
+// client side.
 type ReferralCommissionRecord struct {
 	ID               uuid.UUID
 	ReferralID       uuid.UUID
@@ -65,4 +92,5 @@ type ReferralCommissionRecord struct {
 	PaidAt           *time.Time
 	ClawedBackAt     *time.Time
 	CreatedAt        time.Time
+	RetireEligible   bool
 }

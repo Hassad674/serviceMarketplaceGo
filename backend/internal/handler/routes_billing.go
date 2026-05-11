@@ -138,6 +138,7 @@ func mountWalletRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 	if deps.Wallet == nil {
 		return
 	}
+	idem := idempotencyMiddleware(deps)
 	// Wallet routes (authenticated, permission-gated)
 	r.Route("/wallet", func(r chi.Router) {
 		r.Use(auth)
@@ -145,6 +146,12 @@ func mountWalletRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 		r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
 		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
 		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/transfers/{record_id}/retry", deps.Wallet.RetryFailedTransfer)
+		// D1+D2 — Retirer fallback for apporteur commissions stuck in
+		// pending_kyc / failed. The Idempotency-Key middleware guards
+		// against double-click duplicates on the same retry attempt.
+		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).
+			With(idem).
+			Post("/commissions/{id}/retry", deps.Wallet.RetryCommission)
 	})
 }
 

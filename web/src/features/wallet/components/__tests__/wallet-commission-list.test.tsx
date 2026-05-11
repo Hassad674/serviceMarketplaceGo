@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WalletCommissionList } from "../wallet-commission-list"
 import type {
   CommissionWallet,
@@ -20,6 +21,20 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }))
+
+// renderWithClient wraps the component in a TanStack QueryClient so
+// the D1+D2 useRetryCommission hook (inside WalletCommissionList) can
+// resolve a client without throwing. The mutation never fires in any
+// of these tests (no Retirer click), so retries and gcTime are
+// disabled for speed.
+function renderWithClient(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 
 function emptySummary(): CommissionWallet {
   return {
@@ -50,14 +65,14 @@ function makeRecord(
 
 describe("WalletCommissionList", () => {
   it("renders nothing when there is no activity at all", () => {
-    const { container } = render(
+    const { container } = renderWithClient(
       <WalletCommissionList summary={emptySummary()} records={[]} />,
     )
     expect(container).toBeEmptyDOMElement()
   })
 
   it("renders the section when summary has activity even with no records", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[]}
@@ -72,7 +87,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("shows the 'KYC à compléter' description when pending_kyc_cents > 0", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), pending_kyc_cents: 100_00 }}
         records={[]}
@@ -84,7 +99,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("shows the 'queue' description when only pending_cents > 0", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), pending_cents: 100_00 }}
         records={[]}
@@ -96,7 +111,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("renders one row per record", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[
@@ -121,7 +136,7 @@ describe("WalletCommissionList", () => {
     ["cancelled", /Annulée/i],
     ["weirdo", /weirdo/i],
   ] as const)("renders the badge for status %s", (status, regex) => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[makeRecord({ status })]}
@@ -132,7 +147,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("wraps a row in a referral link when referral_id is set", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[makeRecord({ id: "x", referral_id: "ref-99" })]}
@@ -143,7 +158,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("does not wrap a row in a link when referral_id is undefined", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[makeRecord({ id: "x", referral_id: undefined })]}
@@ -153,7 +168,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("renders the 3 balance card labels", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{
           pending_cents: 100_00,
@@ -171,7 +186,7 @@ describe("WalletCommissionList", () => {
   })
 
   it("formats amounts in EUR", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{
           pending_cents: 0,
@@ -188,12 +203,100 @@ describe("WalletCommissionList", () => {
   })
 
   it("renders the 'sur X de mission' subline for each row", () => {
-    render(
+    renderWithClient(
       <WalletCommissionList
         summary={{ ...emptySummary(), paid_cents: 50_00 }}
         records={[makeRecord({ gross_amount_cents: 5000_00 })]}
       />,
     )
     expect(screen.getByText(/sur\s+5\s?000,00/)).toBeInTheDocument()
+  })
+
+  // ─── D1+D2: Retirer fallback ──────────────────────────────────────────
+
+  it("does NOT render the Retirer button on a paid commission", () => {
+    renderWithClient(
+      <WalletCommissionList
+        summary={{ ...emptySummary(), paid_cents: 50_00 }}
+        records={[makeRecord({ status: "paid", retire_eligible: false })]}
+      />,
+    )
+    expect(
+      screen.queryByRole("button", { name: /Retirer cette commission/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders the Retirer button when retire_eligible=true", () => {
+    renderWithClient(
+      <WalletCommissionList
+        summary={{ ...emptySummary(), pending_kyc_cents: 100_00 }}
+        records={[
+          makeRecord({
+            status: "pending_kyc",
+            retire_eligible: true,
+          }),
+        ]}
+      />,
+    )
+    expect(
+      screen.getByRole("button", { name: /Retirer cette commission/i }),
+    ).toBeInTheDocument()
+  })
+
+  it("renders the Retirer button on a failed row when retire_eligible flag is missing (legacy API fallback)", () => {
+    renderWithClient(
+      <WalletCommissionList
+        summary={{ ...emptySummary(), pending_kyc_cents: 100_00 }}
+        records={[
+          // Older API responses (pre-D1+D2) may not include
+          // retire_eligible at all — the UI must still derive the
+          // button from the status. This is the regression guard.
+          makeRecord({ status: "failed", retire_eligible: undefined }),
+        ]}
+      />,
+    )
+    expect(
+      screen.getByRole("button", { name: /Retirer cette commission/i }),
+    ).toBeInTheDocument()
+  })
+
+  it("clicking Retirer triggers a POST to the retry endpoint", async () => {
+    // Stub global fetch — the apiClient layers above this test use
+    // fetch directly with credentials: "include" so a single stub is
+    // sufficient to capture the call.
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: "paid", message: "Retrait en cours." }),
+    })
+    vi.stubGlobal("fetch", fetchSpy)
+
+    renderWithClient(
+      <WalletCommissionList
+        summary={{ ...emptySummary(), pending_kyc_cents: 100_00 }}
+        records={[
+          makeRecord({
+            id: "com-retire",
+            status: "pending_kyc",
+            retire_eligible: true,
+          }),
+        ]}
+      />,
+    )
+    const button = screen.getByRole("button", {
+      name: /Retirer cette commission/i,
+    })
+    button.click()
+
+    // Let the microtask queue drain so the mutation can fire fetch.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(fetchSpy).toHaveBeenCalled()
+    const [url, opts] = fetchSpy.mock.calls[0]
+    expect(String(url)).toContain("/api/v1/wallet/commissions/com-retire/retry")
+    expect((opts as { method?: string }).method).toBe("POST")
+
+    vi.unstubAllGlobals()
   })
 })

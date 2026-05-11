@@ -12,9 +12,12 @@ import (
 	invoicingapp "marketplace-backend/internal/app/invoicing"
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	referralapp "marketplace-backend/internal/app/referral"
 	domaininv "marketplace-backend/internal/domain/invoicing"
 	paymentdomain "marketplace-backend/internal/domain/payment"
+	referraldomain "marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/handler/middleware"
+	portservice "marketplace-backend/internal/port/service"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -33,6 +36,23 @@ type payoutReadinessProbe interface {
 // *paymentapp.Service satisfies it natively.
 type transferRetrier interface {
 	RetryFailedTransfer(ctx context.Context, userID, orgID, recordID uuid.UUID) (*paymentapp.PayoutResult, error)
+}
+
+// commissionRetrier is the narrow contract the wallet commission retry
+// endpoint depends on so tests can drive every error branch (404 /
+// 403 / 409 / 422 / 502) without standing up the full referral service.
+// The real *referralapp.Service satisfies it via
+// service.ReferralCommissionRetryService.
+type commissionRetrier interface {
+	RetryCommission(ctx context.Context, requestingUserID, commissionID uuid.UUID) (portservice.ReferralCommissionRetryOutcome, error)
+}
+
+// kycOnboardingURLResolver returns the Stripe Connect onboarding URL
+// the apporteur should visit to finish KYC before retrying. Optional —
+// when nil, the 422 response carries no `onboarding_url` field and
+// the UI falls back to a generic /payment-info redirect.
+type kycOnboardingURLResolver interface {
+	GetOnboardingURL(ctx context.Context, userID uuid.UUID) (string, error)
 }
 
 type WalletHandler struct {
@@ -56,6 +76,18 @@ type WalletHandler struct {
 	// branch without instantiating the real payment service. Defaulted
 	// to paymentSvc in NewWalletHandler.
 	retrier transferRetrier
+
+	// commissionRetrier is the narrow contract used by RetryCommission
+	// (D1+D2). Wired via WithCommissionRetrier — when nil the route
+	// is registered but every request returns 503 retry_unavailable.
+	commissionRetrier commissionRetrier
+
+	// kycOnboardingURL resolves the Stripe Connect onboarding URL so
+	// the 422 kyc_required response can carry a deep-link for the
+	// frontend. Wired via WithKYCOnboardingURLResolver. When nil the
+	// 422 response omits the URL and the UI falls back to its
+	// generic /payment-info redirect.
+	kycOnboardingURL kycOnboardingURLResolver
 }
 
 func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service) *WalletHandler {
@@ -93,6 +125,24 @@ func (h *WalletHandler) WithPayoutReadinessProbe(probe payoutReadinessProbe) *Wa
 // RetryFailedTransfer without standing up the full payment stack.
 func (h *WalletHandler) WithTransferRetrier(r transferRetrier) *WalletHandler {
 	h.retrier = r
+	return h
+}
+
+// WithCommissionRetrier wires the D1+D2 commission retry service.
+// Builder pattern keeps the constructor signature stable — a worktree
+// without the referral feature still boots, the commission retry
+// endpoint simply returns 503 retry_unavailable until wired.
+func (h *WalletHandler) WithCommissionRetrier(r commissionRetrier) *WalletHandler {
+	h.commissionRetrier = r
+	return h
+}
+
+// WithKYCOnboardingURLResolver wires the helper that returns the
+// Stripe Connect onboarding URL so the 422 kyc_required response can
+// embed a deep-link for the frontend modal. Optional — when not wired
+// the response omits the URL and the UI falls back to a generic redirect.
+func (h *WalletHandler) WithKYCOnboardingURLResolver(r kycOnboardingURLResolver) *WalletHandler {
+	h.kycOnboardingURL = r
 	return h
 }
 
@@ -303,4 +353,133 @@ func (h *WalletHandler) RetryFailedTransfer(w http.ResponseWriter, r *http.Reque
 	}
 
 	res.JSON(w, http.StatusOK, result)
+}
+
+// RetryCommission re-attempts the Stripe transfer for a commission row
+// stuck in pending_kyc or failed. Bound to
+// POST /api/v1/wallet/commissions/{id}/retry under the same auth +
+// wallet.withdraw permission as /wallet/payout (D1+D2).
+//
+// Status mapping:
+//   - 200 OK + paid_at on success
+//   - 401 unauthorized when no user/org in context
+//   - 403 forbidden when caller is not the apporteur on the parent referral
+//   - 404 not_found when no commission row has that id
+//   - 409 conflict when the row is already paid or terminal (cancelled/clawed_back)
+//   - 422 kyc_required when the Connect gate trips — body carries an
+//     onboarding_url so the UI can deep-link the apporteur to KYC
+//   - 502 bad_gateway when Stripe returned an error on the transfer
+func (h *WalletHandler) RetryCommission(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	// We do not need orgID for the commission retry — ownership is
+	// scoped on the apporteur user id (the parent referral row stores
+	// referrer_id, not referrer_org_id) — but we still require the
+	// org context so the JWT middleware shape is consistent across the
+	// wallet routes.
+	if _, ok := middleware.GetOrganizationID(r.Context()); !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
+
+	commissionIDRaw := chi.URLParam(r, "id")
+	commissionID, parseErr := uuid.Parse(commissionIDRaw)
+	if parseErr != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_commission_id", "commission id must be a valid UUID")
+		return
+	}
+
+	if h.commissionRetrier == nil {
+		res.Error(w, http.StatusServiceUnavailable, "retry_unavailable", "Retry is not currently available.")
+		return
+	}
+
+	outcome, err := h.commissionRetrier.RetryCommission(r.Context(), userID, commissionID)
+	if err != nil {
+		h.mapCommissionRetryError(w, err, commissionID, userID)
+		return
+	}
+
+	switch outcome.Result {
+	case portservice.ReferralCommissionRetryPaid:
+		res.JSON(w, http.StatusOK, map[string]any{
+			"status":         "paid",
+			"message":        "Retrait en cours.",
+			"stripe_account": outcome.StripeAccount,
+		})
+	case portservice.ReferralCommissionRetryKYCRequired:
+		h.respondCommissionKYCRequired(w, r, userID, outcome.StripeAccount)
+	case portservice.ReferralCommissionRetryAlreadyPaid:
+		res.Error(w, http.StatusConflict, "already_paid", "Cette commission a déjà été versée.")
+	case portservice.ReferralCommissionRetryNotRetriable:
+		res.Error(w, http.StatusConflict, "not_retriable", "Cette commission ne peut pas être relancée.")
+	case portservice.ReferralCommissionRetryFailed:
+		res.JSON(w, http.StatusBadGateway, map[string]any{
+			"error": map[string]string{
+				"code":    "retry_failed",
+				"message": "Le virement a de nouveau échoué côté Stripe.",
+			},
+			"failure_reason": outcome.FailureReason,
+		})
+	default:
+		// Defensive — every result above is enumerated. An unknown
+		// value indicates a port contract drift that should never reach
+		// production.
+		slog.Error("wallet commission retry: unknown outcome", "outcome", outcome.Result, "commission_id", commissionID)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "Une erreur inattendue est survenue.")
+	}
+}
+
+// mapCommissionRetryError translates a domain error from the commission
+// retry orchestrator into the proper HTTP response.
+func (h *WalletHandler) mapCommissionRetryError(
+	w http.ResponseWriter,
+	err error,
+	commissionID, userID uuid.UUID,
+) {
+	switch {
+	case errors.Is(err, referraldomain.ErrCommissionNotFound):
+		res.Error(w, http.StatusNotFound, "commission_not_found", "Cette commission est introuvable.")
+		return
+	case errors.Is(err, referralapp.ErrCommissionNotOwned):
+		res.Error(w, http.StatusForbidden, "forbidden", "Cette commission ne t'appartient pas.")
+		return
+	}
+	slog.Error("wallet commission retry: orchestrator failed",
+		"commission_id", commissionID, "user_id", userID, "error", err)
+	res.Error(w, http.StatusBadGateway, "retry_failed", "Le retrait n'a pas pu être lancé. Réessaie dans quelques minutes.")
+}
+
+// respondCommissionKYCRequired writes the 422 envelope the UI uses to
+// open the KYC modal. The onboarding URL is best-effort — failure to
+// resolve it still returns 422 so the UI can fall back to the static
+// /payment-info redirect.
+func (h *WalletHandler) respondCommissionKYCRequired(
+	w http.ResponseWriter,
+	r *http.Request,
+	userID uuid.UUID,
+	stripeAccount string,
+) {
+	onboardingURL := ""
+	if h.kycOnboardingURL != nil {
+		url, uerr := h.kycOnboardingURL.GetOnboardingURL(r.Context(), userID)
+		if uerr != nil {
+			slog.Warn("wallet commission retry: onboarding URL resolution failed",
+				"user_id", userID, "error", uerr)
+		} else {
+			onboardingURL = url
+		}
+	}
+	res.JSON(w, http.StatusUnprocessableEntity, map[string]any{
+		"error": map[string]string{
+			"code":    "kyc_required",
+			"message": "Termine d'abord ton onboarding Stripe pour pouvoir recevoir cette commission.",
+		},
+		"onboarding_url": onboardingURL,
+		"stripe_account": stripeAccount,
+		"redirect":       "/payment-info",
+	})
 }

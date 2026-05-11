@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/features/wallet/data/exceptions/commission_kyc_required_exception.dart';
 import 'package:marketplace_mobile/features/wallet/data/wallet_repository_impl.dart';
 
 import '../../../helpers/fake_api_client.dart';
@@ -74,6 +75,99 @@ void main() {
             (e) => e.response?.statusCode,
             'statusCode',
             412,
+          ),
+        ),
+      );
+    });
+  });
+
+  // D1+D2 — commission retry endpoint contract.
+  group('WalletRepositoryImpl.retryCommission', () {
+    test('POSTs the commission-id-scoped retry endpoint', () async {
+      var calledPath = '';
+      const commissionId = 'com-7';
+      fakeApi.postHandlers['/api/v1/wallet/commissions/$commissionId/retry'] =
+          (_) async {
+        calledPath = '/api/v1/wallet/commissions/$commissionId/retry';
+        return Response(
+          requestOptions: RequestOptions(path: calledPath),
+          statusCode: 200,
+          data: {'status': 'paid', 'message': 'Retrait en cours.'},
+        );
+      };
+
+      await repo.retryCommission(commissionId);
+
+      expect(
+        calledPath,
+        '/api/v1/wallet/commissions/$commissionId/retry',
+      );
+    });
+
+    test('translates 422 kyc_required into CommissionKYCRequiredException',
+        () async {
+      const commissionId = 'com-7';
+      fakeApi.postHandlers['/api/v1/wallet/commissions/$commissionId/retry'] =
+          (_) async {
+        throw DioException(
+          requestOptions: RequestOptions(
+            path: '/api/v1/wallet/commissions/$commissionId/retry',
+          ),
+          response: Response(
+            requestOptions: RequestOptions(
+              path: '/api/v1/wallet/commissions/$commissionId/retry',
+            ),
+            statusCode: 422,
+            data: {
+              'error': {
+                'code': 'kyc_required',
+                'message': "Termine d'abord ton onboarding Stripe.",
+              },
+              'onboarding_url': 'https://stripe.com/connect/abc',
+            },
+          ),
+          type: DioExceptionType.badResponse,
+        );
+      };
+
+      await expectLater(
+        repo.retryCommission(commissionId),
+        throwsA(
+          isA<CommissionKYCRequiredException>().having(
+            (e) => e.onboardingUrl,
+            'onboardingUrl',
+            'https://stripe.com/connect/abc',
+          ),
+        ),
+      );
+    });
+
+    test('propagates non-kyc errors as DioException', () async {
+      const commissionId = 'com-8';
+      fakeApi.postHandlers['/api/v1/wallet/commissions/$commissionId/retry'] =
+          (_) async {
+        throw DioException(
+          requestOptions: RequestOptions(
+            path: '/api/v1/wallet/commissions/$commissionId/retry',
+          ),
+          response: Response(
+            requestOptions: RequestOptions(
+              path: '/api/v1/wallet/commissions/$commissionId/retry',
+            ),
+            statusCode: 409,
+            data: {'error': 'already_paid', 'message': 'paid'},
+          ),
+          type: DioExceptionType.badResponse,
+        );
+      };
+
+      await expectLater(
+        repo.retryCommission(commissionId),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'statusCode',
+            409,
           ),
         ),
       );

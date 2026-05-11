@@ -79,6 +79,8 @@ type ReferralAttributionStore interface {
 type ReferralCommissionStore interface {
 	CreateCommission(ctx context.Context, c *referral.Commission) error
 	UpdateCommission(ctx context.Context, c *referral.Commission) error
+	FindCommissionByID(ctx context.Context, id uuid.UUID) (*referral.Commission, error)
+	FindCommissionByStripeTransferID(ctx context.Context, transferID string) (*referral.Commission, error)
 	FindCommissionByMilestone(ctx context.Context, milestoneID uuid.UUID) (*referral.Commission, error)
 	ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error)
 	ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error)

@@ -84,6 +84,18 @@ func newTestFixture(t *testing.T, accountID string) *testFixture {
 	msgs := &fakeMessageSender{}
 	notifier := &fakeNotifier{}
 	stripe := &fakeStripe{}
+	// Default: when the fixture is created with an account id (the
+	// common case for "happy path" tests), seed the fakeStripe with
+	// a payouts/charges-enabled snapshot so the Connect-ready gate
+	// in commission_distributor.go passes. Tests that want to
+	// exercise the not-ready branch can either build the fixture
+	// with accountID="" OR mutate fixture.stripe.account afterwards.
+	if accountID != "" {
+		stripe.account = &portservice.StripeAccountInfo{
+			ChargesEnabled: true,
+			PayoutsEnabled: true,
+		}
+	}
 	reversal := &fakeReversalService{}
 	accounts := &fakeStripeAccountResolver{accountID: accountID}
 	snap := &fakeSnapshotLoader{

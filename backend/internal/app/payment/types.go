@@ -84,6 +84,13 @@ type CommissionWallet struct {
 // history, ordered newest first by the service layer. Carries enough
 // context (referral_id, proposal_id) for the UI to deep-link to the
 // relevant referral / project.
+//
+// RetireEligible is true iff the row is in a state the wallet
+// "Retirer" endpoint will accept (pending_kyc or failed). The UI
+// renders the Retirer button only when this flag is true — the
+// commission retry endpoint is the authoritative gate, but exposing
+// the bit here avoids a per-row JS check that would drift away from
+// the backend rules over time.
 type WalletCommissionRecord struct {
 	ID               string `json:"id"`
 	ReferralID       string `json:"referral_id,omitempty"`
@@ -97,6 +104,7 @@ type WalletCommissionRecord struct {
 	PaidAt           string `json:"paid_at,omitempty"`
 	ClawedBackAt     string `json:"clawed_back_at,omitempty"`
 	CreatedAt        string `json:"created_at"`
+	RetireEligible   bool   `json:"retire_eligible"`
 }
 
 // PayoutResult is returned by RequestPayout / RetryFailedTransfer so

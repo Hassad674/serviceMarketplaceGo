@@ -35,6 +35,17 @@ export type WalletCommissionRecord = {
   paid_at?: string
   clawed_back_at?: string
   created_at: string
+  /**
+   * retire_eligible = backend-authoritative flag that mirrors the
+   * commission retry orchestrator's eligibility rule (status is
+   * pending_kyc OR failed). The UI renders the "Retirer" button only
+   * when this flag is true so the button shape stays in sync with the
+   * backend rules without embedding a status-to-eligibility table on
+   * the client side. Optional for forward-compat with older API
+   * responses that did not carry the field — fall back to deriving
+   * from `status` if missing.
+   */
+  retire_eligible?: boolean
 }
 
 export type WalletOverview = {
@@ -74,6 +85,39 @@ export function requestPayout(): Promise<PayoutResult> {
 export function retryFailedTransfer(recordId: string): Promise<PayoutResult> {
   return apiClient<Post<"/api/v1/wallet/transfers/{record_id}/retry"> & PayoutResult>(
     `/api/v1/wallet/transfers/${recordId}/retry`,
+    { method: "POST" },
+  )
+}
+
+/**
+ * Outcome of a commission retry call (D1+D2). The backend returns
+ * different status codes for each branch:
+ *   - 200 → status="paid" (transfer fired successfully)
+ *   - 409 → "already_paid" / "not_retriable"
+ *   - 422 → "kyc_required" with `onboarding_url`
+ *   - 502 → "retry_failed" with `failure_reason`
+ * The api-client wrapper surfaces non-2xx responses as ApiError, so
+ * the calling hook can branch on `error.code` to drive the modal /
+ * toast UX. The success body is the shape below.
+ */
+export type CommissionRetryResult = {
+  status: string
+  message: string
+  stripe_account?: string
+}
+
+/**
+ * Retry the Stripe transfer for an apporteur commission stuck in
+ * pending_kyc or failed (D1+D2 "Retirer fallback"). The backend
+ * verifies that the caller is the apporteur on the parent referral
+ * (403 otherwise) and that the row is retriable (409 otherwise).
+ * On a 422 the response carries an `onboarding_url` field — the
+ * caller is expected to surface it in a "Termine ton KYC" modal so
+ * the apporteur can finish onboarding before retrying.
+ */
+export function retryCommission(commissionId: string): Promise<CommissionRetryResult> {
+  return apiClient<Post<"/api/v1/wallet/commissions/{id}/retry"> & CommissionRetryResult>(
+    `/api/v1/wallet/commissions/${commissionId}/retry`,
     { method: "POST" },
   )
 }

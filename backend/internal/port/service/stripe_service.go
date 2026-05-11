@@ -183,6 +183,15 @@ type StripeWebhookEvent struct {
 	ChargeAmountRefundedCents int64  // total refunded so far on the charge (cumulative)
 	ChargeRefundID            string // re_* — most recent refund id, when available
 
+	// Transfer.failed fields — populated when event.Type == "transfer.failed".
+	// Consumed by the referral feature (D1+D2) to mark the matching
+	// commission row as failed and capture the Stripe-side reason so
+	// support can investigate. Empty/zero on every other event type.
+	TransferFailed             bool
+	TransferID                 string // tr_*
+	TransferFailureMessage     string // Stripe's `description` on the failed transfer
+	TransferDestinationAccount string // acct_* the doomed transfer was destined for
+
 	// PaymentBillingDetails carries the billing identity Stripe collected
 	// inline on the Payment Element (name + address fields the client typed).
 	// Populated for payment_intent.succeeded when the underlying charge
