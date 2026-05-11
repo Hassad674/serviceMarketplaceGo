@@ -375,7 +375,21 @@ func (f *fakeReferralRepo) CountByReferrer(ctx context.Context, referrerID uuid.
 }
 
 func (f *fakeReferralRepo) SumCommissionsByReferrer(ctx context.Context, referrerID uuid.UUID) (map[referral.CommissionStatus]int64, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[referral.CommissionStatus]int64)
+	for _, c := range f.commissions {
+		a, ok := f.attributionsByID[c.AttributionID]
+		if !ok {
+			continue
+		}
+		r, ok := f.rows[a.ReferralID]
+		if !ok || r.ReferrerID != referrerID {
+			continue
+		}
+		out[c.Status] += c.CommissionCents
+	}
+	return out, nil
 }
 
 // The fake must satisfy both signatures of ListExpiring* — the repository
