@@ -16,9 +16,12 @@ func mountReviewRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 		return
 	}
 	r.Route("/reviews", func(r chi.Router) {
-		// Public: read reviews and average ratings (keyed by org)
-		r.Get("/org/{orgId}", deps.Review.ListByOrganization)
-		r.Get("/average/{orgId}", deps.Review.GetAverageRating)
+		// Public: read reviews and average ratings (keyed by org).
+		// PublicCache lets the CDN edge serve subsequent hits without
+		// reaching the backend. Authenticated callers bypass the public
+		// cache automatically (see `middleware/public_cache.go`).
+		r.With(middleware.PublicCache).Get("/org/{orgId}", deps.Review.ListByOrganization)
+		r.With(middleware.PublicCache).Get("/average/{orgId}", deps.Review.GetAverageRating)
 
 		// Authenticated: create reviews and check eligibility
 		r.Group(func(r chi.Router) {
