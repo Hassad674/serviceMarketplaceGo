@@ -25,12 +25,13 @@ import (
 // modularity rule. The adapter in wiring_adapters.go maps from
 // proposal.Proposal + milestone.Milestone to this shape.
 type ProposalSummary struct {
-	ID                uuid.UUID
-	Title             string
-	Status            string
-	MilestonesTotal   int
-	MilestonesFunded  int   // informational — milestones currently in escrow-ish states
-	FundedAmountCents int64 // sum of Amount for milestones in non-released escrow states
+	ID                  uuid.UUID
+	Title               string
+	Status              string
+	MilestonesTotal     int
+	MilestonesFunded    int   // informational — milestones currently in escrow-ish states
+	MilestonesCompleted int   // milestones in approved or released status — drives the "X/Y jalons" UI counter
+	FundedAmountCents   int64 // sum of Amount for milestones in non-released escrow states
 }
 
 // ProposalSummaryResolver batches proposal summaries by id for the

@@ -267,6 +267,19 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 				summary.MilestonesFunded++
 				summary.FundedAmountCents += m.Amount
 			}
+			// MilestonesCompleted drives the UI "X/Y jalons" counter on
+			// the apporteur dashboard. A milestone counts as "done" the
+			// moment the client approves it — long before (or sometimes
+			// independently of) the apporteur commission Stripe
+			// transfer settling. Counting commissions in 'paid' status
+			// (the legacy MilestonesPaid math) under-reported every
+			// in-flight milestone and every milestone whose commission
+			// is still 'pending' / 'pending_kyc', surfacing "0/2" on
+			// completed missions.
+			switch m.Status {
+			case milestone.StatusApproved, milestone.StatusReleased:
+				summary.MilestonesCompleted++
+			}
 		}
 	}
 	return out, nil
