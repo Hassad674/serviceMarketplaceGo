@@ -59,7 +59,8 @@ GoRouter _buildRouter({required _CapturingObserver observer}) {
     routes: [
       GoRoute(
         path: '/candidate-detail',
-        builder: (_, __) => CandidateDetailScreen(item: _item, jobId: 'job-1'),
+        builder: (_, __) =>
+            const CandidateDetailScreen(item: _item, jobId: 'job-1'),
       ),
       GoRoute(
         path: '/profiles/:orgId',
