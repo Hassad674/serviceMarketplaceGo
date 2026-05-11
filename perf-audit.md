@@ -260,28 +260,46 @@ Not run — would require a local dev server, beyond a read-only audit. Targets 
 
 ## Proposed quick wins (patches)
 
-To be pushed on a separate `feat/perf-fixes` branch — NOT merged to main. Sketches:
+**Status — QW1 + QW2 implemented**: commit `ef5bee9c` on branch
+`feat/perf-fixes` (`https://github.com/Hassad674/serviceMarketplaceGo/tree/feat/perf-fixes`).
+17 unit tests cover miss / hit / TTL / error / corrupt-payload /
+invalidate / nil-overrides for both caches. **NOT merged to main —
+awaiting user review.**
 
-### QW1 — Redis cache for `GetRoleOverrides` (30 s TTL)
+Build green (`go build ./...`), vet green, full redis adapter test
+suite green (`go test ./internal/adapter/redis/ -count=1` → ok in
+39 s). Targeted middleware suite green
+(`go test ./internal/handler/middleware/`). Files added:
 
-Mirror the `CachedUserStateChecker` pattern:
-
-```go
-// backend/internal/adapter/redis/org_overrides_cache.go (new file)
-type CachedOrgOverridesResolver struct {
-    client *goredis.Client
-    inner  middleware.OrgOverridesResolver
-    ttl    time.Duration
-}
-// GET → fallback to inner on miss → SET back with TTL
-// Wire in bootstrap_router.go: orgOverridesAdapter -> CachedOrgOverridesResolver
 ```
+backend/internal/adapter/redis/session_version_cache.go      +138
+backend/internal/adapter/redis/session_version_cache_test.go +194
+backend/internal/adapter/redis/org_overrides_cache.go        +149
+backend/internal/adapter/redis/org_overrides_cache_test.go   +197
+backend/cmd/api/bootstrap_router.go                          +27 -8
+backend/cmd/api/wire_router.go                               +6 -1
+backend/internal/handler/router.go                           +29 -2
+```
+
+### QW1 — Redis cache for `GetRoleOverrides` (30 s TTL) — DONE
+
+`CachedOrgOverridesResolver` mirrors the existing `CachedUserStateChecker`
+pattern. Read-through cache with 30s TTL; never cache errors (preserves
+the auth middleware's fail-open policy on transient resolver failures).
+Explicit `Invalidate(orgID)` exposed so the role-permissions editor can
+collapse propagation to "next request".
 
 Saving: ~10-15 ms on every auth'd request, traded for ~1 ms Redis GET.
 
-### QW2 — Redis cache for `GetSessionVersion` (30-60 s TTL)
+### QW2 — Redis cache for `GetSessionVersion` (30 s TTL) — DONE
 
-Same pattern as QW1. `BumpSessionVersion` already exists as the single mutator — call `Invalidate(userID)` from there.
+`CachedSessionVersionChecker` mirrors QW1. Same fail-open semantics, same
+TTL. The router now picks the cached checker over the raw `UserRepo` via
+a new optional `SessionVersionChecker` field in `RouterDeps`. Tests that
+pass nil keep their legacy direct-PG behaviour. **Follow-up TODO for
+the user**: wire `cache.Invalidate(userID)` into `BumpSessionVersion`
+call sites so revocation propagates immediately rather than waiting
+for the TTL.
 
 Saving: ~10-15 ms on every auth'd request.
 
