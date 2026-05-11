@@ -6,6 +6,8 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../invoicing/data/exceptions/billing_profile_incomplete_exception.dart';
+import '../../../invoicing/presentation/providers/invoicing_providers.dart';
+import '../../../invoicing/presentation/widgets/billing_profile_embed.dart';
 import '../../../invoicing/presentation/widgets/billing_profile_inline_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../providers/proposal_provider.dart';
@@ -29,6 +31,10 @@ class _PaymentSimulationScreenState
     extends ConsumerState<PaymentSimulationScreen> {
   bool _isProcessing = false;
   bool _paymentSuccess = false;
+  // Inline billing-profile embed state. `null` means "follow the
+  // snapshot's isComplete flag" — set to `true` when the user clicks
+  // "Modifier" inside the summary, `false` after a successful save.
+  bool? _isEditingBilling;
 
   Future<void> _confirmPayment() async {
     setState(() => _isProcessing = true);
@@ -106,6 +112,13 @@ class _PaymentSimulationScreenState
                   proposal: proposal,
                   isProcessing: _isProcessing,
                   onConfirm: _confirmPayment,
+                  billing: _BillingEmbedSlot(
+                    isEditing: _isEditingBilling,
+                    onEdit: () =>
+                        setState(() => _isEditingBilling = true),
+                    onSaved: () =>
+                        setState(() => _isEditingBilling = false),
+                  ),
                 ),
         ),
       ),
@@ -113,33 +126,59 @@ class _PaymentSimulationScreenState
   }
 }
 
-class _PaymentForm extends StatelessWidget {
+/// Lightweight slot for the inline billing-profile embed, owned by the
+/// parent screen. Kept as a tiny value object so [_PaymentForm] stays
+/// under the 4-positional-constructor-params guideline.
+class _BillingEmbedSlot {
+  const _BillingEmbedSlot({
+    required this.isEditing,
+    required this.onEdit,
+    required this.onSaved,
+  });
+
+  /// `null` ⇒ follow the snapshot's isComplete flag.
+  /// `true` ⇒ force form mode (user clicked Modifier).
+  /// `false` ⇒ force summary mode (user just saved).
+  final bool? isEditing;
+  final VoidCallback onEdit;
+  final VoidCallback onSaved;
+}
+
+class _PaymentForm extends ConsumerWidget {
   const _PaymentForm({
     required this.proposal,
     required this.isProcessing,
     required this.onConfirm,
+    required this.billing,
   });
 
   final ProposalEntity proposal;
   final bool isProcessing;
   final VoidCallback onConfirm;
-
-  /// Opens the inline billing-profile sheet so the user can fill in
-  /// SIRET / VAT / legal name BEFORE the payment is simulated. The
-  /// information feeds the receipt snapshot the backend captures at
-  /// PaymentIntent creation, mirroring the web flow's "save billing
-  /// identity → pay" sequence on mobile (which is simulation-only and
-  /// has no Stripe Payment Element to embed billingDetails in).
-  Future<void> _openBillingSheet(BuildContext context) async {
-    await showBillingProfileInlineSheet(context);
-  }
+  final _BillingEmbedSlot billing;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
+
+    // Watch the billing-profile snapshot so the confirm CTA is gated
+    // on completeness AND the user is not in edit mode. Same gating
+    // logic as web's PaymentSimulation.
+    final snapshotAsync = ref.watch(billingProfileProvider);
+    final isComplete = snapshotAsync.maybeWhen(
+      data: (s) => s.isComplete,
+      orElse: () => false,
+    );
+    final billingMode = (() {
+      if (billing.isEditing == true) return BillingEmbedMode.form;
+      if (billing.isEditing == false) return BillingEmbedMode.summary;
+      return isComplete ? BillingEmbedMode.summary : BillingEmbedMode.form;
+    })();
+    final isPaymentReady =
+        isComplete && billingMode == BillingEmbedMode.summary;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -250,44 +289,37 @@ class _PaymentForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Inline billing identity reminder. Opens the full BillingProfile
-        // form in a bottom sheet so the user can fill SIRET/VAT/legal-name
-        // BEFORE confirming the simulation. Mirrors the web flow that
-        // captures the same fields above the Stripe Payment Element.
-        OutlinedButton.icon(
-          onPressed: isProcessing ? null : () => _openBillingSheet(context),
-          icon: const Icon(Icons.receipt_long_rounded, size: 18),
-          label: Text(l10n.proposalFlow_pay_billingIdentityCta),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            shape: const StadiumBorder(),
-            textStyle: SoleilTextStyles.button,
-            foregroundColor: theme.colorScheme.onSurface,
-            side: BorderSide(
-              color: appColors?.border ?? theme.dividerColor,
+        // Inline billing-profile embed. Cloned from the prestataire
+        // settings page: read-only summary card when the profile is
+        // complete, full form when incomplete or when the user clicks
+        // "Modifier". The confirm CTA below is gated on the same
+        // completeness flag.
+        BillingProfileEmbed(
+          mode: billingMode,
+          onEdit: billing.onEdit,
+          onSaved: billing.onSaved,
+        ),
+        const SizedBox(height: 16),
+        if (isPaymentReady)
+          FilledButton.icon(
+            onPressed: isProcessing ? null : onConfirm,
+            icon: isProcessing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.lock_rounded, size: 18),
+            label: Text(l10n.confirmPayment),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: const StadiumBorder(),
+              textStyle: SoleilTextStyles.button,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: isProcessing ? null : onConfirm,
-          icon: isProcessing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Icon(Icons.lock_rounded, size: 18),
-          label: Text(l10n.confirmPayment),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            shape: const StadiumBorder(),
-            textStyle: SoleilTextStyles.button,
-          ),
-        ),
         const SizedBox(height: 8),
         TextButton(
           onPressed: () => GoRouter.of(context).pop(),
