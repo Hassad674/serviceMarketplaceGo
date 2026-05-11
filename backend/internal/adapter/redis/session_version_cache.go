@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/middleware"
@@ -50,10 +51,21 @@ const sessionVersionKeyPrefix = "session_version:"
 //   - Redis read error: log + fall through to the inner reader so the
 //     request keeps flowing.
 //   - Redis write error: log, return the inner result.
+//
+// QW-HARDENING: a singleflight.Group coalesces concurrent misses on
+// the same user id into a single inner call — under burst load (e.g.
+// 100 concurrent authenticated requests for the same user landing
+// just after a TTL expiry), a naive cache stamps 100 SELECTs onto
+// Postgres. With singleflight, exactly one goroutine performs the
+// inner call and every other waiter receives the same answer. See
+// coalesceWithDoubleCheck for the inner-peek-after-miss recipe that
+// closes the residual race when the winner finishes between the
+// outer peek and the singleflight slot.
 type CachedSessionVersionChecker struct {
 	client *goredis.Client
 	inner  middleware.SessionVersionChecker
 	ttl    time.Duration
+	group  singleflight.Group
 }
 
 // NewCachedSessionVersionChecker returns a Redis-fronted decorator
@@ -75,37 +87,69 @@ func NewCachedSessionVersionChecker(
 }
 
 // GetSessionVersion satisfies middleware.SessionVersionChecker.
+//
+// QW-HARDENING: delegates the outer-peek / singleflight / inner-peek /
+// load orchestration to coalesceWithDoubleCheck so a stampede of
+// concurrent misses for the same user id collapses to one inner call.
 func (c *CachedSessionVersionChecker) GetSessionVersion(
 	ctx context.Context,
 	userID uuid.UUID,
 ) (int, error) {
 	key := sessionVersionKeyPrefix + userID.String()
+	return coalesceWithDoubleCheck(
+		&c.group, key,
+		func() (int, bool, error) {
+			return c.peek(ctx, key, userID)
+		},
+		func() (int, error) {
+			return c.load(ctx, key, userID)
+		},
+	)
+}
 
-	// 1. Cache hit?
+// peek attempts a cache read. Returns:
+//   - (version, true, nil)  → cache hit, return as-is.
+//   - (0,       false, nil) → miss (or transient Redis blip, treated
+//     as miss so the caller advances to load).
+//
+// The current cache design does not negative-cache ErrUserNotFound,
+// so peek never returns (zero, true, err).
+func (c *CachedSessionVersionChecker) peek(
+	ctx context.Context,
+	key string,
+	userID uuid.UUID,
+) (int, bool, error) {
 	val, err := c.client.Get(ctx, key).Result()
 	if err == nil {
 		version, parseErr := strconv.Atoi(val)
 		if parseErr == nil {
-			return version, nil
+			return version, true, nil
 		}
-		// Corrupted entry — log and fall through; next write will fix
-		// it.
+		// Corrupted entry — log and treat as miss; next write will
+		// overwrite it.
 		slog.Warn("session version cache: malformed payload, refreshing",
 			"user_id", userID, "raw", val, "error", parseErr)
-	} else if !errors.Is(err, goredis.Nil) {
+		return 0, false, nil
+	}
+	if !errors.Is(err, goredis.Nil) {
 		slog.Warn("session version cache: redis get failed, falling back to inner",
 			"user_id", userID, "error", err)
 	}
+	return 0, false, nil
+}
 
-	// 2. Cache miss — consult the inner reader.
-	version, ierr := c.inner.GetSessionVersion(ctx, userID)
-	if ierr != nil {
-		// Do not cache errors. ErrUserNotFound included — see semantics
-		// note in the type doc.
-		return version, ierr
+// load consults the inner reader on a true miss and write-throughs
+// the result on success. Errors are never cached (see semantics on
+// the type doc).
+func (c *CachedSessionVersionChecker) load(
+	ctx context.Context,
+	key string,
+	userID uuid.UUID,
+) (int, error) {
+	version, err := c.inner.GetSessionVersion(ctx, userID)
+	if err != nil {
+		return version, err
 	}
-
-	// 3. Write-through. Best-effort.
 	if sErr := c.client.Set(ctx, key, strconv.Itoa(version), c.ttl).Err(); sErr != nil {
 		slog.Warn("session version cache: redis set failed",
 			"user_id", userID, "error", sErr)
