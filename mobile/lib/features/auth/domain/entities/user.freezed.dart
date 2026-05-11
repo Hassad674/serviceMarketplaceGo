@@ -27,7 +27,13 @@ mixin _$User {
   String get displayName => throw _privateConstructorUsedError;
   UserRole get role => throw _privateConstructorUsedError;
   bool get referrerEnabled => throw _privateConstructorUsedError;
-  bool get emailVerified => throw _privateConstructorUsedError;
+  bool get emailVerified =>
+      throw _privateConstructorUsedError; // FIX-2FA: mirrors the backend's two_factor_email_enabled field on
+// /auth/me. Default `false` so older payloads that predate the
+// field (and any tests that build a fixture without it) keep
+// working — the toggle treats absent === off, which matches the
+// server's behaviour for users who never opted in.
+  bool get twoFactorEmailEnabled => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
 
   /// Serializes this User to a JSON map.
@@ -53,6 +59,7 @@ abstract class $UserCopyWith<$Res> {
       UserRole role,
       bool referrerEnabled,
       bool emailVerified,
+      bool twoFactorEmailEnabled,
       DateTime createdAt});
 }
 
@@ -79,6 +86,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? role = null,
     Object? referrerEnabled = null,
     Object? emailVerified = null,
+    Object? twoFactorEmailEnabled = null,
     Object? createdAt = null,
   }) {
     return _then(_value.copyWith(
@@ -114,6 +122,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.emailVerified
           : emailVerified // ignore: cast_nullable_to_non_nullable
               as bool,
+      twoFactorEmailEnabled: null == twoFactorEmailEnabled
+          ? _value.twoFactorEmailEnabled
+          : twoFactorEmailEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -138,6 +150,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       UserRole role,
       bool referrerEnabled,
       bool emailVerified,
+      bool twoFactorEmailEnabled,
       DateTime createdAt});
 }
 
@@ -161,6 +174,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? role = null,
     Object? referrerEnabled = null,
     Object? emailVerified = null,
+    Object? twoFactorEmailEnabled = null,
     Object? createdAt = null,
   }) {
     return _then(_$UserImpl(
@@ -196,6 +210,10 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.emailVerified
           : emailVerified // ignore: cast_nullable_to_non_nullable
               as bool,
+      twoFactorEmailEnabled: null == twoFactorEmailEnabled
+          ? _value.twoFactorEmailEnabled
+          : twoFactorEmailEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -216,6 +234,7 @@ class _$UserImpl implements _User {
       required this.role,
       this.referrerEnabled = false,
       this.emailVerified = false,
+      this.twoFactorEmailEnabled = false,
       required this.createdAt});
 
   factory _$UserImpl.fromJson(Map<String, dynamic> json) =>
@@ -239,12 +258,20 @@ class _$UserImpl implements _User {
   @override
   @JsonKey()
   final bool emailVerified;
+// FIX-2FA: mirrors the backend's two_factor_email_enabled field on
+// /auth/me. Default `false` so older payloads that predate the
+// field (and any tests that build a fixture without it) keep
+// working — the toggle treats absent === off, which matches the
+// server's behaviour for users who never opted in.
+  @override
+  @JsonKey()
+  final bool twoFactorEmailEnabled;
   @override
   final DateTime createdAt;
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, firstName: $firstName, lastName: $lastName, displayName: $displayName, role: $role, referrerEnabled: $referrerEnabled, emailVerified: $emailVerified, createdAt: $createdAt)';
+    return 'User(id: $id, email: $email, firstName: $firstName, lastName: $lastName, displayName: $displayName, role: $role, referrerEnabled: $referrerEnabled, emailVerified: $emailVerified, twoFactorEmailEnabled: $twoFactorEmailEnabled, createdAt: $createdAt)';
   }
 
   @override
@@ -265,14 +292,26 @@ class _$UserImpl implements _User {
                 other.referrerEnabled == referrerEnabled) &&
             (identical(other.emailVerified, emailVerified) ||
                 other.emailVerified == emailVerified) &&
+            (identical(other.twoFactorEmailEnabled, twoFactorEmailEnabled) ||
+                other.twoFactorEmailEnabled == twoFactorEmailEnabled) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, email, firstName, lastName,
-      displayName, role, referrerEnabled, emailVerified, createdAt);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      email,
+      firstName,
+      lastName,
+      displayName,
+      role,
+      referrerEnabled,
+      emailVerified,
+      twoFactorEmailEnabled,
+      createdAt);
 
   /// Create a copy of User
   /// with the given fields replaced by the non-null parameter values.
@@ -300,6 +339,7 @@ abstract class _User implements User {
       required final UserRole role,
       final bool referrerEnabled,
       final bool emailVerified,
+      final bool twoFactorEmailEnabled,
       required final DateTime createdAt}) = _$UserImpl;
 
   factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
@@ -319,7 +359,14 @@ abstract class _User implements User {
   @override
   bool get referrerEnabled;
   @override
-  bool get emailVerified;
+  bool
+      get emailVerified; // FIX-2FA: mirrors the backend's two_factor_email_enabled field on
+// /auth/me. Default `false` so older payloads that predate the
+// field (and any tests that build a fixture without it) keep
+// working — the toggle treats absent === off, which matches the
+// server's behaviour for users who never opted in.
+  @override
+  bool get twoFactorEmailEnabled;
   @override
   DateTime get createdAt;
 
