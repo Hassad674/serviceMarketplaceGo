@@ -77,3 +77,4 @@ backend/api
 backend/reindex
 backend/migrate
 backend/seed
+web/tsconfig.tsbuildinfo
