@@ -15,4 +15,16 @@ abstract class WalletRepository {
   /// record is no longer retriable (e.g. mission not completed or the
   /// previous transfer succeeded on retry).
   Future<void> retryFailedTransfer(String recordId);
+
+  /// Retries the Stripe transfer for an apporteur commission row
+  /// stuck in pending_kyc or failed (D1+D2). Takes the commission id
+  /// (NOT the milestone id — the commission row is the unambiguous
+  /// target).
+  ///
+  /// On 200 the wallet refreshes and the row flips to paid.
+  /// On 422 kyc_required the implementation throws
+  /// [CommissionKYCRequiredException] so the screen can open the
+  /// onboarding dialog. Other 4xx / 5xx errors propagate as
+  /// [DioException] for the screen to surface a generic toast.
+  Future<void> retryCommission(String commissionId);
 }
