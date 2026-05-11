@@ -142,6 +142,84 @@ func TestStatsHandler_GetVisibility_DefaultsTo30Days(t *testing.T) {
 	assert.Equal(t, 30, captured)
 }
 
+func TestStatsHandler_GetVisibility_Period365(t *testing.T) {
+	t.Parallel()
+	orgID := uuid.New()
+	captured := 0
+	svc := &fakeStatsService{GetVisibilityFn: func(_ context.Context, _ uuid.UUID, days int) (*domainstats.Visibility, error) {
+		captured = days
+		return &domainstats.Visibility{
+			OrganizationID: orgID.String(),
+			PeriodDays:     domainstats.Period365Days,
+			TotalViews:     1000,
+			UniqueViewers:  410,
+			Series: []domainstats.DailyBucket{
+				{Date: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Count: 3, Unique: 2},
+			},
+		}, nil
+	}}
+	h := handler.NewStatsHandler(svc)
+	req := withOrg(httptest.NewRequest(http.MethodGet, "/api/v1/me/stats/visibility?days=365", nil), orgID)
+	rec := httptest.NewRecorder()
+	h.GetVisibility(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 365, captured)
+	// Series exposes both `count` (total) and `unique` (distinct fingerprints) so
+	// the frontend can render a two-line chart without an extra request.
+	var body struct {
+		Data struct {
+			Series []struct {
+				Date   string `json:"date"`
+				Count  int    `json:"count"`
+				Unique int    `json:"unique"`
+			} `json:"series"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Len(t, body.Data.Series, 1)
+	assert.Equal(t, 3, body.Data.Series[0].Count)
+	assert.Equal(t, 2, body.Data.Series[0].Unique)
+}
+
+func TestStatsHandler_GetEnterpriseApplications_UniqueFallsBackToCount(t *testing.T) {
+	t.Parallel()
+	// Applications repository never populates Unique on its DailyBuckets
+	// because applications cannot be deduplicated by viewer fingerprint.
+	// The handler must surface Count as the unique value so the JSON
+	// contract stays consistent (every series carries non-zero unique
+	// when count > 0).
+	orgID := uuid.New()
+	svc := &fakeStatsService{GetAppsFn: func(_ context.Context, _ uuid.UUID, _ int) (*domainstats.ApplicationsTimeSeries, error) {
+		return &domainstats.ApplicationsTimeSeries{
+			OrganizationID: orgID.String(),
+			PeriodDays:     domainstats.Period30Days,
+			TotalCount:     5,
+			Series: []domainstats.DailyBucket{
+				{Date: time.Now().UTC().Truncate(24 * time.Hour), Count: 5, Unique: 0},
+			},
+		}, nil
+	}}
+	h := handler.NewStatsHandler(svc)
+	req := withOrg(httptest.NewRequest(http.MethodGet, "/api/v1/me/stats/enterprise-applications?days=30", nil), orgID)
+	rec := httptest.NewRecorder()
+	h.GetEnterpriseApplications(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var body struct {
+		Data struct {
+			Series []struct {
+				Count  int `json:"count"`
+				Unique int `json:"unique"`
+			} `json:"series"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Len(t, body.Data.Series, 1)
+	assert.Equal(t, 5, body.Data.Series[0].Count)
+	assert.Equal(t, 5, body.Data.Series[0].Unique, "applications: unique falls back to count")
+}
+
 func TestStatsHandler_GetVisibility_InvalidPeriod(t *testing.T) {
 	t.Parallel()
 	orgID := uuid.New()

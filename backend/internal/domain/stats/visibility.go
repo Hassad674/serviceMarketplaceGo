@@ -11,16 +11,17 @@ import (
 type PeriodDays int
 
 const (
-	Period7Days  PeriodDays = 7
-	Period30Days PeriodDays = 30
-	Period90Days PeriodDays = 90
+	Period7Days   PeriodDays = 7
+	Period30Days  PeriodDays = 30
+	Period90Days  PeriodDays = 90
+	Period365Days PeriodDays = 365
 )
 
-// IsValid returns true when the value matches one of the three
-// supported window sizes.
+// IsValid returns true when the value matches one of the four
+// supported window sizes (D3: 1y added for the long-tail view).
 func (p PeriodDays) IsValid() bool {
 	switch p {
-	case Period7Days, Period30Days, Period90Days:
+	case Period7Days, Period30Days, Period90Days, Period365Days:
 		return true
 	default:
 		return false
@@ -40,10 +41,18 @@ func ParsePeriodDays(in int) (PeriodDays, error) {
 }
 
 // DailyBucket is one day in a time series. Date is the UTC midnight
-// the events fall into; Count is the number of rows in that bucket.
+// the events fall into; Count is the total number of rows in that
+// bucket (every view including repeats); Unique is the count of
+// distinct (ip_anonymized, ua_hash) pairs in that same bucket.
+//
+// Unique <= Count always. Repositories that do not differentiate
+// (e.g. job applications) leave Unique == 0 — the handler then
+// surfaces Count as the unique count so the JSON contract stays
+// fully populated.
 type DailyBucket struct {
-	Date  time.Time
-	Count int
+	Date   time.Time
+	Count  int
+	Unique int
 }
 
 // Visibility aggregates the per-org view metrics for a fixed window.

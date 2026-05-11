@@ -169,12 +169,25 @@ func serializeApplicationsSeries(s *domainstats.ApplicationsTimeSeries) map[stri
 
 // serializeSeries converts the daily-bucket slice to the JSON shape.
 // Always returns a non-nil slice so the contract is stable.
+//
+// D3 extension: when the bucket carries a Unique count (profile views
+// always do; applications never do), it is surfaced as `unique` in
+// the JSON envelope so the frontend can render a two-line chart
+// (unique on top of total). Buckets without a Unique value fall back
+// to Count — every consumer sees a non-NaN unique field.
 func serializeSeries(in []domainstats.DailyBucket) []map[string]any {
 	out := make([]map[string]any, 0, len(in))
 	for _, b := range in {
+		unique := b.Unique
+		if unique == 0 && b.Count > 0 {
+			// Applications series carries Unique==0 by design — surface
+			// Count so the frontend's `unique` axis still draws.
+			unique = b.Count
+		}
 		out = append(out, map[string]any{
-			"date":  b.Date.UTC().Format(time.RFC3339),
-			"count": b.Count,
+			"date":   b.Date.UTC().Format(time.RFC3339),
+			"count":  b.Count,
+			"unique": unique,
 		})
 	}
 	return out

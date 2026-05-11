@@ -134,14 +134,22 @@ func (r *ProfileViewRepository) queryVisibilityTotals(ctx context.Context, filte
 	return &v, nil
 }
 
-// queryDailyViews returns the per-day total view count for the
-// window. Days with zero views are NOT padded — the frontend pads
-// the series itself so the SQL stays cheap.
+// queryDailyViews returns the per-day total + unique view counts for
+// the window. Days with zero views are NOT padded — the frontend pads
+// the series itself so the SQL stays cheap. Both columns come from
+// the same scan, so the (organization_id, created_at) covering index
+// is hit only once per call.
+//
+// Total = COUNT(*) of every event row.
+// Unique = COUNT(DISTINCT (viewer_ip_anonymized, viewer_ua_hash)) —
+// the same definition used at the period-level UniqueViewers total
+// so the daily series sums consistently into the summary.
 func (r *ProfileViewRepository) queryDailyViews(ctx context.Context, filter repository.VisibilityFilter) ([]domainstats.DailyBucket, error) {
 	const stmt = `
 		SELECT
-			date_trunc('day', created_at) AS day,
-			COUNT(*)::int                  AS views
+			date_trunc('day', created_at)                                AS day,
+			COUNT(*)::int                                                AS views,
+			COUNT(DISTINCT (viewer_ip_anonymized, viewer_ua_hash))::int  AS unique_views
 		FROM profile_view_events
 		WHERE organization_id = $1
 		  AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
@@ -157,7 +165,7 @@ func (r *ProfileViewRepository) queryDailyViews(ctx context.Context, filter repo
 	out := make([]domainstats.DailyBucket, 0, int(filter.PeriodDays))
 	for rows.Next() {
 		var b domainstats.DailyBucket
-		if err := rows.Scan(&b.Date, &b.Count); err != nil {
+		if err := rows.Scan(&b.Date, &b.Count, &b.Unique); err != nil {
 			return nil, fmt.Errorf("profile_view_events: daily series scan: %w", err)
 		}
 		out = append(out, b)

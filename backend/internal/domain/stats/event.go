@@ -72,7 +72,7 @@ var (
 	ErrIPInvalid        = errors.New("stats: viewer ip is not a valid CIDR/IP")
 	ErrUAHashRequired   = errors.New("stats: viewer user-agent hash is required")
 	ErrSearchPosNonNeg  = errors.New("stats: search position must be >= 1")
-	ErrPeriodInvalid    = errors.New("stats: period days must be one of 7/30/90")
+	ErrPeriodInvalid    = errors.New("stats: period days must be one of 7/30/90/365")
 )
 
 // ViewEvent is one profile_view_events row. ViewerUserID is nil for

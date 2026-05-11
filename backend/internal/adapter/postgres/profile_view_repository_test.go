@@ -157,6 +157,62 @@ func TestProfileViewRepository_AggregateVisibility(t *testing.T) {
 	assert.LessOrEqual(t, got7.TotalViews, got.TotalViews)
 }
 
+func TestProfileViewRepository_DailySeries_UniqueVsTotal(t *testing.T) {
+	db := searchTestDB(t)
+	repo := postgres.NewProfileViewRepository(db)
+	orgID := seedStatsOrg(t, db)
+
+	// Day -1: 2 distinct fingerprints, 3 total events (one viewer
+	// hits the profile twice). Day -2: 1 fingerprint, 1 event.
+	// The resulting series MUST report Count >= Unique on every day,
+	// and Day -1 must show Count=3 / Unique=2.
+	recordViewWithCreatedAt(t, db, orgID, domainstats.CameFromDirect, "10.10.1.0/24", "ua-A", nil, nil, 1)
+	recordViewWithCreatedAt(t, db, orgID, domainstats.CameFromDirect, "10.10.1.0/24", "ua-A", nil, nil, 1) // same viewer, second hit
+	recordViewWithCreatedAt(t, db, orgID, domainstats.CameFromDirect, "10.10.2.0/24", "ua-B", nil, nil, 1) // different viewer same day
+	recordViewWithCreatedAt(t, db, orgID, domainstats.CameFromDirect, "10.10.3.0/24", "ua-C", nil, nil, 2)
+
+	got, err := repo.AggregateVisibility(context.Background(), repository.VisibilityFilter{
+		OrganizationID: orgID,
+		PeriodDays:     domainstats.Period30Days,
+	})
+	require.NoError(t, err)
+	require.Len(t, got.Series, 2, "expected one bucket per distinct day")
+
+	for _, b := range got.Series {
+		assert.LessOrEqual(t, b.Unique, b.Count, "unique always <= total")
+	}
+
+	// Series is ordered ASC by day so [0] is the older bucket (day -2).
+	older, newer := got.Series[0], got.Series[1]
+	assert.Equal(t, 1, older.Count)
+	assert.Equal(t, 1, older.Unique)
+	assert.Equal(t, 3, newer.Count, "newer day saw 3 total events")
+	assert.Equal(t, 2, newer.Unique, "newer day saw 2 distinct viewers")
+}
+
+func TestProfileViewRepository_DailySeries_Period365(t *testing.T) {
+	db := searchTestDB(t)
+	repo := postgres.NewProfileViewRepository(db)
+	orgID := seedStatsOrg(t, db)
+
+	// Spread one event per quarter across the last year.
+	for _, daysAgo := range []int{1, 90, 180, 270, 360} {
+		recordViewWithCreatedAt(t, db, orgID,
+			domainstats.CameFromDirect,
+			fmt.Sprintf("10.20.%d.0/24", daysAgo%200),
+			fmt.Sprintf("ua-%d", daysAgo),
+			nil, nil, daysAgo)
+	}
+
+	got, err := repo.AggregateVisibility(context.Background(), repository.VisibilityFilter{
+		OrganizationID: orgID,
+		PeriodDays:     domainstats.Period365Days,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 5, got.TotalViews, "365d window must include the year-old event")
+	assert.GreaterOrEqual(t, len(got.Series), 4, "at least 4 distinct days in the series")
+}
+
 func TestProfileViewRepository_AggregateVisibility_EmptyOrg(t *testing.T) {
 	db := searchTestDB(t)
 	repo := postgres.NewProfileViewRepository(db)

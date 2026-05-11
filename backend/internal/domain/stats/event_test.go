@@ -176,15 +176,23 @@ func TestAnonymizeIP(t *testing.T) {
 
 func TestPeriodDays(t *testing.T) {
 	t.Parallel()
+	// D3: 365d (1 year) joined 7/30/90 as a supported window so the
+	// stats page can render a long-tail view.
 	assert.True(t, stats.Period7Days.IsValid())
 	assert.True(t, stats.Period30Days.IsValid())
 	assert.True(t, stats.Period90Days.IsValid())
+	assert.True(t, stats.Period365Days.IsValid())
 	assert.False(t, stats.PeriodDays(1).IsValid())
-	assert.False(t, stats.PeriodDays(365).IsValid())
+	assert.False(t, stats.PeriodDays(180).IsValid())
+	assert.False(t, stats.PeriodDays(366).IsValid())
 
 	got, err := stats.ParsePeriodDays(7)
 	assert.NoError(t, err)
 	assert.Equal(t, stats.Period7Days, got)
+
+	got, err = stats.ParsePeriodDays(365)
+	assert.NoError(t, err)
+	assert.Equal(t, stats.Period365Days, got)
 
 	got, err = stats.ParsePeriodDays(42)
 	assert.ErrorIs(t, err, stats.ErrPeriodInvalid)
@@ -199,6 +207,32 @@ func TestClampLimit(t *testing.T) {
 	assert.Equal(t, 100, stats.ClampLimit(500))
 	// rule of three lower-bound coverage:
 	assert.Equal(t, 1, stats.ClampLimit(1))
+}
+
+func TestDailyBucket_UniqueLessOrEqualToCount(t *testing.T) {
+	t.Parallel()
+	// D3 sanity: DailyBucket carries both Count (total events) and
+	// Unique (distinct viewer fingerprints). Unique <= Count is the
+	// only invariant the domain enforces by convention — the SQL
+	// query at the adapter layer guarantees this naturally, but the
+	// type itself does not prevent a misuse, so document it here.
+	cases := []struct {
+		name   string
+		count  int
+		unique int
+	}{
+		{"both zero", 0, 0},
+		{"unique == count", 5, 5},
+		{"unique < count", 12, 4},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			b := stats.DailyBucket{Count: tc.count, Unique: tc.unique}
+			assert.LessOrEqual(t, b.Unique, b.Count)
+		})
+	}
 }
 
 func TestEventErrorsHaveDistinctMessages(t *testing.T) {
