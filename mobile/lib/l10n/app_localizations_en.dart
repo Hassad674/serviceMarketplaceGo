@@ -1276,6 +1276,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Before you pay, we need these details to generate your official receipt. You can review and edit them later in your settings.';
 
   @override
+  String get billingEmbedSummaryTitle => 'Billing identity';
+
+  @override
+  String get billingEmbedEditCta => 'Edit';
+
+  @override
+  String get billingEmbedCountry => 'Country';
+
+  @override
+  String get billingEmbedAddress => 'Address';
+
+  @override
+  String get billingEmbedEntity => 'Legal entity';
+
+  @override
+  String get billingEmbedTax => 'Tax identifiers';
+
+  @override
+  String get billingEmbedCompletePromptTitle =>
+      'Complete your billing identity';
+
+  @override
+  String get billingEmbedCompletePromptBody =>
+      'Before confirming payment, please fill in the details that will appear on your receipt.';
+
+  @override
   String get noActiveProjects => 'No active projects';
 
   @override
