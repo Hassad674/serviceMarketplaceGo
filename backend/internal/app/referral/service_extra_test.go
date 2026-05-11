@@ -307,14 +307,99 @@ func TestListAttributionsWithStats_AggregatesPaidPendingClawedBack(t *testing.T)
 	_, err := f.svc.DistributeIfApplicable(context.Background(), distInputFor(proposalID, milestoneID, 1000_00))
 	require.NoError(t, err)
 
+	// Register a proposal summary mirroring the milestone state the
+	// distributor was just called on: 1 milestone, completed by the
+	// client. The new MilestonesPaid semantics (jalons approved by the
+	// client) reads from this summary, not from commission status.
+	f.summaries.set(proposalID, &referralapp.ProposalSummary{
+		ID:                  proposalID,
+		Title:               "Mission alpha",
+		Status:              "active",
+		MilestonesTotal:     1,
+		MilestonesCompleted: 1,
+	})
+
 	rows, err := f.svc.ListAttributionsWithStats(context.Background(), r.ID, refID)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	assert.Equal(t, int64(5000), rows[0].TotalCommissionCents,
 		"5% commission on 1000_00 = 5000 cents (paid)")
-	assert.Equal(t, 1, rows[0].MilestonesPaid)
+	assert.Equal(t, 1, rows[0].MilestonesPaid,
+		"jalons completed must reflect MilestonesCompleted from the proposal summary")
 	assert.Zero(t, rows[0].MilestonesPending)
 	assert.Zero(t, rows[0].ClawedBackCommissionCents)
+}
+
+// TestListAttributionsWithStats_MilestoneCountFromProposalNotCommissions is
+// the regression pin for CRIT-REF-BACKFILL. The apporteur dashboard used
+// to show "0/2 jalons" on a completed mission because MilestonesPaid was
+// counting referral_commissions in status='paid' — which never appeared
+// for the backfilled historical commissions until the scheduler drained
+// them to Stripe. The fix decouples the UI counter from the commission
+// pipeline by reading milestone status (approved + released) directly
+// from the proposal summary.
+//
+// This test asserts that with ZERO commissions distributed yet the
+// counter still reads "2/2 jalons" as long as the proposal milestones
+// are in approved state — which is exactly the post-backfill, pre-drain
+// situation the bug was about.
+func TestListAttributionsWithStats_MilestoneCountFromProposalNotCommissions(t *testing.T) {
+	f := newTestFixture(t, "acct_referrer")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+	bringToActive(t, f.svc, r, provID, cliID)
+
+	proposalID := uuid.New()
+	require.NoError(t, f.svc.CreateAttributionIfExists(context.Background(), attrInputFor(proposalID, provID, cliID)))
+
+	// 2 milestones, both approved by the client; ZERO commissions yet
+	// (exactly the pre-backfill state of the user's failing case).
+	f.summaries.set(proposalID, &referralapp.ProposalSummary{
+		ID:                  proposalID,
+		Title:               "Mission beta",
+		Status:              "completed",
+		MilestonesTotal:     2,
+		MilestonesCompleted: 2,
+	})
+
+	rows, err := f.svc.ListAttributionsWithStats(context.Background(), r.ID, refID)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 2, rows[0].MilestonesTotal)
+	assert.Equal(t, 2, rows[0].MilestonesPaid,
+		"completed milestones must drive the counter even with zero commissions paid yet")
+	assert.Equal(t, 0, rows[0].MilestonesPending)
+	assert.Equal(t, int64(0), rows[0].TotalCommissionCents,
+		"no commissions means no paid commission amount, but the milestone counter must still be 2/2")
+}
+
+// TestListAttributionsWithStats_PartialMilestoneProgress covers the
+// in-flight case: 1 of 3 milestones approved, the rest still funded /
+// pending. UI should render "1/3 jalons" with 2 pending — independent
+// of the commission status.
+func TestListAttributionsWithStats_PartialMilestoneProgress(t *testing.T) {
+	f := newTestFixture(t, "acct_referrer")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+	bringToActive(t, f.svc, r, provID, cliID)
+
+	proposalID := uuid.New()
+	require.NoError(t, f.svc.CreateAttributionIfExists(context.Background(), attrInputFor(proposalID, provID, cliID)))
+
+	f.summaries.set(proposalID, &referralapp.ProposalSummary{
+		ID:                  proposalID,
+		Title:               "Mission gamma",
+		Status:              "active",
+		MilestonesTotal:     3,
+		MilestonesCompleted: 1,
+	})
+
+	rows, err := f.svc.ListAttributionsWithStats(context.Background(), r.ID, refID)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 3, rows[0].MilestonesTotal)
+	assert.Equal(t, 1, rows[0].MilestonesPaid)
+	assert.Equal(t, 2, rows[0].MilestonesPending)
 }
 
 func TestListCommissionsByReferral_ClientCanRead_HandlerEnforcesScope(t *testing.T) {

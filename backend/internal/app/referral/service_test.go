@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,6 +33,48 @@ type testFixture struct {
 	accounts      *fakeStripeAccountResolver
 	relationships *fakeRelationshipChecker
 	audits        *fakeAuditRepo
+	summaries     *fakeProposalSummaryResolver
+}
+
+// fakeProposalSummaryResolver is a minimal in-memory implementation of
+// referralapp.ProposalSummaryResolver. Tests register a summary per
+// proposal id; ResolveProposalSummaries returns only the entries whose
+// id is in the request batch (mirrors the production filter semantics).
+type fakeProposalSummaryResolver struct {
+	mu      sync.Mutex
+	entries map[uuid.UUID]*referralapp.ProposalSummary
+}
+
+func newFakeProposalSummaryResolver() *fakeProposalSummaryResolver {
+	return &fakeProposalSummaryResolver{entries: map[uuid.UUID]*referralapp.ProposalSummary{}}
+}
+
+// set registers a summary for a proposal id. Safe for concurrent use.
+func (f *fakeProposalSummaryResolver) set(id uuid.UUID, summary *referralapp.ProposalSummary) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.entries[id] = summary
+}
+
+// ResolveProposalSummaries returns the subset of registered entries
+// matching the request batch. referralID is ignored — the real
+// resolver intersects with the referral's attribution set, the fake
+// trusts the caller. Tests that need to assert the intersection guard
+// should write against the real resolver, not this fake.
+func (f *fakeProposalSummaryResolver) ResolveProposalSummaries(
+	ctx context.Context,
+	referralID uuid.UUID,
+	ids []uuid.UUID,
+) (map[uuid.UUID]*referralapp.ProposalSummary, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[uuid.UUID]*referralapp.ProposalSummary, len(ids))
+	for _, id := range ids {
+		if s, ok := f.entries[id]; ok {
+			out[id] = s
+		}
+	}
+	return out, nil
 }
 
 func newTestFixture(t *testing.T, accountID string) *testFixture {
@@ -48,18 +91,20 @@ func newTestFixture(t *testing.T, accountID string) *testFixture {
 	}
 	relationships := newFakeRelationshipChecker()
 	audits := newFakeAuditRepo()
+	summaries := newFakeProposalSummaryResolver()
 
 	svc := referralapp.NewService(referralapp.ServiceDeps{
-		Referrals:        repo,
-		Users:            users,
-		Messages:         msgs,
-		Notifications:    notifier,
-		Stripe:           stripe,
-		Reversals:        reversal,
-		SnapshotProfiles: snap,
-		StripeAccounts:   accounts,
-		Relationships:    relationships,
-		Audits:           audits,
+		Referrals:         repo,
+		Users:             users,
+		Messages:          msgs,
+		Notifications:     notifier,
+		Stripe:            stripe,
+		Reversals:         reversal,
+		SnapshotProfiles:  snap,
+		StripeAccounts:    accounts,
+		Relationships:     relationships,
+		Audits:            audits,
+		ProposalSummaries: summaries,
 	})
 
 	return &testFixture{
@@ -73,6 +118,7 @@ func newTestFixture(t *testing.T, accountID string) *testFixture {
 		accounts:      accounts,
 		relationships: relationships,
 		audits:        audits,
+		summaries:     summaries,
 	}
 }
 
