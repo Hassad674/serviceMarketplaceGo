@@ -111,12 +111,14 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 	if err != nil {
 		return nil, err
 	}
+	// Commission aggregates per attribution. Per-milestone counts come
+	// from the proposal milestone status (see MilestonesCompleted on
+	// ProposalSummary), not from this map — commission rows can lag the
+	// milestone state by several minutes (Stripe transfer, KYC parking).
 	type agg struct {
 		paid       int64
 		pending    int64
 		clawedBack int64
-		countP     int
-		countQ     int
 	}
 	byAtt := make(map[uuid.UUID]*agg, len(atts))
 	for _, c := range allCommissions {
@@ -128,10 +130,8 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 		switch c.Status {
 		case referral.CommissionPaid:
 			a.paid += c.CommissionCents
-			a.countP++
 		case referral.CommissionPending, referral.CommissionPendingKYC:
 			a.pending += c.CommissionCents
-			a.countQ++
 		case referral.CommissionClawedBack:
 			a.clawedBack += c.CommissionCents
 		}
@@ -144,6 +144,21 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 			row.ProposalTitle = sum.Title
 			row.ProposalStatus = sum.Status
 			row.MilestonesTotal = sum.MilestonesTotal
+			// MilestonesPaid is repurposed to mean "milestones the
+			// CLIENT has approved" (status approved or released) — what
+			// the UI calls "X / Y jalons" on the apporteur dashboard.
+			// The legacy semantics (count commissions in 'paid' status)
+			// under-reported every in-flight commission still in
+			// 'pending' or 'pending_kyc' and surfaced "0/2" on
+			// completed missions for which the apporteur backfill was
+			// not yet drained to Stripe. Using the milestone status as
+			// the source of truth decouples the UI counter from the
+			// downstream Stripe transfer pipeline.
+			row.MilestonesPaid = sum.MilestonesCompleted
+			row.MilestonesPending = sum.MilestonesTotal - sum.MilestonesCompleted
+			if row.MilestonesPending < 0 {
+				row.MilestonesPending = 0
+			}
 			// Apporteur share of the gross amount currently in escrow
 			// on this proposal. Uses the same basis-points truncation
 			// as the domain's commission math so the preview lines up
@@ -154,8 +169,6 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 			row.TotalCommissionCents = a.paid
 			row.PendingCommissionCents = a.pending
 			row.ClawedBackCommissionCents = a.clawedBack
-			row.MilestonesPaid = a.countP
-			row.MilestonesPending = a.countQ
 		}
 		out = append(out, row)
 	}

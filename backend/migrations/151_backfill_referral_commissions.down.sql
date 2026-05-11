@@ -1,0 +1,25 @@
+-- 151_backfill_referral_commissions.down.sql
+--
+-- INTENTIONALLY EMPTY.
+--
+-- This migration was a one-way data backfill: it inserted commission
+-- rows for milestones that were APPROVED before the
+-- PrepareCommissionForMilestone hook landed. There is no safe
+-- automatic rollback because:
+--
+--   1. By the time someone rolls back, the scheduler may have already
+--      transferred some commissions to the referrer's Stripe Connect
+--      account. Deleting those DB rows would NOT un-send the Stripe
+--      transfer.
+--
+--   2. Distinguishing backfilled rows from forward-flow rows is not
+--      reliable: both go through the same status pipeline.
+--
+-- If you really need to undo this in an emergency, do it manually:
+--   DELETE FROM referral_commissions
+--   WHERE created_at < <migration timestamp>
+--     AND status = 'pending'
+--     AND stripe_transfer_id = '';
+-- and audit each row first.
+
+-- No SQL on purpose.
