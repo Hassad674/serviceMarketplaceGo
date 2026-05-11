@@ -206,6 +206,22 @@ func catalogueSecurity(c map[string]routeSpec) {
 		Tags: []string{"security"}, Summary: "List my recent authentication activity",
 		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
 	}
+	// SEC-SESSIONS — user-facing session management on the Sécurité
+	// page. Three endpoints, all auth-required, all strictly
+	// user-scoped (no admin path; admin tooling will get its own
+	// surface when needed).
+	c["GET /api/v1/me/sessions"] = routeSpec{
+		Tags: []string{"security"}, Summary: "List my active sessions (Sécurité page)",
+		AuthRequired: true, SuccessKind: successRawJSON, SuccessStatus: "200",
+	}
+	c["DELETE /api/v1/me/sessions/{id}"] = routeSpec{
+		Tags: []string{"security"}, Summary: "Revoke one of my sessions by id",
+		AuthRequired: true, SuccessKind: successNoContent, SuccessStatus: "204",
+	}
+	c["POST /api/v1/me/sessions/revoke-others"] = routeSpec{
+		Tags: []string{"security"}, Summary: "Revoke every active session except the current one",
+		AuthRequired: true, SuccessKind: successNoContent, SuccessStatus: "204",
+	}
 }
 
 func catalogueSkill(c map[string]routeSpec) {
