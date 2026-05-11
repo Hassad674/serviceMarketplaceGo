@@ -96,6 +96,11 @@ class AuthRepositoryImpl implements AuthRepository {
       role: UserRole.values.firstWhere((r) => r.name == json['role']),
       referrerEnabled: json['referrer_enabled'] ?? false,
       emailVerified: json['email_verified'] ?? false,
+      // FIX-2FA: surface the email-2FA flag so the mobile Sécurité
+      // section can render the correct initial state on first paint.
+      // Default `false` for backwards-compatibility with backends that
+      // haven't shipped the field yet.
+      twoFactorEmailEnabled: json['two_factor_email_enabled'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
     );
   }

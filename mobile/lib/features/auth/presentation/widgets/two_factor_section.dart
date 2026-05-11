@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/two_factor_api.dart';
+import '../providers/auth_provider.dart';
 
 /// TwoFactorSection — toggle for the email-based 2FA flag.
 ///
@@ -20,12 +23,12 @@ import '../../data/two_factor_api.dart';
 ///   asking for the current password, then `POST /me/two-factor/disable`
 ///   with `{current_password}` flips the flag off.
 ///
-/// Caveat: the backend does NOT expose the current 2FA flag on `/auth/me`
-/// (B.6.1 ships POST endpoints only). This widget therefore tracks the flag
-/// locally — it starts in OFF state on every mount, and flips to ON only
-/// after a successful enable. Persistence across app restarts requires a
-/// future backend change to surface the flag on `/auth/me`. Flagged in the
-/// agent's final report.
+/// FIX-2FA: the backend now surfaces `two_factor_email_enabled` on
+/// `/auth/me`, so the toggle reads the persisted value from the auth
+/// state on every mount (and after every refresh). The local
+/// `_enabled` field still exists for the optimistic flip during a
+/// mutation but is re-synced from the auth state whenever the
+/// underlying map changes.
 class TwoFactorSection extends ConsumerStatefulWidget {
   const TwoFactorSection({super.key});
 
@@ -34,7 +37,11 @@ class TwoFactorSection extends ConsumerStatefulWidget {
 }
 
 class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
-  // Local optimistic flag — see widget docstring for the caveat.
+  // Local "optimistic" anchor. The toggle's source of truth is the
+  // auth state (see `build` — the watched value overrides this field
+  // on every rebuild). _enabled is only used during the brief moment
+  // between a mutation succeeding and the refreshSession()/auth
+  // state landing the new value.
   bool _enabled = false;
   bool _busy = false;
 
@@ -101,6 +108,12 @@ class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
         _enabled = true;
         _busy = false;
       });
+      // FIX-2FA: pull the persisted flag back from /auth/me so the
+      // toggle's source of truth (auth state) reflects the new value
+      // immediately. Without this, switching tabs and coming back to
+      // the security section would briefly show the old value until
+      // the next session refresh.
+      unawaited(ref.read(authProvider.notifier).refreshSession());
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.twoFactorEnabledToast)),
       );
@@ -140,6 +153,9 @@ class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
         _enabled = false;
         _busy = false;
       });
+      // FIX-2FA: see _enableFlow above — refresh auth so other screens
+      // observing the user object pick up the new flag value.
+      unawaited(ref.read(authProvider.notifier).refreshSession());
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.twoFactorDisabledToast)),
       );
@@ -160,10 +176,22 @@ class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
 
   @override
   Widget build(BuildContext context) {
+    // FIX-2FA: derive the toggle's truthy state from the auth state's
+    // user.two_factor_email_enabled field. Each rebuild re-reads it so
+    // a freshly-landed /auth/me payload (e.g. after a refresh) is
+    // reflected without an explicit listener. The local `_enabled`
+    // field is preserved as the optimistic anchor during mutations —
+    // it gets re-aligned with the auth state on the next rebuild after
+    // _refreshAuthUser() lands.
+    final authUser = ref.watch(authProvider.select((s) => s.user));
+    final flagFromAuth = authUser?['two_factor_email_enabled'];
+    final enabled = _busy
+        ? _enabled
+        : (flagFromAuth is bool ? flagFromAuth : _enabled);
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.extension<AppColors>();
-    final description = _enabled
+    final description = enabled
         ? l10n.twoFactorToggleDescOn
         : l10n.twoFactorToggleDescOff;
 
@@ -193,7 +221,7 @@ class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
         ),
         const SizedBox(width: 12),
         Switch(
-          value: _enabled,
+          value: enabled,
           onChanged: _busy ? null : _handleToggle,
         ),
       ],

@@ -15,6 +15,7 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
       role: $enumDecode(_$UserRoleEnumMap, json['role']),
       referrerEnabled: json['referrerEnabled'] as bool? ?? false,
       emailVerified: json['emailVerified'] as bool? ?? false,
+      twoFactorEmailEnabled: json['twoFactorEmailEnabled'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
 
@@ -28,6 +29,7 @@ Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
       'role': _$UserRoleEnumMap[instance.role]!,
       'referrerEnabled': instance.referrerEnabled,
       'emailVerified': instance.emailVerified,
+      'twoFactorEmailEnabled': instance.twoFactorEmailEnabled,
       'createdAt': instance.createdAt.toIso8601String(),
     };
 

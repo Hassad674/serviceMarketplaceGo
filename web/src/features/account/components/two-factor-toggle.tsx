@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { ShieldCheck, ShieldOff } from "lucide-react"
 
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
 import { ApiError } from "@/shared/lib/api-client"
+import { useUser } from "@/shared/hooks/use-user"
 import {
   requestEnableTwoFactor,
   confirmEnableTwoFactor,
@@ -17,12 +19,14 @@ import {
 /**
  * TwoFactorToggle — Sécurité tab card that turns email 2FA on or off.
  *
- * The current state is owned locally because /auth/me does not yet
- * surface `two_factor_email_enabled`. We accept the prop as the
- * initial value and update it optimistically on each successful
- * mutation. On the next page load the parent re-reads the source of
- * truth (when the backend ships the field) — until then the local
- * state is the only thing the user can rely on.
+ * The current state derives from `useUser()` (TanStack Query session
+ * cache) so the toggle renders the correct initial state on first
+ * paint — including after a page reload, which previously defaulted
+ * the switch to OFF and left users unable to disable an already-enabled
+ * 2FA (FIX-2FA bug). Each successful enable/disable mutation
+ * invalidates the ["session"] query so the next /auth/me call refreshes
+ * the cache; an `useEffect` syncs the local "enabled" state when the
+ * cache value changes (e.g. between login and the first paint).
  *
  * Enable flow is two-step:
  *   1. POST /me/two-factor/enable (no body) → email challenge,
@@ -50,10 +54,12 @@ const DISABLE_ERROR_KEYS: Record<string, string> = {
 
 export type TwoFactorToggleProps = {
   /**
-   * Whether 2FA is currently enabled for the user. The flag is not
-   * surfaced by /auth/me yet — until then the parent passes `false`
-   * by default and we refresh the local copy on every successful
-   * mutation.
+   * Optional initial-paint value, used by the unit tests to seed
+   * the toggle state without a full QueryClient setup. In real
+   * usage the source of truth is `useUser().two_factor_email_enabled`
+   * — the prop only acts as a tie-breaker before the first session
+   * payload lands (typically during SSR / initial mount on a public
+   * page that does NOT render this component, so the impact is nil).
    */
   initialEnabled?: boolean
 }
@@ -61,12 +67,30 @@ export type TwoFactorToggleProps = {
 export function TwoFactorToggle({ initialEnabled = false }: TwoFactorToggleProps) {
   const t = useTranslations("twoFactor")
   const tAccount = useTranslations("account")
-  const [enabled, setEnabled] = useState(initialEnabled)
+  const queryClient = useQueryClient()
+  const { data: user } = useUser()
+  // FIX-2FA: derive initial state from the session cache, fall back
+  // to the prop when the cache is still empty (first paint before
+  // /auth/me has resolved). On every subsequent render the useEffect
+  // below re-syncs from the cache so a fresh /me refresh after login
+  // (or after invalidation post-mutation) is honored.
+  const cachedEnabled = user?.two_factor_email_enabled ?? initialEnabled
+  const [enabled, setEnabled] = useState<boolean>(cachedEnabled)
   const [mode, setMode] = useState<Mode>("idle")
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  // Keep the local toggle in sync with the session cache when the
+  // user object lands or refreshes. Without this, the toggle stays
+  // at its mount-time value (false) even after /auth/me reports the
+  // flag is true, which is the FIX-2FA bug we are repairing.
+  useEffect(() => {
+    if (user?.two_factor_email_enabled !== undefined) {
+      setEnabled(user.two_factor_email_enabled)
+    }
+  }, [user?.two_factor_email_enabled])
 
   function reset() {
     setMode("idle")
@@ -118,6 +142,12 @@ export function TwoFactorToggle({ initialEnabled = false }: TwoFactorToggleProps
     try {
       await confirmEnableTwoFactor(trimmed)
       setEnabled(true)
+      // FIX-2FA: invalidate the session cache so any other consumer
+      // of useUser() (sidebar badge, account page, etc.) reads the
+      // new flag value on its next render instead of showing stale
+      // "off". The optimistic setEnabled(true) above keeps THIS card
+      // responsive; the invalidate fans the change out to everyone.
+      void queryClient.invalidateQueries({ queryKey: ["session"] })
       toast.success(t("toasts.enabled"))
       reset()
     } catch (err) {
@@ -144,6 +174,9 @@ export function TwoFactorToggle({ initialEnabled = false }: TwoFactorToggleProps
     try {
       await disableTwoFactor({ current_password: password })
       setEnabled(false)
+      // FIX-2FA: see confirmEnable above — invalidate the session so
+      // every consumer of useUser() refreshes its 2FA badge.
+      void queryClient.invalidateQueries({ queryKey: ["session"] })
       toast.success(t("toasts.disabled"))
       reset()
     } catch (err) {

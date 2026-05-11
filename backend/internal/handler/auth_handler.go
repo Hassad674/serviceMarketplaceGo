@@ -515,7 +515,22 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	res.JSON(w, http.StatusOK, response.NewMeResponse(u, orgCtx))
+	// FIX-2FA: surface the email-2FA flag so the Sécurité toggle can
+	// render the correct initial state on first paint. The flag lives
+	// in its own slim repository; a Redis/Postgres blip here is logged
+	// and falls back to false (degrades to "toggle appears off",
+	// which the user can recover from by reloading once the DB is back).
+	var twoFAEnabled bool
+	if h.twoFactorFlag != nil {
+		flagVal, flagErr := h.twoFactorFlag.IsEmailTwoFactorEnabled(r.Context(), userID)
+		if flagErr != nil {
+			slog.Warn("two_factor: read flag for /me failed", "user_id", userID, "error", flagErr)
+		} else {
+			twoFAEnabled = flagVal
+		}
+	}
+
+	res.JSON(w, http.StatusOK, response.NewMeResponse(u, orgCtx, twoFAEnabled))
 }
 
 // WebSession creates a fresh web session for the bearer-authenticated

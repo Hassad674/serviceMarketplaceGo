@@ -171,6 +171,9 @@
               },
               "role": {
                 "type": "string"
+              },
+              "two_factor_email_enabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -185,7 +188,8 @@
               "kyc_status",
               "last_name",
               "referrer_enabled",
-              "role"
+              "role",
+              "two_factor_email_enabled"
             ],
             "type": "object"
           }
@@ -1510,6 +1514,9 @@
               },
               "role": {
                 "type": "string"
+              },
+              "two_factor_email_enabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -1524,7 +1531,8 @@
               "kyc_status",
               "last_name",
               "referrer_enabled",
-              "role"
+              "role",
+              "two_factor_email_enabled"
             ],
             "type": "object"
           }
