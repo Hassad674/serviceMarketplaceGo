@@ -1,10 +1,12 @@
 // Widget tests for the TwoFactorSection (Sécurité toggle).
 //
-// The widget owns a local `_enabled` flag (see widget docstring for the
-// caveat — `/auth/me` does not yet expose the persisted flag). These
-// tests cover the rendered states + the dialog flow without hitting the
-// network: TwoFactorApi calls are stubbed via a Riverpod override that
-// substitutes the apiClientProvider with a fake recording client.
+// FIX-2FA: the widget now reads the persisted flag from the auth
+// state. Tests cover both the legacy "auth state empty" path (toggle
+// falls back to local _enabled) and the new "auth state has
+// two_factor_email_enabled" path (toggle renders the correct initial
+// state on first paint). TwoFactorApi calls are stubbed via a
+// Riverpod override that substitutes the apiClientProvider with a
+// fake recording client.
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/core/network/api_client.dart';
 import 'package:marketplace_mobile/core/storage/secure_storage.dart';
 import 'package:marketplace_mobile/core/theme/app_theme.dart';
+import 'package:marketplace_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:marketplace_mobile/features/auth/presentation/widgets/two_factor_section.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
@@ -64,10 +67,45 @@ class _RecordingApiClient extends ApiClient {
   }
 }
 
-Widget _buildHost({required _RecordingApiClient api}) {
+/// Builds an AuthNotifier seeded with the supplied user map, then
+/// overrides the auth provider so the widget under test sees the
+/// expected `two_factor_email_enabled` value on first paint.
+///
+/// We do NOT call _tryRestoreSession here because the notifier's
+/// constructor would fire it unconditionally; instead we override
+/// the provider with a custom notifier that skips the restore.
+class _SeededAuthNotifier extends AuthNotifier {
+  _SeededAuthNotifier({
+    required super.apiClient,
+    required super.storage,
+    required Map<String, dynamic>? seedUser,
+  }) {
+    if (seedUser != null) {
+      // Direct assignment of `state` is allowed inside the notifier.
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: seedUser,
+      );
+    } else {
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    }
+  }
+}
+
+Widget _buildHost({
+  required _RecordingApiClient api,
+  Map<String, dynamic>? seedUser,
+}) {
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(api),
+      authProvider.overrideWith((ref) {
+        return _SeededAuthNotifier(
+          apiClient: ref.watch(apiClientProvider),
+          storage: ref.watch(secureStorageProvider),
+          seedUser: seedUser,
+        );
+      }),
     ],
     child: MaterialApp(
       theme: AppTheme.light,
@@ -202,6 +240,75 @@ void main() {
         expect(sw.value, isFalse);
         // Only the start call happened.
         expect(api.calls, hasLength(1));
+      },
+    );
+  });
+
+  group('TwoFactorSection FIX-2FA regression — initial state from session', () {
+    testWidgets(
+      'renders the switch ON when the auth state says 2FA is enabled',
+      (tester) async {
+        final api = _RecordingApiClient();
+        await tester.pumpWidget(
+          _buildHost(
+            api: api,
+            seedUser: {
+              'id': 'u-1',
+              'email': 'a@example.com',
+              'two_factor_email_enabled': true,
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The toggle was never tapped — its ON state must derive
+        // purely from the auth user payload. This is the bug we are
+        // fixing: previously, the switch always rendered OFF on a
+        // fresh mount, even when the backend said the flag was on.
+        final sw = tester.widget<Switch>(find.byType(Switch));
+        expect(sw.value, isTrue);
+        // ON description must be visible (proves the boolean drove
+        // the description, not just the Switch value).
+        expect(
+          find.text('Active. A code will be required at every sign in.'),
+          findsOneWidget,
+        );
+        expect(api.calls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'renders the switch OFF when the auth user lacks the field',
+      (tester) async {
+        final api = _RecordingApiClient();
+        await tester.pumpWidget(
+          _buildHost(
+            api: api,
+            seedUser: {
+              'id': 'u-1',
+              'email': 'a@example.com',
+              // Intentionally NO two_factor_email_enabled key.
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final sw = tester.widget<Switch>(find.byType(Switch));
+        expect(sw.value, isFalse);
+      },
+    );
+
+    testWidgets(
+      'renders the switch OFF when the auth state is unauthenticated',
+      (tester) async {
+        final api = _RecordingApiClient();
+        await tester.pumpWidget(
+          _buildHost(api: api, seedUser: null),
+        );
+        await tester.pumpAndSettle();
+
+        final sw = tester.widget<Switch>(find.byType(Switch));
+        expect(sw.value, isFalse);
       },
     );
   });
