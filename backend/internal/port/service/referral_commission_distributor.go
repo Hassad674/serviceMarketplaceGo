@@ -58,3 +58,35 @@ const (
 type ReferralCommissionDistributor interface {
 	DistributeIfApplicable(ctx context.Context, input ReferralCommissionDistributorInput) (ReferralCommissionResult, error)
 }
+
+// ReferralCommissionPrepareInput is the payload the proposal service hands to
+// the referral feature when a milestone is APPROVED (not transferred). This
+// path is independent from the provider auto-transfer eligibility — every
+// approved milestone with an active attribution generates a pending commission
+// row that will be drained to Stripe by the scheduler (or by the existing
+// distributor when the provider transfer eventually fires).
+type ReferralCommissionPrepareInput struct {
+	ProposalID       uuid.UUID
+	MilestoneID      uuid.UUID
+	GrossAmountCents int64
+	Currency         string
+}
+
+// ReferralCommissionPreparer is implemented by the referral app service and
+// called by the proposal app service when a client APPROVES a milestone. It
+// decouples the apporteur commission lifecycle from the provider auto-transfer
+// gate: the commission row lands in `pending` (or `pending_kyc`) immediately
+// so the referrer wallet shows the income event, then the scheduler / Stripe
+// listener picks it up to attempt the actual transfer.
+//
+// Contract:
+//   - Implementation MUST be idempotent on (proposal_id, milestone_id) — if a
+//     commission row already exists (from a retry or from a downstream
+//     DistributeIfApplicable race), the call is a silent no-op.
+//   - Implementation MUST NOT block the proposal flow: the caller logs and
+//     continues on error.
+//   - No Stripe call is attempted from this entry point — the row stays in
+//     pending until the scheduler or the legacy distributor drains it.
+type ReferralCommissionPreparer interface {
+	PrepareCommissionForMilestone(ctx context.Context, input ReferralCommissionPrepareInput) error
+}
