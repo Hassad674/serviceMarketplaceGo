@@ -20,6 +20,10 @@ export function LegalFooter() {
     { href: "/cgv", key: "cgv" },
     { href: "/sous-processeurs", key: "subprocessors" },
     { href: "/decisions-automatisees", key: "automatedDecisions" },
+    // D4 (GDPR Phase C) — link to /legal/registre as the canonical
+    // entry point to the documents section. The /legal index page
+    // surfaces the full list (registre, AIPD, DPA, politique, CGU, CGV).
+    { href: "/legal/registre", key: "documents" },
   ]
 
   return (
