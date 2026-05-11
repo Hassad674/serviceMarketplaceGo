@@ -167,6 +167,8 @@ func (w *WalletService) populateCommissionSide(ctx context.Context, wallet *Wall
 			PendingKYCCents: sum.PendingKYCCents,
 			PaidCents:       sum.PaidCents,
 			ClawedBackCents: sum.ClawedBackCents,
+			Paid30dCents:    sum.Paid30dCents,
+			LifetimeCents:   sum.LifetimeCents,
 			Currency:        sum.Currency,
 		}
 	}
