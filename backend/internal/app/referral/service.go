@@ -77,7 +77,7 @@ type Service struct {
 	audits           repository.AuditRepository
 }
 
-// Compile-time assertions that the Service satisfies the six exposed ports.
+// Compile-time assertions that the Service satisfies the seven exposed ports.
 var (
 	_ service.ReferralAttributor             = (*Service)(nil)
 	_ service.ReferralCommissionDistributor  = (*Service)(nil)
@@ -85,6 +85,7 @@ var (
 	_ service.ReferralClawback               = (*Service)(nil)
 	_ service.ReferralKYCListener            = (*Service)(nil)
 	_ service.ReferralWalletReader           = (*Service)(nil)
+	_ service.ReferralCommissionRetryService = (*Service)(nil)
 )
 
 // NewService wires the referral service from its dependency bag.

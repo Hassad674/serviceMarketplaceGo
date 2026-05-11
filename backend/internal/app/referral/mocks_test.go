@@ -259,6 +259,18 @@ func (f *fakeReferralRepo) FindCommissionByMilestone(ctx context.Context, milest
 	return nil, referral.ErrCommissionNotFound
 }
 
+func (f *fakeReferralRepo) FindCommissionByID(ctx context.Context, id uuid.UUID) (*referral.Commission, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.commissions {
+		if c.ID == id {
+			cp := *c
+			return &cp, nil
+		}
+	}
+	return nil, referral.ErrCommissionNotFound
+}
+
 func (f *fakeReferralRepo) ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -530,6 +542,13 @@ type fakeStripe struct {
 	mu        sync.Mutex
 	transfers []service.CreateTransferInput
 	failNext  bool
+	// account drives the GetAccount probe used by the Connect-ready
+	// gate in the commission distributor and the retry endpoint.
+	// Nil = "no account info available" (returns a nil info, no error).
+	account *service.StripeAccountInfo
+	// accountErr makes GetAccount fail. Used by tests that exercise
+	// the fail-closed branch.
+	accountErr error
 }
 
 func (f *fakeStripe) CreatePaymentIntent(ctx context.Context, input service.CreatePaymentIntentInput) (*service.PaymentIntentResult, error) {
@@ -552,7 +571,16 @@ func (f *fakeStripe) ConstructWebhookEvent(payload []byte, signature string) (*s
 	return nil, nil
 }
 func (f *fakeStripe) GetAccount(ctx context.Context, accountID string) (*service.StripeAccountInfo, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.accountErr != nil {
+		return nil, f.accountErr
+	}
+	if f.account == nil {
+		return nil, nil
+	}
+	cp := *f.account
+	return &cp, nil
 }
 func (f *fakeStripe) CreateRefund(ctx context.Context, paymentIntentID string, amount int64) (string, error) {
 	return "", nil

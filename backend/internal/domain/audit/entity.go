@@ -88,6 +88,14 @@ const (
 	// attempt is recorded so platform admins can audit suspicious
 	// commission-farming patterns.
 	ActionReferralBlockedAlreadyInRelation Action = "referral.blocked_already_in_relation"
+
+	// Commission retry — emitted by the referral service every time the
+	// wallet "Retirer" endpoint runs against a pending_kyc or failed
+	// commission row. Metadata captures the previous status, the new
+	// status, and (when applicable) the stripe error so a forensic
+	// reviewer can reconstruct the full retire timeline of a commission
+	// without joining log streams.
+	ActionCommissionRetryAttempted Action = "commission.retry_attempted"
 )
 
 // ResourceType is the kind of resource the audit entry refers to.
@@ -100,9 +108,10 @@ const (
 	ResourceTypeOrganization ResourceType = "organization"
 	ResourceTypeMember       ResourceType = "member"
 	ResourceTypeInvitation   ResourceType = "invitation"
-	ResourceTypeRole         ResourceType = "role"
-	ResourceTypeReceipt      ResourceType = "receipt"
-	ResourceTypeReferral     ResourceType = "referral"
+	ResourceTypeRole               ResourceType = "role"
+	ResourceTypeReceipt            ResourceType = "receipt"
+	ResourceTypeReferral           ResourceType = "referral"
+	ResourceTypeReferralCommission ResourceType = "referral_commission"
 )
 
 // Entry is a single audit log row. Construct via NewEntry — the struct

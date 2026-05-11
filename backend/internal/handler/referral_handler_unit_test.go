@@ -171,6 +171,9 @@ func (f *unitReferralRepo) UpdateCommission(_ context.Context, _ *referral.Commi
 func (f *unitReferralRepo) FindCommissionByMilestone(_ context.Context, _ uuid.UUID) (*referral.Commission, error) {
 	return nil, referral.ErrCommissionNotFound
 }
+func (f *unitReferralRepo) FindCommissionByID(_ context.Context, _ uuid.UUID) (*referral.Commission, error) {
+	return nil, referral.ErrCommissionNotFound
+}
 func (f *unitReferralRepo) ListCommissionsByReferral(_ context.Context, _ uuid.UUID) ([]*referral.Commission, error) {
 	return nil, nil
 }

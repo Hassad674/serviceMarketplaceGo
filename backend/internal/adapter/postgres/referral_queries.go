@@ -145,6 +145,16 @@ const queryFindCommissionByMilestone = `
 	FROM referral_commissions
 	WHERE milestone_id = $1`
 
+// queryFindCommissionByID — single-row PK lookup used by the wallet
+// retry endpoint (D1+D2) and other ownership-checking flows.
+const queryFindCommissionByID = `
+	SELECT id, attribution_id, milestone_id,
+	       gross_amount_cents, commission_cents, currency,
+	       status, stripe_transfer_id, stripe_reversal_id, failure_reason,
+	       paid_at, clawed_back_at, created_at, updated_at
+	FROM referral_commissions
+	WHERE id = $1`
+
 const queryListCommissionsByReferral = `
 	SELECT c.id, c.attribution_id, c.milestone_id,
 	       c.gross_amount_cents, c.commission_cents, c.currency,

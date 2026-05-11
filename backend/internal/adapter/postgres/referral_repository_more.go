@@ -68,6 +68,24 @@ func (r *ReferralRepository) FindCommissionByMilestone(ctx context.Context, mile
 	return c, nil
 }
 
+// FindCommissionByID returns a single commission row by its primary
+// key. Used by the wallet retry endpoint (D1+D2) which receives the
+// commission id from the URL and must load the row before running
+// ownership / state checks.
+func (r *ReferralRepository) FindCommissionByID(ctx context.Context, id uuid.UUID) (*referral.Commission, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	c, err := scanCommission(r.db.QueryRowContext(ctx, queryFindCommissionByID, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, referral.ErrCommissionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find commission by id: %w", err)
+	}
+	return c, nil
+}
+
 func (r *ReferralRepository) ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()

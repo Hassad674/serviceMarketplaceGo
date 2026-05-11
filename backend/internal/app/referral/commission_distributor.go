@@ -183,7 +183,12 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 		}
 	}
 
-	if stripeAccount == "" {
+	// Connect-ready gate: the apporteur must have a connected account
+	// AND that account must have payouts enabled before we burn a Stripe
+	// idempotency key on a doomed transfer. When the gate trips, the
+	// commission stays in pending_kyc so the apporteur can come back and
+	// retire it after completing onboarding (D1+D2).
+	if !s.connectReadyForReferrer(ctx, stripeAccount) {
 		if err := commission.MarkPendingKYC(); err != nil {
 			slog.Warn("commission distributor: MarkPendingKYC state transition failed",
 				"error", err, "commission_id", commission.ID)
@@ -191,6 +196,10 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 		if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
 			return service.ReferralCommissionFailed, fmt.Errorf("update commission to pending_kyc: %w", err)
 		}
+		slog.Info("referral: commission parked pending_kyc",
+			"commission_id", commission.ID,
+			"referrer_id", parent.ReferrerID,
+			"has_account", stripeAccount != "")
 		s.notifyCommissionPendingKYC(ctx, parent.ID, parent.ReferrerID, commission.CommissionCents)
 		return service.ReferralCommissionPendingKYC, nil
 	}
