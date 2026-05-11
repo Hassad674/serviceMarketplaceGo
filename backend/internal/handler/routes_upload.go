@@ -16,11 +16,13 @@ func mountUploadRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 	r.Route("/upload", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
-		// SEC-11: upload-class limiter (10/min/user) on top of the
-		// global IP throttle. Stacked here on the whole subtree so
-		// every upload endpoint shares the same quota.
+		// SEC-11: upload-class limiter on top of the global IP
+		// throttle. Stacked here on the whole subtree so every upload
+		// endpoint shares the same quota. RATE-LIMIT-PROD bumped the
+		// default to 30/min/user and made it env-overridable via
+		// RATE_LIMIT_UPLOAD_PER_MINUTE — see UploadRateLimitPolicy.
 		if deps.RateLimiter != nil {
-			r.Use(deps.RateLimiter.Middleware(middleware.DefaultUploadPolicy, middleware.UserKey()))
+			r.Use(deps.RateLimiter.Middleware(UploadRateLimitPolicy(deps.Config), middleware.UserKey()))
 		}
 		// Profile-related uploads require org profile edit permission
 		r.Group(func(r chi.Router) {
