@@ -16,6 +16,12 @@ import { fetchSitemapJobs } from "@/features/job/api/sitemap-server"
 // emit only the static pages so a transient backend hiccup never
 // strands Google with an empty sitemap.
 
+// PERF-B: revalidate the sitemap every 5 minutes. Vercel's CDN serves
+// the cached XML for the whole window so a busy crawler does not fan
+// out into 4 backend search calls per hit. 300s matches the s-maxage
+// on the underlying public profile routes.
+export const revalidate = 300
+
 const STATIC_PATHS = [
   { path: "/", changeFrequency: "daily" as const, priority: 1 },
   { path: "/agencies", changeFrequency: "daily" as const, priority: 0.9 },

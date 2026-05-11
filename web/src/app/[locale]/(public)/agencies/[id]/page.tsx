@@ -26,6 +26,14 @@ type Props = {
   params: Promise<{ id: string; locale: string }>
 }
 
+// PERF-B: ISR revalidation window for the public agency profile.
+// Stores the rendered RSC payload + API responses on Vercel's edge for
+// 60s. The next request after that triggers a background revalidation
+// while serving the previous render (stale-while-revalidate). The
+// backend mirror is `Cache-Control: public, max-age=60, s-maxage=300`
+// on `/api/v1/profiles/{orgId}`.
+export const revalidate = 60
+
 // generateMetadata renders dynamic SEO head tags from the agency
 // profile (PERF-W-06 + PERF-W-08). Falls back to generic strings
 // only when the fetch fails — listing pages still link here, so the

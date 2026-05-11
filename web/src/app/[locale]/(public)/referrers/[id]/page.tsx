@@ -28,6 +28,12 @@ type Props = {
   params: Promise<{ id: string; locale: string }>
 }
 
+// PERF-B: ISR revalidation window for the public referrer/apporteur
+// profile. Stores the rendered RSC payload + API responses on Vercel's
+// edge for 60s. Backend mirror is `Cache-Control: public, max-age=60,
+// s-maxage=300` on `/api/v1/referrer-profiles/{orgID}`.
+export const revalidate = 60
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id, locale } = await params
   const t = await getTranslations({ locale, namespace: "profile.referrer" })
