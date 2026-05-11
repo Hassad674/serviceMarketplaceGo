@@ -186,6 +186,9 @@ func (f *handlerFakeInvoiceRepo) ListInvoicesAdmin(_ context.Context, _ reposito
 func (f *handlerFakeInvoiceRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*invoicing.CreditNote, error) {
 	return nil, invoicing.ErrNotFound
 }
+func (f *handlerFakeInvoiceRepo) FindPlatformFeeByMilestoneID(_ context.Context, _ uuid.UUID) (*invoicing.Invoice, error) {
+	return nil, invoicing.ErrNotFound
+}
 
 type handlerFakeProfileRepo struct{}
 

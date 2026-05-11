@@ -143,6 +143,25 @@ func (s *Service) IssueMonthlyConsolidated(ctx context.Context, in IssueMonthlyC
 		if rec.PlatformFeeCents <= 0 {
 			continue
 		}
+		// Safety-net mode: when a milestone already has a per-milestone
+		// platform_fee invoice (synchronous emission at approval), the
+		// monthly consolidation must NOT bill it again. The probe also
+		// short-circuits the partial UNIQUE index on
+		// invoice(milestone_id) WHERE source_type='platform_fee' — but
+		// only the per-milestone invoice has that source_type, so this
+		// probe is mostly belt-and-braces. The real value is keeping the
+		// monthly_commission row out of the picture for already-billed
+		// milestones, which would otherwise duplicate the line.
+		invExisting, probeErr := s.invoices.FindPlatformFeeByMilestoneID(ctx, rec.MilestoneID)
+		if probeErr != nil && !errors.Is(probeErr, invoicing.ErrNotFound) {
+			return nil, fmt.Errorf("invoicing: monthly probe per-milestone invoice: %w", probeErr)
+		}
+		if invExisting != nil {
+			logger.Info("invoicing: monthly skipping milestone already invoiced per-milestone",
+				"milestone_id", rec.MilestoneID,
+				"existing_invoice_number", invExisting.Number)
+			continue
+		}
 		short := rec.MilestoneID.String()
 		if len(short) > 8 {
 			short = short[:8]
@@ -157,10 +176,11 @@ func (s *Service) IssueMonthlyConsolidated(ctx context.Context, in IssueMonthlyC
 		})
 	}
 	if len(items) == 0 {
-		// Every record in the period was Premium-waived (fee = 0).
-		// Nothing to consolidate — return (nil, nil) like the empty
-		// period case.
-		logger.Info("invoicing: all released records had zero platform fee (premium), nothing to consolidate")
+		// Every record in the period was Premium-waived (fee = 0) OR
+		// already invoiced per-milestone by the synchronous emission
+		// path. Nothing to consolidate — return (nil, nil) like the
+		// empty period case.
+		logger.Info("invoicing: all released records either premium-waived or already invoiced, nothing to consolidate")
 		return nil, nil
 	}
 
