@@ -106,3 +106,105 @@ describe("StatsOverview integration", () => {
     expect(lastCall).toContain("period=90")
   })
 })
+
+// Bug 2 regression: the unit counts (total_views, search_appearances)
+// must render as numbers even at zero. The "patience ~7 days" copy is
+// reserved for the avg_search_position card.
+
+function buildStatsFetch(payload: {
+  total_views: number
+  search_appearances: number
+  avg_search_position: number | null
+}) {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const url = input.toString()
+    if (url.includes("/me/stats/visibility")) {
+      return new Response(
+        JSON.stringify({
+          data: {
+            organization_id: "org",
+            period_days: 30,
+            total_views: payload.total_views,
+            unique_viewers: 0,
+            search_appearances: payload.search_appearances,
+            avg_search_position: payload.avg_search_position,
+            series: [],
+          },
+        }),
+        { status: 200 },
+      )
+    }
+    if (url.includes("/me/stats/keywords")) {
+      return new Response(JSON.stringify({ data: [] }), { status: 200 })
+    }
+    return new Response("{}", { status: 200 })
+  })
+}
+
+describe("StatsOverview — unit counts (Bug 2 regression)", () => {
+  it("renders '0' for total_views and search_appearances when both are 0", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildStatsFetch({
+        total_views: 0,
+        search_appearances: 0,
+        avg_search_position: null,
+      }),
+    )
+    render(wrap(<StatsOverview />))
+    const strip = await screen.findByTestId("stats-metric-strip")
+    await waitFor(() => {
+      // Both unit-count cards render a literal "0" (not the patience copy).
+      const zeros = Array.from(strip.querySelectorAll("p")).filter(
+        (el) => el.textContent?.trim() === "0",
+      )
+      expect(zeros.length).toBeGreaterThanOrEqual(2)
+    })
+    // The legacy patience copy must NOT appear at the page level — only
+    // the chart-level neutral empty copy is acceptable. Assert the old
+    // banner string is gone.
+    expect(
+      screen.queryByText(
+        /Données insuffisantes — patiente pendant que ton profil/i,
+      ),
+    ).toBeNull()
+  })
+
+  it("renders all three metric cards with proper values when data is plentiful", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildStatsFetch({
+        total_views: 150,
+        search_appearances: 75,
+        avg_search_position: 3.5,
+      }),
+    )
+    render(wrap(<StatsOverview />))
+    const strip = await screen.findByTestId("stats-metric-strip")
+    await waitFor(() => {
+      // The integer formatter uses fr-FR ("150" without thousand
+      // separator at this magnitude).
+      expect(strip.textContent).toContain("150")
+      expect(strip.textContent).toContain("75")
+      // Rounded position rendered via plural unit ("4 places").
+      expect(strip.textContent).toMatch(/4\s+places/i)
+    })
+  })
+
+  it("renders the patience copy for avg_position when below significance threshold", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildStatsFetch({
+        total_views: 150,
+        search_appearances: 3, // below 10
+        avg_search_position: 2.0,
+      }),
+    )
+    render(wrap(<StatsOverview />))
+    const strip = await screen.findByTestId("stats-metric-strip")
+    await waitFor(() => {
+      // The avg_position card shows the patience caption.
+      expect(strip.textContent).toMatch(/~7 jours pour des résultats stables/i)
+    })
+  })
+})

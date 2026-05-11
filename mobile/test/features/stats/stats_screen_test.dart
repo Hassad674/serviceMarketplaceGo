@@ -214,9 +214,79 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Bug 2 regression: visibility unit counts still render (as "0")
+    // even when the series is empty. The "Not enough data yet" copy
+    // is reserved for the keywords / applications cards now.
+    expect(find.text('0'), findsWidgets);
     expect(
       find.textContaining('Not enough data yet'),
       findsWidgets,
     );
   });
+
+  testWidgets(
+    'visibility card always renders total_views as a number, even when '
+    'series is empty (Bug 2 regression)',
+    (tester) async {
+      // Series intentionally empty; total_views non-zero — this is the
+      // pathological case the bug surfaced. The unit count must still
+      // render even though there's no sparkline data.
+      final repo = _FakeStatsRepository(
+        visibility: const VisibilityStats(
+          organizationId: 'o1',
+          periodDays: 30,
+          totalViews: 150,
+          uniqueViewers: 100,
+          searchAppearances: 75,
+          avgSearchPosition: 3.5,
+        ),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          repo: repo,
+          orgType: 'provider_personal',
+          child: const StatsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // total_views, search_appearances surfaced verbatim.
+      expect(find.text('150'), findsOneWidget);
+      expect(find.text('75'), findsOneWidget);
+      // avg_position rendered (>=10 appearances passes the threshold).
+      expect(find.text('3.5'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'visibility card shows "—" for avg_position below significance threshold',
+    (tester) async {
+      // <10 search appearances → patience case for position only.
+      final repo = _FakeStatsRepository(
+        visibility: const VisibilityStats(
+          organizationId: 'o1',
+          periodDays: 30,
+          totalViews: 50,
+          uniqueViewers: 40,
+          searchAppearances: 3,
+          avgSearchPosition: 2.1,
+        ),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          repo: repo,
+          orgType: 'provider_personal',
+          child: const StatsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Unit counts still rendered.
+      expect(find.text('50'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      // Position shows the placeholder, not the misleading average.
+      expect(find.text('—'), findsWidgets);
+      expect(find.text('2.1'), findsNothing);
+    },
+  );
 }

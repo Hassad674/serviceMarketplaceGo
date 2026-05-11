@@ -12,18 +12,33 @@ import type { StatsPeriodDays } from "../api/stats-api"
 
 // StatsOverview is the meaty client component behind the /stats page.
 // Owns the period state (synchronised with `?period=` in the URL) and
-// drives three children: visibility line chart, search appearances
-// line chart, and the keywords table. /stats is gated to Provider /
-// Agency on the page-level shell — Enterprise + Referrer redirect to
-// /dashboard upstream.
+// drives a top summary strip (unit counts for total views, search
+// appearances, average position) followed by three line charts and
+// the keywords table.
+//
+// Empty-state policy:
+//   * total_views and search_appearances are UNIT counts — always
+//     render as a number (including "0") with a small caption when 0.
+//     Never gate them behind a "wait 7 days" copy.
+//   * avg_search_position is statistical — when fewer than 10 search
+//     appearances exist, render the patience caption instead of a
+//     misleading average. Threshold is intentional: a single
+//     appearance with a fluke position would otherwise be reported as
+//     the long-run average.
+//
+// /stats is gated to Provider / Agency on the page-level shell —
+// Enterprise + Referrer redirect to /dashboard upstream.
 
 const ALLOWED_PERIODS: StatsPeriodDays[] = [7, 30, 90]
 const DEFAULT_PERIOD: StatsPeriodDays = 30
 const KEYWORDS_LIMIT = 10
+const POSITION_STATISTICAL_SIGNIFICANCE = 10
 
 export function StatsOverview() {
   const t = useTranslations("stats")
+  const tMetrics = useTranslations("stats.metrics")
   const tEmpty = useTranslations("stats.empty")
+  const tCharts = useTranslations("stats.charts")
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: user } = useUser()
@@ -45,10 +60,16 @@ export function StatsOverview() {
     () => visibility.data?.series ?? [],
     [visibility.data?.series],
   )
-  const hasData = series.some((point) => point.count > 0)
+  const totalViews = visibility.data?.total_views ?? 0
+  const searchAppearances = visibility.data?.search_appearances ?? 0
+  const avgPosition = visibility.data?.avg_search_position ?? null
+  const hasEnoughForPosition =
+    searchAppearances >= POSITION_STATISTICAL_SIGNIFICANCE &&
+    typeof avgPosition === "number"
+
   const positionSeries = useMemo(
-    () => buildPositionSeries(visibility.data?.avg_search_position, series),
-    [visibility.data?.avg_search_position, series],
+    () => buildPositionSeries(avgPosition, series),
+    [avgPosition, series],
   )
 
   return (
@@ -70,27 +91,61 @@ export function StatsOverview() {
       {visibility.error ? (
         <ErrorPanel message={t("errorLoading")} />
       ) : null}
-      {!hasData && !visibility.isLoading ? (
-        <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          {tEmpty("notEnoughData")}
-        </p>
-      ) : null}
+      <div
+        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+        data-testid="stats-metric-strip"
+      >
+        <MetricCard
+          label={tMetrics("totalViewsLabel")}
+          value={formatInteger(totalViews)}
+          caption={
+            totalViews === 0 ? tMetrics("totalViewsEmpty") : undefined
+          }
+          isLoading={visibility.isLoading}
+        />
+        <MetricCard
+          label={tMetrics("searchAppearancesLabel")}
+          value={formatInteger(searchAppearances)}
+          caption={
+            searchAppearances === 0
+              ? tMetrics("searchAppearancesEmpty")
+              : undefined
+          }
+          isLoading={visibility.isLoading}
+        />
+        <MetricCard
+          label={tMetrics("avgPositionLabel")}
+          value={
+            hasEnoughForPosition
+              ? tMetrics("avgPositionUnit", {
+                  value: Math.round(avgPosition as number),
+                })
+              : "—"
+          }
+          caption={
+            !hasEnoughForPosition
+              ? tMetrics("avgPositionPatience")
+              : undefined
+          }
+          isLoading={visibility.isLoading}
+        />
+      </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <LineChart
           series={series}
-          title={t("charts.profileViews")}
-          emptyMessage={tEmpty("notEnoughData")}
+          title={tCharts("profileViews")}
+          emptyMessage={tCharts("emptyChart")}
         />
         <LineChart
           series={series}
-          title={t("charts.searchAppearances")}
-          emptyMessage={tEmpty("notEnoughData")}
+          title={tCharts("searchAppearances")}
+          emptyMessage={tCharts("emptyChart")}
           className="text-primary-deep"
         />
       </div>
       <LineChart
         series={positionSeries}
-        title={t("charts.avgPosition")}
+        title={tCharts("avgPosition")}
         emptyMessage={tEmpty("notEnoughPosition")}
       />
       <section aria-labelledby="top-keywords-heading">
@@ -117,6 +172,43 @@ export function StatsOverview() {
       )}
     </div>
   )
+}
+
+interface MetricCardProps {
+  label: string
+  value: string
+  caption?: string
+  isLoading?: boolean
+}
+
+// MetricCard renders a single "label + big number + optional caption"
+// tile in the stats summary strip. Kept inline (not extracted to
+// shared/) until a third use case justifies it — see the "rule of
+// three" in CLAUDE.md. Local to the stats feature.
+function MetricCard({ label, value, caption, isLoading }: MetricCardProps) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={
+          isLoading
+            ? "mt-2 animate-pulse font-serif text-[30px] font-medium leading-tight tracking-[-0.02em] text-muted-foreground/40"
+            : "mt-2 font-serif text-[30px] font-medium leading-tight tracking-[-0.02em] text-foreground"
+        }
+      >
+        {isLoading ? "—" : value}
+      </p>
+      {caption ? (
+        <p className="mt-1.5 text-[12px] text-muted-foreground">{caption}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function formatInteger(value: number): string {
+  return new Intl.NumberFormat("fr-FR").format(value)
 }
 
 function readPeriod(raw: string | null): StatsPeriodDays {
