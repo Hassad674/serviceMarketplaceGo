@@ -19,9 +19,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	referralapp "marketplace-backend/internal/app/referral"
 	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/referral"
+	"marketplace-backend/internal/domain/user"
 )
 
 // seedActiveAttribution creates a fully wired referral + active
@@ -140,6 +142,71 @@ func TestEndIntroAttribution_NotFound(t *testing.T) {
 	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralIntroAttributionEnded))
 }
 
+// TestEndIntroAttribution_NoAuditWiring proves the service is robust
+// when constructed without an audit repository (legacy unit-test
+// wiring path). The end still succeeds; the audit emission is a
+// silent no-op. Notifications still fire.
+func TestEndIntroAttribution_NoAuditWiring(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID, _, _, _, attID := seedActiveAttribution(t, f)
+
+	// Rebuild service with Audits = nil to exercise the early-
+	// return in emitEndAttributionAudit.
+	svcWithoutAudits := referralapp.NewService(referralapp.ServiceDeps{
+		Referrals:         f.repo,
+		Users:             f.users,
+		Messages:          f.msgs,
+		Notifications:     f.notifier,
+		Stripe:            f.stripe,
+		Reversals:         f.reversal,
+		SnapshotProfiles:  &fakeSnapshotLoader{provider: referral.ProviderSnapshot{Region: "IDF"}},
+		StripeAccounts:    f.accounts,
+		Relationships:     f.relationships,
+		ProposalSummaries: f.summaries,
+		Audits:            nil,
+	})
+
+	got, err := svcWithoutAudits.EndIntroAttribution(context.Background(), attID, referrerID)
+	require.NoError(t, err)
+	assert.True(t, got.IsEnded())
+	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralIntroAttributionEnded),
+		"no audit row when Audits is nil")
+}
+
+// TestEndIntroAttribution_OrphanAttribution covers the defensive
+// path where the attribution row exists but its parent referral is
+// gone (data integrity issue — should be impossible due to FK ON
+// DELETE RESTRICT, but we want a clean error rather than a panic).
+func TestEndIntroAttribution_OrphanAttribution(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID := uuid.New()
+	providerID := uuid.New()
+	clientID := uuid.New()
+	f.users.add(referrerID, user.RoleProvider, true)
+	f.users.add(providerID, user.RoleProvider, false)
+	f.users.add(clientID, user.RoleEnterprise, false)
+
+	// Insert an attribution directly via the fake repo (no parent
+	// referral in f.repo.rows) — simulates the orphan case.
+	orphanRefID := uuid.New()
+	att, err := referral.NewAttribution(referral.NewAttributionInput{
+		ReferralID:      orphanRefID,
+		ProposalID:      uuid.New(),
+		ProviderID:      providerID,
+		ClientID:        clientID,
+		RatePctSnapshot: 5,
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.repo.CreateAttribution(context.Background(), att))
+
+	// GetByID on the missing parent returns ErrNotFound. The service
+	// must surface this as a wrapped error, not panic.
+	_, err = f.svc.EndIntroAttribution(context.Background(), att.ID, referrerID)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, referral.ErrNotFound,
+		"orphan attribution surfaces parent-referral ErrNotFound")
+}
+
 // TestEndIntroAttribution_RaceAlreadyEnded simulates the case where
 // another caller ended the attribution between our service's load and
 // our service's UPDATE. The repository surfaces ErrAttributionAlreadyEnded;
@@ -164,3 +231,99 @@ func TestEndIntroAttribution_RaceAlreadyEnded(t *testing.T) {
 	// No audit emitted (idempotent re-call).
 	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralIntroAttributionEnded))
 }
+
+// TestEndIntroAttribution_TrueRace_AlreadyEndedAfterPrecheck covers
+// the rare race where the pre-check sees an active attribution but
+// by the time the EndAttribution UPDATE runs, another caller has
+// already ended the row. The service must NOT emit a duplicate
+// audit / notification — it reloads and returns idempotently.
+//
+// We engineer the race by injecting endAttributionForceErr =
+// ErrAttributionAlreadyEnded directly. The pre-check loaded an
+// active attribution from the in-memory map, but the EndAttribution
+// stub now lies about the state — simulating the SQL UPDATE seeing
+// ended_at IS NOT NULL set by a parallel transaction.
+func TestEndIntroAttribution_TrueRace_AlreadyEndedAfterPrecheck(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID, _, _, _, attID := seedActiveAttribution(t, f)
+
+	f.repo.endAttributionForceErr = referral.ErrAttributionAlreadyEnded
+
+	got, err := f.svc.EndIntroAttribution(context.Background(), attID, referrerID)
+	require.NoError(t, err, "race must collapse to idempotent success")
+	require.NotNil(t, got)
+	// Because the stub returned ErrAttributionAlreadyEnded without
+	// updating the in-memory row, the reload still sees the row in
+	// its active state. The service is fine with that — what matters
+	// is no duplicate audit was emitted.
+	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralIntroAttributionEnded),
+		"true race must NOT emit a duplicate audit entry")
+}
+
+// TestEndIntroAttribution_DBErrorWrapped covers the random-DB-error
+// branch in EndAttribution: when the repository surfaces an error
+// that is neither nil nor ErrAttributionAlreadyEnded, the service
+// must wrap it with operation context and surface it to the caller.
+func TestEndIntroAttribution_DBErrorWrapped(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID, _, _, _, attID := seedActiveAttribution(t, f)
+
+	f.repo.endAttributionForceErr = errBoomTestEnd
+
+	_, err := f.svc.EndIntroAttribution(context.Background(), attID, referrerID)
+	require.Error(t, err)
+	require.ErrorIs(t, err, errBoomTestEnd, "raw DB error must propagate via %%w")
+	// No audit, no notifs (we failed before either).
+	assert.Empty(t, f.audits.entriesOfAction(audit.ActionReferralIntroAttributionEnded))
+}
+
+// TestEndIntroAttribution_ReloadAfterEndFails covers the rare path
+// where the EndAttribution UPDATE succeeded but the subsequent
+// FindAttributionByID reload fails. The service must surface — it
+// cannot silently swallow because the caller is waiting for the
+// populated ended_at.
+func TestEndIntroAttribution_ReloadAfterEndFails(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID, _, _, _, attID := seedActiveAttribution(t, f)
+
+	// 1st FindAttributionByID = pre-check (returns active row).
+	// 2nd FindAttributionByID = reload after EndAttribution. Force
+	// the 2nd to fail.
+	f.repo.findByIDForceErr = errBoomTestReload
+	f.repo.findByIDForceErrAfterN = 1
+
+	_, err := f.svc.EndIntroAttribution(context.Background(), attID, referrerID)
+	require.Error(t, err)
+	require.ErrorIs(t, err, errBoomTestReload)
+}
+
+// TestEndIntroAttribution_AuditLogFailureDoesNotBlock proves the
+// audit persistence is best-effort: when audits.Log returns an
+// error, the service continues, returns the attribution, and the
+// caller still gets 200. This is the "audit must never block the
+// main request" contract from CLAUDE.md.
+func TestEndIntroAttribution_AuditLogFailureDoesNotBlock(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	referrerID, _, _, _, attID := seedActiveAttribution(t, f)
+
+	f.audits.logErr = errBoomTestAudit
+
+	got, err := f.svc.EndIntroAttribution(context.Background(), attID, referrerID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.True(t, got.IsEnded())
+	assert.GreaterOrEqual(t,
+		f.notifier.typeCount(string(notification.TypeReferralIntroTerminated)), 2,
+		"notifications still fire when audit persistence fails")
+}
+
+// errBoomTest* — sentinel errors for fault-injection tests.
+var (
+	errBoomTestEnd    = sentinelErr("boom: end")
+	errBoomTestReload = sentinelErr("boom: reload")
+	errBoomTestAudit  = sentinelErr("boom: audit")
+)
+
+type sentinelErr string
+
+func (e sentinelErr) Error() string { return string(e) }
