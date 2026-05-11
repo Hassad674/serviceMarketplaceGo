@@ -168,13 +168,22 @@ func (h *ReceiptHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Boundary validation: strict allowlist on the user-controlled
-	// `lang` query param so no tainted string ever reaches the
-	// renderer or the response. Closes CodeQL #63 (go/xss G705) —
-	// even though the response Content-Type is `application/pdf` and
-	// the chromedp renderer uses `html/template` (auto-escaping),
-	// gosec rightly flags the taint flow. Allowing only the two
-	// supported languages kills the flow at the entry point.
-	language := normalizeReceiptLang(r.URL.Query().Get("lang"))
+	// `lang` query param. The literals "fr" / "en" are assigned in
+	// this scope so gosec's taint analyzer can see the flow is broken
+	// at this point — `normalizeReceiptLang` does the same thing but
+	// the analyzer is intra-procedural and cannot follow the function
+	// boundary. Closes CodeQL #63 (gosec G701/G705 taint flow). The
+	// response is `application/pdf` (not text/html) and the chromedp
+	// renderer uses `html/template` auto-escaping — so even a bypass
+	// of this allowlist would not produce HTML XSS, but defense in
+	// depth requires we kill the flow at the entry point anyway.
+	var language string
+	switch strings.ToLower(strings.TrimSpace(r.URL.Query().Get("lang"))) {
+	case "en":
+		language = "en"
+	default:
+		language = "fr"
+	}
 	pdf, _, err := h.svc.RenderPDF(r.Context(), id, orgID, language)
 	if err != nil {
 		if errors.Is(err, receiptapp.ErrPDFRendererUnavailable) {
@@ -189,7 +198,7 @@ func (h *ReceiptHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Disposition", "inline; filename=\"receipt-"+id.String()+".pdf\"")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(pdf); err != nil {
+	if _, err := w.Write(pdf); err != nil { // #nosec G701 -- pdf bytes from chromedp html/template renderer; language allowlisted to literals "fr"/"en" above; response Content-Type is application/pdf, not text/html
 		slog.Error("receipt pdf: write response failed", "receipt_id", id, "error", err)
 	}
 }
@@ -235,23 +244,6 @@ func (h *ReceiptHandler) emitPDFDownload(r *http.Request, receiptID uuid.UUID) {
 	}
 	uid, _ := middleware.GetUserID(r.Context())
 	h.auditLog.LogReceiptPDFDownload(r.Context(), uid, receiptID, clientIP(r))
-}
-
-// normalizeReceiptLang collapses any user-supplied `lang` query param
-// into the strict allowlist {"fr", "en"} the renderer supports.
-// Anything else — including empty, mixed-case, surrounding whitespace,
-// or hostile HTML/JS payloads — falls back to "fr" (the primary
-// market). This is the boundary defense for CodeQL #63 (go/xss): no
-// untrusted string is allowed to flow further into the rendering
-// pipeline, even though the chromedp renderer uses html/template and
-// the response Content-Type is application/pdf.
-func normalizeReceiptLang(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "en":
-		return "en"
-	default:
-		return "fr"
-	}
 }
 
 // (clientIP is defined in role_overrides_handler.go and reused
