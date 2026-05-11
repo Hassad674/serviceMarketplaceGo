@@ -272,8 +272,21 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 		Cfg:                   b.Cfg,
 		TokenService:          b.Infra.TokenSvc,
 		SessionService:        b.Infra.SessionSvc,
-		UserRepo:             b.Infra.UserRepo,
-		OrgOverridesResolver: orgOverridesAdapter{repo: b.Infra.OrganizationRepo},
+		UserRepo: b.Infra.UserRepo,
+		// PERF-AUDIT QW1: the role-overrides resolver is consulted on
+		// every authenticated request to compute the caller's effective
+		// permissions live. Without the cache, every request hit
+		// Postgres for the full organizations row (~10-15 ms RTT on
+		// Neon + ~2-3 ms planning). The 30s Redis cache cuts that to a
+		// single Redis GET — the role-permissions editor explicitly
+		// Invalidates the cache after a write so the propagation lag
+		// stays bounded to "next request" for live edits and to the
+		// TTL for direct-SQL operator edits.
+		OrgOverridesResolver: redisadapter.NewCachedOrgOverridesResolver(
+			b.Infra.Redis,
+			orgOverridesAdapter{repo: b.Infra.OrganizationRepo},
+			redisadapter.DefaultOrgOverridesCacheTTL,
+		),
 		// is_admin propagation fix — the auth middleware reads the live
 		// (is_admin, status) pair on every request and overrides the
 		// session/JWT snapshot. Postgres adapter behind a 30s Redis
@@ -282,6 +295,19 @@ func assembleRouter(b bootstrappedRouter) chi.Router {
 			b.Infra.Redis,
 			userStateAdapter{repo: b.Infra.UserRepo},
 			redisadapter.DefaultUserStateCacheTTL,
+		),
+		// PERF-AUDIT QW2: session-version checker behind a 30s Redis
+		// cache. Without it, every authenticated request paid a fresh
+		// SELECT session_version FROM users WHERE id = $1 against
+		// Postgres (~10-15 ms RTT on Neon). With the cache, the
+		// per-request cost collapses to one Redis GET. Revocation
+		// paths (BumpSessionVersion / logout-all) must call
+		// Invalidate on the cache so the new version propagates
+		// immediately instead of waiting for the TTL.
+		SessionVersionChecker: redisadapter.NewCachedSessionVersionChecker(
+			b.Infra.Redis,
+			b.Infra.UserRepo,
+			redisadapter.DefaultSessionVersionCacheTTL,
 		),
 		Metrics:     b.Metrics,
 		RateLimiter: b.RateLimiter,

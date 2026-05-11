@@ -140,6 +140,10 @@ type routerDepsBundle struct {
 	UserRepo              repository.UserRepository
 	OrgOverridesResolver  middleware.OrgOverridesResolver
 	UserStateChecker      middleware.UserStateChecker
+	// SessionVersionChecker — optional Redis-cached front of
+	// UserRepo.GetSessionVersion (PERF-AUDIT QW2). When nil the router
+	// falls back to UserRepo so existing tests keep working unchanged.
+	SessionVersionChecker middleware.SessionVersionChecker
 	Metrics               *handler.Metrics
 	RateLimiter           *middleware.RateLimiter
 	IdempotencyCache      middleware.IdempotencyCache
@@ -212,9 +216,10 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		Config:               b.Cfg,
 		TokenService:         b.TokenService,
 		SessionService:       b.SessionService,
-		UserRepo:             b.UserRepo,
-		OrgOverridesResolver: b.OrgOverridesResolver,
-		UserStateChecker:     b.UserStateChecker,
+		UserRepo:              b.UserRepo,
+		OrgOverridesResolver:  b.OrgOverridesResolver,
+		UserStateChecker:      b.UserStateChecker,
+		SessionVersionChecker: b.SessionVersionChecker,
 		Metrics:              b.Metrics,
 		RateLimiter:          b.RateLimiter,
 		IdempotencyCache:     b.IdempotencyCache,
