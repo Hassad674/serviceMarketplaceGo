@@ -343,7 +343,7 @@ class _StatCard extends StatelessWidget {
   final int cents;
   final Color toneBg;
   final Color toneFg;
-  final ValueKey testKey;
+  final Key testKey;
 
   @override
   Widget build(BuildContext context) {
