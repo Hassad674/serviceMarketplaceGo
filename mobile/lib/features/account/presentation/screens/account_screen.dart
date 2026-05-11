@@ -154,6 +154,23 @@ class AccountScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              // Legal entry point — mirrors the web sidebar/footer link
+              // to /legal. The 6 long-form documents (registre, AIPD,
+              // DPA, privacy, CGU, CGV) live behind this single tile.
+              _AccountSection(
+                icon: Icons.gavel_outlined,
+                title: l10n.accountSectionLegal,
+                description: l10n.accountSectionLegalDesc,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push(RoutePaths.legal),
+                    icon: const Icon(Icons.article_outlined, size: 18),
+                    label: Text(l10n.accountLegalCta),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
