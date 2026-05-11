@@ -291,6 +291,63 @@ func MutationRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
 	return policy
 }
 
+// UploadRateLimitPolicy mirrors the global / mutation helpers for the
+// upload class (RATE_LIMIT_UPLOAD_PER_MINUTE).
+func UploadRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultUploadPolicy
+	if cfg != nil && cfg.RateLimitUploadPerMinute > 0 {
+		policy.Limit = cfg.RateLimitUploadPerMinute
+	}
+	return policy
+}
+
+// AuthLoginRateLimitPolicy returns the per-IP throttle that gates
+// POST /auth/login. Default 10/min — see middleware.DefaultAuthLoginPolicy.
+// Env override: RATE_LIMIT_AUTH_LOGIN_PER_MINUTE.
+func AuthLoginRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultAuthLoginPolicy
+	if cfg != nil && cfg.RateLimitAuthLoginPerMinute > 0 {
+		policy.Limit = cfg.RateLimitAuthLoginPerMinute
+	}
+	return policy
+}
+
+// Auth2FAVerifyRateLimitPolicy returns the per-IP throttle that gates
+// POST /auth/login/verify-2fa. Default 10/min — see
+// middleware.DefaultAuth2FAVerifyPolicy. Env override:
+// RATE_LIMIT_AUTH_2FA_VERIFY_PER_MINUTE.
+func Auth2FAVerifyRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultAuth2FAVerifyPolicy
+	if cfg != nil && cfg.RateLimitAuth2FAVerifyPerMinute > 0 {
+		policy.Limit = cfg.RateLimitAuth2FAVerifyPerMinute
+	}
+	return policy
+}
+
+// Auth2FAEnableRateLimitPolicy returns the per-user_id throttle that
+// gates POST /me/two-factor/enable. Default 5/min — see
+// middleware.DefaultAuth2FAEnablePolicy. Env override:
+// RATE_LIMIT_AUTH_2FA_ENABLE_PER_MINUTE.
+func Auth2FAEnableRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultAuth2FAEnablePolicy
+	if cfg != nil && cfg.RateLimitAuth2FAEnablePerMinute > 0 {
+		policy.Limit = cfg.RateLimitAuth2FAEnablePerMinute
+	}
+	return policy
+}
+
+// PasswordResetRateLimitPolicy returns the per-email throttle that
+// gates POST /auth/forgot-password. Default 3/min — see
+// middleware.DefaultPasswordResetPolicy. Env override:
+// RATE_LIMIT_PASSWORD_RESET_PER_MINUTE.
+func PasswordResetRateLimitPolicy(cfg *config.Config) middleware.RateLimitPolicy {
+	policy := middleware.DefaultPasswordResetPolicy
+	if cfg != nil && cfg.RateLimitPasswordResetPerMinute > 0 {
+		policy.Limit = cfg.RateLimitPasswordResetPerMinute
+	}
+	return policy
+}
+
 // mountTopLevelHealth registers the unversioned liveness / readiness
 // probes and the Prometheus metrics scrape endpoint.
 func mountTopLevelHealth(r chi.Router, deps RouterDeps) {

@@ -1,8 +1,13 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -22,10 +27,40 @@ const (
 	// RateLimitClassGlobal applies to every request, keyed by IP.
 	RateLimitClassGlobal RateLimitClass = "global"
 	// RateLimitClassMutation applies to authenticated POST/PUT/PATCH/DELETE,
-	// keyed by user_id.
+	// keyed by user_id (with IP fallback for unauthenticated callers).
 	RateLimitClassMutation RateLimitClass = "mutation"
 	// RateLimitClassUpload applies to multipart uploads, keyed by user_id.
 	RateLimitClassUpload RateLimitClass = "upload"
+
+	// RateLimitClassAuthLogin throttles POST /auth/login. Keyed by
+	// client IP (/24 for IPv4, /64 for IPv6). 10/min default — tight
+	// enough to defeat credential stuffing, loose enough to absorb a
+	// legitimate user typing the wrong password a few times in a row.
+	RateLimitClassAuthLogin RateLimitClass = "auth_login"
+
+	// RateLimitClassAuth2FAVerify throttles POST
+	// /auth/login/verify-2fa. Keyed by client IP because the user is
+	// not yet authenticated when this endpoint fires (the access token
+	// only ships in the response). 10/min default mirrors the login
+	// class so a bot brute-forcing 6-digit codes burns its budget
+	// fast.
+	RateLimitClassAuth2FAVerify RateLimitClass = "auth_2fa_verify"
+
+	// RateLimitClassAuth2FAEnable throttles POST /me/two-factor/enable.
+	// Keyed by user_id because the endpoint is auth-required and the
+	// concern is email-bombing: an attacker with a stolen session
+	// could otherwise call /enable repeatedly to spam the inbox with
+	// 2FA setup emails. 5/min default.
+	RateLimitClassAuth2FAEnable RateLimitClass = "auth_2fa_enable"
+
+	// RateLimitClassPasswordReset throttles POST /auth/forgot-password.
+	// Keyed by sha256(email) extracted from the request body — keying
+	// by IP alone would let an attacker iterate emails from a single
+	// IP, while keying by user_id is impossible (the user is
+	// anonymous). 3/min default — much tighter than the legacy
+	// per-handler BruteForceService 3/hour cap because the
+	// middleware fires BEFORE any service work.
+	RateLimitClassPasswordReset RateLimitClass = "password_reset"
 )
 
 // RateLimitPolicy bundles a class label with its window + cap. The
@@ -37,11 +72,27 @@ type RateLimitPolicy struct {
 	Window time.Duration
 }
 
-// Default policies match the values documented in CLAUDE.md.
+// Default policies — safe-for-production caps that absorb a single
+// real user behind a CGNAT-class shared IP (Free Mobile, Orange,
+// Bouygues) without throttling them. Before these caps were bumped,
+// a mobile user behind CGNAT shared a single /24 IPv4 with hundreds
+// of other clients and was randomly 429'd whenever a neighbour
+// polled. The new defaults add comfortable headroom while specific
+// auth/2FA/password-reset classes retain tight caps that prevent
+// abuse on the high-value endpoints. See `route_*` wiring for the
+// per-endpoint policies layered on top of these globals.
 var (
-	DefaultGlobalPolicy   = RateLimitPolicy{Class: RateLimitClassGlobal, Limit: 100, Window: time.Minute}
-	DefaultMutationPolicy = RateLimitPolicy{Class: RateLimitClassMutation, Limit: 30, Window: time.Minute}
-	DefaultUploadPolicy   = RateLimitPolicy{Class: RateLimitClassUpload, Limit: 10, Window: time.Minute}
+	DefaultGlobalPolicy   = RateLimitPolicy{Class: RateLimitClassGlobal, Limit: 600, Window: time.Minute}
+	DefaultMutationPolicy = RateLimitPolicy{Class: RateLimitClassMutation, Limit: 120, Window: time.Minute}
+	DefaultUploadPolicy   = RateLimitPolicy{Class: RateLimitClassUpload, Limit: 30, Window: time.Minute}
+
+	// Specific-endpoint policies. These are intentionally tight: the
+	// targeted endpoints are high-value (account takeover, email
+	// bombing) and have a known, low legitimate request rate.
+	DefaultAuthLoginPolicy     = RateLimitPolicy{Class: RateLimitClassAuthLogin, Limit: 10, Window: time.Minute}
+	DefaultAuth2FAVerifyPolicy = RateLimitPolicy{Class: RateLimitClassAuth2FAVerify, Limit: 10, Window: time.Minute}
+	DefaultAuth2FAEnablePolicy = RateLimitPolicy{Class: RateLimitClassAuth2FAEnable, Limit: 5, Window: time.Minute}
+	DefaultPasswordResetPolicy = RateLimitPolicy{Class: RateLimitClassPasswordReset, Limit: 3, Window: time.Minute}
 )
 
 // keyFn extracts the throttle key from a request. Returning ("", false)
@@ -318,6 +369,22 @@ func (rl *RateLimiter) Middleware(policy RateLimitPolicy, key keyFn) func(http.H
 					retrySeconds = 1
 				}
 				w.Header().Set("Retry-After", strconv.Itoa(retrySeconds))
+				// Structured 429 metric (proxy for a real Prometheus
+				// counter). The key is anonymised so a grep across
+				// production logs never leaks raw emails / IPs / UUIDs:
+				// only the namespace prefix + a sha256 short-fingerprint
+				// is emitted. Aggregate via:
+				//   `grep -c 'ratelimit: 429 served' | jq` (LogQL etc.).
+				_, authenticated := GetUserID(r.Context())
+				slog.Warn("ratelimit: 429 served",
+					"class", policy.Class,
+					"key", anonymiseRateLimitKey(throttleKey),
+					"user_authenticated", authenticated,
+					"limit", policy.Limit,
+					"window_seconds", int(policy.Window.Seconds()),
+					"retry_after_seconds", retrySeconds,
+					"method", r.Method,
+					"path", r.URL.Path)
 				response.Error(w, http.StatusTooManyRequests, "rate_limit_exceeded", "too many requests")
 				return
 			}
@@ -394,4 +461,83 @@ func MutationOnly(inner keyFn) keyFn {
 			return "", false
 		}
 	}
+}
+
+// EmailKey returns a keyFn that throttles by the hashed "email" field
+// of the JSON request body. Used by the password-reset class so an
+// attacker iterating across emails from a single IP cannot bypass the
+// per-email cap.
+//
+// The body is read once, then re-attached to r.Body so the downstream
+// handler can still decode it. The hash is sha256(lowercased + trimmed
+// email) so case/whitespace variants share the same bucket.
+//
+// If the body is unreadable, lacks an "email" field, or the field is
+// empty, the function returns false so the limiter short-circuits —
+// the request continues unthrottled by THIS limiter (the global IP
+// throttle still applies). This is intentional: a malformed body has
+// no legitimate password-reset semantics and rejecting it here would
+// be the handler's job, not the limiter's.
+//
+// Body size is capped at 4 KiB to bound the cost of the buffer copy.
+func EmailKey() keyFn {
+	return func(r *http.Request) (string, bool) {
+		if r.Body == nil {
+			return "", false
+		}
+		// Tee the body so the handler can still decode it. 4 KiB is
+		// well above any sane password-reset payload but well below
+		// the size where a copy becomes a DoS vector.
+		const maxBody = 4 << 10
+		buf, err := io.ReadAll(io.LimitReader(r.Body, maxBody))
+		if err != nil {
+			return "", false
+		}
+		_ = r.Body.Close()
+		// Re-attach the captured bytes so the handler's decoder gets
+		// the same payload. A NopCloser is fine — the original body
+		// has already been drained.
+		r.Body = io.NopCloser(bytes.NewReader(buf))
+
+		var payload struct {
+			Email string `json:"email"`
+		}
+		if err := json.Unmarshal(buf, &payload); err != nil {
+			return "", false
+		}
+		email := strings.ToLower(strings.TrimSpace(payload.Email))
+		if email == "" {
+			return "", false
+		}
+		return "email:" + hashEmail(email), true
+	}
+}
+
+// hashEmail returns the first 16 hex chars of sha256(email). 16 chars
+// is enough to make pre-image inversion impractical while keeping
+// Redis keys short and the structured-log fingerprints grep-friendly.
+func hashEmail(email string) string {
+	sum := sha256.Sum256([]byte(email))
+	return hex.EncodeToString(sum[:])[:16]
+}
+
+// anonymiseRateLimitKey returns a privacy-safe label for the
+// structured 429 log. Raw UUIDs and IPs are stripped to a short
+// sha256 fingerprint so the log never leaks PII, while still letting
+// an operator group bursts coming from "the same key".
+func anonymiseRateLimitKey(key string) string {
+	if key == "" {
+		return ""
+	}
+	// Preserve the namespace prefix ("user:", "ip:", "email:") so the
+	// log line tells the operator what kind of key tripped — but
+	// fingerprint the value after the colon.
+	prefix := ""
+	suffix := key
+	if idx := strings.IndexByte(key, ':'); idx >= 0 {
+		prefix = key[:idx+1]
+		suffix = key[idx+1:]
+	}
+	sum := sha256.Sum256([]byte(suffix))
+	return prefix + hex.EncodeToString(sum[:])[:12]
 }

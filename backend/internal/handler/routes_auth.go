@@ -25,6 +25,7 @@ func mountAuthRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http
 
 func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.Handler) {
 	idem := idempotencyMiddleware(deps)
+
 	r.Route("/auth", func(r chi.Router) {
 		// SEC-FINAL-02 idempotency on /register: while email-uniqueness
 		// already prevents true double-creation, a retry today still
@@ -32,14 +33,26 @@ func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.H
 		// email + a second audit-log row. The middleware caches the
 		// first 2xx response so retries land on a stable replay.
 		r.With(idem).Post("/register", deps.Auth.Register)
-		r.Post("/login", deps.Auth.Login)
+		// RATE-LIMIT-PROD: dedicated per-IP cap on /login (10/min).
+		// Sits on top of the existing per-email + per-IP brute-force
+		// service so even a single IP rotating emails burns out fast.
+		postWithClass(r, "/login", deps.Auth.Login, deps,
+			AuthLoginRateLimitPolicy(deps.Config), ipKeyFromLimiter(deps))
 		// B.6 Email 2FA: completes a login that was gated by the 2FA
 		// flag. Public route — auth middleware would reject it because
 		// no token has been issued yet (tokens come back IN the
-		// response).
-		r.Post("/login/verify-2fa", deps.Auth.VerifyTwoFactor)
+		// response). Tight per-IP cap defeats 6-digit code
+		// brute-forcing.
+		postWithClass(r, "/login/verify-2fa", deps.Auth.VerifyTwoFactor, deps,
+			Auth2FAVerifyRateLimitPolicy(deps.Config), ipKeyFromLimiter(deps))
 		r.Post("/refresh", deps.Auth.Refresh)
-		r.Post("/forgot-password", deps.Auth.ForgotPassword)
+		// RATE-LIMIT-PROD: 3/min per email-hash. Keying by email (not
+		// by IP) is what defeats an attacker iterating thousands of
+		// emails from a single IP — the per-IP global cap would let
+		// that traffic through, the per-email gate stops it at the
+		// boundary.
+		postWithClass(r, "/forgot-password", deps.Auth.ForgotPassword, deps,
+			PasswordResetRateLimitPolicy(deps.Config), middleware.EmailKey())
 		r.Post("/reset-password", deps.Auth.ResetPassword)
 
 		// Protected
@@ -67,9 +80,47 @@ func mountCoreAuth(r chi.Router, deps RouterDeps, auth func(http.Handler) http.H
 	r.Route("/me/two-factor", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
-		r.Post("/enable", deps.Auth.EnableTwoFactor)
+		// RATE-LIMIT-PROD: tight 5/min per-user cap on /enable to
+		// neutralise email-bombing. A stolen session calling /enable
+		// repeatedly would otherwise spam the user's inbox with 2FA
+		// setup emails.
+		postWithClass(r, "/enable", deps.Auth.EnableTwoFactor, deps,
+			Auth2FAEnableRateLimitPolicy(deps.Config), middleware.UserKey())
 		r.Post("/disable", deps.Auth.DisableTwoFactor)
 	})
+}
+
+// postWithClass registers a POST handler with an optional RATE-LIMIT
+// class layered on top. When the RateLimiter dependency is nil (test
+// stubs), the helper falls back to a plain r.Post so the router-snapshot
+// test (which boots with a nil limiter to verify the route table) sees
+// the same middleware-chain count as before the refactor.
+//
+// We deliberately do NOT use r.With(noopMiddleware).Post — chi counts
+// every wrapper in the chain, which would inflate `mw=N` in the
+// snapshot and force every consumer of the golden file to regen.
+func postWithClass(r chi.Router, pattern string, h http.HandlerFunc, deps RouterDeps, policy middleware.RateLimitPolicy, key func(*http.Request) (string, bool)) {
+	if deps.RateLimiter == nil {
+		r.Post(pattern, h)
+		return
+	}
+	r.With(deps.RateLimiter.Middleware(policy, key)).Post(pattern, h)
+}
+
+// ipKeyFromLimiter returns an IP-based keyFn for the public auth
+// endpoints (/login + /verify-2fa). The user is anonymous when these
+// fire, so keying by user_id is impossible — IP is the only signal
+// available. Routed through the RateLimiter's ClientIP so trusted-proxy
+// + IPv6 /64 normalisation are applied consistently with the global
+// throttle.
+func ipKeyFromLimiter(deps RouterDeps) func(*http.Request) (string, bool) {
+	if deps.RateLimiter == nil {
+		// Unused in practice (postWithClass short-circuits when the
+		// limiter is nil), but a safe fallback prevents panics if the
+		// wiring evolves.
+		return func(*http.Request) (string, bool) { return "", false }
+	}
+	return deps.RateLimiter.IPKey()
 }
 
 func mountInvitationRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) http.Handler) {
