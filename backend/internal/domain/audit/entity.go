@@ -96,6 +96,15 @@ const (
 	// reviewer can reconstruct the full retire timeline of a commission
 	// without joining log streams.
 	ActionCommissionRetryAttempted Action = "commission.retry_attempted"
+
+	// Referral intro attribution ended — emitted by the referral
+	// service when the apporteur explicitly terminates an intro
+	// attribution for a specific proposal. After this, NEW milestones
+	// approved on or after the ended_at timestamp do not generate
+	// commissions. Metadata captures the ended_at timestamp and the
+	// parent referral id so the audit row is self-describing without a
+	// JOIN.
+	ActionReferralIntroAttributionEnded Action = "referral.intro_attribution_ended"
 )
 
 // ResourceType is the kind of resource the audit entry refers to.
@@ -110,8 +119,9 @@ const (
 	ResourceTypeInvitation   ResourceType = "invitation"
 	ResourceTypeRole               ResourceType = "role"
 	ResourceTypeReceipt            ResourceType = "receipt"
-	ResourceTypeReferral           ResourceType = "referral"
-	ResourceTypeReferralCommission ResourceType = "referral_commission"
+	ResourceTypeReferral            ResourceType = "referral"
+	ResourceTypeReferralCommission  ResourceType = "referral_commission"
+	ResourceTypeReferralAttribution ResourceType = "referral_attribution"
 )
 
 // Entry is a single audit log row. Construct via NewEntry — the struct

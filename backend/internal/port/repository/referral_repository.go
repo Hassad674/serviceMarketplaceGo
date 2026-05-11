@@ -99,6 +99,19 @@ type ReferralRepository interface {
 	// referrer's referrals.
 	ListAttributionsByReferralIDs(ctx context.Context, referralIDs []uuid.UUID) ([]*referral.Attribution, error)
 
+	// EndAttribution marks an attribution as ended (sets ended_at = NOW
+	// at the database). RBAC is enforced inside the SQL via a JOIN to
+	// referrals.referrer_id — only the parent referral's apporteur can
+	// terminate its attributions. Returns:
+	//   - nil on success.
+	//   - referral.ErrAttributionAlreadyEnded when the row already has
+	//     ended_at set (idempotent caller treats this as a no-op
+	//     success).
+	//   - referral.ErrAttributionNotFound when no row matches the
+	//     (id, referrer) pair — either the attribution does not exist
+	//     or it belongs to a different apporteur.
+	EndAttribution(ctx context.Context, attributionID, referrerID uuid.UUID) error
+
 	// ─── Commission ──────────────────────────────────────────────────────
 
 	// CreateCommission inserts a commission row. Returns ErrCommissionAlreadyExists

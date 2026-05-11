@@ -326,6 +326,129 @@ func TestReferralRepository_AttributionIdempotent(t *testing.T) {
 	assert.Equal(t, a1.ID, got.ID)
 }
 
+// TestReferralRepository_EndAttribution_RoundTrip exercises the
+// EndAttribution happy path AND verifies the scanAttribution helper
+// round-trips the new ended_at column on subsequent reads. The same
+// row is read three ways (by id, by proposal, by referral list) to
+// make sure the column is on every SELECT path.
+func TestReferralRepository_EndAttribution_RoundTrip(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewReferralRepository(db)
+	ref, refID, provID, cliID := newReferralFixture(t, db)
+	cleanupReferral(t, db, refID, provID, cliID)
+	ctx := context.Background()
+	require.NoError(t, repo.Create(ctx, ref))
+
+	a, _ := referral.NewAttribution(referral.NewAttributionInput{
+		ReferralID:      ref.ID,
+		ProposalID:      uuid.New(),
+		ProviderID:      provID,
+		ClientID:        cliID,
+		RatePctSnapshot: 5,
+	})
+	require.NoError(t, repo.CreateAttribution(ctx, a))
+
+	// On insert the column is NULL → IsEnded must be false everywhere.
+	gotByID, err := repo.FindAttributionByID(ctx, a.ID)
+	require.NoError(t, err)
+	assert.False(t, gotByID.IsEnded(), "fresh insert must read ended_at = NULL")
+	assert.Nil(t, gotByID.EndedAt)
+
+	gotByProp, err := repo.FindAttributionByProposal(ctx, a.ProposalID)
+	require.NoError(t, err)
+	assert.False(t, gotByProp.IsEnded())
+
+	beforeEnd := time.Now().UTC()
+	require.NoError(t, repo.EndAttribution(ctx, a.ID, ref.ReferrerID))
+
+	// After end: every read path reflects the new state.
+	gotByID, err = repo.FindAttributionByID(ctx, a.ID)
+	require.NoError(t, err)
+	require.True(t, gotByID.IsEnded(), "FindAttributionByID must read ended_at")
+	require.NotNil(t, gotByID.EndedAt)
+	assert.WithinDuration(t, beforeEnd, *gotByID.EndedAt, 5*time.Second)
+
+	gotByProp, err = repo.FindAttributionByProposal(ctx, a.ProposalID)
+	require.NoError(t, err)
+	require.True(t, gotByProp.IsEnded(), "FindAttributionByProposal must read ended_at")
+
+	listed, err := repo.ListAttributionsByReferral(ctx, ref.ID)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.True(t, listed[0].IsEnded(), "ListAttributionsByReferral must read ended_at")
+
+	batch, err := repo.ListAttributionsByReferralIDs(ctx, []uuid.UUID{ref.ID})
+	require.NoError(t, err)
+	require.Len(t, batch, 1)
+	assert.True(t, batch[0].IsEnded(), "ListAttributionsByReferralIDs must read ended_at")
+}
+
+// TestReferralRepository_EndAttribution_AlreadyEnded verifies the
+// repository surfaces ErrAttributionAlreadyEnded on the second call —
+// the app-service layer treats it as idempotent success but the repo
+// must distinguish so the audit log can see the actual transition.
+func TestReferralRepository_EndAttribution_AlreadyEnded(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewReferralRepository(db)
+	ref, refID, provID, cliID := newReferralFixture(t, db)
+	cleanupReferral(t, db, refID, provID, cliID)
+	ctx := context.Background()
+	require.NoError(t, repo.Create(ctx, ref))
+
+	a, _ := referral.NewAttribution(referral.NewAttributionInput{
+		ReferralID:      ref.ID,
+		ProposalID:      uuid.New(),
+		ProviderID:      provID,
+		ClientID:        cliID,
+		RatePctSnapshot: 5,
+	})
+	require.NoError(t, repo.CreateAttribution(ctx, a))
+
+	require.NoError(t, repo.EndAttribution(ctx, a.ID, ref.ReferrerID))
+	err := repo.EndAttribution(ctx, a.ID, ref.ReferrerID)
+	require.ErrorIs(t, err, referral.ErrAttributionAlreadyEnded)
+}
+
+// TestReferralRepository_EndAttribution_NotFound covers two failure
+// modes that the SQL collapses into the same return: unknown id, and
+// wrong owner. Both return ErrAttributionNotFound — by design, leaking
+// existence to a cross-tenant caller would let them enumerate
+// attribution ids.
+func TestReferralRepository_EndAttribution_NotFound(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewReferralRepository(db)
+	ref, refID, provID, cliID := newReferralFixture(t, db)
+	cleanupReferral(t, db, refID, provID, cliID)
+	ctx := context.Background()
+	require.NoError(t, repo.Create(ctx, ref))
+
+	// Unknown id.
+	require.ErrorIs(t,
+		repo.EndAttribution(ctx, uuid.New(), ref.ReferrerID),
+		referral.ErrAttributionNotFound)
+
+	// Existing id, wrong referrer.
+	a, _ := referral.NewAttribution(referral.NewAttributionInput{
+		ReferralID:      ref.ID,
+		ProposalID:      uuid.New(),
+		ProviderID:      provID,
+		ClientID:        cliID,
+		RatePctSnapshot: 5,
+	})
+	require.NoError(t, repo.CreateAttribution(ctx, a))
+
+	stranger := insertTestUser(t, db)
+	cleanupReferral(t, db, stranger)
+	require.ErrorIs(t,
+		repo.EndAttribution(ctx, a.ID, stranger),
+		referral.ErrAttributionNotFound)
+
+	// And the original attribution is still active.
+	got, err := repo.FindAttributionByID(ctx, a.ID)
+	require.NoError(t, err)
+	assert.False(t, got.IsEnded(), "cross-tenant attempt must not mutate")
+}
+
 func TestReferralRepository_CommissionLifecycle(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewReferralRepository(db)

@@ -2,6 +2,7 @@ package referral_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,31 @@ func TestNewAttribution_Valid(t *testing.T) {
 	assert.Equal(t, in.ProposalID, a.ProposalID)
 	assert.Equal(t, in.RatePctSnapshot, a.RatePctSnapshot)
 	assert.False(t, a.AttributedAt.IsZero())
+}
+
+func TestAttribution_IsEnded(t *testing.T) {
+	t.Run("nil receiver returns false", func(t *testing.T) {
+		var a *referral.Attribution
+		assert.False(t, a.IsEnded())
+	})
+
+	cases := []struct {
+		name    string
+		endedAt *time.Time
+		want    bool
+	}{
+		{"nil ended_at means active", nil, false},
+		{"non-nil ended_at means ended", func() *time.Time { t := time.Now().UTC(); return &t }(), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := validAttributionInput()
+			a, err := referral.NewAttribution(in)
+			require.NoError(t, err)
+			a.EndedAt = tc.endedAt
+			assert.Equal(t, tc.want, a.IsEnded())
+		})
+	}
 }
 
 func TestNewAttribution_Validation(t *testing.T) {

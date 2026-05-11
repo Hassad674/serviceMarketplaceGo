@@ -81,24 +81,32 @@ const queryListNegotiations = `
 	WHERE referral_id = $1
 	ORDER BY created_at ASC`
 
+// attributionColumns is the single source of truth for the column list
+// read by every attribution scan path. Keep in sync with scanAttribution
+// in referral_repository.go — the column order is load-bearing.
+const attributionColumns = `
+	id, referral_id, proposal_id, provider_id, client_id,
+	rate_pct_snapshot, attributed_at, ended_at`
+
 const queryInsertAttribution = `
 	INSERT INTO referral_attributions (
-		id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
-	) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		id, referral_id, proposal_id, provider_id, client_id,
+		rate_pct_snapshot, attributed_at, ended_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	ON CONFLICT (proposal_id) DO NOTHING`
 
 const queryFindAttributionByProposal = `
-	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	SELECT ` + attributionColumns + `
 	FROM referral_attributions
 	WHERE proposal_id = $1`
 
 const queryFindAttributionByID = `
-	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	SELECT ` + attributionColumns + `
 	FROM referral_attributions
 	WHERE id = $1`
 
 const queryListAttributionsByReferral = `
-	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	SELECT ` + attributionColumns + `
 	FROM referral_attributions
 	WHERE referral_id = $1
 	ORDER BY attributed_at DESC`
@@ -108,10 +116,35 @@ const queryListAttributionsByReferral = `
 // referrer's referrals. Ordering matches the single-referral query
 // so consumers don't have to re-sort.
 const queryListAttributionsByReferralIDs = `
-	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	SELECT ` + attributionColumns + `
 	FROM referral_attributions
 	WHERE referral_id = ANY($1)
 	ORDER BY attributed_at DESC`
+
+// queryEndAttribution ends an active intro attribution. The JOIN to
+// referrals enforces RBAC — only the apporteur (parent referral's
+// referrer_id) can end the attribution. The `ended_at IS NULL` guard
+// makes the UPDATE idempotent: a second call affects zero rows and
+// the caller can distinguish "already ended" from "not owned / not
+// found" by a follow-up read.
+const queryEndAttribution = `
+	UPDATE referral_attributions a
+	SET ended_at = NOW()
+	FROM referrals r
+	WHERE a.referral_id = r.id
+	  AND a.id = $1
+	  AND r.referrer_id = $2
+	  AND a.ended_at IS NULL`
+
+// queryGetAttributionEndedStateForReferrer disambiguates the failure
+// mode after queryEndAttribution affects zero rows: was the row
+// already ended (return ErrAttributionAlreadyEnded) or absent /
+// owned by someone else (return ErrAttributionNotFound)?
+const queryGetAttributionEndedStateForReferrer = `
+	SELECT a.ended_at IS NOT NULL AS already_ended
+	FROM referral_attributions a
+	JOIN referrals r ON r.id = a.referral_id
+	WHERE a.id = $1 AND r.referrer_id = $2`
 
 const queryInsertCommission = `
 	INSERT INTO referral_commissions (

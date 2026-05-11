@@ -5,10 +5,36 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/service"
 )
+
+// attributionEndedGateClosed reports whether the apporteur has
+// terminated this attribution and the milestone we are about to
+// commission is being approved/transferred AT or AFTER the end
+// timestamp. The function uses time.Now() because both call sites
+// (PrepareCommissionForMilestone and DistributeIfApplicable) are
+// invoked synchronously when the milestone state transition is
+// happening — there is no asynchronous queue between them and the
+// underlying approval, so "now" IS the milestone's effective
+// approval time.
+//
+// Tie-break: !Before means "approved exactly at ended_at" is
+// included in the skip. The brief calls this out as the fair-to-
+// apporteur rule — if the apporteur ended the intro at T and the
+// client approves the milestone at T (or later), no commission is
+// owed. Strictly-before approvals still pay out.
+//
+// Returns false on nil attribution / nil EndedAt — defensive null
+// safety so the gate never panics.
+func attributionEndedGateClosed(att *referral.Attribution, now time.Time) bool {
+	if !att.IsEnded() {
+		return false
+	}
+	return !now.Before(*att.EndedAt)
+}
 
 // PrepareCommissionForMilestone implements
 // service.ReferralCommissionPreparer.
@@ -39,6 +65,21 @@ func (s *Service) PrepareCommissionForMilestone(ctx context.Context, in service.
 	}
 	if err != nil {
 		return fmt.Errorf("find attribution: %w", err)
+	}
+
+	// End-of-intro gate (WALLET-UNIFY Run A). When the apporteur
+	// has terminated the attribution, NEW milestones approved on or
+	// after the end timestamp do NOT generate commissions. Already-
+	// approved milestones keep their existing commission rows
+	// untouched — fair to the apporteur for work delivered during
+	// the active window.
+	if attributionEndedGateClosed(att, time.Now().UTC()) {
+		slog.Info("referral: commission preparation skipped — attribution ended",
+			"attribution_id", att.ID,
+			"proposal_id", in.ProposalID,
+			"milestone_id", in.MilestoneID,
+			"ended_at", att.EndedAt)
+		return nil
 	}
 
 	commission, err := referral.NewCommission(referral.NewCommissionInput{
@@ -116,6 +157,19 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 	}
 	if err != nil {
 		return service.ReferralCommissionFailed, fmt.Errorf("find attribution: %w", err)
+	}
+
+	// End-of-intro gate (WALLET-UNIFY Run A). Mirror of the gate in
+	// PrepareCommissionForMilestone — when the apporteur has ended
+	// the attribution, this milestone (being transferred now,
+	// i.e. on or after EndedAt) does NOT generate a commission.
+	if attributionEndedGateClosed(att, time.Now().UTC()) {
+		slog.Info("referral: commission distribution skipped — attribution ended",
+			"attribution_id", att.ID,
+			"proposal_id", in.ProposalID,
+			"milestone_id", in.MilestoneID,
+			"ended_at", att.EndedAt)
+		return service.ReferralCommissionSkipped, nil
 	}
 
 	commission, err := referral.NewCommission(referral.NewCommissionInput{

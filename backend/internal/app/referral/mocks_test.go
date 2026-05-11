@@ -41,6 +41,15 @@ type fakeReferralRepo struct {
 	attributions    map[uuid.UUID]*referral.Attribution // keyed by proposal_id
 	attributionsByID map[uuid.UUID]*referral.Attribution // keyed by attribution id
 	commissions     map[string]*referral.Commission // keyed by attribution_id:milestone_id
+
+	// Test-only fault injection. Set by tests to exercise error
+	// branches in the service layer that real DB code raises only
+	// under disk failure / DB outage. None of these are touched by
+	// production code.
+	endAttributionForceErr error
+	findByIDForceErr      error // affects FindAttributionByID after first call
+	findByIDForceErrAfterN int  // 0 = always; N>0 = trigger after N calls
+	findByIDCalls         int
 }
 
 func newFakeReferralRepo() *fakeReferralRepo {
@@ -185,6 +194,12 @@ func (f *fakeReferralRepo) FindAttributionByProposal(ctx context.Context, propos
 func (f *fakeReferralRepo) FindAttributionByID(ctx context.Context, id uuid.UUID) (*referral.Attribution, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.findByIDCalls++
+	if f.findByIDForceErr != nil {
+		if f.findByIDForceErrAfterN == 0 || f.findByIDCalls > f.findByIDForceErrAfterN {
+			return nil, f.findByIDForceErr
+		}
+	}
 	a, ok := f.attributionsByID[id]
 	if !ok {
 		return nil, referral.ErrAttributionNotFound
@@ -204,6 +219,34 @@ func (f *fakeReferralRepo) ListAttributionsByReferral(ctx context.Context, refer
 		}
 	}
 	return out, nil
+}
+
+func (f *fakeReferralRepo) EndAttribution(ctx context.Context, attributionID, referrerID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.endAttributionForceErr != nil {
+		return f.endAttributionForceErr
+	}
+	a, ok := f.attributionsByID[attributionID]
+	if !ok {
+		return referral.ErrAttributionNotFound
+	}
+	// RBAC: only the apporteur of the parent referral can end. The
+	// fake stores the parent referral under f.rows so we can resolve
+	// the referrer_id without a DB.
+	parent, parentOK := f.rows[a.ReferralID]
+	if !parentOK || parent.ReferrerID != referrerID {
+		return referral.ErrAttributionNotFound
+	}
+	if a.EndedAt != nil {
+		return referral.ErrAttributionAlreadyEnded
+	}
+	now := time.Now().UTC()
+	a.EndedAt = &now
+	// CreateAttribution stores the SAME pointer in both attributions
+	// and attributionsByID, so mutating one updates both. The Find*
+	// methods then return a value copy of the same backing struct.
+	return nil
 }
 
 func (f *fakeReferralRepo) ListAttributionsByReferralIDs(ctx context.Context, ids []uuid.UUID) ([]*referral.Attribution, error) {
@@ -680,8 +723,9 @@ func (f *fakeRelationshipChecker) AreInRelation(ctx context.Context, a, b uuid.U
 // anti-fraud blocked attempt was persisted with the right action +
 // metadata.
 type fakeAuditRepo struct {
-	mu      sync.Mutex
-	entries []*audit.Entry
+	mu       sync.Mutex
+	entries  []*audit.Entry
+	logErr   error // test-only — when set, Log returns this without persisting
 }
 
 func newFakeAuditRepo() *fakeAuditRepo { return &fakeAuditRepo{} }
@@ -689,6 +733,9 @@ func newFakeAuditRepo() *fakeAuditRepo { return &fakeAuditRepo{} }
 func (f *fakeAuditRepo) Log(ctx context.Context, entry *audit.Entry) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.logErr != nil {
+		return f.logErr
+	}
 	f.entries = append(f.entries, entry)
 	return nil
 }
