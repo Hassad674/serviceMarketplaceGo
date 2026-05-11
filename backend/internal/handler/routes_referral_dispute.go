@@ -17,6 +17,7 @@ func mountReferralRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) 
 	if deps.Referral == nil {
 		return
 	}
+	idem := idempotencyMiddleware(deps)
 	r.Route("/referrals", func(r chi.Router) {
 		r.Use(auth)
 		r.Use(middleware.NoCache)
@@ -28,6 +29,12 @@ func mountReferralRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) 
 		r.Get("/{id}/negotiations", deps.Referral.ListNegotiations)
 		r.Get("/{id}/attributions", deps.Referral.ListAttributions)
 		r.Get("/{id}/commissions", deps.Referral.ListCommissions)
+		// WALLET-UNIFY: end an active intro attribution — money-moving
+		// adjacent (it stops future commissions from accruing) so we
+		// wrap the POST in the idempotency middleware. Service is
+		// idempotent on its own but Idempotency-Key gives clients a
+		// safety net for flaky-network retries.
+		r.With(idem).Post("/attributions/{id}/end", deps.Referral.EndAttribution)
 	})
 }
 

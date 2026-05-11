@@ -35,20 +35,22 @@ import (
 // ─── Tiny in-memory fakes (handler-test scope only) ───────────────────
 
 type unitReferralRepo struct {
-	mu              sync.Mutex
-	rows            map[uuid.UUID]*referral.Referral
-	negotiations    []*referral.Negotiation
-	attributions    map[uuid.UUID]*referral.Attribution
-	commissions     map[string]*referral.Commission
+	mu               sync.Mutex
+	rows             map[uuid.UUID]*referral.Referral
+	negotiations     []*referral.Negotiation
+	attributions     map[uuid.UUID]*referral.Attribution
+	attributionsByID map[uuid.UUID]*referral.Attribution
+	commissions      map[string]*referral.Commission
 }
 
 var _ repository.ReferralRepository = (*unitReferralRepo)(nil)
 
 func newUnitReferralRepo() *unitReferralRepo {
 	return &unitReferralRepo{
-		rows:         map[uuid.UUID]*referral.Referral{},
-		attributions: map[uuid.UUID]*referral.Attribution{},
-		commissions:  map[string]*referral.Commission{},
+		rows:             map[uuid.UUID]*referral.Referral{},
+		attributions:     map[uuid.UUID]*referral.Attribution{},
+		attributionsByID: map[uuid.UUID]*referral.Attribution{},
+		commissions:      map[string]*referral.Commission{},
 	}
 }
 
@@ -147,14 +149,36 @@ func (f *unitReferralRepo) ListNegotiations(_ context.Context, refID uuid.UUID) 
 	}
 	return out, nil
 }
-func (f *unitReferralRepo) CreateAttribution(_ context.Context, _ *referral.Attribution) error {
+func (f *unitReferralRepo) CreateAttribution(_ context.Context, a *referral.Attribution) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, exists := f.attributions[a.ProposalID]; exists {
+		return nil // ON CONFLICT DO NOTHING semantics
+	}
+	cp := *a
+	f.attributions[a.ProposalID] = &cp
+	f.attributionsByID[a.ID] = &cp
 	return nil
 }
-func (f *unitReferralRepo) FindAttributionByProposal(_ context.Context, _ uuid.UUID) (*referral.Attribution, error) {
-	return nil, referral.ErrAttributionNotFound
+func (f *unitReferralRepo) FindAttributionByProposal(_ context.Context, proposalID uuid.UUID) (*referral.Attribution, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a, ok := f.attributions[proposalID]
+	if !ok {
+		return nil, referral.ErrAttributionNotFound
+	}
+	cp := *a
+	return &cp, nil
 }
-func (f *unitReferralRepo) FindAttributionByID(_ context.Context, _ uuid.UUID) (*referral.Attribution, error) {
-	return nil, referral.ErrAttributionNotFound
+func (f *unitReferralRepo) FindAttributionByID(_ context.Context, id uuid.UUID) (*referral.Attribution, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a, ok := f.attributionsByID[id]
+	if !ok {
+		return nil, referral.ErrAttributionNotFound
+	}
+	cp := *a
+	return &cp, nil
 }
 func (f *unitReferralRepo) ListAttributionsByReferral(_ context.Context, _ uuid.UUID) ([]*referral.Attribution, error) {
 	return nil, nil
@@ -162,7 +186,22 @@ func (f *unitReferralRepo) ListAttributionsByReferral(_ context.Context, _ uuid.
 func (f *unitReferralRepo) ListAttributionsByReferralIDs(_ context.Context, _ []uuid.UUID) ([]*referral.Attribution, error) {
 	return nil, nil
 }
-func (f *unitReferralRepo) EndAttribution(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
+func (f *unitReferralRepo) EndAttribution(_ context.Context, attributionID, referrerID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a, ok := f.attributionsByID[attributionID]
+	if !ok {
+		return referral.ErrAttributionNotFound
+	}
+	parent, parentOK := f.rows[a.ReferralID]
+	if !parentOK || parent.ReferrerID != referrerID {
+		return referral.ErrAttributionNotFound
+	}
+	if a.EndedAt != nil {
+		return referral.ErrAttributionAlreadyEnded
+	}
+	now := time.Now().UTC()
+	a.EndedAt = &now
 	return nil
 }
 func (f *unitReferralRepo) CreateCommission(_ context.Context, _ *referral.Commission) error {
@@ -715,4 +754,135 @@ func TestNegotiationActionFromString(t *testing.T) {
 func TestNegotiationActionFromString_Unknown(t *testing.T) {
 	_, ok := negotiationActionFromString("garbage")
 	assert.False(t, ok)
+}
+
+// ─── EndAttribution ─────────────────────────────────────────────────────
+//
+// WALLET-UNIFY Run A: POST /api/v1/referrals/attributions/{id}/end.
+
+// unitFixtureSeedReferralAndAttribution creates a fully wired referral
+// in pending_provider state and an active attribution on top of it.
+// Returns the apporteur, provider, client, and attribution id.
+func unitFixtureSeedReferralAndAttribution(t *testing.T, f *unitFixture) (
+	referrer, provider, client, attID uuid.UUID,
+) {
+	t.Helper()
+	referrer, provider, client = f.seed(t)
+	ref, err := referral.NewReferral(referral.NewReferralInput{
+		ReferrerID:           referrer,
+		ProviderID:           provider,
+		ClientID:             client,
+		RatePct:              5,
+		DurationMonths:       6,
+		IntroSnapshot:        referral.IntroSnapshot{},
+		IntroMessageProvider: "p",
+		IntroMessageClient:   "c",
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.repo.Create(context.Background(), ref))
+
+	att, err := referral.NewAttribution(referral.NewAttributionInput{
+		ReferralID:      ref.ID,
+		ProposalID:      uuid.New(),
+		ProviderID:      provider,
+		ClientID:        client,
+		RatePctSnapshot: 5,
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.repo.CreateAttribution(context.Background(), att))
+	return referrer, provider, client, att.ID
+}
+
+func TestReferralHandler_EndAttribution_NoAuth_401(t *testing.T) {
+	f := newUnitFixture(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/"+uuid.New().String()+"/end", nil)
+	req = unitWithChiID(req, uuid.New().String())
+	rec := httptest.NewRecorder()
+	f.handler.EndAttribution(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestReferralHandler_EndAttribution_InvalidID_400(t *testing.T) {
+	f := newUnitFixture(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/not-uuid/end", nil)
+	req = unitWithUser(req, uuid.New())
+	req = unitWithChiID(req, "not-uuid")
+	rec := httptest.NewRecorder()
+	f.handler.EndAttribution(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestReferralHandler_EndAttribution_NotFound_404(t *testing.T) {
+	f := newUnitFixture(t)
+	unknownID := uuid.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/"+unknownID.String()+"/end", nil)
+	req = unitWithUser(req, uuid.New())
+	req = unitWithChiID(req, unknownID.String())
+	rec := httptest.NewRecorder()
+	f.handler.EndAttribution(rec, req)
+	assert.Equal(t, http.StatusNotFound, rec.Code, "body: %s", rec.Body.String())
+}
+
+func TestReferralHandler_EndAttribution_NotOwner_403(t *testing.T) {
+	f := newUnitFixture(t)
+	_, _, _, attID := unitFixtureSeedReferralAndAttribution(t, f)
+	stranger := uuid.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/"+attID.String()+"/end", nil)
+	req = unitWithUser(req, stranger)
+	req = unitWithChiID(req, attID.String())
+	rec := httptest.NewRecorder()
+	f.handler.EndAttribution(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code, "body: %s", rec.Body.String())
+}
+
+func TestReferralHandler_EndAttribution_HappyPath_200(t *testing.T) {
+	f := newUnitFixture(t)
+	referrer, _, _, attID := unitFixtureSeedReferralAndAttribution(t, f)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/"+attID.String()+"/end", nil)
+	req = unitWithUser(req, referrer)
+	req = unitWithChiID(req, attID.String())
+	rec := httptest.NewRecorder()
+	f.handler.EndAttribution(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	var resp struct {
+		ID        string `json:"id"`
+		EndedAt   string `json:"ended_at"`
+		ReferralID string `json:"referral_id"`
+		ProposalID string `json:"proposal_id"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, attID.String(), resp.ID)
+	assert.NotEmpty(t, resp.EndedAt, "response must include ended_at timestamp")
+}
+
+func TestReferralHandler_EndAttribution_Idempotent_200(t *testing.T) {
+	f := newUnitFixture(t)
+	referrer, _, _, attID := unitFixtureSeedReferralAndAttribution(t, f)
+
+	makeReq := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/referrals/attributions/"+attID.String()+"/end", nil)
+		req = unitWithUser(req, referrer)
+		req = unitWithChiID(req, attID.String())
+		rec := httptest.NewRecorder()
+		f.handler.EndAttribution(rec, req)
+		return rec
+	}
+
+	first := makeReq()
+	require.Equal(t, http.StatusOK, first.Code, "first call: %s", first.Body.String())
+
+	second := makeReq()
+	require.Equal(t, http.StatusOK, second.Code, "second call (idempotent): %s", second.Body.String())
+
+	// Both responses report the same id (the body's ended_at may
+	// differ by a few microseconds since the service reloads from
+	// the repository, but the id MUST be identical).
+	var b1, b2 map[string]any
+	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &b1))
+	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &b2))
+	assert.Equal(t, b1["id"], b2["id"])
+	assert.NotEmpty(t, b2["ended_at"])
 }
