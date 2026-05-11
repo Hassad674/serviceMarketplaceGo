@@ -86,7 +86,20 @@ type RouterDeps struct {
 	// UserRepo is consumed by the Auth middleware as a
 	// SessionVersionChecker — only GetSessionVersion is called. Narrowed
 	// to UserAuthStore (3 methods) instead of the wide UserRepository.
+	//
+	// PERF-AUDIT QW2: when SessionVersionChecker is wired below, the
+	// middleware uses it instead of UserRepo for the per-request
+	// session_version lookup. UserRepo is still kept as the default
+	// fallback for tests / legacy wiring that don't pass the cache.
 	UserRepo repository.UserAuthStore
+
+	// SessionVersionChecker is the optional Redis-cached front of
+	// UserRepo.GetSessionVersion. Production wiring passes a
+	// CachedSessionVersionChecker so the per-request session-version
+	// lookup costs one Redis GET on the hot path instead of one PG
+	// round-trip. Optional — when nil the middleware falls back to
+	// UserRepo, preserving the legacy behaviour for tests.
+	SessionVersionChecker middleware.SessionVersionChecker
 
 	// OrgOverridesResolver is the read port used by the Auth middleware
 	// to compute each caller's effective permissions live on every
@@ -146,10 +159,17 @@ func NewRouter(deps RouterDeps) chi.Router {
 	if deps.Config != nil {
 		failClosedInProd = deps.Config.IsProduction()
 	}
+	// PERF-AUDIT QW2: prefer the Redis-cached session-version checker
+	// when wired; fall back to the raw UserRepo so existing tests that
+	// don't pass the cache keep working unchanged.
+	var sessionVersions middleware.SessionVersionChecker = deps.UserRepo
+	if deps.SessionVersionChecker != nil {
+		sessionVersions = deps.SessionVersionChecker
+	}
 	auth := middleware.AuthFromDeps(middleware.AuthDeps{
 		TokenService:     deps.TokenService,
 		SessionService:   deps.SessionService,
-		SessionVersions:  deps.UserRepo,
+		SessionVersions:  sessionVersions,
 		UserState:        deps.UserStateChecker,
 		OrgOverrides:     deps.OrgOverridesResolver,
 		FailClosedInProd: failClosedInProd,
