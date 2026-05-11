@@ -31,11 +31,20 @@ type ReferralWalletReader interface {
 // EUR). Mixed-currency summaries are not supported in V1 — when a
 // referrer does business in multiple currencies, the UI will need to
 // group per currency (TODO).
+//
+// WALLET-UX adds Paid30dCents (rolling-window paid total used by the
+// "Versées 30j" tile on the apporteur wallet) and LifetimeCents
+// (cumulative paid — equal to PaidCents in the no-clawback case but
+// retained as a separate field so the UI does not depend on the
+// invariant). Both are computed at read time from the commission rows
+// — there is no separate aggregate table.
 type ReferrerCommissionSummary struct {
 	PendingCents     int64 // status=pending — queued, transfer not yet attempted
 	PendingKYCCents  int64 // status=pending_kyc — waiting on apporteur KYC
 	PaidCents        int64 // status=paid — money sent to the apporteur's Stripe
 	ClawedBackCents  int64 // status=clawed_back — reversed after a refund
+	Paid30dCents     int64 // status=paid AND paid_at within last 30 days
+	LifetimeCents    int64 // cumulative paid (PaidCents + ClawedBackCents)
 	Currency         string
 }
 

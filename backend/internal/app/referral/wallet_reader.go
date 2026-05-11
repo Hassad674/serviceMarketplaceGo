@@ -3,12 +3,18 @@ package referral
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/service"
 )
+
+// paid30dWindow is the rolling window used for the "Versées 30j" tile
+// on the apporteur wallet. Kept as a package-level constant so tests
+// can compare against the same boundary without re-deriving it.
+const paid30dWindow = 30 * 24 * time.Hour
 
 // GetReferrerSummary implements service.ReferralWalletReader. It
 // aggregates commissions across every referral of the given apporteur
@@ -22,13 +28,49 @@ func (s *Service) GetReferrerSummary(ctx context.Context, referrerID uuid.UUID) 
 	if err != nil {
 		return service.ReferrerCommissionSummary{}, fmt.Errorf("sum commissions by referrer: %w", err)
 	}
+	paid := byStatus[referral.CommissionPaid]
+	clawed := byStatus[referral.CommissionClawedBack]
+	// Paid30d is computed by walking the recent commission rows (capped
+	// at 100 — beyond that the apporteur is busy enough that the tile is
+	// meaningful from the most recent slice alone). The sweep is bounded
+	// and runs inside the same handler that already calls RecentCommissions
+	// so the read amplification stays low. Errors fall through to zero
+	// rather than failing the whole summary — the tile degrades to "0 €"
+	// in that case.
+	paid30d := s.computePaid30d(ctx, referrerID)
 	return service.ReferrerCommissionSummary{
 		PendingCents:    byStatus[referral.CommissionPending],
 		PendingKYCCents: byStatus[referral.CommissionPendingKYC],
-		PaidCents:       byStatus[referral.CommissionPaid],
-		ClawedBackCents: byStatus[referral.CommissionClawedBack],
+		PaidCents:       paid,
+		ClawedBackCents: clawed,
+		Paid30dCents:    paid30d,
+		LifetimeCents:   paid + clawed,
 		Currency:        "EUR",
 	}, nil
+}
+
+// computePaid30d returns the sum of commission_cents on rows whose
+// status is paid AND whose paid_at falls within the last 30 days.
+// Walks at most 100 recent rows — beyond that the cost outweighs the
+// benefit for a wallet-tile aggregate. Returns 0 on any error so the
+// caller can still serve the rest of the summary.
+func (s *Service) computePaid30d(ctx context.Context, referrerID uuid.UUID) int64 {
+	rows, err := s.referrals.ListRecentCommissionsByReferrer(ctx, referrerID, 100)
+	if err != nil || len(rows) == 0 {
+		return 0
+	}
+	cutoff := time.Now().Add(-paid30dWindow)
+	var sum int64
+	for _, c := range rows {
+		if c.Status != referral.CommissionPaid {
+			continue
+		}
+		if c.PaidAt == nil || c.PaidAt.Before(cutoff) {
+			continue
+		}
+		sum += c.CommissionCents
+	}
+	return sum
 }
 
 // RecentCommissions implements service.ReferralWalletReader. Returns
