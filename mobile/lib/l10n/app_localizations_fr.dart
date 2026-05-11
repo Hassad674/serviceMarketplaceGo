@@ -4269,4 +4269,121 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get twoFactorErrorGeneric =>
       'Une erreur est survenue. Réessaye dans un instant.';
+
+  @override
+  String get legalIndexTitle => 'Documents légaux';
+
+  @override
+  String get legalIndexIntro =>
+      'Documents publiés à des fins de transparence (RGPD art. 13, 14, 28, 30, 35) et documentation contractuelle de la marketplace.';
+
+  @override
+  String get legalSectionDocs => 'Documents disponibles';
+
+  @override
+  String get legalEnglishNotice =>
+      'Version anglaise complète disponible sur demande à dpo@designedtrust.com. Les titres et la navigation sont disponibles en anglais ; le contenu reste en français pour préserver la précision juridique.';
+
+  @override
+  String legalLastUpdated(String date) {
+    return 'Dernière mise à jour : $date';
+  }
+
+  @override
+  String get legalReferenceLabel => 'Référence';
+
+  @override
+  String get legalDocRegistreTitle => 'Registre des activités de traitement';
+
+  @override
+  String get legalDocRegistreSubtitle =>
+      'Document de conformité tenu en application de l\'article 30 du RGPD.';
+
+  @override
+  String get legalDocRegistreSummary =>
+      '11 traitements documentés (comptes, profils, messagerie, paiements, recherche, KYC biométrique, modération IA, mesure d\'audience, support, journal d\'audit) avec finalités, bases légales, sous-traitants et durées de conservation.';
+
+  @override
+  String get legalDocRegistreReference => 'RGPD art. 30';
+
+  @override
+  String get legalDocAipdTitle => 'Analyse d\'impact (AIPD)';
+
+  @override
+  String get legalDocAipdSubtitle =>
+      'Document tenu en application de l\'article 35 du RGPD pour les traitements présentant un risque élevé.';
+
+  @override
+  String get legalDocAipdSummary =>
+      'Trois AIPD couvrant la vérification biométrique KYC, la modération automatisée IA et le profilage de matching prestataire/client.';
+
+  @override
+  String get legalDocAipdReference => 'RGPD art. 35';
+
+  @override
+  String get legalDocDpaTitle => 'Modèle de contrat de sous-traitance (DPA)';
+
+  @override
+  String get legalDocDpaSubtitle =>
+      'Modèle générique conforme à l\'article 28 du RGPD. À compléter avec les informations spécifiques au sous-traitant signataire.';
+
+  @override
+  String get legalDocDpaSummary =>
+      'Modèle générique conforme à l\'article 28 RGPD : objet, durée, obligations, sous-sous-traitance, sécurité, transferts hors UE, audit, fin de contrat.';
+
+  @override
+  String get legalDocDpaReference => 'RGPD art. 28';
+
+  @override
+  String get legalDocPrivacyTitle => 'Politique de confidentialité';
+
+  @override
+  String get legalDocPrivacySubtitle =>
+      'Version étendue couvrant l\'ensemble des durées, sous-traitants et transferts hors UE.';
+
+  @override
+  String get legalDocPrivacySummary =>
+      'Version étendue de la politique avec tableaux complets des durées, des sous-traitants et des transferts hors UE.';
+
+  @override
+  String get legalDocPrivacyReference => 'RGPD art. 13/14';
+
+  @override
+  String get legalDocCguTitle => 'Conditions Générales d\'Utilisation';
+
+  @override
+  String get legalDocCguSubtitle =>
+      'Conditions encadrant l\'usage de la marketplace par les agences, freelances, entreprises et apporteurs d\'affaires.';
+
+  @override
+  String get legalDocCguSummary =>
+      '17 articles couvrant inscription, comportement, contenus, modération DSA, propriété intellectuelle, responsabilité LCEN, sanctions, médiation, droit applicable.';
+
+  @override
+  String get legalDocCguReference => 'À valider avocat';
+
+  @override
+  String get legalDocCgvTitle => 'Conditions Générales de Vente';
+
+  @override
+  String get legalDocCgvSubtitle =>
+      'Conditions encadrant les relations commerciales et les paiements transitant par la marketplace. Service B2B exclusivement.';
+
+  @override
+  String get legalDocCgvSummary =>
+      '15 articles couvrant modèle économique, KYC, cycle de transaction Stripe Connect, paiements, apport d\'affaires, factures, DAC 7 et dispositif Eckert.';
+
+  @override
+  String get legalDocCgvReference =>
+      'À valider avocat + commissaire aux comptes';
+
+  @override
+  String get accountSectionLegal => 'Mentions légales';
+
+  @override
+  String get accountSectionLegalDesc =>
+      'RGPD, CGU, CGV et autres documents de conformité.';
+
+  @override
+  String get accountLegalCta => 'Lire les documents';
 }

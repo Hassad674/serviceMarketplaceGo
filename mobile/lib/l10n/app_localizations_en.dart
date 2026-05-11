@@ -4238,4 +4238,120 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get twoFactorErrorGeneric =>
       'Something went wrong. Try again in a moment.';
+
+  @override
+  String get legalIndexTitle => 'Legal documents';
+
+  @override
+  String get legalIndexIntro =>
+      'Documents published for transparency (GDPR art. 13, 14, 28, 30, 35) and the marketplace\'s contractual documentation.';
+
+  @override
+  String get legalSectionDocs => 'Available documents';
+
+  @override
+  String get legalEnglishNotice =>
+      'Full English version available on request at dpo@designedtrust.com. Titles and navigation are translated; the body remains in French to preserve legal accuracy.';
+
+  @override
+  String legalLastUpdated(String date) {
+    return 'Last updated: $date';
+  }
+
+  @override
+  String get legalReferenceLabel => 'Reference';
+
+  @override
+  String get legalDocRegistreTitle => 'Record of processing activities';
+
+  @override
+  String get legalDocRegistreSubtitle =>
+      'Compliance document maintained under GDPR art. 30.';
+
+  @override
+  String get legalDocRegistreSummary =>
+      '11 processing activities documented (accounts, profiles, messaging, payments, search, biometric KYC, AI moderation, audience measurement, support, audit log) with purposes, legal bases, sub-processors and retention periods.';
+
+  @override
+  String get legalDocRegistreReference => 'GDPR art. 30';
+
+  @override
+  String get legalDocAipdTitle => 'Data Protection Impact Assessment (DPIA)';
+
+  @override
+  String get legalDocAipdSubtitle =>
+      'Document maintained under GDPR art. 35 for high-risk processing activities.';
+
+  @override
+  String get legalDocAipdSummary =>
+      'Three DPIAs covering biometric KYC verification, automated AI moderation and provider/client matching profiling.';
+
+  @override
+  String get legalDocAipdReference => 'GDPR art. 35';
+
+  @override
+  String get legalDocDpaTitle => 'Data Processing Agreement template (DPA)';
+
+  @override
+  String get legalDocDpaSubtitle =>
+      'Generic template compliant with GDPR art. 28. To be completed with sub-processor-specific information.';
+
+  @override
+  String get legalDocDpaSummary =>
+      'Generic template compliant with GDPR art. 28: subject, duration, obligations, sub-processing, security, non-EU transfers, audit, end of contract.';
+
+  @override
+  String get legalDocDpaReference => 'GDPR art. 28';
+
+  @override
+  String get legalDocPrivacyTitle => 'Privacy policy';
+
+  @override
+  String get legalDocPrivacySubtitle =>
+      'Extended version covering all retention periods, sub-processors and non-EU transfers.';
+
+  @override
+  String get legalDocPrivacySummary =>
+      'Extended privacy policy with complete tables of retention periods, sub-processors and non-EU transfers.';
+
+  @override
+  String get legalDocPrivacyReference => 'GDPR art. 13/14';
+
+  @override
+  String get legalDocCguTitle => 'Terms of Use (CGU)';
+
+  @override
+  String get legalDocCguSubtitle =>
+      'Conditions governing use of the marketplace by agencies, freelancers, enterprises and business referrers.';
+
+  @override
+  String get legalDocCguSummary =>
+      '17 articles covering registration, behavior, content, DSA moderation, intellectual property, LCEN liability, sanctions, mediation, applicable law.';
+
+  @override
+  String get legalDocCguReference => 'Pending counsel review';
+
+  @override
+  String get legalDocCgvTitle => 'Terms of Sale (CGV)';
+
+  @override
+  String get legalDocCgvSubtitle =>
+      'Conditions governing commercial relationships and payments routed through the marketplace. B2B service only.';
+
+  @override
+  String get legalDocCgvSummary =>
+      '15 articles covering business model, KYC, Stripe Connect transaction lifecycle, payments, business referrals, invoices, DAC 7 and the Eckert mechanism.';
+
+  @override
+  String get legalDocCgvReference => 'Pending counsel + auditor review';
+
+  @override
+  String get accountSectionLegal => 'Legal documents';
+
+  @override
+  String get accountSectionLegalDesc =>
+      'GDPR, terms of use, terms of sale, and other compliance documents.';
+
+  @override
+  String get accountLegalCta => 'Read documents';
 }

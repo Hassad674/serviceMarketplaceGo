@@ -114,6 +114,17 @@ class RoutePaths {
   // success, so the mobile flow logs out + redirects back to /login.
   static const String accountChangeEmail = '/account/change-email';
   static const String accountChangePassword = '/account/change-password';
+
+  // Legal documents — mobile parity for the web /fr/legal/* surface
+  // shipped with D4 (GDPR Phase C). Reached from the AccountScreen
+  // "Mentions légales" tile, not from the bottom-nav.
+  static const String legal = '/legal';
+  static const String legalRegistre = '/legal/registre';
+  static const String legalAipd = '/legal/aipd';
+  static const String legalDpaTemplate = '/legal/dpa-template';
+  static const String legalPrivacy = '/legal/politique-confidentialite';
+  static const String legalCgu = '/legal/cgu';
+  static const String legalCgv = '/legal/cgv';
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,13 @@ import '../../../features/account/presentation/screens/change_email_screen.dart'
 import '../../../features/account/presentation/screens/change_password_screen.dart';
 import '../../../features/account/presentation/screens/delete_account_screen.dart';
 import '../../../features/client_profile/presentation/screens/client_profile_screen.dart';
+import '../../../features/legal/presentation/screens/legal_aipd_screen.dart';
+import '../../../features/legal/presentation/screens/legal_cgu_screen.dart';
+import '../../../features/legal/presentation/screens/legal_cgv_screen.dart';
+import '../../../features/legal/presentation/screens/legal_dpa_template_screen.dart';
+import '../../../features/legal/presentation/screens/legal_index_screen.dart';
+import '../../../features/legal/presentation/screens/legal_privacy_screen.dart';
+import '../../../features/legal/presentation/screens/legal_registre_screen.dart';
 import '../../../features/notification/presentation/screens/notification_screen.dart';
 import '../../../features/payment_info/presentation/screens/payment_info_screen.dart';
 import '../../../features/referrer_profile/presentation/screens/referrer_profile_screen.dart';
@@ -65,5 +72,36 @@ List<RouteBase> buildTeamShellRoutes() => [
       GoRoute(
         path: RoutePaths.accountChangePassword,
         builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      // Legal documents — mobile parity for the web /fr/legal/* surface
+      // (D4 / GDPR Phase C). Index + 6 long-form documents bundled as
+      // markdown assets and rendered through LegalDocumentScreen.
+      GoRoute(
+        path: RoutePaths.legal,
+        builder: (context, state) => const LegalIndexScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalRegistre,
+        builder: (context, state) => const LegalRegistreScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalAipd,
+        builder: (context, state) => const LegalAipdScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalDpaTemplate,
+        builder: (context, state) => const LegalDpaTemplateScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalPrivacy,
+        builder: (context, state) => const LegalPrivacyScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalCgu,
+        builder: (context, state) => const LegalCguScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalCgv,
+        builder: (context, state) => const LegalCgvScreen(),
       ),
     ];

@@ -146,12 +146,28 @@ class AccountScreen extends ConsumerWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: theme.colorScheme.error,
                       ),
-                      onPressed: () =>
-                          context.push(RoutePaths.accountDelete),
+                      onPressed: () => context.push(RoutePaths.accountDelete),
                       icon: const Icon(Icons.delete_outline, size: 18),
                       label: Text(l10n.accountDeleteAccountAction),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Legal entry point — mirrors the web sidebar/footer link
+              // to /legal. The 6 long-form documents (registre, AIPD,
+              // DPA, privacy, CGU, CGV) live behind this single tile.
+              _AccountSection(
+                icon: Icons.gavel_outlined,
+                title: l10n.accountSectionLegal,
+                description: l10n.accountSectionLegalDesc,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push(RoutePaths.legal),
+                    icon: const Icon(Icons.article_outlined, size: 18),
+                    label: Text(l10n.accountLegalCta),
+                  ),
                 ),
               ),
             ],
@@ -200,8 +216,8 @@ class _AccountSection extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: colors?.accentSoft ??
-                      theme.colorScheme.primaryContainer,
+                  color:
+                      colors?.accentSoft ?? theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 alignment: Alignment.center,
@@ -226,8 +242,8 @@ class _AccountSection extends StatelessWidget {
           Text(
             description,
             style: SoleilTextStyles.body.copyWith(
-              color: colors?.mutedForeground ??
-                  theme.colorScheme.onSurfaceVariant,
+              color:
+                  colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 16),
@@ -385,8 +401,8 @@ class _EmailSectionBody extends StatelessWidget {
         Text(
           label.toUpperCase(),
           style: SoleilTextStyles.caption.copyWith(
-            color: colors?.mutedForeground ??
-                theme.colorScheme.onSurfaceVariant,
+            color:
+                colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
           ),

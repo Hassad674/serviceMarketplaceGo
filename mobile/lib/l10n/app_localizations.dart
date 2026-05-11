@@ -7795,6 +7795,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Try again in a moment.'**
   String get twoFactorErrorGeneric;
+
+  /// No description provided for @legalIndexTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal documents'**
+  String get legalIndexTitle;
+
+  /// No description provided for @legalIndexIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents published for transparency (GDPR art. 13, 14, 28, 30, 35) and the marketplace\'s contractual documentation.'**
+  String get legalIndexIntro;
+
+  /// No description provided for @legalSectionDocs.
+  ///
+  /// In en, this message translates to:
+  /// **'Available documents'**
+  String get legalSectionDocs;
+
+  /// No description provided for @legalEnglishNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Full English version available on request at dpo@designedtrust.com. Titles and navigation are translated; the body remains in French to preserve legal accuracy.'**
+  String get legalEnglishNotice;
+
+  /// No description provided for @legalLastUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated: {date}'**
+  String legalLastUpdated(String date);
+
+  /// No description provided for @legalReferenceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference'**
+  String get legalReferenceLabel;
+
+  /// No description provided for @legalDocRegistreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Record of processing activities'**
+  String get legalDocRegistreTitle;
+
+  /// No description provided for @legalDocRegistreSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance document maintained under GDPR art. 30.'**
+  String get legalDocRegistreSubtitle;
+
+  /// No description provided for @legalDocRegistreSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'11 processing activities documented (accounts, profiles, messaging, payments, search, biometric KYC, AI moderation, audience measurement, support, audit log) with purposes, legal bases, sub-processors and retention periods.'**
+  String get legalDocRegistreSummary;
+
+  /// No description provided for @legalDocRegistreReference.
+  ///
+  /// In en, this message translates to:
+  /// **'GDPR art. 30'**
+  String get legalDocRegistreReference;
+
+  /// No description provided for @legalDocAipdTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Protection Impact Assessment (DPIA)'**
+  String get legalDocAipdTitle;
+
+  /// No description provided for @legalDocAipdSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Document maintained under GDPR art. 35 for high-risk processing activities.'**
+  String get legalDocAipdSubtitle;
+
+  /// No description provided for @legalDocAipdSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Three DPIAs covering biometric KYC verification, automated AI moderation and provider/client matching profiling.'**
+  String get legalDocAipdSummary;
+
+  /// No description provided for @legalDocAipdReference.
+  ///
+  /// In en, this message translates to:
+  /// **'GDPR art. 35'**
+  String get legalDocAipdReference;
+
+  /// No description provided for @legalDocDpaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Processing Agreement template (DPA)'**
+  String get legalDocDpaTitle;
+
+  /// No description provided for @legalDocDpaSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic template compliant with GDPR art. 28. To be completed with sub-processor-specific information.'**
+  String get legalDocDpaSubtitle;
+
+  /// No description provided for @legalDocDpaSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic template compliant with GDPR art. 28: subject, duration, obligations, sub-processing, security, non-EU transfers, audit, end of contract.'**
+  String get legalDocDpaSummary;
+
+  /// No description provided for @legalDocDpaReference.
+  ///
+  /// In en, this message translates to:
+  /// **'GDPR art. 28'**
+  String get legalDocDpaReference;
+
+  /// No description provided for @legalDocPrivacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get legalDocPrivacyTitle;
+
+  /// No description provided for @legalDocPrivacySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended version covering all retention periods, sub-processors and non-EU transfers.'**
+  String get legalDocPrivacySubtitle;
+
+  /// No description provided for @legalDocPrivacySummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended privacy policy with complete tables of retention periods, sub-processors and non-EU transfers.'**
+  String get legalDocPrivacySummary;
+
+  /// No description provided for @legalDocPrivacyReference.
+  ///
+  /// In en, this message translates to:
+  /// **'GDPR art. 13/14'**
+  String get legalDocPrivacyReference;
+
+  /// No description provided for @legalDocCguTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Use (CGU)'**
+  String get legalDocCguTitle;
+
+  /// No description provided for @legalDocCguSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Conditions governing use of the marketplace by agencies, freelancers, enterprises and business referrers.'**
+  String get legalDocCguSubtitle;
+
+  /// No description provided for @legalDocCguSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'17 articles covering registration, behavior, content, DSA moderation, intellectual property, LCEN liability, sanctions, mediation, applicable law.'**
+  String get legalDocCguSummary;
+
+  /// No description provided for @legalDocCguReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending counsel review'**
+  String get legalDocCguReference;
+
+  /// No description provided for @legalDocCgvTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Sale (CGV)'**
+  String get legalDocCgvTitle;
+
+  /// No description provided for @legalDocCgvSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Conditions governing commercial relationships and payments routed through the marketplace. B2B service only.'**
+  String get legalDocCgvSubtitle;
+
+  /// No description provided for @legalDocCgvSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'15 articles covering business model, KYC, Stripe Connect transaction lifecycle, payments, business referrals, invoices, DAC 7 and the Eckert mechanism.'**
+  String get legalDocCgvSummary;
+
+  /// No description provided for @legalDocCgvReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending counsel + auditor review'**
+  String get legalDocCgvReference;
+
+  /// No description provided for @accountSectionLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal documents'**
+  String get accountSectionLegal;
+
+  /// No description provided for @accountSectionLegalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'GDPR, terms of use, terms of sale, and other compliance documents.'**
+  String get accountSectionLegalDesc;
+
+  /// No description provided for @accountLegalCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Read documents'**
+  String get accountLegalCta;
 }
 
 class _AppLocalizationsDelegate
