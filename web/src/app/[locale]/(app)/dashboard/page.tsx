@@ -4,9 +4,8 @@ import { useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useUser } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
-import { useUnreadNotificationCount } from "@/features/notification/hooks/use-unread-notification-count"
+import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { useProfileCompletion } from "@/features/profile-completion/hooks/use-profile-completion"
-import { useBillingProfileCompleteness } from "@/shared/hooks/billing-profile/use-billing-profile-completeness"
 import {
   useApplicationsStats,
   useVisibilityStats,
@@ -121,8 +120,8 @@ function useDashboardActions(): DashboardActionsResult {
   const t = useTranslations("dashboard.actions")
   const { data: user, isLoading: userLoading } = useUser()
   const { data: completion, isLoading: completionLoading } = useProfileCompletion()
-  const billingState = useBillingProfileCompleteness()
-  const { data: unread, isLoading: unreadLoading } = useUnreadNotificationCount()
+  const { data: unread, isLoading: unreadLoading } = useUnreadCount()
+  const unreadCount = unread?.count ?? 0
 
   return useMemo(() => {
     const list: DashboardAction[] = []
@@ -136,35 +135,23 @@ function useDashboardActions(): DashboardActionsResult {
         href: "/profile",
       })
     }
-    if (!billingState.isLoading && !billingState.isComplete) {
-      list.push({
-        id: "billing-profile",
-        severity: "warning",
-        label: t("billingProfile"),
-        ctaLabel: t("billingProfileCta"),
-        href: "/billing",
-      })
-    }
-    if (typeof unread === "number" && unread > 0) {
+    if (unreadCount > 0) {
       list.push({
         id: "messages-unread",
         severity: "info",
-        label: t("unreadMessages", { count: unread }),
+        label: t("unreadMessages", { count: unreadCount }),
         ctaLabel: t("unreadMessagesCta"),
         href: "/messages",
       })
     }
     return {
       actions: list,
-      isLoading:
-        userLoading || completionLoading || billingState.isLoading || unreadLoading,
+      isLoading: userLoading || completionLoading || unreadLoading,
     }
   }, [
     user,
     completion,
-    billingState.isComplete,
-    billingState.isLoading,
-    unread,
+    unreadCount,
     userLoading,
     completionLoading,
     unreadLoading,

@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../invoicing/presentation/providers/invoicing_providers.dart';
 import '../../../messaging/presentation/providers/conversations_provider.dart';
 import '../../../profile_completion/presentation/providers/profile_completion_providers.dart';
 import '../../../proposal/presentation/providers/proposal_provider.dart';
@@ -19,9 +18,13 @@ import '../../domain/dashboard_action.dart';
 /// Severity ladder (highest first, surface in this order):
 /// 1. critical: KYC restricted, unread > 24h fallback, expired premium,
 ///    proposals pending action.
-/// 2. warning: KYC pending, profile completion < 80%, billing missing,
+/// 2. warning: KYC pending, profile completion < 80%,
 ///    Stripe onboarding incomplete, premium expiring < 7d.
 /// 3. info: reserved (no current row).
+///
+/// Billing profile completeness is intentionally NOT surfaced here:
+/// billing info is collected at withdrawal time (web parity), only KYC
+/// gates the payout flow.
 ///
 /// Performance: every row reads from a provider already consumed by the
 /// feature's existing screens — no new fetches, no N+1.
@@ -31,7 +34,6 @@ final dashboardActionsProvider = Provider.autoDispose<List<DashboardAction>>(
 
     _maybeAddKyc(ref, actions);
     _maybeAddProfileCompletion(ref, actions);
-    _maybeAddBillingProfile(ref, actions);
     _maybeAddUnreadMessages(ref, actions);
     _maybeAddPendingProposals(ref, actions);
     _maybeAddPremiumExpiring(ref, actions);
@@ -85,20 +87,6 @@ void _maybeAddProfileCompletion(Ref ref, List<DashboardAction> out) {
       label: 'Complete your profile',
       route: RoutePaths.profile,
       detail: '${report.percent}% — boost your visibility',
-    ),
-  );
-}
-
-void _maybeAddBillingProfile(Ref ref, List<DashboardAction> out) {
-  final completeness = ref.watch(billingProfileCompletenessProvider);
-  if (completeness.isLoading || completeness.isComplete) return;
-  out.add(
-    const DashboardAction(
-      id: 'billing_incomplete',
-      severity: DashboardActionSeverity.warning,
-      label: 'Add billing details',
-      route: RoutePaths.billingProfile,
-      detail: 'Required to invoice your clients',
     ),
   );
 }

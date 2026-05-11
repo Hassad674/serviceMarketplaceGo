@@ -40,6 +40,12 @@ class VisibilityCard extends ConsumerWidget {
   }
 }
 
+/// Statistical-significance threshold for avg_search_position. Below
+/// this many search appearances, render "—" instead of the (potentially
+/// misleading) average. Mirrors the web-side
+/// POSITION_STATISTICAL_SIGNIFICANCE constant.
+const int _kPositionMinAppearances = 10;
+
 class _VisibilityContent extends StatelessWidget {
   const _VisibilityContent({required this.stats});
 
@@ -50,15 +56,11 @@ class _VisibilityContent extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
-    final empty = isVisibilitySeriesEmpty(stats);
+    final hasSeriesSignal = !isVisibilitySeriesEmpty(stats);
 
-    if (empty) {
-      return StatsCardShell(
-        title: l10n.statsVisibilityTitle,
-        child: StatsCardEmpty(message: l10n.statsInsufficientData),
-      );
-    }
-
+    // Unit counts (total views, search appearances) are ALWAYS rendered
+    // — even when zero. The patience copy is reserved for
+    // avg_search_position only (statistical significance).
     final viewsSeries = stats.series.map((p) => p.count).toList();
     return StatsCardShell(
       title: l10n.statsVisibilityTitle,
@@ -71,22 +73,24 @@ class _VisibilityContent extends StatelessWidget {
             value: '${stats.totalViews}',
             colorAccent: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 56,
-            child: RepaintBoundary(
-              child: CustomPaint(
-                size: const Size.fromHeight(56),
-                painter: SparklinePainter(
-                  values: viewsSeries,
-                  lineColor: theme.colorScheme.primary,
-                  fillColor: appColors?.accentSoft ??
-                      theme.colorScheme.primaryContainer,
+          if (hasSeriesSignal) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 56,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  size: const Size.fromHeight(56),
+                  painter: SparklinePainter(
+                    values: viewsSeries,
+                    lineColor: theme.colorScheme.primary,
+                    fillColor: appColors?.accentSoft ??
+                        theme.colorScheme.primaryContainer,
+                  ),
+                  child: const SizedBox.expand(),
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 16),
           _DualMetricRow(
             views: stats.searchAppearances,
@@ -151,9 +155,12 @@ class _DualMetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
-    final positionLabel = position == null
-        ? '—'
-        : position!.toStringAsFixed(1);
+    // Position is statistically meaningful only with >=10 appearances —
+    // otherwise show "—" to avoid surfacing a misleading average.
+    final hasEnoughForPosition =
+        position != null && views >= _kPositionMinAppearances;
+    final positionLabel =
+        hasEnoughForPosition ? position!.toStringAsFixed(1) : '—';
     return Row(
       children: [
         Expanded(
