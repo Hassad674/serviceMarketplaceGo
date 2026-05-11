@@ -40,19 +40,20 @@ const Map<String, String> _expectedAuditPairings = {
       'features/search/presentation/screens/search_screen.dart',
   '/search/referrer':
       'features/search/presentation/screens/search_screen.dart',
+  '/notifications':
+      'features/notification/presentation/screens/notification_screen.dart',
+  '/payment-info':
+      'features/payment_info/presentation/screens/payment_info_screen.dart',
 };
 
 /// Routes that legitimately live without the hamburger because they
 /// are reachable from another screen that already has it. Documented
 /// to make the audit-completeness contract explicit.
-const _knownGapsToFlagInReport = <String>{
-  // notifications + paymentInfo are reachable from the drawer but the
-  // current screen implementation does not surface `openShellDrawer`.
-  // Flagged for follow-up (TEST-COV-MOBILE report); the test asserts
-  // we KNOW they are missing rather than silently letting them rot.
-  '/notifications',
-  '/payment-info',
-};
+///
+/// FIX-MOBILE-DRAWER (2026-05): notifications + payment-info now wire
+/// the hamburger explicitly, so the gap-set is empty. Keeping the
+/// scaffold so future agents have a place to flag a new known gap.
+const _knownGapsToFlagInReport = <String>{};
 
 void main() {
   late final String libDir;
@@ -112,31 +113,20 @@ void main() {
     );
   });
 
-  test('known gaps are explicitly flagged + documented (not silent)', () {
-    // This test exists to ensure that we don't accidentally "fix" the
-    // known gaps without removing the flag. The drawer_items.dart
-    // source uses RoutePaths.notifications / RoutePaths.paymentInfo
-    // identifiers — both must still be declared (they're the routes
-    // the user can reach from the drawer).
-    const routeIdentifiers = {
-      '/notifications': 'RoutePaths.notifications',
-      '/payment-info': 'RoutePaths.paymentInfo',
-    };
-
-    for (final route in _knownGapsToFlagInReport) {
-      final identifier = routeIdentifiers[route];
-      expect(
-        identifier,
-        isNotNull,
-        reason: 'Known-gap $route lacks a routes-identifier mapping in '
-            'this test — add it to routeIdentifiers.',
-      );
-      expect(
-        routesSource.contains(identifier!),
-        isTrue,
-        reason: '$route disappeared from drawer_items.dart — clean up '
-            'the known-gaps list in this test.',
-      );
-    }
+  test('known-gap set is empty (regression pin)', () {
+    // FIX-MOBILE-DRAWER (2026-05): every primary destination now wires
+    // the hamburger. If a new gap is introduced, add the route here
+    // explicitly (do NOT silently let it rot) and update the audit
+    // pairings + screen source accordingly.
+    expect(
+      _knownGapsToFlagInReport,
+      isEmpty,
+      reason: 'A drawer destination is missing the hamburger — fix the '
+          'screen or document the gap explicitly in this test.',
+    );
+    // Pin: routesSource is still referenced so the setUpAll's parse
+    // remains exercised — guards against future refactors that would
+    // silently turn this test into a no-op.
+    expect(routesSource, isNotEmpty);
   });
 }

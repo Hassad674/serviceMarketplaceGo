@@ -37,6 +37,10 @@ void main() {
         'openShellDrawer',
     'features/search/presentation/screens/search_screen.dart':
         'openShellDrawer',
+    'features/notification/presentation/screens/notification_screen.dart':
+        'openShellDrawer',
+    'features/payment_info/presentation/screens/payment_info_screen.dart':
+        'openShellDrawer',
   };
 
   test('every drawer destination wires the hamburger leading icon',
