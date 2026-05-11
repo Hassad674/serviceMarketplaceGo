@@ -39,6 +39,27 @@ void main() {
       expect(a, b);
       expect(a.hashCode, b.hashCode);
     });
+
+    test('D3: parses optional unique field alongside count', () {
+      final json = {
+        'date': '2026-05-01T00:00:00.000Z',
+        'count': 12,
+        'unique': 7,
+      };
+      final point = StatsSeriesPoint.fromJson(json);
+      expect(point.count, 12);
+      expect(point.unique, 7);
+    });
+
+    test('D3: unique missing → null (pre-D3 backwards-compat)', () {
+      final json = {
+        'date': '2026-05-01T00:00:00.000Z',
+        'count': 12,
+      };
+      final point = StatsSeriesPoint.fromJson(json);
+      expect(point.unique, isNull);
+      expect(point.count, 12);
+    });
   });
 
   group('VisibilityStats.fromJson', () {

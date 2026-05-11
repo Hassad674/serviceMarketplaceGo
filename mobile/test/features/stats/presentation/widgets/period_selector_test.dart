@@ -36,7 +36,8 @@ Widget _harness({
 }
 
 void main() {
-  testWidgets('renders 7d / 30d / 90d pills in English', (tester) async {
+  testWidgets('renders 7d / 30d / 90d / 1 year pills in English',
+      (tester) async {
     await tester.pumpWidget(
       _harness(value: StatsPeriod.thirtyDays, onChanged: (_) {}),
     );
@@ -45,9 +46,11 @@ void main() {
     expect(find.text('7d'), findsOneWidget);
     expect(find.text('30d'), findsOneWidget);
     expect(find.text('90d'), findsOneWidget);
+    expect(find.text('1 year'), findsOneWidget);
   });
 
-  testWidgets('renders 7 j / 30 j / 90 j pills in French', (tester) async {
+  testWidgets('renders 7 j / 30 j / 90 j / 1 an pills in French',
+      (tester) async {
     await tester.pumpWidget(
       _harness(
         value: StatsPeriod.thirtyDays,
@@ -58,10 +61,25 @@ void main() {
     await tester.pumpAndSettle();
 
     // French label conventions matter — the brief says tutoiement +
-    // FR-conversational. The l10n bundle ships "7 j".
+    // FR-conversational. The l10n bundle ships "7 j" / "1 an".
     expect(find.textContaining(RegExp(r'^7\s?j$')), findsOneWidget);
     expect(find.textContaining(RegExp(r'^30\s?j$')), findsOneWidget);
     expect(find.textContaining(RegExp(r'^90\s?j$')), findsOneWidget);
+    expect(find.text('1 an'), findsOneWidget);
+  });
+
+  testWidgets('D3: tapping 1 year pill fires onChanged with oneYear',
+      (tester) async {
+    StatsPeriod? captured;
+    await tester.pumpWidget(
+      _harness(
+        value: StatsPeriod.thirtyDays,
+        onChanged: (p) => captured = p,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 year'));
+    expect(captured, StatsPeriod.oneYear);
   });
 
   testWidgets('tapping a pill calls onChanged with that period',

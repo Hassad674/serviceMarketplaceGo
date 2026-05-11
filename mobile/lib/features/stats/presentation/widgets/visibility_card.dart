@@ -58,30 +58,62 @@ class _VisibilityContent extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final hasSeriesSignal = !isVisibilitySeriesEmpty(stats);
 
+    // D3: when the org has zero views across the period, replace the
+    // chart with a friendly accentSoft empty card that nudges toward
+    // a LinkedIn share. The unit counts (total + unique) keep their
+    // own metric cells so the user still sees the zero state.
+    if (stats.totalViews == 0) {
+      return StatsCardShell(
+        title: l10n.statsVisibilityTitle,
+        subtitle: l10n.statsVisibilitySubtitle,
+        child: _EmptyNoViews(l10n: l10n),
+      );
+    }
+
     // Unit counts (total views, search appearances) are ALWAYS rendered
     // — even when zero. The patience copy is reserved for
     // avg_search_position only (statistical significance).
-    final viewsSeries = stats.series.map((p) => p.count).toList();
+    final uniqueSeries = stats.series
+        .map((p) => p.unique ?? p.count)
+        .toList();
+    final totalSeries = stats.series.map((p) => p.count).toList();
     return StatsCardShell(
       title: l10n.statsVisibilityTitle,
       subtitle: l10n.statsVisibilitySubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Metric(
-            label: l10n.statsProfileViews,
-            value: '${stats.totalViews}',
-            colorAccent: theme.colorScheme.primary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Metric(
+                  label: l10n.statsUniqueViewersLabel,
+                  value: '${stats.uniqueViewers}',
+                  colorAccent: theme.colorScheme.primary,
+                ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: l10n.statsProfileViews,
+                  value: '${stats.totalViews}',
+                  colorAccent: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
           ),
           if (hasSeriesSignal) ...[
             const SizedBox(height: 14),
+            _ChartLegend(l10n: l10n),
+            const SizedBox(height: 6),
             SizedBox(
               height: 56,
               child: RepaintBoundary(
                 child: CustomPaint(
                   size: const Size.fromHeight(56),
                   painter: SparklinePainter(
-                    values: viewsSeries,
+                    values: uniqueSeries,
+                    secondaryValues: totalSeries,
                     lineColor: theme.colorScheme.primary,
                     fillColor: appColors?.accentSoft ??
                         theme.colorScheme.primaryContainer,
@@ -99,6 +131,85 @@ class _VisibilityContent extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Soleil v2 accentSoft empty card — replaces the chart when the org
+/// has zero recorded views across the selected period. Nudges the
+/// user toward a LinkedIn share so they get past the cold-start zero.
+class _EmptyNoViews extends StatelessWidget {
+  const _EmptyNoViews({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Container(
+      key: const ValueKey('stats-empty-no-views'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: appColors?.accentSoft ?? theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.statsEmptyNoViewsTitle,
+            style: SoleilTextStyles.titleMedium.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.statsEmptyNoViewsBody,
+            style: SoleilTextStyles.body.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Two-pill legend explaining the dashed-vs-solid lines in the
+/// visibility sparkline. Mirrors the web `ChartLegend` component.
+class _ChartLegend extends StatelessWidget {
+  const _ChartLegend({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final mutedFg =
+        appColors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+    final captionStyle = SoleilTextStyles.caption.copyWith(color: mutedFg);
+    return Row(
+      children: [
+        Container(
+          width: 14,
+          height: 2,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(width: 4),
+        Text(l10n.statsLegendUnique, style: captionStyle),
+        const SizedBox(width: 12),
+        Container(
+          width: 14,
+          height: 2,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.55),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(l10n.statsLegendTotal, style: captionStyle),
+      ],
     );
   }
 }

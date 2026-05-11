@@ -7520,6 +7520,42 @@ abstract class AppLocalizations {
   /// **'90d'**
   String get statsPeriod90d;
 
+  /// No description provided for @statsPeriod1y.
+  ///
+  /// In en, this message translates to:
+  /// **'1 year'**
+  String get statsPeriod1y;
+
+  /// No description provided for @statsEmptyNoViewsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No one has visited your profile yet'**
+  String get statsEmptyNoViewsTitle;
+
+  /// No description provided for @statsEmptyNoViewsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your profile link on LinkedIn to gain visibility — every visit shows up here.'**
+  String get statsEmptyNoViewsBody;
+
+  /// No description provided for @statsLegendUnique.
+  ///
+  /// In en, this message translates to:
+  /// **'Unique'**
+  String get statsLegendUnique;
+
+  /// No description provided for @statsLegendTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get statsLegendTotal;
+
+  /// No description provided for @statsUniqueViewersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Unique visitors'**
+  String get statsUniqueViewersLabel;
+
   /// No description provided for @statsPeriodSelectorLabel.
   ///
   /// In en, this message translates to:

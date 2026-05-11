@@ -213,10 +213,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Bug 2 regression: visibility unit counts still render (as "0")
-    // even when the series is empty. The "Not enough data yet" copy
-    // is reserved for the keywords / applications cards now.
-    expect(find.text('0'), findsWidgets);
+    // D3: when totalViews=0 the visibility card swaps the chart for a
+    // friendly accentSoft empty card ("No one has visited your profile
+    // yet"). The "Not enough data yet" copy is reserved for the
+    // keywords / applications cards.
+    expect(
+      find.byKey(const ValueKey('stats-empty-no-views')),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('Not enough data yet'),
       findsWidgets,

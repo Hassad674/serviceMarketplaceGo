@@ -22,6 +22,7 @@ StatsSeriesPoint _$StatsSeriesPointFromJson(Map<String, dynamic> json) {
 mixin _$StatsSeriesPoint {
   DateTime get date => throw _privateConstructorUsedError;
   int get count => throw _privateConstructorUsedError;
+  int? get unique => throw _privateConstructorUsedError;
 
   /// Serializes this StatsSeriesPoint to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -39,7 +40,7 @@ abstract class $StatsSeriesPointCopyWith<$Res> {
           StatsSeriesPoint value, $Res Function(StatsSeriesPoint) then) =
       _$StatsSeriesPointCopyWithImpl<$Res, StatsSeriesPoint>;
   @useResult
-  $Res call({DateTime date, int count});
+  $Res call({DateTime date, int count, int? unique});
 }
 
 /// @nodoc
@@ -59,6 +60,7 @@ class _$StatsSeriesPointCopyWithImpl<$Res, $Val extends StatsSeriesPoint>
   $Res call({
     Object? date = null,
     Object? count = null,
+    Object? unique = freezed,
   }) {
     return _then(_value.copyWith(
       date: null == date
@@ -69,6 +71,10 @@ class _$StatsSeriesPointCopyWithImpl<$Res, $Val extends StatsSeriesPoint>
           ? _value.count
           : count // ignore: cast_nullable_to_non_nullable
               as int,
+      unique: freezed == unique
+          ? _value.unique
+          : unique // ignore: cast_nullable_to_non_nullable
+              as int?,
     ) as $Val);
   }
 }
@@ -81,7 +87,7 @@ abstract class _$$StatsSeriesPointImplCopyWith<$Res>
       __$$StatsSeriesPointImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({DateTime date, int count});
+  $Res call({DateTime date, int count, int? unique});
 }
 
 /// @nodoc
@@ -99,6 +105,7 @@ class __$$StatsSeriesPointImplCopyWithImpl<$Res>
   $Res call({
     Object? date = null,
     Object? count = null,
+    Object? unique = freezed,
   }) {
     return _then(_$StatsSeriesPointImpl(
       date: null == date
@@ -109,6 +116,10 @@ class __$$StatsSeriesPointImplCopyWithImpl<$Res>
           ? _value.count
           : count // ignore: cast_nullable_to_non_nullable
               as int,
+      unique: freezed == unique
+          ? _value.unique
+          : unique // ignore: cast_nullable_to_non_nullable
+              as int?,
     ));
   }
 }
@@ -116,7 +127,8 @@ class __$$StatsSeriesPointImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$StatsSeriesPointImpl implements _StatsSeriesPoint {
-  const _$StatsSeriesPointImpl({required this.date, required this.count});
+  const _$StatsSeriesPointImpl(
+      {required this.date, required this.count, this.unique});
 
   factory _$StatsSeriesPointImpl.fromJson(Map<String, dynamic> json) =>
       _$$StatsSeriesPointImplFromJson(json);
@@ -125,10 +137,12 @@ class _$StatsSeriesPointImpl implements _StatsSeriesPoint {
   final DateTime date;
   @override
   final int count;
+  @override
+  final int? unique;
 
   @override
   String toString() {
-    return 'StatsSeriesPoint(date: $date, count: $count)';
+    return 'StatsSeriesPoint(date: $date, count: $count, unique: $unique)';
   }
 
   @override
@@ -137,12 +151,13 @@ class _$StatsSeriesPointImpl implements _StatsSeriesPoint {
         (other.runtimeType == runtimeType &&
             other is _$StatsSeriesPointImpl &&
             (identical(other.date, date) || other.date == date) &&
-            (identical(other.count, count) || other.count == count));
+            (identical(other.count, count) || other.count == count) &&
+            (identical(other.unique, unique) || other.unique == unique));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, date, count);
+  int get hashCode => Object.hash(runtimeType, date, count, unique);
 
   /// Create a copy of StatsSeriesPoint
   /// with the given fields replaced by the non-null parameter values.
@@ -164,7 +179,8 @@ class _$StatsSeriesPointImpl implements _StatsSeriesPoint {
 abstract class _StatsSeriesPoint implements StatsSeriesPoint {
   const factory _StatsSeriesPoint(
       {required final DateTime date,
-      required final int count}) = _$StatsSeriesPointImpl;
+      required final int count,
+      final int? unique}) = _$StatsSeriesPointImpl;
 
   factory _StatsSeriesPoint.fromJson(Map<String, dynamic> json) =
       _$StatsSeriesPointImpl.fromJson;
@@ -173,6 +189,8 @@ abstract class _StatsSeriesPoint implements StatsSeriesPoint {
   DateTime get date;
   @override
   int get count;
+  @override
+  int? get unique;
 
   /// Create a copy of StatsSeriesPoint
   /// with the given fields replaced by the non-null parameter values.

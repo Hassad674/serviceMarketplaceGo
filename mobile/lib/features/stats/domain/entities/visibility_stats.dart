@@ -10,11 +10,19 @@ part 'visibility_stats.g.dart';
 /// Mirrors the `series[]` element of the
 /// `GET /api/v1/me/stats/visibility` and
 /// `GET /api/v1/me/stats/enterprise-applications` responses.
+///
+/// D3 — [unique] carries the count of distinct visitor fingerprints
+/// in that bucket. The backend always populates it (applications
+/// series falls back to `count` because applications can't be
+/// deduplicated). Defaults to `null` on the entity so a cached
+/// pre-D3 response still decodes; consumers should fall back to
+/// [count] when [unique] is null.
 @freezed
 class StatsSeriesPoint with _$StatsSeriesPoint {
   const factory StatsSeriesPoint({
     required DateTime date,
     required int count,
+    int? unique,
   }) = _StatsSeriesPoint;
 
   factory StatsSeriesPoint.fromJson(Map<String, dynamic> json) =>

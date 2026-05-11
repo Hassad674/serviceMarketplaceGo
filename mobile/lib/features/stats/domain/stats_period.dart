@@ -1,7 +1,9 @@
 /// Time window selector for the `/stats` screen. Mirrors the backend
-/// allowlist for `days`: {7, 30, 90}. Anything outside this set is
-/// rejected with 400 — pre-clamping at the presentation boundary keeps
-/// the repository abstraction small (ISP).
+/// allowlist for `days`: {7, 30, 90, 365}. Anything outside this set
+/// is rejected with 400 — pre-clamping at the presentation boundary
+/// keeps the repository abstraction small (ISP).
+///
+/// D3 added [oneYear] so the long-tail view matches the web filter.
 ///
 /// Lives in `stats/domain/` so the stats feature owns its own period
 /// type — feature isolation rule. The dashboard's
@@ -12,7 +14,8 @@
 enum StatsPeriod {
   sevenDays(7),
   thirtyDays(30),
-  ninetyDays(90);
+  ninetyDays(90),
+  oneYear(365);
 
   const StatsPeriod(this.days);
 

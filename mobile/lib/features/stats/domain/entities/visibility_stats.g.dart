@@ -11,6 +11,7 @@ _$StatsSeriesPointImpl _$$StatsSeriesPointImplFromJson(
     _$StatsSeriesPointImpl(
       date: DateTime.parse(json['date'] as String),
       count: (json['count'] as num).toInt(),
+      unique: (json['unique'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$StatsSeriesPointImplToJson(
@@ -18,6 +19,7 @@ Map<String, dynamic> _$$StatsSeriesPointImplToJson(
     <String, dynamic>{
       'date': instance.date.toIso8601String(),
       'count': instance.count,
+      'unique': instance.unique,
     };
 
 _$VisibilityStatsImpl _$$VisibilityStatsImplFromJson(

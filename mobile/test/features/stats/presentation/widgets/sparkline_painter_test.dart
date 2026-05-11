@@ -162,5 +162,50 @@ void main() {
       );
       expect(a.shouldRepaint(b), isTrue);
     });
+
+    test('D3: true when the secondary overlay changes', () {
+      final a = SparklinePainter(
+        values: const [1, 2, 3],
+        lineColor: line,
+        fillColor: fill,
+      );
+      final b = SparklinePainter(
+        values: const [1, 2, 3],
+        lineColor: line,
+        fillColor: fill,
+        secondaryValues: const [2, 4, 6],
+      );
+      expect(a.shouldRepaint(b), isTrue);
+    });
+  });
+
+  // D3 — secondary series renders as dashed overlay alongside primary.
+  group('secondary overlay', () {
+    test('paints without crashing when provided', () {
+      final painter = SparklinePainter(
+        values: const [1, 2, 3, 4],
+        lineColor: line,
+        fillColor: fill,
+        secondaryValues: const [2, 4, 6, 8],
+      );
+      final r = _newRecorder();
+      painter.paint(r.canvas, size);
+      final pic = r.recorder.endRecording();
+      expect(_countOps(pic), greaterThan(0));
+    });
+
+    test('secondary series with fewer than 2 points is ignored', () {
+      // Should not throw and should still paint the primary line.
+      final painter = SparklinePainter(
+        values: const [1, 2, 3, 4],
+        lineColor: line,
+        fillColor: fill,
+        secondaryValues: const [9],
+      );
+      final r = _newRecorder();
+      painter.paint(r.canvas, size);
+      final pic = r.recorder.endRecording();
+      expect(_countOps(pic), greaterThan(0));
+    });
   });
 }

@@ -4091,6 +4091,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statsPeriod90d => '90d';
 
   @override
+  String get statsPeriod1y => '1 year';
+
+  @override
+  String get statsEmptyNoViewsTitle => 'No one has visited your profile yet';
+
+  @override
+  String get statsEmptyNoViewsBody =>
+      'Share your profile link on LinkedIn to gain visibility — every visit shows up here.';
+
+  @override
+  String get statsLegendUnique => 'Unique';
+
+  @override
+  String get statsLegendTotal => 'Total';
+
+  @override
+  String get statsUniqueViewersLabel => 'Unique visitors';
+
+  @override
   String get statsPeriodSelectorLabel => 'Period';
 
   @override

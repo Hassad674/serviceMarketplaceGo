@@ -4,13 +4,14 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/stats_period.dart';
 
-/// Pill-style 7d / 30d / 90d switcher used at the top of the
+/// Pill-style 7d / 30d / 90d / 1y switcher used at the top of the
 /// [StatsScreen]. Soleil v2 idiom: rounded-full ghost track, corail fill
 /// for the selected pill.
 ///
 /// Stateless; the parent owns the [StatsPeriod] in a Riverpod provider
 /// and pushes the new value via [onChanged]. The label formatting goes
-/// through [AppLocalizations] so the FR variant says "7 j / 30 j / 90 j".
+/// through [AppLocalizations] so the FR variant says
+/// "7 j / 30 j / 90 j / 1 an" (D3 added the 1-year option).
 class PeriodSelector extends StatelessWidget {
   const PeriodSelector({
     super.key,
@@ -57,6 +58,7 @@ class PeriodSelector extends StatelessWidget {
       StatsPeriod.sevenDays => l10n.statsPeriod7d,
       StatsPeriod.thirtyDays => l10n.statsPeriod30d,
       StatsPeriod.ninetyDays => l10n.statsPeriod90d,
+      StatsPeriod.oneYear => l10n.statsPeriod1y,
     };
   }
 }

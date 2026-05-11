@@ -17,11 +17,18 @@ class SparklinePainter extends CustomPainter {
     required this.values,
     required this.lineColor,
     required this.fillColor,
+    this.secondaryValues,
   });
 
   final List<int> values;
   final Color lineColor;
   final Color fillColor;
+
+  /// Optional overlay series, drawn on top of [values] as a faded
+  /// dashed line. Used by the visibility card to surface total views
+  /// (overlay) alongside unique viewers (primary). Both series share
+  /// the same Y axis — the painter scales to the combined max.
+  final List<int>? secondaryValues;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -36,7 +43,13 @@ class SparklinePainter extends CustomPainter {
       return;
     }
 
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    // Y axis spans the combined max of primary + secondary so neither
+    // line clips when the user enables the secondary overlay.
+    var maxValue = values.reduce((a, b) => a > b ? a : b);
+    if (secondaryValues != null && secondaryValues!.isNotEmpty) {
+      final secMax = secondaryValues!.reduce((a, b) => a > b ? a : b);
+      if (secMax > maxValue) maxValue = secMax;
+    }
     if (maxValue <= 0) {
       _paintBaseline(canvas, size);
       return;
@@ -75,6 +88,54 @@ class SparklinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(path, linePaint);
+
+    _paintSecondary(canvas, size, stepX, usableHeight, maxValue);
+  }
+
+  void _paintSecondary(
+    Canvas canvas,
+    Size size,
+    double stepX,
+    double usableHeight,
+    int maxValue,
+  ) {
+    final sec = secondaryValues;
+    if (sec == null || sec.length < 2) return;
+
+    // Build the secondary polyline path on the same Y scale as primary.
+    final secPath = Path();
+    for (var i = 0; i < sec.length; i++) {
+      final x = stepX * i;
+      final ratio = sec[i] / maxValue;
+      final y = size.height - (ratio * usableHeight);
+      if (i == 0) {
+        secPath.moveTo(x, y);
+      } else {
+        secPath.lineTo(x, y);
+      }
+    }
+
+    // Render as dashed segments via PathMetric walk — visually reads
+    // as the dashed corail line in the web chart (4 / 4 pattern).
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = lineColor.withValues(alpha: 0.55)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    const dash = 4.0;
+    const gap = 4.0;
+    for (final metric in secPath.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        final extracted = metric.extractPath(
+          distance,
+          next > metric.length ? metric.length : next,
+        );
+        canvas.drawPath(extracted, paint);
+        distance = next + gap;
+      }
+    }
   }
 
   void _paintBaseline(Canvas canvas, Size size) {
@@ -90,7 +151,8 @@ class SparklinePainter extends CustomPainter {
   bool shouldRepaint(covariant SparklinePainter old) {
     return old.lineColor != lineColor ||
         old.fillColor != fillColor ||
-        !_listEquals(old.values, values);
+        !_listEquals(old.values, values) ||
+        !_listEqualsNullable(old.secondaryValues, secondaryValues);
   }
 
   bool _listEquals(List<int> a, List<int> b) {
@@ -100,5 +162,11 @@ class SparklinePainter extends CustomPainter {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+
+  bool _listEqualsNullable(List<int>? a, List<int>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return _listEquals(a, b);
   }
 }
