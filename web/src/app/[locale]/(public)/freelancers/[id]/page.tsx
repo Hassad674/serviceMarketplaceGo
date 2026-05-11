@@ -30,6 +30,22 @@ type Props = {
   params: Promise<{ id: string; locale: string }>
 }
 
+// PERF-B: ISR revalidation window for the public freelance profile.
+// The Next.js cache stores the rendered RSC payload + the API responses
+// it fetched for `revalidate` seconds. After that, the next request
+// triggers a background revalidation while still serving the stale
+// page (stale-while-revalidate). Combined with the backend's
+// `Cache-Control: public, s-maxage=300` on `/api/v1/freelance-profiles/{id}`,
+// this collapses the steady-state cost of a profile page to ~0 on
+// Vercel's edge once the cache is warm.
+//
+// 60s matches the backend max-age, so a browser cache hit and a Next.js
+// edge revalidation align. Authenticated previews bypass the cache:
+// the server-side fetch attaches the session cookie which the backend
+// translates into `Cache-Control: private, no-store`, so the edge
+// stores nothing for that variant.
+export const revalidate = 60
+
 // generateMetadata runs on the server and populates the SEO head with
 // hreflang alternates, OpenGraph, and Twitter card data. The OG image
 // is served by the colocated `opengraph-image.tsx` route — Next.js
