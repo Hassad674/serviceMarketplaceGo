@@ -1954,17 +1954,16 @@
     "billingIncompleteTitle": "Your billing info is incomplete",
     "billingIncompleteHint": "Before you pay, complete the details that will appear on your receipt.",
     "billingIncompleteCta": "Complete my info",
-    "inlineBilling": {
-      "legend": "Billing identity",
-      "subtitle": "This information will appear on your receipt. You can edit it later from your settings.",
-      "legalNameLabel": "Legal name",
-      "legalNamePlaceholder": "e.g. Acme Studio Ltd",
-      "siretLabel": "SIRET",
-      "siretError": "SIRET must be 14 digits.",
-      "vatLabel": "Intra-EU VAT number",
-      "vatOptional": "optional",
-      "vatError": "Invalid format (e.g. FR12345678901).",
-      "saveError": "Could not save your info. Please retry."
+    "billingEmbed": {
+      "summaryTitle": "Billing identity",
+      "editCta": "Edit",
+      "country": "Country",
+      "address": "Address",
+      "entity": "Legal entity",
+      "tax": "Tax identifiers",
+      "loading": "Loading your information",
+      "completePromptTitle": "Complete your billing identity",
+      "completePromptBody": "Before confirming payment, please fill in the details that will appear on your receipt."
     },
     "uploadError": "Failed to upload files. Please try again.",
     "detailTitle": "Proposal details",

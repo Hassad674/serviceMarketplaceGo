@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
 import {
@@ -22,12 +22,8 @@ import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-ap
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
 import { Button } from "@/shared/components/ui/button"
 import { BillingProfileInlineModal } from "@/shared/components/billing-profile/billing-profile-inline-modal"
+import { BillingProfileEmbed } from "@/shared/components/billing-profile/billing-profile-embed"
 import { useBillingProfile } from "@/shared/hooks/billing-profile/use-billing-profile"
-import {
-  PaymentBillingIdentitySection,
-  persistInlineBillingIdentity,
-  type PaymentBillingIdentityValues,
-} from "./payment-billing-identity-section"
 
 // Soleil v2 — Payment confirmation page (escrow). Soleil card with
 // editorial header, Geist Mono amount summary, corail "Confirmer" pill.
@@ -75,6 +71,22 @@ export function PaymentSimulation() {
   // closes either when the user dismisses or when the form's onSaved
   // callback retries the payment intent.
   const [billingModalOpen, setBillingModalOpen] = useState(false)
+
+  // Inline billing-profile embed state owned at the top of the flow so
+  // both branches (Stripe Elements + simulation fallback) can render
+  // and gate on it. `null` means "follow snapshot.is_complete" — true
+  // forces edit mode, false forces summary mode.
+  const { data: billingSnapshot } = useBillingProfile()
+  const isBillingComplete = Boolean(billingSnapshot?.is_complete)
+  const [isEditingBilling, setIsEditingBilling] = useState<boolean | null>(null)
+  const billingMode: "summary" | "form" = (() => {
+    if (isEditingBilling === true) return "form"
+    if (isEditingBilling === false) return "summary"
+    return isBillingComplete ? "summary" : "form"
+  })()
+  // Stripe Payment Element + Confirm button only render once the
+  // billing profile is complete AND the user is not actively editing.
+  const isPaymentReady = isBillingComplete && billingMode === "summary"
 
   useEffect(() => {
     if (!proposalId) return
@@ -235,49 +247,60 @@ export function PaymentSimulation() {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
   }
 
+  const billingEmbedBlock = (
+    <BillingProfileEmbed
+      mode={billingMode}
+      onEdit={() => setIsEditingBilling(true)}
+      onSaved={() => setIsEditingBilling(false)}
+    />
+  )
+
   if (paymentData.client_secret && stripePromise) {
     return (
       <PaymentLayout proposal={proposal} onBack={() => router.back()}>
         <FeeBreakdown amounts={paymentData.amounts} />
-        <Elements
-          stripe={stripePromise}
-          options={{
-            clientSecret: paymentData.client_secret,
-            appearance: { theme: "stripe" },
-          }}
-        >
-          <StripePaymentForm
-            proposalId={proposalId}
-            onSuccess={() => {
-              // GA4 + PostHog: ecommerce schema. Amounts arrive in
-              // cents from the backend → divide by 100 for the
-              // currency-typed `value`. The marketplace ships EUR
-              // only; revisit when multi-currency lands. transaction_id
-              // uses the backend-issued payment_record_id when
-              // present, falling back to the proposal id which is
-              // still unique per purchase.
-              const amounts = paymentData.amounts
-              if (amounts) {
-                trackPurchase({
-                  value: amounts.client_total / 100,
-                  currency: "EUR",
-                  transactionId:
-                    paymentData.payment_record_id ?? proposalId,
-                  items: [
-                    {
-                      item_id: proposalId,
-                      item_name: proposal.title,
-                      price: amounts.proposal_amount / 100,
-                      quantity: 1,
-                    },
-                  ],
-                })
-              }
-              setPaid(true)
-              setTimeout(() => router.push("/projects"), 2000)
+        {billingEmbedBlock}
+        {isPaymentReady && (
+          <Elements
+            stripe={stripePromise}
+            options={{
+              clientSecret: paymentData.client_secret,
+              appearance: { theme: "stripe" },
             }}
-          />
-        </Elements>
+          >
+            <StripePaymentForm
+              proposalId={proposalId}
+              onSuccess={() => {
+                // GA4 + PostHog: ecommerce schema. Amounts arrive in
+                // cents from the backend → divide by 100 for the
+                // currency-typed `value`. The marketplace ships EUR
+                // only; revisit when multi-currency lands. transaction_id
+                // uses the backend-issued payment_record_id when
+                // present, falling back to the proposal id which is
+                // still unique per purchase.
+                const amounts = paymentData.amounts
+                if (amounts) {
+                  trackPurchase({
+                    value: amounts.client_total / 100,
+                    currency: "EUR",
+                    transactionId:
+                      paymentData.payment_record_id ?? proposalId,
+                    items: [
+                      {
+                        item_id: proposalId,
+                        item_name: proposal.title,
+                        price: amounts.proposal_amount / 100,
+                        quantity: 1,
+                      },
+                    ],
+                  })
+                }
+                setPaid(true)
+                setTimeout(() => router.push("/projects"), 2000)
+              }}
+            />
+          </Elements>
+        )}
         {/* Closing comment for downstream readers: the legacy 412 gate
             modal stays mounted here as a defensive fallback. The pre-
             payment gate was removed in fcb072d5; if a future deploy
@@ -289,31 +312,34 @@ export function PaymentSimulation() {
 
   return (
     <PaymentLayout proposal={proposal} onBack={() => router.back()}>
-      <SimulationFallback
-        proposalId={proposalId}
-        onPaid={() => {
-          // Simulation mode (no Stripe): still fire the GA4 purchase
-          // so the conversion funnel registers the test transactions
-          // in dev / preview deployments.
-          if (paymentData.amounts) {
-            trackPurchase({
-              value: paymentData.amounts.client_total / 100,
-              currency: "EUR",
-              transactionId: paymentData.payment_record_id ?? proposalId,
-              items: [
-                {
-                  item_id: proposalId,
-                  item_name: proposal.title,
-                  price: paymentData.amounts.proposal_amount / 100,
-                  quantity: 1,
-                },
-              ],
-            })
-          }
-          setPaid(true)
-          setTimeout(() => router.push("/projects"), 1500)
-        }}
-      />
+      {billingEmbedBlock}
+      {isPaymentReady && (
+        <SimulationFallback
+          proposalId={proposalId}
+          onPaid={() => {
+            // Simulation mode (no Stripe): still fire the GA4 purchase
+            // so the conversion funnel registers the test transactions
+            // in dev / preview deployments.
+            if (paymentData.amounts) {
+              trackPurchase({
+                value: paymentData.amounts.client_total / 100,
+                currency: "EUR",
+                transactionId: paymentData.payment_record_id ?? proposalId,
+                items: [
+                  {
+                    item_id: proposalId,
+                    item_name: proposal.title,
+                    price: paymentData.amounts.proposal_amount / 100,
+                    quantity: 1,
+                  },
+                ],
+              })
+            }
+            setPaid(true)
+            setTimeout(() => router.push("/projects"), 1500)
+          }}
+        />
+      )}
     </PaymentLayout>
   )
 }
@@ -330,25 +356,6 @@ function StripePaymentForm({
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
-  // Snapshot of the existing billing-profile so persistInlineBillingIdentity
-  // can keep the address fields the user already saved on the standalone
-  // settings page. Reads through the shared TanStack Query hook — the
-  // same query already cached by the inline section — so this does NOT
-  // trigger a second network round-trip.
-  const { data: billingSnapshot } = useBillingProfile()
-  // useRef keeps a live reference to the latest section values so the
-  // submit handler captures them at click-time without re-creating
-  // handleSubmit on every keystroke (which would re-render the
-  // PaymentElement, killing focus inside the iframe).
-  const billingValuesRef = useRef<PaymentBillingIdentityValues>({
-    legal_name: "",
-    tax_id: "",
-    vat_number: "",
-  })
-
-  const handleBillingChange = useCallback((values: PaymentBillingIdentityValues) => {
-    billingValuesRef.current = values
-  }, [])
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -358,31 +365,14 @@ function StripePaymentForm({
       setSubmitting(true)
       setError("")
 
-      // 1) Persist SIRET/VAT/legal-name BEFORE Stripe so the receipt
-      //    snapshot (captured at PaymentIntent creation, hydrated again
-      //    by the webhook) carries the legal identity. Failure is
-      //    surfaced inline so the user can fix the data — we do NOT
-      //    silently degrade here, otherwise the pretty UX defeats the
-      //    purpose of capturing the identity.
-      try {
-        await persistInlineBillingIdentity(
-          billingValuesRef.current,
-          billingSnapshot?.profile,
-        )
-      } catch (err) {
-        const message =
-          err instanceof ApiError
-            ? err.message
-            : t("inlineBilling.saveError")
-        setError(message)
-        setSubmitting(false)
-        return
-      }
-
-      // 2) Hand off to Stripe. The Payment Element collects address
-      //    + name natively per the Elements options.fields.billingDetails
-      //    config — those land on payment_method.billing_details and
-      //    are projected by the webhook adapter into PaymentBillingDetails.
+      // Hand off to Stripe. The Payment Element collects address +
+      // name natively per the Elements options.fields.billingDetails
+      // config — those land on payment_method.billing_details and are
+      // projected by the webhook adapter into PaymentBillingDetails.
+      // The receipt-identity fields (legal_name, SIRET, VAT) are
+      // already on file via the BillingProfileEmbed rendered above
+      // this form — the parent gates rendering on `is_complete` so
+      // we can ship a clean submit path here.
       const { error: stripeError } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -404,22 +394,13 @@ function StripePaymentForm({
       }
       onSuccess()
     },
-    [stripe, elements, proposalId, onSuccess, t, billingSnapshot?.profile],
+    [stripe, elements, proposalId, onSuccess, t],
   )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentBillingIdentitySection onChange={handleBillingChange} />
       <PaymentElement
         options={{
-          // Tell Stripe to collect every address field natively. Country
-          // is auto-detected from the browser locale; the rest are
-          // user-typed inside the Stripe iframe and ride on the
-          // payment_method.billing_details that the webhook handler
-          // hydrates the billing profile from. Email + phone stay off
-          // by default — they're not required for B2B invoicing and
-          // would clutter the UI. Switch them to "auto" if the receipt
-          // template ever needs them.
           fields: {
             billingDetails: {
               name: "auto",
