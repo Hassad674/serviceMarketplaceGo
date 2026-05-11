@@ -144,14 +144,26 @@ func mountWalletRoutes(r chi.Router, deps RouterDeps, auth func(http.Handler) ht
 		r.Use(auth)
 		r.Use(middleware.NoCache)
 		r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
+		// Run B (WALLET-UNIFY) — unified read endpoint composing
+		// missions + commissions in a single envelope.
+		r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/summary", deps.Wallet.Summary)
 		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
 		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/transfers/{record_id}/retry", deps.Wallet.RetryFailedTransfer)
+		// Run B (WALLET-UNIFY) — unified withdraw endpoint drains
+		// missions AND commissions in a single call. Idempotency-Key
+		// guarded so double-clicks don't double-Stripe.
+		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).
+			With(idem).
+			Post("/withdraw", deps.Wallet.Withdraw)
 		// D1+D2 — Retirer fallback for apporteur commissions stuck in
 		// pending_kyc / failed. The Idempotency-Key middleware guards
 		// against double-click duplicates on the same retry attempt.
+		// Kept for 30 days with Deprecation + Sunset headers (Run B
+		// back-compat per the brief). Run C web migrates to the
+		// unified /wallet/withdraw above.
 		r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).
 			With(idem).
-			Post("/commissions/{id}/retry", deps.Wallet.RetryCommission)
+			Post("/commissions/{id}/retry", deps.Wallet.RetryCommissionDeprecated)
 	})
 }
 
