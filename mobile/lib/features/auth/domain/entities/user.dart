@@ -16,6 +16,12 @@ class User with _$User {
     required UserRole role,
     @Default(false) bool referrerEnabled,
     @Default(false) bool emailVerified,
+    // FIX-2FA: mirrors the backend's two_factor_email_enabled field on
+    // /auth/me. Default `false` so older payloads that predate the
+    // field (and any tests that build a fixture without it) keep
+    // working — the toggle treats absent === off, which matches the
+    // server's behaviour for users who never opted in.
+    @Default(false) bool twoFactorEmailEnabled,
     required DateTime createdAt,
   }) = _User;
 
