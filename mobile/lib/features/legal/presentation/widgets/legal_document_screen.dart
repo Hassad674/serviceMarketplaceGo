@@ -155,8 +155,8 @@ class _LegalDocumentBody extends StatelessWidget {
           Text(
             subtitle,
             style: SoleilTextStyles.body.copyWith(
-              color: colors?.mutedForeground ??
-                  theme.colorScheme.onSurfaceVariant,
+              color:
+                  colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 16),
@@ -171,8 +171,8 @@ class _LegalDocumentBody extends StatelessWidget {
           Text(
             lastUpdatedLabel,
             style: SoleilTextStyles.caption.copyWith(
-              color: colors?.mutedForeground ??
-                  theme.colorScheme.onSurfaceVariant,
+              color:
+                  colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant,
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -218,11 +218,9 @@ MarkdownStyleSheet _soleilMarkdownStyle(BuildContext context) {
   final theme = Theme.of(context);
   final colors = theme.extension<AppColors>();
   final fg = theme.colorScheme.onSurface;
-  final mute =
-      colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
+  final mute = colors?.mutedForeground ?? theme.colorScheme.onSurfaceVariant;
   final accent = theme.colorScheme.primary;
-  final accentSoft =
-      colors?.accentSoft ?? theme.colorScheme.primaryContainer;
+  final accentSoft = colors?.accentSoft ?? theme.colorScheme.primaryContainer;
   return MarkdownStyleSheet(
     h1: SoleilTextStyles.displayM.copyWith(color: fg),
     h2: SoleilTextStyles.headlineLarge.copyWith(color: fg),

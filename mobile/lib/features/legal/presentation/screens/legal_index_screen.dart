@@ -171,16 +171,14 @@ class _LegalDocCard extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: colors?.accentSoft ??
-                      theme.colorScheme.primaryContainer,
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusFull),
+                  color:
+                      colors?.accentSoft ?? theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 ),
                 child: Text(
                   '${l10n.legalReferenceLabel} — ${doc.reference}',
                   style: SoleilTextStyles.caption.copyWith(
-                    color: colors?.primaryDeep ??
-                        theme.colorScheme.primary,
+                    color: colors?.primaryDeep ?? theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
