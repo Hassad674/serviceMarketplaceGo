@@ -252,6 +252,7 @@ POST /api/v1/upload/portfolio-video mw=9
 POST /api/v1/upload/referrer-video mw=9
 POST /api/v1/upload/review-video mw=9
 POST /api/v1/upload/video mw=9
+POST /api/v1/wallet/commissions/{id}/retry mw=10
 POST /api/v1/wallet/payout mw=9
 POST /api/v1/wallet/transfers/{record_id}/retry mw=9
 PUT /api/v1/auth/referrer-enable mw=8

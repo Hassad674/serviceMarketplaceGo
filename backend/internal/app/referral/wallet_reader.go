@@ -120,6 +120,7 @@ func (s *Service) RecentCommissions(ctx context.Context, referrerID uuid.UUID, l
 			PaidAt:           c.PaidAt,
 			ClawedBackAt:     c.ClawedBackAt,
 			CreatedAt:        c.CreatedAt,
+			RetireEligible:   isCommissionRetireEligible(c.Status),
 		}
 		if a, ok := atts[c.AttributionID]; ok {
 			rec.ReferralID = a.ReferralID
@@ -128,4 +129,54 @@ func (s *Service) RecentCommissions(ctx context.Context, referrerID uuid.UUID, l
 		out = append(out, rec)
 	}
 	return out, nil
+}
+
+// isCommissionRetireEligible mirrors the retry orchestrator's
+// eligibility rule: only pending_kyc and failed rows can be retried.
+// Centralised here so wallet payloads and the retry endpoint agree on
+// the same definition — drift would let the UI render Retirer buttons
+// that the backend immediately refuses.
+func isCommissionRetireEligible(status referral.CommissionStatus) bool {
+	switch status {
+	case referral.CommissionPendingKYC, referral.CommissionFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// GroupedCommissions implements service.ReferralWalletReader. Returns
+// the apporteur's recent commission rows partitioned by the four
+// wallet-relevant statuses. The cap is shared with RecentCommissions
+// so a noisy apporteur cannot blow up the wallet payload.
+//
+// The implementation calls RecentCommissions internally — there is no
+// dedicated SQL query because the cardinality of an apporteur's
+// recent commissions is bounded (50-100 rows) and a single read with
+// post-partition is simpler, cheaper to test, and avoids drift between
+// the two query paths.
+func (s *Service) GroupedCommissions(ctx context.Context, referrerID uuid.UUID, limit int) (service.ReferralCommissionGroups, error) {
+	recent, err := s.RecentCommissions(ctx, referrerID, limit)
+	if err != nil {
+		return service.ReferralCommissionGroups{}, err
+	}
+	groups := service.ReferralCommissionGroups{}
+	for _, rec := range recent {
+		switch rec.Status {
+		case string(referral.CommissionPaid):
+			groups.Paid = append(groups.Paid, rec)
+		case string(referral.CommissionPendingKYC):
+			groups.PendingKYC = append(groups.PendingKYC, rec)
+		case string(referral.CommissionFailed):
+			groups.Failed = append(groups.Failed, rec)
+		case string(referral.CommissionCancelled):
+			groups.Cancelled = append(groups.Cancelled, rec)
+		default:
+			// pending / clawed_back are not surfaced as groups in
+			// D1+D2 — the wallet already has a separate summary
+			// section for them. Skipping keeps the contract
+			// focused on the retire-able statuses.
+		}
+	}
+	return groups, nil
 }

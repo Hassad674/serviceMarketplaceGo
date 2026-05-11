@@ -462,6 +462,9 @@ func (s *stubReferralWallet) GetReferrerSummary(_ context.Context, _ uuid.UUID) 
 func (s *stubReferralWallet) RecentCommissions(_ context.Context, _ uuid.UUID, _ int) ([]service.ReferralCommissionRecord, error) {
 	return s.recent, s.recentErr
 }
+func (s *stubReferralWallet) GroupedCommissions(_ context.Context, _ uuid.UUID, _ int) (service.ReferralCommissionGroups, error) {
+	return service.ReferralCommissionGroups{}, nil
+}
 
 func TestWalletService_GetWalletOverview_PopulatesCommissionSection(t *testing.T) {
 	records := &walletStubRecords{}

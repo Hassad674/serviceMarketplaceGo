@@ -526,6 +526,15 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	})
 	stripeHandler := billing.StripeHandler
 	walletHandler := billing.WalletHandler
+	// D1+D2 — wire the apporteur commission retrier into the wallet
+	// handler so the POST /api/v1/wallet/commissions/{id}/retry endpoint
+	// can drive the referral service's RetryCommission orchestrator.
+	// Done here (not inside bootstrap_billing or wire_invoicing) because
+	// the referral service is built later in the boot sequence and the
+	// wallet handler is the natural integration point.
+	if walletHandler != nil && referralSvc != nil {
+		walletHandler = walletHandler.WithCommissionRetrier(referralSvc)
+	}
 	billingHandler := billing.BillingHandler
 	subscriptionHandler := billing.SubscriptionHandler
 	billingProfileHandler := billing.BillingProfileHandler

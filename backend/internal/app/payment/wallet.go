@@ -178,6 +178,11 @@ func (w *WalletService) populateCommissionSide(ctx context.Context, wallet *Wall
 	}
 	wallet.CommissionRecords = make([]WalletCommissionRecord, 0, len(recent))
 	for _, r := range recent {
+		// retire_eligible mirrors the commission retry orchestrator's
+		// switch statement: pending_kyc and failed rows can be retried,
+		// every other status is terminal or owned by another flow.
+		// Keep this in sync with referralapp.Service.RetryCommission.
+		retireEligible := r.Status == "pending_kyc" || r.Status == "failed"
 		rec := WalletCommissionRecord{
 			ID:               r.ID.String(),
 			GrossAmountCents: r.GrossAmountCents,
@@ -186,6 +191,7 @@ func (w *WalletService) populateCommissionSide(ctx context.Context, wallet *Wall
 			Status:           r.Status,
 			StripeTransferID: r.StripeTransferID,
 			CreatedAt:        r.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			RetireEligible:   retireEligible,
 		}
 		if r.ReferralID != uuid.Nil {
 			rec.ReferralID = r.ReferralID.String()
