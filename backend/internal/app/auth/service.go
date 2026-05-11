@@ -62,14 +62,30 @@ type orgContext = orgapp.Context
 const timingParityDummyPassword = "TimingParityDummy_Password_v1!" // #nosec G101 -- timing-parity dummy, not a real credential
 
 // SessionFingerprint groups the request-side metadata that the
-// service uses to record an audit row in user_sessions (B.4). The
-// handler is responsible for hashing the user-agent and anonymizing
-// the IP — the service treats both as opaque strings. When a
-// fingerprint is empty the service skips the audit row and emits a
-// slog.Warn so the missing piece is visible in production logs.
+// service uses to record an audit row in user_sessions (B.4 +
+// SEC-SESSIONS / migration 150). The handler is responsible for
+// hashing the user-agent, anonymizing the IP, and parsing the UA
+// into display fields — the service treats every field as opaque.
+// When the forensic pair (UserAgentHash + IPAnonymized) is empty
+// the service skips the audit row and emits a slog.Warn.
+//
+// RemoteIP is the raw, un-anonymized IP. It is NEVER persisted —
+// only its /24 truncation (IPAnonymized) lands in the row. The raw
+// value lives just long enough for the fire-and-forget GeoIP
+// goroutine to resolve {city, country_code}; afterwards it is
+// dropped with the rest of the struct.
 type SessionFingerprint struct {
 	UserAgentHash string
 	IPAnonymized  string
+
+	// SEC-SESSIONS — display-grade columns for the Sécurité page.
+	DeviceLabel string
+	Browser     string
+	OS          string
+
+	// RemoteIP is the raw IP, used ONLY by the GeoIP goroutine.
+	// Never written to the database directly.
+	RemoteIP string
 }
 
 type RegisterInput struct {
@@ -167,6 +183,11 @@ type Service struct {
 	// session-row writes and falls back to legacy behavior. Production
 	// wiring always attaches the Postgres adapter.
 	userSessions repository.UserSessionRepository
+	// geoIP enriches new session rows with {city, country_code} via
+	// a fire-and-forget goroutine after the session is created. Optional —
+	// when nil, the city / country_code columns stay at their SQL
+	// default of '' and the Sécurité row simply omits the location.
+	geoIP service.GeoIPLookup
 	// twoFactorGate is the optional B.6 hook. When nil, Login behaves
 	// exactly like it did pre-B.6 — tokens are issued immediately on a
 	// successful password match. When wired, Login consults the gate
@@ -189,6 +210,7 @@ type ServiceDeps struct {
 	RefreshBlacklist service.RefreshBlacklistService // SEC-06: when set, refresh tokens rotate single-use through Redis
 	Audits           repository.AuditRepository      // SEC-13: when set, auth events + token_reuse_detected are recorded
 	UserSessions     repository.UserSessionRepository // B.4: when set, login/refresh/logout produce server-side session rows
+	GeoIP            service.GeoIPLookup              // SEC-SESSIONS: when set, new session rows are enriched with {city, country_code} via a fire-and-forget goroutine
 	TwoFactorGate    TwoFactorGate                    // B.6: when set, Login gates on email 2FA
 	FrontendURL      string
 }
@@ -228,6 +250,7 @@ func NewServiceWithDeps(deps ServiceDeps) *Service {
 		refreshBlacklist: deps.RefreshBlacklist,
 		audits:           deps.Audits,
 		userSessions:     deps.UserSessions,
+		geoIP:            deps.GeoIP,
 		twoFactorGate:    deps.TwoFactorGate,
 		frontendURL:      deps.FrontendURL,
 	}

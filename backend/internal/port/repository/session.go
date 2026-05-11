@@ -44,6 +44,33 @@ type UserSessionRepository interface {
 
 	// ListActiveByUser returns every session for userID that is not
 	// revoked and not yet expired, newest expiry first. Used by the
-	// future Sécurité page; capped server-side at 50 rows.
+	// Sécurité page; capped server-side at 50 rows.
 	ListActiveByUser(ctx context.Context, userID uuid.UUID) ([]*session.Session, error)
+
+	// UpdateGeoCity patches the city / country_code columns on the row
+	// matching jti. Used by the fire-and-forget GeoIP goroutine that
+	// runs AFTER session creation — the auth flow itself never blocks
+	// on a third-party lookup (SEC-SESSIONS / migration 150).
+	//
+	// Idempotent and best-effort: a missing row is not an error from
+	// the caller's POV. Empty strings overwrite to '' to keep the
+	// schema invariant ("'' means unknown").
+	UpdateGeoCity(ctx context.Context, jti string, city string, countryCode string) error
+
+	// FindByID returns the session whose primary key equals id, or
+	// session.ErrNotFound when no row matches. Used by the DELETE
+	// /me/sessions/{id} endpoint to verify ownership before revoking.
+	FindByID(ctx context.Context, id uuid.UUID) (*session.Session, error)
+
+	// RevokeByID marks the row whose primary key equals id as revoked
+	// by setting revoked_at to NOW(). Used by the Sécurité page's
+	// "Révoquer" button — the caller has already enforced
+	// session.UserID == requestingUserID before invoking this.
+	RevokeByID(ctx context.Context, id uuid.UUID) error
+
+	// RevokeAllForUserExceptJTI revokes every still-active session for
+	// userID EXCEPT the one matching exceptJTI. Used by the Sécurité
+	// page's "Tout révoquer sauf cette session" button. When exceptJTI
+	// is empty the behaviour collapses to RevokeAllForUser.
+	RevokeAllForUserExceptJTI(ctx context.Context, userID uuid.UUID, exceptJTI string) error
 }
