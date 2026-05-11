@@ -89,21 +89,39 @@ describe("StatsOverview integration", () => {
     )
     expect(screen.getByText("go")).toBeInTheDocument()
     // Period selector defaults to 30d, picked up from URL
-    const buttons = screen.getAllByRole("button")
-    const pressed = buttons.find((b) => b.getAttribute("aria-pressed") === "true")
+    const pressed = screen
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-pressed") === "true")
     expect(pressed?.textContent).toContain("30")
   })
 
   it("changing period synchronises the URL via router.replace", async () => {
     replaceMock.mockClear()
     render(wrap(<StatsOverview />))
-    const buttons = screen.getAllByRole("button")
-    const ninetyDays = buttons.find((b) => b.textContent?.includes("90"))
+    const ninetyDays = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("90"))
     expect(ninetyDays).toBeTruthy()
     await userEvent.click(ninetyDays as HTMLElement)
     await waitFor(() => expect(replaceMock).toHaveBeenCalled())
     const lastCall = replaceMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain("period=90")
+  })
+
+  it("supports the 1-year period filter (D3)", async () => {
+    // The 365-day window must be wired end-to-end: clicking "1 an"
+    // updates the URL state, which the visibility hook uses as a
+    // query key — the next fetch carries `days=365`.
+    replaceMock.mockClear()
+    render(wrap(<StatsOverview />))
+    const oneYear = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("1 an"))
+    expect(oneYear).toBeTruthy()
+    await userEvent.click(oneYear as HTMLElement)
+    await waitFor(() => expect(replaceMock).toHaveBeenCalled())
+    const lastCall = replaceMock.mock.calls.at(-1)?.[0] as string
+    expect(lastCall).toContain("period=365")
   })
 })
 
@@ -154,11 +172,11 @@ describe("StatsOverview — unit counts (Bug 2 regression)", () => {
     render(wrap(<StatsOverview />))
     const strip = await screen.findByTestId("stats-metric-strip")
     await waitFor(() => {
-      // Both unit-count cards render a literal "0" (not the patience copy).
+      // Unit-count cards render a literal "0" (not the patience copy).
       const zeros = Array.from(strip.querySelectorAll("p")).filter(
         (el) => el.textContent?.trim() === "0",
       )
-      expect(zeros.length).toBeGreaterThanOrEqual(2)
+      expect(zeros.length).toBeGreaterThanOrEqual(3)
     })
     // The legacy patience copy must NOT appear at the page level — only
     // the chart-level neutral empty copy is acceptable. Assert the old
@@ -170,7 +188,7 @@ describe("StatsOverview — unit counts (Bug 2 regression)", () => {
     ).toBeNull()
   })
 
-  it("renders all three metric cards with proper values when data is plentiful", async () => {
+  it("renders all metric cards with proper values when data is plentiful", async () => {
     vi.stubGlobal(
       "fetch",
       buildStatsFetch({
@@ -205,6 +223,83 @@ describe("StatsOverview — unit counts (Bug 2 regression)", () => {
     await waitFor(() => {
       // The avg_position card shows the patience caption.
       expect(strip.textContent).toMatch(/~7 jours pour des résultats stables/i)
+    })
+  })
+})
+
+// D3: empty state UX. When the org has zero recorded views, the chart
+// pair is replaced by a friendly accentSoft card prompting a LinkedIn
+// share. The strip remains visible so the user still sees the zeros.
+describe("StatsOverview — D3 empty card", () => {
+  it("renders the empty card when total_views is 0", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildStatsFetch({
+        total_views: 0,
+        search_appearances: 0,
+        avg_search_position: null,
+      }),
+    )
+    render(wrap(<StatsOverview />))
+    const empty = await screen.findByTestId("stats-empty-card")
+    expect(empty).toBeInTheDocument()
+    expect(empty.textContent).toMatch(/Personne n'a encore consulté/i)
+    expect(empty.textContent).toMatch(/LinkedIn/i)
+  })
+
+  it("does NOT render the empty card when there are views", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildStatsFetch({
+        total_views: 12,
+        search_appearances: 3,
+        avg_search_position: null,
+      }),
+    )
+    render(wrap(<StatsOverview />))
+    await screen.findByTestId("stats-metric-strip")
+    expect(screen.queryByTestId("stats-empty-card")).toBeNull()
+  })
+})
+
+// D3: visibility series carries `unique` alongside `count`. Both
+// counts must flow through to their respective metric cards.
+describe("StatsOverview — D3 unique / total split", () => {
+  it("shows unique viewers and total views as separate metric cards", async () => {
+    const split = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.includes("/me/stats/visibility")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              organization_id: "org",
+              period_days: 30,
+              total_views: 200,
+              unique_viewers: 50,
+              search_appearances: 12,
+              avg_search_position: 3.5,
+              series: [
+                { date: "2026-04-10T00:00:00Z", count: 6, unique: 4 },
+                { date: "2026-04-11T00:00:00Z", count: 9, unique: 6 },
+              ],
+            },
+          }),
+          { status: 200 },
+        )
+      }
+      if (url.includes("/me/stats/keywords")) {
+        return new Response(JSON.stringify({ data: [] }), { status: 200 })
+      }
+      return new Response("{}", { status: 200 })
+    })
+    vi.stubGlobal("fetch", split)
+    render(wrap(<StatsOverview />))
+    const strip = await screen.findByTestId("stats-metric-strip")
+    await waitFor(() => {
+      expect(strip.textContent).toContain("50")
+      expect(strip.textContent).toContain("200")
+      expect(strip.textContent).toMatch(/Visiteurs uniques/i)
+      expect(strip.textContent).toMatch(/visiteurs distincts/i)
     })
   })
 })

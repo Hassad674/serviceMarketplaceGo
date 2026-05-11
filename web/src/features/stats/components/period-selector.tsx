@@ -6,17 +6,21 @@ import { Button } from "@/shared/components/ui/button"
 import type { StatsPeriodDays } from "../api/stats-api"
 
 // PeriodSelector is the segmented control that drives the /stats deep
-// dive. Three days values — 7 / 30 / 90 — match the backend's allowed
-// set; sending any other value would 400. The control is keyboard
-// accessible (Tab + Enter / Space) and announces the current state to
-// screen readers via `aria-pressed`.
+// dive. Four day values — 7 / 30 / 90 / 365 — match the backend's
+// allowed set; sending any other value would 400. The control is
+// keyboard accessible (Tab + Enter / Space) and announces the current
+// state to screen readers via `aria-pressed`.
+//
+// 365 is rendered as "1 an" (i18n pluralisation handles the singular
+// year form). D3 added this option so the user can scan a long-tail
+// trend without the chart noise of a 30-day window.
 
 interface PeriodSelectorProps {
   value: StatsPeriodDays
   onChange: (next: StatsPeriodDays) => void
 }
 
-const OPTIONS: StatsPeriodDays[] = [7, 30, 90]
+const OPTIONS: StatsPeriodDays[] = [7, 30, 90, 365]
 
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   const t = useTranslations("stats.period")

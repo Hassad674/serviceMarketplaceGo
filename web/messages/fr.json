@@ -2928,17 +2928,22 @@
     "topKeywordsLimit": "Top {count}",
     "period": {
       "label": "Période",
-      "days": "{days, plural, one {# jour} other {# jours}}"
+      "days": "{days, plural, =365 {1 an} one {# jour} other {# jours}}"
     },
     "charts": {
       "profileViews": "Vues du profil",
       "searchAppearances": "Apparitions en recherche",
       "avgPosition": "Position moyenne en recherche",
-      "emptyChart": "Pas de pic d'activité sur la période sélectionnée."
+      "emptyChart": "Pas de pic d'activité sur la période sélectionnée.",
+      "legendUnique": "Uniques",
+      "legendTotal": "Total"
     },
     "metrics": {
       "totalViewsLabel": "Vues du profil",
       "totalViewsEmpty": "Aucune vue encore",
+      "totalViewsCaptionUnique": "= visiteurs distincts",
+      "totalViewsCaptionTotal": "= toutes les vues",
+      "uniqueViewersLabel": "Visiteurs uniques",
       "searchAppearancesLabel": "Apparitions en recherche",
       "searchAppearancesEmpty": "Aucune apparition encore",
       "avgPositionLabel": "Position moyenne",
@@ -2953,7 +2958,10 @@
     },
     "empty": {
       "notEnoughData": "Pas de pic d'activité sur la période sélectionnée.",
-      "notEnoughPosition": "Pas encore assez d'apparitions pour calculer une position moyenne fiable (~7 jours pour des résultats stables)."
+      "notEnoughPosition": "Pas encore assez d'apparitions pour calculer une position moyenne fiable (~7 jours pour des résultats stables).",
+      "noViewsTitle": "Personne n'a encore consulté ton profil",
+      "noViewsBody": "Partage le lien de ton profil sur LinkedIn pour gagner en visibilité — chaque visite est comptée ici.",
+      "noViewsCta": "Partage ton profil"
     }
   }
 }

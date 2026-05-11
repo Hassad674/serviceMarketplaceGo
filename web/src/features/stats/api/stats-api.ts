@@ -10,11 +10,16 @@ import { apiClient } from "@/shared/lib/api-client"
 // callers can treat them as terminal "no data" states without
 // defensive null checks.
 
-export type StatsPeriodDays = 7 | 30 | 90
+export type StatsPeriodDays = 7 | 30 | 90 | 365
 
 export interface StatsTimeBucket {
   date: string // RFC3339 day boundary (UTC midnight)
   count: number
+  // unique fingerprint count for this day. Always present after D3
+  // (defaults to count when the source can't deduplicate, e.g. job
+  // applications). Marked optional for backwards-compat with cached
+  // responses captured before the contract bump.
+  unique?: number
 }
 
 export interface VisibilityStats {

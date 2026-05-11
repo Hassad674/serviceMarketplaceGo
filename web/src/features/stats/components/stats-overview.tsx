@@ -8,28 +8,31 @@ import { useKeywordStats, useVisibilityStats } from "../hooks/use-stats"
 import { LineChart } from "@/shared/components/charts/line-chart"
 import { PeriodSelector } from "./period-selector"
 import { KeywordsTable } from "./keywords-table"
-import type { StatsPeriodDays } from "../api/stats-api"
+import type { StatsPeriodDays, StatsTimeBucket } from "../api/stats-api"
 
 // StatsOverview is the meaty client component behind the /stats page.
 // Owns the period state (synchronised with `?period=` in the URL) and
-// drives a top summary strip (unit counts for total views, search
-// appearances, average position) followed by three line charts and
-// the keywords table.
+// drives a top summary strip (unit counts for unique viewers, total
+// views, search appearances) followed by line charts and the keywords
+// table.
 //
-// Empty-state policy:
-//   * total_views and search_appearances are UNIT counts — always
-//     render as a number (including "0") with a small caption when 0.
-//     Never gate them behind a "wait 7 days" copy.
-//   * avg_search_position is statistical — when fewer than 10 search
-//     appearances exist, render the patience caption instead of a
-//     misleading average. Threshold is intentional: a single
-//     appearance with a fluke position would otherwise be reported as
-//     the long-run average.
+// D3 changes:
+//   * Period selector now includes 365 (1 year) so the user can scan
+//     a long-tail trend.
+//   * Profile-views chart renders TWO lines — unique (corail solid,
+//     primary) + total (corail dashed, secondary) — so the user can
+//     see at a glance how many distinct people visited vs how often.
+//   * Summary cards split into unique + total + search appearances so
+//     the user understands the difference between the two view
+//     counts.
+//   * When the org has zero views across the period, the chart is
+//     replaced by a friendly accentSoft empty card prompting a
+//     LinkedIn share.
 //
 // /stats is gated to Provider / Agency on the page-level shell —
 // Enterprise + Referrer redirect to /dashboard upstream.
 
-const ALLOWED_PERIODS: StatsPeriodDays[] = [7, 30, 90]
+const ALLOWED_PERIODS: StatsPeriodDays[] = [7, 30, 90, 365]
 const DEFAULT_PERIOD: StatsPeriodDays = 30
 const KEYWORDS_LIMIT = 10
 const POSITION_STATISTICAL_SIGNIFICANCE = 10
@@ -56,20 +59,26 @@ export function StatsOverview() {
   const visibility = useVisibilityStats(period)
   const keywords = useKeywordStats(period, KEYWORDS_LIMIT)
 
-  const series = useMemo(
+  const series: StatsTimeBucket[] = useMemo(
     () => visibility.data?.series ?? [],
     [visibility.data?.series],
   )
+  const uniqueSeries = useMemo(() => seriesForKey(series, "unique"), [series])
+  const totalSeries = useMemo(() => seriesForKey(series, "count"), [series])
+
   const totalViews = visibility.data?.total_views ?? 0
+  const uniqueViewers = visibility.data?.unique_viewers ?? 0
   const searchAppearances = visibility.data?.search_appearances ?? 0
   const avgPosition = visibility.data?.avg_search_position ?? null
   const hasEnoughForPosition =
     searchAppearances >= POSITION_STATISTICAL_SIGNIFICANCE &&
     typeof avgPosition === "number"
+  const hasAnyViews = totalViews > 0
+  const isLoading = visibility.isLoading
 
   const positionSeries = useMemo(
-    () => buildPositionSeries(avgPosition, series),
-    [avgPosition, series],
+    () => buildPositionSeries(avgPosition, totalSeries),
+    [avgPosition, totalSeries],
   )
 
   return (
@@ -92,16 +101,24 @@ export function StatsOverview() {
         <ErrorPanel message={t("errorLoading")} />
       ) : null}
       <div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
         data-testid="stats-metric-strip"
       >
+        <MetricCard
+          label={tMetrics("uniqueViewersLabel")}
+          value={formatInteger(uniqueViewers)}
+          caption={tMetrics("totalViewsCaptionUnique")}
+          isLoading={isLoading}
+        />
         <MetricCard
           label={tMetrics("totalViewsLabel")}
           value={formatInteger(totalViews)}
           caption={
-            totalViews === 0 ? tMetrics("totalViewsEmpty") : undefined
+            totalViews === 0
+              ? tMetrics("totalViewsEmpty")
+              : tMetrics("totalViewsCaptionTotal")
           }
-          isLoading={visibility.isLoading}
+          isLoading={isLoading}
         />
         <MetricCard
           label={tMetrics("searchAppearancesLabel")}
@@ -111,7 +128,7 @@ export function StatsOverview() {
               ? tMetrics("searchAppearancesEmpty")
               : undefined
           }
-          isLoading={visibility.isLoading}
+          isLoading={isLoading}
         />
         <MetricCard
           label={tMetrics("avgPositionLabel")}
@@ -127,27 +144,39 @@ export function StatsOverview() {
               ? tMetrics("avgPositionPatience")
               : undefined
           }
-          isLoading={visibility.isLoading}
+          isLoading={isLoading}
         />
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <LineChart
-          series={series}
-          title={tCharts("profileViews")}
-          emptyMessage={tCharts("emptyChart")}
+      {!isLoading && !hasAnyViews ? (
+        <NoViewsCard
+          title={tEmpty("noViewsTitle")}
+          body={tEmpty("noViewsBody")}
         />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <LineChart
+            series={uniqueSeries}
+            secondarySeries={totalSeries}
+            title={tCharts("profileViews")}
+            primaryLabel={tCharts("legendUnique")}
+            secondaryLabel={tCharts("legendTotal")}
+            emptyMessage={tCharts("emptyChart")}
+          />
+          <LineChart
+            series={totalSeries}
+            title={tCharts("searchAppearances")}
+            emptyMessage={tCharts("emptyChart")}
+            className="text-primary-deep"
+          />
+        </div>
+      )}
+      {hasAnyViews ? (
         <LineChart
-          series={series}
-          title={tCharts("searchAppearances")}
-          emptyMessage={tCharts("emptyChart")}
-          className="text-primary-deep"
+          series={positionSeries}
+          title={tCharts("avgPosition")}
+          emptyMessage={tEmpty("notEnoughPosition")}
         />
-      </div>
-      <LineChart
-        series={positionSeries}
-        title={tCharts("avgPosition")}
-        emptyMessage={tEmpty("notEnoughPosition")}
-      />
+      ) : null}
       <section aria-labelledby="top-keywords-heading">
         <header className="mb-3 flex items-center justify-between">
           <h2
@@ -166,9 +195,7 @@ export function StatsOverview() {
         />
       </section>
       {!user ? null : (
-        <p className="text-xs text-muted-foreground">
-          {t("footnote")}
-        </p>
+        <p className="text-xs text-muted-foreground">{t("footnote")}</p>
       )}
     </div>
   )
@@ -207,6 +234,30 @@ function MetricCard({ label, value, caption, isLoading }: MetricCardProps) {
   )
 }
 
+interface NoViewsCardProps {
+  title: string
+  body: string
+}
+
+// NoViewsCard renders the empty state when the org has zero recorded
+// views across the selected period. Uses the Soleil v2 `accentSoft`
+// background to soften the message — the user complaint in D3 was
+// that the previous empty state looked alarming.
+function NoViewsCard({ title, body }: NoViewsCardProps) {
+  return (
+    <div
+      className="rounded-2xl border border-border bg-primary-soft p-6"
+      data-testid="stats-empty-card"
+      role="status"
+    >
+      <p className="font-serif text-[20px] font-medium tracking-[-0.01em] text-foreground">
+        {title}
+      </p>
+      <p className="mt-2 max-w-xl text-sm text-foreground/80">{body}</p>
+    </div>
+  )
+}
+
 function formatInteger(value: number): string {
   return new Intl.NumberFormat("fr-FR").format(value)
 }
@@ -218,6 +269,28 @@ function readPeriod(raw: string | null): StatsPeriodDays {
     return parsed as StatsPeriodDays
   }
   return DEFAULT_PERIOD
+}
+
+// seriesForKey extracts the requested numeric field (unique or count)
+// from every bucket and returns it as a {date, count} series shape so
+// the underlying LineChart — which is agnostic of stats semantics —
+// can render either dimension. Falls back to `count` when `unique` is
+// missing (legacy cached responses).
+function seriesForKey(
+  series: StatsTimeBucket[],
+  key: "unique" | "count",
+): { date: string; count: number }[] {
+  return series.map((b) => ({
+    date: b.date,
+    count: pickValue(b, key),
+  }))
+}
+
+function pickValue(bucket: StatsTimeBucket, key: "unique" | "count"): number {
+  if (key === "unique") {
+    return typeof bucket.unique === "number" ? bucket.unique : bucket.count
+  }
+  return bucket.count
 }
 
 // buildPositionSeries projects the avg_search_position scalar onto the

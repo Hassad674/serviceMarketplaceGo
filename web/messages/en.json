@@ -2928,17 +2928,22 @@
     "topKeywordsLimit": "Top {count}",
     "period": {
       "label": "Period",
-      "days": "{days, plural, one {# day} other {# days}}"
+      "days": "{days, plural, =365 {1 year} one {# day} other {# days}}"
     },
     "charts": {
       "profileViews": "Profile views",
       "searchAppearances": "Search impressions",
       "avgPosition": "Average search position",
-      "emptyChart": "No activity peaks for the selected period."
+      "emptyChart": "No activity peaks for the selected period.",
+      "legendUnique": "Unique",
+      "legendTotal": "Total"
     },
     "metrics": {
       "totalViewsLabel": "Profile views",
       "totalViewsEmpty": "No views yet",
+      "totalViewsCaptionUnique": "= distinct visitors",
+      "totalViewsCaptionTotal": "= all views",
+      "uniqueViewersLabel": "Unique visitors",
       "searchAppearancesLabel": "Search impressions",
       "searchAppearancesEmpty": "No impressions yet",
       "avgPositionLabel": "Average position",
@@ -2953,7 +2958,10 @@
     },
     "empty": {
       "notEnoughData": "No activity peaks for the selected period.",
-      "notEnoughPosition": "Not enough search impressions yet to compute a reliable average position (~7 days for stable results)."
+      "notEnoughPosition": "Not enough search impressions yet to compute a reliable average position (~7 days for stable results).",
+      "noViewsTitle": "No one has visited your profile yet",
+      "noViewsBody": "Share your profile link on LinkedIn to gain visibility — every visit shows up here.",
+      "noViewsCta": "Share your profile"
     }
   }
 }

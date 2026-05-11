@@ -10,19 +10,36 @@ import { cn } from "@/shared/lib/utils"
 // horizontal baseline grid, and rounded value markers on the last
 // data point. Container is responsive (100% width) so the parent
 // can lay multiple charts side-by-side without remounting.
+//
+// D3 extension — optional `secondarySeries` renders a second polyline
+// (dashed, no area fill) on top of the primary one. Used by the stats
+// page to overlay total views on unique-viewer counts. The two series
+// share the same Y axis; the chart scales to whichever maximum is
+// larger so neither line clips.
+
+interface ChartSeriesPoint {
+  date: string
+  count: number
+}
 
 interface LineChartProps {
-  series: { date: string; count: number }[]
+  series: ChartSeriesPoint[]
   /** Aspect-ratio height as a percentage of width (default 30 → 10:3). */
   aspectRatioPct?: number
   /** Accessible title announced to screen readers. */
   title: string
   /** Optional description below the chart for the empty/sparse state. */
   emptyMessage?: string
-  /** Tone class applied to the line + area gradient (text-primary, etc.). */
+  /** Tone class applied to the primary line + area gradient (text-primary, etc.). */
   className?: string
   /** Hide axis labels — useful for a cards row where space is tight. */
   hideAxis?: boolean
+  /** Optional second polyline drawn on top (dashed, no fill). */
+  secondarySeries?: ChartSeriesPoint[]
+  /** Legend label for the primary series (shown when secondarySeries is provided). */
+  primaryLabel?: string
+  /** Legend label for the secondary series. */
+  secondaryLabel?: string
 }
 
 const VIEWBOX_WIDTH = 600
@@ -37,13 +54,24 @@ export function LineChart({
   emptyMessage,
   className,
   hideAxis = false,
+  secondarySeries,
+  primaryLabel,
+  secondaryLabel,
 }: LineChartProps) {
   const gradientId = useId()
   const format = useFormatter()
 
-  const computed = useMemo(() => computeChart(series), [series])
+  const combinedMax = useMemo(() => {
+    const primary = series.map((p) => p.count)
+    const secondary = secondarySeries?.map((p) => p.count) ?? []
+    return Math.max(0, ...primary, ...secondary)
+  }, [series, secondarySeries])
 
-  if (computed.values.length === 0) {
+  const hasAnyData =
+    series.some((p) => p.count > 0) ||
+    (secondarySeries?.some((p) => p.count > 0) ?? false)
+
+  if (series.length === 0 || !hasAnyData) {
     return (
       <EmptyChart
         title={title}
@@ -56,26 +84,36 @@ export function LineChart({
   const height = VIEWBOX_HEIGHT_DEFAULT
   const innerWidth = VIEWBOX_WIDTH - VIEWBOX_PADDING_X * 2
   const innerHeight = height - VIEWBOX_PADDING_Y * 2
+  const span = Math.max(combinedMax, 1)
   const stepX =
-    computed.values.length > 1 ? innerWidth / (computed.values.length - 1) : 0
+    series.length > 1 ? innerWidth / (series.length - 1) : 0
 
-  const points = computed.values.map((value, i) => {
+  const primaryPoints = series.map((p, i) => {
     const x = VIEWBOX_PADDING_X + i * stepX
     const y =
-      VIEWBOX_PADDING_Y +
-      innerHeight -
-      ((value - computed.min) / Math.max(computed.span, 1)) * innerHeight
-    return { x, y, value }
+      VIEWBOX_PADDING_Y + innerHeight - (p.count / span) * innerHeight
+    return { x, y, value: p.count }
   })
 
-  const linePath = points.length === 1
-    ? `M ${points[0].x.toFixed(2)},${points[0].y.toFixed(2)} h 0`
-    : `M ${points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" L ")}`
+  const linePath =
+    primaryPoints.length === 1
+      ? `M ${primaryPoints[0].x.toFixed(2)},${primaryPoints[0].y.toFixed(2)} h 0`
+      : `M ${primaryPoints.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" L ")}`
   const areaPath = `${linePath} L ${(VIEWBOX_PADDING_X + innerWidth).toFixed(2)},${VIEWBOX_PADDING_Y + innerHeight} L ${VIEWBOX_PADDING_X.toFixed(2)},${VIEWBOX_PADDING_Y + innerHeight} Z`
 
-  const lastPoint = points[points.length - 1]
+  const secondaryPath = renderSecondaryPath({
+    secondary: secondarySeries,
+    span,
+    stepX,
+    innerHeight,
+  })
+
+  const lastPoint = primaryPoints[primaryPoints.length - 1]
   const startLabel = formatAxisDate(series[0]?.date, format)
   const endLabel = formatAxisDate(series[series.length - 1]?.date, format)
+  const midIdx = Math.floor(series.length / 2)
+  const midLabel =
+    series.length > 2 ? formatAxisDate(series[midIdx]?.date, format) : null
 
   return (
     <div
@@ -86,12 +124,22 @@ export function LineChart({
       role="img"
       aria-label={title}
     >
-      <p className="mb-3 text-[13px] font-medium text-muted-foreground">{title}</p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-[13px] font-medium text-muted-foreground">{title}</p>
+        {primaryLabel && secondaryLabel ? (
+          <ChartLegend
+            primaryLabel={primaryLabel}
+            secondaryLabel={secondaryLabel}
+          />
+        ) : null}
+      </div>
       <svg
         viewBox={`0 0 ${VIEWBOX_WIDTH} ${height}`}
         preserveAspectRatio="none"
         className="block w-full text-primary"
-        style={{ aspectRatio: `${VIEWBOX_WIDTH} / ${(VIEWBOX_WIDTH * aspectRatioPct) / 100}` }}
+        style={{
+          aspectRatio: `${VIEWBOX_WIDTH} / ${(VIEWBOX_WIDTH * aspectRatioPct) / 100}`,
+        }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -116,19 +164,29 @@ export function LineChart({
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
+          data-testid="line-chart-primary"
         />
-        {lastPoint ? (
-          <circle
-            cx={lastPoint.x}
-            cy={lastPoint.y}
-            r={4}
-            fill="currentColor"
+        {secondaryPath ? (
+          <path
+            d={secondaryPath}
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity={0.55}
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            data-testid="line-chart-secondary"
           />
+        ) : null}
+        {lastPoint ? (
+          <circle cx={lastPoint.x} cy={lastPoint.y} r={4} fill="currentColor" />
         ) : null}
       </svg>
       {!hideAxis ? (
         <div className="mt-3 flex justify-between text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
           <span>{startLabel}</span>
+          {midLabel ? <span>{midLabel}</span> : null}
           <span>{endLabel}</span>
         </div>
       ) : null}
@@ -136,22 +194,66 @@ export function LineChart({
   )
 }
 
-interface ChartGeometry {
-  values: number[]
-  min: number
-  max: number
-  span: number
+interface ChartLegendProps {
+  primaryLabel: string
+  secondaryLabel: string
 }
 
-function computeChart(series: { count: number }[]): ChartGeometry {
-  const values = series.map((p) => p.count)
-  if (values.length === 0) {
-    return { values: [], min: 0, max: 0, span: 1 }
-  }
-  const max = Math.max(...values, 0)
-  const min = Math.min(...values, 0)
-  const span = Math.max(max - min, 1)
-  return { values, min, max, span }
+// ChartLegend renders the two-line key (corail solid + dashed) next to
+// the chart title. Kept inline rather than extracted to shared/ — only
+// one consumer today (the stats page); rule of three not yet reached.
+function ChartLegend({ primaryLabel, secondaryLabel }: ChartLegendProps) {
+  return (
+    <div className="flex items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="inline-block h-[2px] w-4 rounded-full bg-current text-primary"
+        />
+        {primaryLabel}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="inline-block h-[2px] w-4 rounded-full text-primary"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(to right, currentColor 0, currentColor 3px, transparent 3px, transparent 6px)",
+            opacity: 0.55,
+          }}
+        />
+        {secondaryLabel}
+      </span>
+    </div>
+  )
+}
+
+interface SecondaryPathInput {
+  secondary: ChartSeriesPoint[] | undefined
+  span: number
+  stepX: number
+  innerHeight: number
+}
+
+// renderSecondaryPath projects the secondary series onto the same X
+// axis as the primary series. Returns null when no secondary series
+// was supplied. The function exists at module scope so unit tests can
+// import and exercise it without rendering the chart.
+function renderSecondaryPath({
+  secondary,
+  span,
+  stepX,
+  innerHeight,
+}: SecondaryPathInput): string | null {
+  if (!secondary || secondary.length === 0) return null
+  const pts = secondary.map((p, i) => {
+    const x = VIEWBOX_PADDING_X + i * stepX
+    const y =
+      VIEWBOX_PADDING_Y + innerHeight - (p.count / span) * innerHeight
+    return `${x.toFixed(2)},${y.toFixed(2)}`
+  })
+  if (pts.length === 1) return `M ${pts[0]} h 0`
+  return `M ${pts.join(" L ")}`
 }
 
 function formatAxisDate(
@@ -176,11 +278,16 @@ function EmptyChart({
   aspectRatioPct: number
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-card p-5">
+    <div
+      className="rounded-2xl border border-dashed border-border bg-card p-5"
+      data-testid="line-chart-empty"
+    >
       <p className="text-[13px] font-medium text-muted-foreground">{title}</p>
       <div
         className="mt-3 flex items-center justify-center"
-        style={{ aspectRatio: `${VIEWBOX_WIDTH} / ${(VIEWBOX_WIDTH * aspectRatioPct) / 100}` }}
+        style={{
+          aspectRatio: `${VIEWBOX_WIDTH} / ${(VIEWBOX_WIDTH * aspectRatioPct) / 100}`,
+        }}
       >
         <p className="max-w-md text-center text-sm text-muted-foreground">
           {message}
