@@ -105,6 +105,20 @@ func (s *stubRateLimiter) Allow(context.Context, uuid.UUID) (bool, error) {
 	return s.allow, s.err
 }
 
+// stubOverridesInvalidator counts cache invalidations triggered
+// by the service. Used to assert QW-HARDENING fix #1 (org side):
+// every SaveRoleOverrides success must call Invalidate so the auth
+// middleware's cached permissions matrix is dropped immediately.
+type stubOverridesInvalidator struct {
+	invalidated []uuid.UUID
+	err         error
+}
+
+func (s *stubOverridesInvalidator) Invalidate(_ context.Context, orgID uuid.UUID) error {
+	s.invalidated = append(s.invalidated, orgID)
+	return s.err
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -435,4 +449,127 @@ func TestGetMatrix_ReturnsAllRoles(t *testing.T) {
 	assert.Equal(t, organization.RoleAdmin, matrix.Roles[1].Role)
 	assert.Equal(t, organization.RoleMember, matrix.Roles[2].Role)
 	assert.Equal(t, organization.RoleViewer, matrix.Roles[3].Role)
+}
+
+// TestUpdateRoleOverrides_TriggersCacheInvalidation pins QW-HARDENING
+// fix #1 (org side): every successful SaveRoleOverrides must fire
+// OverridesCache.Invalidate(orgID) so the auth middleware sees the
+// new permissions matrix on the next request instead of waiting for
+// the 30s TTL.
+func TestUpdateRoleOverrides_TriggersCacheInvalidation(t *testing.T) {
+	ownerID := uuid.New()
+	orgID := uuid.New()
+	org := newTestOrg(ownerID)
+	org.ID = orgID
+
+	orgs := &stubRoleOverridesOrgRepo{
+		orgByID: map[uuid.UUID]*organization.Organization{orgID: org},
+	}
+	members := &stubRoleOverridesMemberRepo{
+		memberByPair: map[string]*organization.Member{
+			pairKey(orgID, ownerID): newTestMember(orgID, ownerID, organization.RoleOwner),
+		},
+		usersByRole: map[organization.Role][]uuid.UUID{
+			organization.RoleMember: {uuid.New()},
+		},
+	}
+	cache := &stubOverridesInvalidator{}
+
+	svc := NewRoleOverridesService(RoleOverridesServiceDeps{
+		Orgs:           orgs,
+		Members:        members,
+		Users:          &stubRoleOverridesUserRepo{},
+		Audits:         &stubAuditRepo{},
+		RateLimiter:    &stubRateLimiter{allow: true},
+		OverridesCache: cache,
+	})
+
+	_, err := svc.UpdateRoleOverrides(context.Background(), UpdateRoleOverridesInput{
+		ActorUserID:    ownerID,
+		OrganizationID: orgID,
+		Role:           organization.RoleMember,
+		Overrides:      map[organization.Permission]bool{organization.PermJobsDelete: true},
+	})
+	require.NoError(t, err)
+
+	require.Len(t, cache.invalidated, 1,
+		"Invalidate must be called exactly once after a successful save")
+	assert.Equal(t, orgID, cache.invalidated[0],
+		"Invalidate must receive the same org id whose overrides were saved")
+}
+
+// TestUpdateRoleOverrides_CacheNilDoesNotPanic verifies the optional
+// OverridesCache dep degrades gracefully when nil (test / CLI
+// wiring). Without this guard a missing wire would crash the
+// service.
+func TestUpdateRoleOverrides_CacheNilDoesNotPanic(t *testing.T) {
+	ownerID := uuid.New()
+	orgID := uuid.New()
+	org := newTestOrg(ownerID)
+	org.ID = orgID
+
+	orgs := &stubRoleOverridesOrgRepo{
+		orgByID: map[uuid.UUID]*organization.Organization{orgID: org},
+	}
+	members := &stubRoleOverridesMemberRepo{
+		memberByPair: map[string]*organization.Member{
+			pairKey(orgID, ownerID): newTestMember(orgID, ownerID, organization.RoleOwner),
+		},
+	}
+
+	svc := NewRoleOverridesService(RoleOverridesServiceDeps{
+		Orgs:        orgs,
+		Members:     members,
+		Users:       &stubRoleOverridesUserRepo{},
+		Audits:      &stubAuditRepo{},
+		RateLimiter: &stubRateLimiter{allow: true},
+		// OverridesCache intentionally nil.
+	})
+
+	_, err := svc.UpdateRoleOverrides(context.Background(), UpdateRoleOverridesInput{
+		ActorUserID:    ownerID,
+		OrganizationID: orgID,
+		Role:           organization.RoleMember,
+		Overrides:      map[organization.Permission]bool{organization.PermJobsDelete: true},
+	})
+	assert.NoError(t, err, "nil cache must not break the save path")
+}
+
+// TestUpdateRoleOverrides_CacheErrorDoesNotFailSave pins the
+// tolerance contract — a Redis DEL failure must NEVER fail the
+// save. The DB commit succeeded; the cache will heal on TTL.
+func TestUpdateRoleOverrides_CacheErrorDoesNotFailSave(t *testing.T) {
+	ownerID := uuid.New()
+	orgID := uuid.New()
+	org := newTestOrg(ownerID)
+	org.ID = orgID
+
+	orgs := &stubRoleOverridesOrgRepo{
+		orgByID: map[uuid.UUID]*organization.Organization{orgID: org},
+	}
+	members := &stubRoleOverridesMemberRepo{
+		memberByPair: map[string]*organization.Member{
+			pairKey(orgID, ownerID): newTestMember(orgID, ownerID, organization.RoleOwner),
+		},
+	}
+	cache := &stubOverridesInvalidator{err: errors.New("redis down")}
+
+	svc := NewRoleOverridesService(RoleOverridesServiceDeps{
+		Orgs:           orgs,
+		Members:        members,
+		Users:          &stubRoleOverridesUserRepo{},
+		Audits:         &stubAuditRepo{},
+		RateLimiter:    &stubRateLimiter{allow: true},
+		OverridesCache: cache,
+	})
+
+	_, err := svc.UpdateRoleOverrides(context.Background(), UpdateRoleOverridesInput{
+		ActorUserID:    ownerID,
+		OrganizationID: orgID,
+		Role:           organization.RoleMember,
+		Overrides:      map[organization.Permission]bool{organization.PermJobsDelete: true},
+	})
+
+	assert.NoError(t, err, "cache invalidation failure must NOT fail the save")
+	assert.Equal(t, 1, orgs.savedCalled, "save still completes despite cache error")
 }

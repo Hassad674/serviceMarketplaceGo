@@ -56,6 +56,11 @@ type teamDeps struct {
 	Cookie                *handler.CookieConfig
 	InvitationRateLimiter organizationapp.InvitationRateLimiter
 	TokenService          service.TokenService
+	// OverridesCache is the (optional) eviction hook for the
+	// org_overrides Redis cache. Wired in production to the same
+	// instance the auth middleware consults; nil disables eviction.
+	// QW-HARDENING.
+	OverridesCache service.OrgOverridesInvalidator
 }
 
 // wireTeam brings up the organization team feature. The invitation
@@ -88,12 +93,13 @@ func wireTeam(deps teamDeps) teamWiring {
 	// invitation rate limit.
 	rolePermsRateLimiter := redisadapter.NewRolePermissionsRateLimiter(deps.Redis)
 	roleOverridesSvc := organizationapp.NewRoleOverridesService(organizationapp.RoleOverridesServiceDeps{
-		Orgs:        deps.Orgs,
-		Members:     deps.Members,
-		Users:       deps.Users,
-		Audits:      deps.Audits,
-		Email:       deps.Email,
-		RateLimiter: rolePermsRateLimiter,
+		Orgs:           deps.Orgs,
+		Members:        deps.Members,
+		Users:          deps.Users,
+		Audits:         deps.Audits,
+		Email:          deps.Email,
+		RateLimiter:    rolePermsRateLimiter,
+		OverridesCache: deps.OverridesCache,
 	})
 
 	invitationHandler := handler.NewInvitationHandler(handler.InvitationHandlerDeps{

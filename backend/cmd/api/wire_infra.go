@@ -66,7 +66,26 @@ type infrastructure struct {
 	// on the right pool.
 	TxRunner                   *postgres.TxRunner
 	Redis                      *goredis.Client
+	// UserRepo is the raw *postgres.UserRepository handle. It is kept
+	// concrete because three call sites depend on concrete-only
+	// methods or pointer-typed fields:
+	//   - user_state_adapter.GetUserAuthState (concrete method)
+	//   - profilecompletion concrete pointer field
+	//   - wire_two_factor.TwoFactorFlagSetter (interface assertion
+	//     against the concrete)
+	//
+	// QW-HARDENING: this raw repo is also the inner of the
+	// session-version cache decorator (see InvalidatingUserRepo).
+	// Callers that bump session_version MUST use
+	// InvalidatingUserRepo so the cache eviction happens on the
+	// same call; the raw repo is read-only for everyone else.
 	UserRepo                   *postgres.UserRepository
+	// InvalidatingUserRepo is UserRepo wrapped with the session-version
+	// cache invalidator (QW-HARDENING). It satisfies the full
+	// repository.UserRepository contract via embedding and is the
+	// default handle every BumpSessionVersion-calling service
+	// receives. Wiring code chooses one of the two — see bootstrap.go.
+	InvalidatingUserRepo       repository.UserRepository
 	ProfileRepo                *postgres.ProfileRepository
 	ResetRepo                  *postgres.PasswordResetRepository
 	OrganizationRepo           *postgres.OrganizationRepository
@@ -111,6 +130,18 @@ type infrastructure struct {
 	WSHub                      *ws.Hub
 	CookieCfg                  *handler.CookieConfig
 	SourceID                   string
+	// SessionVersionCache is the Redis-fronted, singleflight-protected
+	// decorator over the postgres SessionVersionChecker. Held at the
+	// infrastructure level so two consumers can pin to the same
+	// instance: the auth middleware (consults it on every request)
+	// and the InvalidatingUserRepo (evicts the entry on every
+	// successful BumpSessionVersion). QW-HARDENING.
+	SessionVersionCache *redisadapter.CachedSessionVersionChecker
+	// OrgOverridesCache is the equivalent decorator for the
+	// per-organization role_overrides JSONB. Held at the
+	// infrastructure level so the role-permissions editor service can
+	// reach into it to Invalidate after a write. QW-HARDENING.
+	OrgOverridesCache *redisadapter.CachedOrgOverridesResolver
 }
 
 // wireInfrastructure brings up every backbone resource. Returns a
@@ -193,6 +224,31 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 	// through this wiring so the organization package stays free of
 	// any cross-feature import — hexagonal wiring, not modular
 	// coupling.
+	//
+	// QW-HARDENING — cache wiring order:
+	//   1. Build the raw postgres user + organization repos.
+	//   2. Build the cache decorators with the raw repos as inner.
+	//   3. Wrap the raw user repo with the invalidating decorator,
+	//      passing the cache as the invalidator.
+	//   4. Expose all three (raw repo, cache, wrapped repo) on the
+	//      infra struct so downstream wiring can pick the right
+	//      handle.
+	rawUserRepo := postgres.NewUserRepository(db)
+	rawOrgRepo := postgres.NewOrganizationRepository(db, jobdomain.WeeklyQuota)
+	sessionVersionCache := redisadapter.NewCachedSessionVersionChecker(
+		redisClient,
+		rawUserRepo,
+		redisadapter.DefaultSessionVersionCacheTTL,
+	)
+	orgOverridesCache := redisadapter.NewCachedOrgOverridesResolver(
+		redisClient,
+		orgOverridesAdapter{repo: rawOrgRepo},
+		redisadapter.DefaultOrgOverridesCacheTTL,
+	)
+	invalidatingUserRepo := postgres.NewInvalidatingUserRepository(
+		rawUserRepo,
+		sessionVersionCache,
+	)
 	infra := infrastructure{
 		DB:                         db,
 		AppDB:                      appDB,
@@ -200,10 +256,13 @@ func wireInfrastructure(ctx context.Context, cfg *config.Config) (infrastructure
 		Routed:                     routed,
 		TxRunner:                   txRunner,
 		Redis:                      redisClient,
-		UserRepo:                   postgres.NewUserRepository(db),
+		UserRepo:                   rawUserRepo,
+		InvalidatingUserRepo:       invalidatingUserRepo,
+		SessionVersionCache:        sessionVersionCache,
+		OrgOverridesCache:          orgOverridesCache,
 		ProfileRepo:                postgres.NewProfileRepository(db),
 		ResetRepo:                  postgres.NewPasswordResetRepository(db),
-		OrganizationRepo:           postgres.NewOrganizationRepository(db, jobdomain.WeeklyQuota),
+		OrganizationRepo:           rawOrgRepo,
 		OrganizationMemberRepo:     postgres.NewOrganizationMemberRepository(db),
 		OrganizationInvitationRepo: postgres.NewOrganizationInvitationRepository(db),
 		// BUG-NEW-04 path 2/8: audit_logs is RLS-protected by migration 125

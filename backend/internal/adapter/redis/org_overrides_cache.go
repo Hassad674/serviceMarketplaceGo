@@ -186,11 +186,18 @@ func (c *CachedOrgOverridesResolver) load(
 // code path that mutates organizations.role_overrides (the
 // role-permissions editor endpoint) so the next authenticated request
 // sees the new overrides immediately. Missing key is NOT an error.
+//
+// QW-HARDENING: also `Forget`s the singleflight slot. Without this,
+// a goroutine that joined an in-flight inner call BEFORE the
+// invalidate would receive the pre-save overrides. Forget detaches
+// the slot so the next coalesced burst re-reads the inner — closing
+// the residual race between in-flight reads and the concurrent save.
 func (c *CachedOrgOverridesResolver) Invalidate(
 	ctx context.Context,
 	orgID uuid.UUID,
 ) error {
 	key := orgOverridesKeyPrefix + orgID.String()
+	c.group.Forget(key)
 	if _, err := c.client.Del(ctx, key).Result(); err != nil {
 		return fmt.Errorf("org overrides cache: invalidate: %w", err)
 	}

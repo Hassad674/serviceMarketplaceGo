@@ -69,7 +69,11 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	authWire := wireAuth(authDeps{
 		Cfg:                        cfg,
 		Redis:                      infra.Redis,
-		UserRepo:                   infra.UserRepo,
+		// QW-HARDENING: auth service bumps session_version on
+		// DeleteAccount + password change paths. Inject the wrapped
+		// repo so the session-version cache is evicted on every
+		// successful bump.
+		UserRepo:                   infra.InvalidatingUserRepo,
 		ResetRepo:                  infra.ResetRepo,
 		OrganizationRepo:           infra.OrganizationRepo,
 		OrganizationMemberRepo:     infra.OrganizationMemberRepo,
@@ -192,7 +196,12 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		Orgs:                  infra.OrganizationRepo,
 		Members:               infra.OrganizationMemberRepo,
 		Invitations:           infra.OrganizationInvitationRepo,
-		Users:                 infra.UserRepo,
+		// QW-HARDENING: team services (membership, transfer,
+		// role_overrides) all call BumpSessionVersion on
+		// role/permission changes. Inject the cache-invalidating
+		// repo so the next request sees the new version
+		// immediately.
+		Users:                 infra.InvalidatingUserRepo,
 		UserBatch:             infra.UserRepo,
 		Hasher:                infra.Hasher,
 		Email:                 infra.EmailSvc,
@@ -203,6 +212,10 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		Cookie:                infra.CookieCfg,
 		InvitationRateLimiter: infra.InvitationRateLimiter,
 		TokenService:          infra.TokenSvc,
+		// QW-HARDENING: the role-overrides editor evicts the cached
+		// permissions matrix after every SaveRoleOverrides so the
+		// next request sees the new rules immediately.
+		OverridesCache:        infra.OrgOverridesCache,
 	})
 	invitationSvc := team.InvitationSvc
 	membershipSvc := team.MembershipSvc
@@ -307,7 +320,12 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	adminHandler := wireAdmin(adminDeps{
 		DB:                  infra.DB,
-		Users:               infra.UserRepo,
+		// QW-HARDENING: admin Ban/Suspend/SoftDelete handlers all
+		// call BumpSessionVersion to revoke in-flight JWTs. Inject
+		// the cache-invalidating repo so banned/suspended users
+		// cannot keep using the API for up to 30s on the cached
+		// session_version.
+		Users:               infra.InvalidatingUserRepo,
 		Reports:             reportRepo,
 		Reviews:             reviewRepo,
 		Jobs:                jobRepo,

@@ -162,11 +162,19 @@ func (c *CachedSessionVersionChecker) load(
 // password rotation) so the next authenticated request sees the new
 // version immediately instead of waiting for the TTL. Missing key is
 // NOT an error.
+//
+// QW-HARDENING: also `Forget`s the singleflight slot. Without this,
+// a goroutine that joined an in-flight inner call BEFORE the
+// invalidate would receive the pre-bump version. Forget detaches
+// the slot so the next coalesced burst will re-read the inner —
+// closing the residual race between in-flight reads and the
+// concurrent bump.
 func (c *CachedSessionVersionChecker) Invalidate(
 	ctx context.Context,
 	userID uuid.UUID,
 ) error {
 	key := sessionVersionKeyPrefix + userID.String()
+	c.group.Forget(key)
 	if _, err := c.client.Del(ctx, key).Result(); err != nil {
 		return fmt.Errorf("session version cache: invalidate: %w", err)
 	}
