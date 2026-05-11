@@ -20,7 +20,74 @@ Status legend: 🟢 healthy · 🟡 suspected regression · 🔴 confirmed regre
 Severity legend: P0 critical (financial / data integrity), P1 high (broken user flow), P2 medium (UX paper-cut), P3 low (cosmetic).
 
 ## Executive summary
-*Filled after all 15 flows.*
+
+- Flows audited: **15**
+- Confirmed regressions (🔴): **1** (Referrer commission — CRIT-REF already in flight)
+- Suspected regressions (🟡): **1** (Premium subscription schema — latent, not freshly broken by the refactor wave)
+- Healthy (🟢): **13**
+- Test coverage gaps flagged: **5** (see priority queue)
+- **Bottom line**: the recent refactor wave (Phase F.1+F.2, segregated repos, RLS hardening, 2FA, sessions, retention, rate limit) did NOT silently break business flows. The user's intuition was correct on referrer commissions (CRIT-REF) but every other audited flow has either a regression test, a dedicated bug-fix commit (BUG-NEW-01 through BUG-NEW-06, BUG-03, BUG-09, BUG-11, BUG-16), or a defensive enhancement that surfaced previously-swallowed errors. The audit found NO new silent regression beyond CRIT-REF.
+
+The two findings worth follow-up:
+
+1. **CRIT-REF backfill verification** (P0, in flight). Once backfill completes, run the SQL sanity check on `referral_commissions` to confirm no historic rows stuck in `pending`. Pin the commission-on-approval invariant with a NEW integration test that pre-refactor coverage lacked.
+2. **Premium subscription schema migration** (P2, latent). The `subscriptions` table still uses `user_id` for ownership. The read-API has been org-scoped (`IsActive` resolves user→org internally), so the practical fee-calculation path is correct, but a future cleanup should migrate the schema to org-primary to remove the user-leaves-org footgun and align with the org-ownership invariant from `CLAUDE.md`.
+
+## Priority fix queue
+
+| # | Flow | Severity | Effort | Test gap |
+|---|---|---|---|---|
+| 1 | Referrer commission — backfill validation + regression test | 🔴 P0 | 2h | yes (commission-on-approval invariant not pinned pre-refactor) |
+| 2 | Premium subscription schema migration to org-primary | 🟡 P2 | 4h (migration + chunk-backfill + tests) | yes (user-leaves-org Premium case) |
+| 3 | Receipts — guard test "every CreatePaymentIntent attaches snapshot" | 🟢 P3 | 30min | yes (helper invocation not verified per path) |
+| 4 | Commission invoices — end-to-end month-spanning Premium test | 🟢 P3 | 1h | yes (mixed Premium/non-Premium org over a month) |
+| 5 | Messaging — regression test "unread count after team operator views" | 🟢 P3 | 1h | yes (team-shared conversation unread count) |
+
+Total estimated effort: **~8.5h** of cleanup. None of the items are user-facing-broken-now except #1, which is already being handled.
+
+## Recommendations for next agents
+
+### Agent A — CRIT-REF post-mortem & guardrail (must dispatch after backfill completes)
+
+**Brief**:
+> Read `regression-audit.md` flow 1. Once the CRIT-REF backfill agent reports done:
+> 1. Run `SELECT status, COUNT(*) FROM referral_commissions WHERE created_at > '2026-04-22' GROUP BY status;` on prod (via psql read-only role) and paste in report. Goal: confirm zero rows stuck in `pending` for milestones whose proposal is `completed`.
+> 2. Add a single integration test (testcontainers) pinning the commission-on-approval invariant: given (referral attribution + milestone approved), assert a `referral_commissions` row in `pending` exists BEFORE any payout consent flow runs. This is the test that pre-refactor lacked and that would have caught the regression.
+> 3. Add a second integration test for the legacy race path: pre-existing pending row from preparer + distributor races on transfer — distributor must claim, transfer, mark paid.
+> Scope: ≤ 2 new tests, no code changes. Effort: 2h.
+
+### Agent B — Premium subscription schema cleanup (low priority, defer)
+
+**Brief**:
+> Read `regression-audit.md` flow 5 + memory `project_org_based_model.md`. The current `IsActive` read path is org-scoped via internal resolver — no urgent customer-visible bug. The cleanup is schema-level: add `organization_id` FK to `subscriptions`, backfill from existing `user_id` via `org_members`, switch the repository's primary lookup to org, and add a regression test for the user-leaves-org case.
+> Migration: new file `0XX_subscriptions_org_primary.up.sql` (idempotent, CONCURRENTLY for index creation). Backfill in chunked UPDATE. Down migration must preserve existing rows.
+> Scope: 1 migration pair + 1 repo signature change + 1 regression test. Effort: 4h. NOT a blocker — schedule it in a maintenance window.
+
+### Agent C — Test coverage backfill on healthy flows (good hygiene, low urgency)
+
+**Brief**:
+> Read `regression-audit.md` priority queue items #3 / #4 / #5. Add the three tests:
+> - Receipts: assert `attachReceiptSnapshot` is invoked exactly once per `CreatePaymentIntent` path (mocked snapshotResolver, count calls).
+> - Commission invoices: stage a mixed-Premium org with records across an entire month, run the monthly scheduler, assert one invoice with N-1 line items (the Premium-waived line is skipped, the rest are billed).
+> - Messaging: stage a 2-operator org sharing a conversation, send a message, have operator A view, assert operator B's unread count is still > 0 and operator A's is 0.
+> Scope: 3 unit + integration tests. No production code changes. Effort: 2.5h total.
+
+### What I am NOT recommending
+
+- **No code changes** beyond CRIT-REF (already in flight). Every other audited flow is healthy.
+- **No "while we're there" polish** — per CLAUDE.md scope discipline, do not refactor or pre-emptively migrate anything that's not breaking.
+- **No mass rate-limit / RLS rework** — those are recent, exhaustively tested, and stable.
+
+## Methodology footnote
+
+This audit is READ-ONLY. Inspection methods used:
+- `git log --since="2026-04-01" --oneline -- <paths>` per flow (≈ 1460 commits total in scope).
+- Code reads on hot-spot files (commission_distributor.go, charge.go, payout_request.go, monthly.go, scheduler.go, service.go for each feature).
+- Cross-reference with memory notes (`project_org_based_model.md`, `project_blocking_todo.md`) for known latent issues.
+- No DB writes. No test execution. No code modification.
+
+The audit's value is **paranoid analysis + concrete file:line evidence** — not implementation. Hand the fix queue to follow-up agents.
+
 
 ## Per-flow report
 
