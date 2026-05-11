@@ -110,21 +110,37 @@ type Config struct {
 	// r.RemoteAddr directly.
 	TrustedProxies string
 
-	// RateLimitGlobalPerMinute, RateLimitMutationPerMinute,
-	// RateLimitUploadPerMinute let an operator override the per-IP
-	// (global) and per-user (mutation/upload) caps without code
-	// changes. Defaults preserve the documented production values
-	// (100 / 30 / 10 per minute). In a heavy localhost session a
-	// single developer can comfortably trip the 100/min cap when
-	// several browser tabs are open and every TanStack Query
-	// polling hook fires at once — the dev .env can bump these to
-	// keep iterating. Production keeps the defaults. A value of 0
-	// means "use default" so empty env vars degrade gracefully to
-	// the constants in middleware.DefaultGlobalPolicy etc.
-	// PERF-FIX-W-IDLE-CPU.
-	RateLimitGlobalPerMinute   int
-	RateLimitMutationPerMinute int
-	RateLimitUploadPerMinute   int
+	// RateLimit* let an operator override every rate-limit class
+	// without code changes. Defaults are encoded in
+	// middleware.DefaultXxxPolicy and are bumped to safe-for-prod
+	// values that absorb a single CGNAT-shared mobile user:
+	//   - Global:           600 req/min (per IP /24 or IPv6 /64)
+	//   - Mutation:         120 req/min (per user_id, IP fallback)
+	//   - Upload:            30 req/min (per user_id)
+	//   - AuthLogin:         10 req/min (per IP) — credential stuffing
+	//   - Auth2FAVerify:     10 req/min (per IP) — code brute-force
+	//   - Auth2FAEnable:      5 req/min (per user_id) — email bombing
+	//   - PasswordReset:      3 req/min (per email hash) — inbox abuse
+	// A value of 0 (or unset env var) means "use default", so the
+	// production deployment does not need to set anything unless
+	// the operator explicitly wants to widen or tighten a class.
+	// RATE-LIMIT-PROD.
+	//
+	// Env var mapping (all integers, per-minute):
+	//   RATE_LIMIT_GLOBAL_PER_MINUTE          -> RateLimitGlobalPerMinute
+	//   RATE_LIMIT_MUTATION_PER_MINUTE        -> RateLimitMutationPerMinute
+	//   RATE_LIMIT_UPLOAD_PER_MINUTE          -> RateLimitUploadPerMinute
+	//   RATE_LIMIT_AUTH_LOGIN_PER_MINUTE      -> RateLimitAuthLoginPerMinute
+	//   RATE_LIMIT_AUTH_2FA_VERIFY_PER_MINUTE -> RateLimitAuth2FAVerifyPerMinute
+	//   RATE_LIMIT_AUTH_2FA_ENABLE_PER_MINUTE -> RateLimitAuth2FAEnablePerMinute
+	//   RATE_LIMIT_PASSWORD_RESET_PER_MINUTE  -> RateLimitPasswordResetPerMinute
+	RateLimitGlobalPerMinute         int
+	RateLimitMutationPerMinute       int
+	RateLimitUploadPerMinute         int
+	RateLimitAuthLoginPerMinute      int
+	RateLimitAuth2FAVerifyPerMinute  int
+	RateLimitAuth2FAEnablePerMinute  int
+	RateLimitPasswordResetPerMinute  int
 
 	// NotificationWorkerConcurrency is the number of parallel
 	// processors the notification delivery worker spawns. Defaults
@@ -224,14 +240,20 @@ func Load() *Config {
 		OpenAIEmbeddingsModel: getEnv("OPENAI_EMBEDDINGS_MODEL", "text-embedding-3-small"),
 		TrustedProxies:        getEnv("TRUSTED_PROXIES", ""),
 
-		// PERF-FIX-W-IDLE-CPU: env-driven rate-limit caps.
-		// 0 means "fall back to middleware.DefaultXxxPolicy".
-		// Production should leave these unset so the documented
-		// 100 / 30 / 10 caps stay in force; local dev can bump them
-		// in .env when iterating across multiple tabs.
-		RateLimitGlobalPerMinute:   parseInt(getEnv("RATE_LIMIT_GLOBAL_PER_MINUTE", "0"), 0),
-		RateLimitMutationPerMinute: parseInt(getEnv("RATE_LIMIT_MUTATION_PER_MINUTE", "0"), 0),
-		RateLimitUploadPerMinute:   parseInt(getEnv("RATE_LIMIT_UPLOAD_PER_MINUTE", "0"), 0),
+		// RATE-LIMIT-PROD: env-driven rate-limit caps across every
+		// class. 0 (or unset) means "fall back to
+		// middleware.DefaultXxxPolicy". Production typically leaves
+		// these unset and relies on the safe defaults; local dev can
+		// bump them in .env when iterating across multiple tabs.
+		// Auth/2FA/password-reset classes are tight on purpose —
+		// loosen them only with a clear threat-model justification.
+		RateLimitGlobalPerMinute:        parseInt(getEnv("RATE_LIMIT_GLOBAL_PER_MINUTE", "0"), 0),
+		RateLimitMutationPerMinute:      parseInt(getEnv("RATE_LIMIT_MUTATION_PER_MINUTE", "0"), 0),
+		RateLimitUploadPerMinute:        parseInt(getEnv("RATE_LIMIT_UPLOAD_PER_MINUTE", "0"), 0),
+		RateLimitAuthLoginPerMinute:     parseInt(getEnv("RATE_LIMIT_AUTH_LOGIN_PER_MINUTE", "0"), 0),
+		RateLimitAuth2FAVerifyPerMinute: parseInt(getEnv("RATE_LIMIT_AUTH_2FA_VERIFY_PER_MINUTE", "0"), 0),
+		RateLimitAuth2FAEnablePerMinute: parseInt(getEnv("RATE_LIMIT_AUTH_2FA_ENABLE_PER_MINUTE", "0"), 0),
+		RateLimitPasswordResetPerMinute: parseInt(getEnv("RATE_LIMIT_PASSWORD_RESET_PER_MINUTE", "0"), 0),
 
 		// BUG-16: parallel notification worker pool size. Zero means
 		// "fall back to the package default" (currently 5).
