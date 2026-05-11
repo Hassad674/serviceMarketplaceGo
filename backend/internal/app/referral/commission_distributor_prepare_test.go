@@ -175,6 +175,92 @@ func TestSweepPendingCommissions_PendingKYCWhenNoAccount(t *testing.T) {
 	assert.Equal(t, referral.CommissionPendingKYC, row.Status)
 }
 
+// TestSweepPendingCommissions_BackfillBatch_DrainsAllWithKYC simulates
+// the CRIT-REF-BACKFILL situation: migration 151 has just inserted N
+// pending commission rows for milestones approved BEFORE the
+// PrepareCommissionForMilestone hook existed. The sweeper must drain
+// every row that has a Stripe destination, in one batch, without
+// errors.
+func TestSweepPendingCommissions_BackfillBatch_DrainsAllWithKYC(t *testing.T) {
+	const backfillSize = 10
+	f := newTestFixture(t, "acct_referrer")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+	bringToActive(t, f.svc, r, provID, cliID)
+
+	proposalID := uuid.New()
+	require.NoError(t, f.svc.CreateAttributionIfExists(context.Background(), attrInputFor(proposalID, provID, cliID)))
+
+	milestoneIDs := make([]uuid.UUID, 0, backfillSize)
+	for i := 0; i < backfillSize; i++ {
+		mid := uuid.New()
+		milestoneIDs = append(milestoneIDs, mid)
+		require.NoError(t,
+			f.svc.PrepareCommissionForMilestone(context.Background(),
+				prepareInputFor(proposalID, mid, 1000_00)),
+			"prepare #%d (mimics migration 151 INSERT)", i)
+	}
+
+	// Age every row past the grace period — exactly what migration 151
+	// produces when applied minutes/hours/days before the next sweep.
+	f.repo.backdateCommissionsBy(time.Hour)
+
+	processed, err := f.svc.SweepPendingCommissions(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, backfillSize, processed,
+		"every backfilled row must be drained in one batch")
+	assert.Len(t, f.stripe.transfers, backfillSize,
+		"one Stripe transfer per drained row")
+
+	// Every row ends in paid state with a transfer id stamped.
+	for i, mid := range milestoneIDs {
+		row, err := f.repo.FindCommissionByMilestone(context.Background(), mid)
+		require.NoErrorf(t, err, "lookup row #%d", i)
+		assert.Equalf(t, referral.CommissionPaid, row.Status,
+			"row #%d must be paid after sweep", i)
+		assert.NotEmptyf(t, row.StripeTransferID,
+			"row #%d must carry the transfer id", i)
+	}
+}
+
+// TestSweepPendingCommissions_BackfillBatch_ParksWhenNoKYC verifies the
+// other branch of the post-backfill drain: a referrer without a Stripe
+// Connect account has every backfilled row parked as pending_kyc, no
+// Stripe call fires, and OnStripeAccountReady can pick them up later.
+func TestSweepPendingCommissions_BackfillBatch_ParksWhenNoKYC(t *testing.T) {
+	const backfillSize = 5
+	// Empty stripe account = referrer has no Connect KYC yet.
+	f := newTestFixture(t, "")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+	bringToActive(t, f.svc, r, provID, cliID)
+
+	proposalID := uuid.New()
+	require.NoError(t, f.svc.CreateAttributionIfExists(context.Background(), attrInputFor(proposalID, provID, cliID)))
+
+	milestoneIDs := make([]uuid.UUID, 0, backfillSize)
+	for i := 0; i < backfillSize; i++ {
+		mid := uuid.New()
+		milestoneIDs = append(milestoneIDs, mid)
+		require.NoError(t,
+			f.svc.PrepareCommissionForMilestone(context.Background(),
+				prepareInputFor(proposalID, mid, 1000_00)))
+	}
+	f.repo.backdateCommissionsBy(time.Hour)
+
+	processed, err := f.svc.SweepPendingCommissions(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, backfillSize, processed)
+	assert.Empty(t, f.stripe.transfers,
+		"no Stripe transfer must fire without a destination account")
+
+	for _, mid := range milestoneIDs {
+		row, err := f.repo.FindCommissionByMilestone(context.Background(), mid)
+		require.NoError(t, err)
+		assert.Equal(t, referral.CommissionPendingKYC, row.Status)
+	}
+}
+
 // TestSweepPendingCommissions_RespectsGracePeriod verifies that a
 // freshly-created pending row is NOT swept (the grace period gives
 // the legacy DistributeIfApplicable path a chance to fire first).
