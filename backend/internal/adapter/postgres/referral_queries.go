@@ -178,6 +178,25 @@ const queryListPendingKYCByReferrer = `
 	WHERE c.status = 'pending_kyc' AND r.referrer_id = $1
 	ORDER BY c.created_at ASC`
 
+// queryListPendingCommissions returns commission rows in `pending`
+// status (NOT pending_kyc) that have been sitting for at least the
+// caller's grace window. Used by the referral scheduler sweeper to
+// drain prepared-but-untransferred commissions (CRIT-REF).
+//
+// The status column is already indexed via the composite (status,
+// created_at) lookup pattern present on this table; the WHERE clause
+// uses the leading equality on status before the inequality on
+// created_at so the planner short-circuits correctly.
+const queryListPendingCommissions = `
+	SELECT id, attribution_id, milestone_id,
+	       gross_amount_cents, commission_cents, currency,
+	       status, stripe_transfer_id, stripe_reversal_id, failure_reason,
+	       paid_at, clawed_back_at, created_at, updated_at
+	FROM referral_commissions
+	WHERE status = 'pending' AND created_at < $1
+	ORDER BY created_at ASC
+	LIMIT $2`
+
 const queryListExpiringIntros = `
 	SELECT ` + referralColumns + `
 	FROM referrals

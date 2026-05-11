@@ -180,6 +180,9 @@ func (f *unitReferralRepo) ListRecentCommissionsByReferrer(_ context.Context, _ 
 func (f *unitReferralRepo) ListPendingKYCByReferrer(_ context.Context, _ uuid.UUID) ([]*referral.Commission, error) {
 	return nil, nil
 }
+func (f *unitReferralRepo) ListPendingCommissions(_ context.Context, _ time.Time, _ int) ([]*referral.Commission, error) {
+	return nil, nil
+}
 func (f *unitReferralRepo) ListExpiringIntros(_ context.Context, _ time.Time, _ int) ([]*referral.Referral, error) {
 	return nil, nil
 }

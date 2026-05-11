@@ -107,6 +107,24 @@ func (r *ReferralRepository) ListPendingKYCByReferrer(ctx context.Context, refer
 	return scanCommissionRows(rows)
 }
 
+// ListPendingCommissions returns commission rows in `pending` status
+// older than the supplied cutoff. Capped at 500 rows per call to keep
+// the sweeper from monopolising a connection on an unexpected backlog.
+func (r *ReferralRepository) ListPendingCommissions(ctx context.Context, olderThan time.Time, limit int) ([]*referral.Commission, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := r.db.QueryContext(ctx, queryListPendingCommissions, olderThan, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list pending commissions: %w", err)
+	}
+	defer rows.Close()
+	return scanCommissionRows(rows)
+}
+
 // ─── Cron support ──────────────────────────────────────────────────────────
 
 func (r *ReferralRepository) ListExpiringIntros(ctx context.Context, cutoff time.Time, limit int) ([]*referral.Referral, error) {

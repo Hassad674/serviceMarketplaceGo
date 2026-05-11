@@ -122,6 +122,16 @@ type ReferralRepository interface {
 	// referral.kyc_listener.OnStripeAccountReady.
 	ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error)
 
+	// ListPendingCommissions returns commissions in `pending` status
+	// (NOT pending_kyc, NOT paid, NOT failed) created strictly before
+	// `olderThan`, capped at `limit`. Used by the referral scheduler
+	// sweeper to drain commission rows that were prepared on milestone
+	// approval but whose Stripe transfer never fired — CRIT-REF: the
+	// provider auto-transfer was not eligible so the legacy
+	// DistributeIfApplicable path was never invoked. Ordered by
+	// created_at ASC so the oldest rows drain first.
+	ListPendingCommissions(ctx context.Context, olderThan time.Time, limit int) ([]*referral.Commission, error)
+
 	// ListRecentCommissionsByReferrer returns the most recent N
 	// commissions belonging to the referrer (across all their referrals
 	// and all statuses). Ordered by created_at DESC. Used by the

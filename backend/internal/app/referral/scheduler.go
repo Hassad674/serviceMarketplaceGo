@@ -59,9 +59,23 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	stale, matured, err := s.svc.RunExpirerCycle(ctx)
 	if err != nil {
 		slog.Error("referral scheduler cycle failed", "error", err)
-		return
+		// Fall through: a stale-intro error must not stop the
+		// commission sweeper from running on the same tick.
 	}
 	if stale > 0 || matured > 0 {
 		slog.Info("referral scheduler cycle", "stale_intros", stale, "matured_referrals", matured)
+	}
+
+	// CRIT-REF safety net: drain any pending commission rows that the
+	// legacy DistributeIfApplicable path failed to handle (e.g.
+	// provider never opted into auto-transfer, so TransferMilestone
+	// never fired and the existing distributor was never called).
+	swept, sErr := s.svc.SweepPendingCommissions(ctx)
+	if sErr != nil {
+		slog.Error("referral scheduler: sweep pending commissions failed", "error", sErr)
+		return
+	}
+	if swept > 0 {
+		slog.Info("referral scheduler cycle", "swept_pending_commissions", swept)
 	}
 }

@@ -312,6 +312,38 @@ func (f *fakeReferralRepo) ListPendingKYCByReferrer(ctx context.Context, referre
 	return out, nil
 }
 
+func (f *fakeReferralRepo) ListPendingCommissions(ctx context.Context, olderThan time.Time, limit int) ([]*referral.Commission, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []*referral.Commission
+	for _, c := range f.commissions {
+		if c.Status != referral.CommissionPending {
+			continue
+		}
+		if !c.CreatedAt.Before(olderThan) {
+			continue
+		}
+		cp := *c
+		out = append(out, &cp)
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// backdateCommissionsBy is a test-only helper that subtracts the given
+// duration from every commission row's CreatedAt — used to simulate a
+// commission that has been sitting in pending past the sweeper grace
+// period without needing time.Sleep in the test.
+func (f *fakeReferralRepo) backdateCommissionsBy(d time.Duration) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.commissions {
+		c.CreatedAt = c.CreatedAt.Add(-d)
+	}
+}
+
 func (f *fakeReferralRepo) ListExpiringIntros(ctx context.Context, cutoff time.Time, limit int) ([]*referral.Referral, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

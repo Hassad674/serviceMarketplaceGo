@@ -11,6 +11,7 @@ import (
 
 	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/system"
 )
 
@@ -71,6 +72,17 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	if err := s.recomputeMacroStatus(ctx, p); err != nil {
 		return fmt.Errorf("recompute macro status: %w", err)
 	}
+
+	// Referrer commission — fires on milestone APPROVAL regardless of
+	// whether the provider is eligible for auto-transfer below. The
+	// commission row lands in pending status so the apporteur wallet
+	// reflects the income immediately; actual Stripe transfer happens
+	// either via the legacy DistributeIfApplicable path (when the
+	// provider auto-transfer fires later) or via the referral scheduler.
+	// CRIT-REF fix: previously the commission row was ONLY created
+	// inside TransferMilestone → providerEligibleForAutoTransfer being
+	// false on fresh providers meant zero commission rows ever landed.
+	s.prepareReferrerCommission(ctx, p.ID, current.ID, current.Amount)
 
 	// If the macro status is now completed, this was the LAST milestone
 	// of the proposal: run the end-of-project side effects (shared with
@@ -442,6 +454,36 @@ func (s *Service) providerEligibleForAutoTransfer(ctx context.Context, providerU
 		return false
 	}
 	return consent
+}
+
+// prepareReferrerCommission is the bridge from the proposal service to
+// the referral feature on milestone APPROVAL. It is a fire-and-log
+// helper: a failure here MUST NOT bubble up into the proposal flow
+// (the milestone is already approved, the conversation already nudged
+// the client, etc.). Used by both CompleteProposal (client approves)
+// and AutoApproveMilestone (silent client → 7-day auto-approval) so
+// every approval path lands a pending commission row.
+//
+// When the referral preparer is not wired (legacy test setup or a
+// deployment without the referral feature) this is a no-op.
+func (s *Service) prepareReferrerCommission(ctx context.Context, proposalID, milestoneID uuid.UUID, grossCents int64) {
+	if s.referralCommissionPreparer == nil {
+		return
+	}
+	if grossCents <= 0 {
+		return
+	}
+	if err := s.referralCommissionPreparer.PrepareCommissionForMilestone(ctx, service.ReferralCommissionPrepareInput{
+		ProposalID:       proposalID,
+		MilestoneID:      milestoneID,
+		GrossAmountCents: grossCents,
+		Currency:         "EUR",
+	}); err != nil {
+		slog.Warn("referral: prepare commission for milestone failed",
+			"proposal_id", proposalID,
+			"milestone_id", milestoneID,
+			"error", err)
+	}
 }
 
 func buildStatusMetadata(p *domain.Proposal) json.RawMessage {

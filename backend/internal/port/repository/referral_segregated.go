@@ -82,6 +82,7 @@ type ReferralCommissionStore interface {
 	FindCommissionByMilestone(ctx context.Context, milestoneID uuid.UUID) (*referral.Commission, error)
 	ListCommissionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Commission, error)
 	ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error)
+	ListPendingCommissions(ctx context.Context, olderThan time.Time, limit int) ([]*referral.Commission, error)
 	ListRecentCommissionsByReferrer(ctx context.Context, referrerID uuid.UUID, limit int) ([]*referral.Commission, error)
 }
 

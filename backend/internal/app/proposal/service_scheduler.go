@@ -224,6 +224,13 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 		return fmt.Errorf("recompute macro status: %w", err)
 	}
 
+	// Referrer commission — fires on milestone APPROVAL (including the
+	// silent 7-day auto-approval path) regardless of whether the
+	// provider is eligible for auto-transfer below. Mirrors the
+	// CompleteProposal flow so every approval lands a pending
+	// commission row in the apporteur wallet. CRIT-REF.
+	s.prepareReferrerCommission(ctx, p.ID, m.ID, m.Amount)
+
 	// End-of-project effects only on macro completion (last milestone).
 	// Mid-project releases just emit the lighter "milestone_released"
 	// signal so the next milestone CTA surfaces in the UI.
