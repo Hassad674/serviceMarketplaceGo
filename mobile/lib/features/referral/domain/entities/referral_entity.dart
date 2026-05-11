@@ -294,6 +294,7 @@ class ReferralAttribution {
     this.proposalStatus = '',
     this.ratePctSnapshot,
     required this.attributedAt,
+    this.endedAt,
     this.totalCommissionCents,
     this.pendingCommissionCents,
     this.escrowCommissionCents,
@@ -309,6 +310,12 @@ class ReferralAttribution {
   final String proposalStatus;
   final double? ratePctSnapshot;
   final String attributedAt;
+
+  /// ISO-8601 timestamp at which the apporteur explicitly terminated
+  /// the attribution. Null while the attribution is still active.
+  /// Surfaced by the backend after WALLET-UNIFY Run D so the
+  /// "Intro terminée" badge persists across page reloads.
+  final String? endedAt;
   final int? totalCommissionCents;
   final int? pendingCommissionCents;
   final int? escrowCommissionCents;
@@ -316,6 +323,9 @@ class ReferralAttribution {
   final int milestonesPaid;
   final int milestonesPending;
   final int milestonesTotal;
+
+  /// Convenience flag — mirrors the domain `IsEnded()` helper.
+  bool get isEnded => endedAt != null && endedAt!.isNotEmpty;
 
   factory ReferralAttribution.fromJson(Map<String, dynamic> json) {
     return ReferralAttribution(
@@ -325,6 +335,7 @@ class ReferralAttribution {
       proposalStatus: (json['proposal_status'] as String?) ?? '',
       ratePctSnapshot: (json['rate_pct_snapshot'] as num?)?.toDouble(),
       attributedAt: json['attributed_at'] as String,
+      endedAt: json['ended_at'] as String?,
       totalCommissionCents: json['total_commission_cents'] as int?,
       pendingCommissionCents: json['pending_commission_cents'] as int?,
       escrowCommissionCents: json['escrow_commission_cents'] as int?,

@@ -6,7 +6,10 @@ import '../../domain/entities/referral_entity.dart';
 import '../providers/referral_provider.dart';
 import '../widgets/anonymized_client_card.dart';
 import '../widgets/anonymized_provider_card.dart';
+import '../widgets/end_intro_action.dart';
 import '../widgets/negotiation_timeline_widget.dart';
+import '../widgets/projected_commissions_list.dart';
+import '../widgets/referral_identity_card.dart';
 import '../widgets/referral_missions_section.dart';
 import '../widgets/referral_status_chip.dart';
 
@@ -68,17 +71,24 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final showRate = viewerRole != 'client' || referral.status == 'active';
+    final isOwner = viewerRole == 'referrer';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _Header(referral: referral),
         const SizedBox(height: 16),
-        if (viewerRole == 'client' || viewerRole == 'referrer')
-          AnonymizedProviderCard(snapshot: referral.introSnapshot.provider),
-        if (viewerRole == 'client' || viewerRole == 'referrer')
-          const SizedBox(height: 16),
-        if (viewerRole == 'provider' || viewerRole == 'referrer')
+        // Identity reveal — Run D parity with web Run C. The
+        // apporteur sees clear provider + client names; everyone
+        // else stays on the existing anonymized cards.
+        if (isOwner)
+          ReferralIdentityCard(
+            referral: referral,
+            isOwner: true,
+          )
+        else if (viewerRole == 'client')
+          AnonymizedProviderCard(snapshot: referral.introSnapshot.provider)
+        else
           AnonymizedClientCard(snapshot: referral.introSnapshot.client),
         if (referral.introMessageForMe != null &&
             referral.introMessageForMe!.isNotEmpty) ...[
@@ -119,11 +129,16 @@ class _Body extends ConsumerWidget {
         // Attributed proposals — visible once the intro is active.
         // Apporteur + provider see the commission amounts; the client
         // sees only proposal/milestone status (Modèle A).
-        if (referral.status == 'active')
+        if (referral.status == 'active') ...[
           ReferralMissionsSection(
             referralId: referral.id,
             viewerIsClient: viewerRole == 'client',
           ),
+          if (isOwner)
+            _AttributionsEndIntroSection(
+              referralId: referral.id,
+            ),
+        ],
         if (showRate) ...[
           const SizedBox(height: 24),
           Text(
@@ -140,6 +155,102 @@ class _Body extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+/// Renders one panel per attribution under the missions section: a
+/// per-jalon projection list + an EndIntroAction button/badge.
+/// Reserved for the apporteur view (viewerRole == 'referrer').
+class _AttributionsEndIntroSection extends ConsumerWidget {
+  const _AttributionsEndIntroSection({required this.referralId});
+
+  final String referralId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncAttributions =
+        ref.watch(referralAttributionsProvider(referralId));
+    final asyncCommissions =
+        ref.watch(referralCommissionsProvider(referralId));
+    return asyncAttributions.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (attributions) {
+        if (attributions.isEmpty) return const SizedBox.shrink();
+        final commissions = asyncCommissions.valueOrNull ?? const [];
+        return Column(
+          children: [
+            const SizedBox(height: 16),
+            for (final att in attributions) ...[
+              _AttributionPanel(
+                referralId: referralId,
+                attribution: att,
+                commissions: commissions
+                    .where((c) => c.attributionId == att.id)
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AttributionPanel extends StatelessWidget {
+  const _AttributionPanel({
+    required this.referralId,
+    required this.attribution,
+    required this.commissions,
+  });
+
+  final String referralId;
+  final ReferralAttribution attribution;
+  final List<ReferralCommission> commissions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  attribution.proposalTitle.isNotEmpty
+                      ? attribution.proposalTitle
+                      : 'Mission',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              EndIntroAction(
+                referralId: referralId,
+                attributionId: attribution.id,
+                initialEndedAt: attribution.endedAt,
+              ),
+            ],
+          ),
+          ProjectedCommissionsList(
+            commissions: commissions,
+            escrowCents: attribution.escrowCommissionCents ?? 0,
+          ),
+        ],
+      ),
     );
   }
 }
