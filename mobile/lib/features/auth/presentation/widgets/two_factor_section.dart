@@ -37,21 +37,13 @@ class TwoFactorSection extends ConsumerStatefulWidget {
 }
 
 class _TwoFactorSectionState extends ConsumerState<TwoFactorSection> {
-  // Initial value is overridden in [didChangeDependencies] with the
-  // value coming from the auth state — the override is necessary
-  // because Riverpod's `ref.watch` is only safe inside [build].
+  // Local "optimistic" anchor. The toggle's source of truth is the
+  // auth state (see `build` — the watched value overrides this field
+  // on every rebuild). _enabled is only used during the brief moment
+  // between a mutation succeeding and the refreshSession()/auth
+  // state landing the new value.
   bool _enabled = false;
   bool _busy = false;
-
-  /// Reads `two_factor_email_enabled` from the cached auth user. The
-  /// auth provider stores the user as a raw `Map<String, dynamic>` so
-  /// we project the boolean (default false) without going through the
-  /// User entity.
-  bool _readEnabledFromAuth() {
-    final auth = ref.read(authProvider);
-    final flag = auth.user?['two_factor_email_enabled'];
-    return flag is bool ? flag : false;
-  }
 
   Future<void> _handleToggle(bool desired) async {
     if (_busy) return;
