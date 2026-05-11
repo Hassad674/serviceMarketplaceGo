@@ -152,7 +152,7 @@ describe("WalletCommissionList", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument()
   })
 
-  it("renders the 3 balance card labels", () => {
+  it("renders the 4 balance card labels (WALLET-UX strip)", () => {
     render(
       <WalletCommissionList
         summary={{
@@ -160,14 +160,42 @@ describe("WalletCommissionList", () => {
           pending_kyc_cents: 50_00,
           paid_cents: 200_00,
           clawed_back_cents: 30_00,
+          paid_30d_cents: 80_00,
+          lifetime_cents: 230_00,
           currency: "EUR",
         }}
         records={[]}
       />,
     )
-    expect(screen.getByText(/En attente/)).toBeInTheDocument()
-    expect(screen.getByText(/Reçues/)).toBeInTheDocument()
-    expect(screen.getByText(/Reprises/)).toBeInTheDocument()
+    // The 4 metric labels of the WALLET-UX strip — matches the
+    // grammar of the missions wallet (Disponible / En séquestre /
+    // Versées 30j / Cumul lifetime).
+    expect(screen.getByText(/Disponible/)).toBeInTheDocument()
+    expect(screen.getByText(/En séquestre/)).toBeInTheDocument()
+    expect(screen.getByText(/Versées 30j/)).toBeInTheDocument()
+    expect(screen.getByText(/Cumul lifetime/)).toBeInTheDocument()
+  })
+
+  it("falls back to paid_cents + clawed_back when lifetime_cents is omitted (legacy backend)", () => {
+    render(
+      <WalletCommissionList
+        summary={{
+          pending_cents: 0,
+          pending_kyc_cents: 0,
+          paid_cents: 200_00,
+          clawed_back_cents: 30_00,
+          // paid_30d_cents + lifetime_cents intentionally omitted —
+          // mirrors a deployment that hasn't been redeployed yet.
+          currency: "EUR",
+        }}
+        records={[]}
+      />,
+    )
+    // Cumul lifetime label still rendered with the derived 230,00
+    expect(screen.getByText(/Cumul lifetime/)).toBeInTheDocument()
+    expect(screen.getByText(/230,00/)).toBeInTheDocument()
+    // Versées 30j falls back to 0
+    expect(screen.getByText(/Versées 30j/)).toBeInTheDocument()
   })
 
   it("formats amounts in EUR", () => {
@@ -183,8 +211,10 @@ describe("WalletCommissionList", () => {
         records={[]}
       />,
     )
-    // 1234500 cents -> 12 345,00 €
-    expect(screen.getByText(/12\s?345,00/)).toBeInTheDocument()
+    // 1234500 cents -> 12 345,00 € appears on the Disponible AND the
+    // Cumul lifetime tile (both equal to paid_cents when there is no
+    // clawback). Match at least once.
+    expect(screen.getAllByText(/12\s?345,00/).length).toBeGreaterThan(0)
   })
 
   it("renders the 'sur X de mission' subline for each row", () => {
