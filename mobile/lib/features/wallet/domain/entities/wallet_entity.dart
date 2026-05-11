@@ -106,6 +106,11 @@ class CommissionRecord {
   final String? paidAt;
   final String? clawedBackAt;
   final DateTime createdAt;
+  /// retireEligible mirrors the backend's authoritative flag for
+  /// the D1+D2 "Retirer" button. When the API response omits the
+  /// field (older backend version), the getter derives it from the
+  /// status as a safety net.
+  final bool? retireEligible;
 
   const CommissionRecord({
     required this.id,
@@ -120,7 +125,15 @@ class CommissionRecord {
     this.paidAt,
     this.clawedBackAt,
     required this.createdAt,
+    this.retireEligible,
   });
+
+  /// Derived flag — falls back to deriving from status when the
+  /// backend response did not include retire_eligible (older API).
+  bool get canRetire {
+    if (retireEligible != null) return retireEligible!;
+    return status == 'pending_kyc' || status == 'failed';
+  }
 
   factory CommissionRecord.fromJson(Map<String, dynamic> json) {
     return CommissionRecord(
@@ -138,6 +151,7 @@ class CommissionRecord {
       createdAt: DateTime.parse(
         json['created_at'] as String? ?? DateTime.now().toIso8601String(),
       ),
+      retireEligible: json['retire_eligible'] as bool?,
     );
   }
 }

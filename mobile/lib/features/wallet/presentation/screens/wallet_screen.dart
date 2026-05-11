@@ -10,9 +10,11 @@ import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
 import '../../../invoicing/presentation/providers/invoicing_providers.dart';
 import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
 import '../../../invoicing/presentation/widgets/current_month_aggregate_card.dart';
+import '../../data/exceptions/commission_kyc_required_exception.dart';
 import '../../data/exceptions/kyc_incomplete_exception.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_provider.dart';
+import '../widgets/commission_kyc_required_dialog.dart';
 import '../widgets/wallet_commissions_section.dart';
 import '../widgets/wallet_hero_card.dart';
 import '../widgets/wallet_missions_section.dart';
@@ -33,6 +35,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   // the UI can show an inline spinner on the correct row. Holds a
   // payment-record id, NOT a proposal id.
   String? _retryingRecordId;
+  // D1+D2 — separate spinner state for the apporteur commission
+  // retry button. A commission and a payment record can be in flight
+  // at the same time without their spinners stepping on each other.
+  String? _retryingCommissionId;
 
   Future<void> _requestPayout() async {
     // Proactive gate ORDER MATTERS — KYC first, billing second.
@@ -219,6 +225,70 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     }
   }
 
+  /// D1+D2 — retry an apporteur commission stuck in pending_kyc or
+  /// failed. On 422 kyc_required we open the
+  /// [CommissionKYCRequiredDialog] with the onboarding URL the
+  /// backend embedded in the envelope so the user can deep-link to
+  /// Stripe to finish onboarding.
+  Future<void> _retryCommission(CommissionRecord record) async {
+    if (_retryingCommissionId != null) return;
+    setState(() => _retryingCommissionId = record.id);
+    try {
+      final repo = ref.read(walletRepositoryProvider);
+      await repo.retryCommission(record.id);
+      ref.invalidate(walletProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Retrait en cours.')),
+        );
+      }
+    } on CommissionKYCRequiredException catch (kyc) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => CommissionKYCRequiredDialog(
+          onboardingUrl: kyc.onboardingUrl,
+          onPaymentInfoTap: () => context.push('/payment-info'),
+        ),
+      );
+    } on DioException catch (e) {
+      if (mounted) {
+        final code = _errorCode(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_commissionRetryFailureCopy(code))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Retry failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _retryingCommissionId = null);
+    }
+  }
+
+  /// Maps the commission retry error codes to user-facing copy.
+  /// Distinct from _retryFailureCopy because the commission flow has
+  /// its own set of codes (already_paid / not_retriable / retry_failed).
+  String _commissionRetryFailureCopy(String code) {
+    switch (code) {
+      case 'already_paid':
+        return 'Cette commission a déjà été versée.';
+      case 'not_retriable':
+        return 'Cette commission ne peut pas être relancée.';
+      case 'retry_failed':
+        return 'Le virement a de nouveau échoué côté Stripe. Réessaie dans quelques minutes.';
+      case 'commission_not_found':
+        return 'Cette commission est introuvable.';
+      case 'forbidden':
+        return "Tu n'es pas autorisé à relancer cette commission.";
+      default:
+        return 'Erreur lors de la relance de la commission.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -291,6 +361,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               WalletCommissionsSection(
                 summary: wallet.commissions,
                 records: wallet.commissionRecords,
+                onRetireCommission: _retryCommission,
+                retiringCommissionId: _retryingCommissionId,
               ),
             ],
           ],

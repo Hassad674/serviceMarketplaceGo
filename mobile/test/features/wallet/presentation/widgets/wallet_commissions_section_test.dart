@@ -151,4 +151,89 @@ void main() {
       expect(find.byIcon(Icons.chevron_right), findsNothing);
     });
   });
+
+  // ─── D1+D2: Retirer button ──────────────────────────────────────────────
+
+  group('WalletCommissionTile - Retire button (D1+D2)', () {
+    testWidgets('paid commission does NOT render the Retire button',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'paid'),
+            onRetire: () {},
+          ),
+        ),
+      );
+      expect(find.text('Retire'), findsNothing);
+    });
+
+    testWidgets('pending_kyc commission renders the Retire button',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'pending_kyc'),
+            onRetire: () {},
+          ),
+        ),
+      );
+      expect(find.text('Retire'), findsOneWidget);
+    });
+
+    testWidgets('failed commission renders the Retire button',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'failed'),
+            onRetire: () {},
+          ),
+        ),
+      );
+      expect(find.text('Retire'), findsOneWidget);
+    });
+
+    testWidgets('tapping Retire invokes the callback', (tester) async {
+      var called = 0;
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'pending_kyc'),
+            onRetire: () => called++,
+          ),
+        ),
+      );
+      await tester.tap(find.text('Retire'));
+      await tester.pump();
+      expect(called, 1);
+    });
+
+    testWidgets('isRetrying shows a spinner instead of the label',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'pending_kyc'),
+            onRetire: () {},
+            isRetrying: true,
+          ),
+        ),
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Retire'), findsNothing);
+    });
+
+    testWidgets('onRetire null → no button rendered even on retire-eligible',
+        (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          WalletCommissionTile(
+            record: _commission(status: 'pending_kyc'),
+          ),
+        ),
+      );
+      expect(find.text('Retire'), findsNothing);
+    });
+  });
 }
