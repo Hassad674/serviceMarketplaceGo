@@ -250,8 +250,16 @@ test.describe("Enterprise job → applicant → message thread", () => {
 
         // Assert the POST happened — backend captured the body.
         await page.waitForTimeout(500)
-        if (messagePostBody) {
-          expect(messagePostBody.body ?? "").toContain("Ada")
+        // TS narrows `messagePostBody` to `null` (its initial value)
+        // because the reassignment lives inside a closure and TS cannot
+        // see across the route-handler boundary. Cast through `unknown`
+        // so the runtime check `if (capturedBody)` actually narrows to
+        // the populated shape rather than to `never`.
+        const capturedBody = messagePostBody as unknown as
+          | { body?: string; conversation_id?: string }
+          | null
+        if (capturedBody) {
+          expect(capturedBody.body ?? "").toContain("Ada")
         }
       }
     }
