@@ -21,6 +21,21 @@ type UserResponse struct {
 	EmailVerified   bool    `json:"email_verified"`
 	KYCStatus       string  `json:"kyc_status"`
 	KYCDeadline     *string `json:"kyc_deadline,omitempty"`
+	// TwoFactorEmailEnabled reports whether the user has opted into
+	// email-based 2FA. Surfaced on /auth/me (and the team/account
+	// shapes that reuse this DTO) so the Sécurité toggle can render
+	// the correct initial state on first paint — without it, the
+	// frontend always boots the switch to "off" even when the DB
+	// says otherwise, which is the root cause of FIX-2FA (user
+	// activates 2FA, refreshes, the toggle appears off and the only
+	// way to disable 2FA disappears with it).
+	//
+	// Populated by NewMeResponse / NewUserResponseWithTwoFactor — the
+	// plain NewUserResponse leaves it false because most callers
+	// (Register, Login token mode, /me's first-shot before the flag
+	// lookup) cannot resolve the flag synchronously without an extra
+	// dependency.
+	TwoFactorEmailEnabled bool `json:"two_factor_email_enabled"`
 	// DeletedAt is set when the user requested deletion via the
 	// GDPR right-to-erasure flow (P5). Until the cron purges them
 	// at T+30 they can still log in as a normal user (the auth
@@ -149,8 +164,18 @@ func NewOrganizationResponse(ctx *orgapp.Context) *OrganizationResponse {
 // org context. The org's KYC state is projected onto the user response
 // so existing frontends keep reading kyc_status / kyc_deadline without
 // changes.
-func NewMeResponse(u *user.User, orgCtx *orgapp.Context) MeResponse {
+//
+// twoFactorEmailEnabled carries the resolved value of the user's
+// users.two_factor_email_enabled column. It is a separate argument
+// rather than a domain field because the flag lives in its own slim
+// repository (`TwoFactorEnabler`) — colocating it on the user entity
+// would force every auth-touching layer to import the 2FA package.
+// Pass false when the caller has no way to resolve the flag (e.g.
+// Register, mobile token-mode Login first response); the toggle then
+// renders OFF on first paint and corrects itself on the next /me.
+func NewMeResponse(u *user.User, orgCtx *orgapp.Context, twoFactorEmailEnabled bool) MeResponse {
 	userResp := NewUserResponse(u)
+	userResp.TwoFactorEmailEnabled = twoFactorEmailEnabled
 	if orgCtx != nil && orgCtx.Organization != nil {
 		applyOrgKYCToUser(&userResp, orgCtx.Organization)
 	} else {

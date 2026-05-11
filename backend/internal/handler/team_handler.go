@@ -373,7 +373,12 @@ func (h *TeamHandler) refreshSessionAfterTransfer(
 
 	// 6. Set the new cookie and return /me-style response.
 	h.cookie.SetSession(w, session.ID, freshUser.Role.String())
-	res.JSON(w, http.StatusOK, response.NewMeResponse(freshUser, orgCtx))
+	// FIX-2FA: the team handler does not own the 2FA flag dependency
+	// (it lives on AuthHandler) — passing false keeps the JSON shape
+	// stable and the toggle self-corrects on the next /me probe. A
+	// transfer accept is rare enough that one extra /me round-trip
+	// before the Sécurité page renders is acceptable.
+	res.JSON(w, http.StatusOK, response.NewMeResponse(freshUser, orgCtx, false))
 }
 
 // sendTransferResponseFallback resolves the org and returns the plain

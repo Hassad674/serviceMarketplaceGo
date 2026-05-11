@@ -308,7 +308,12 @@ func (h *InvitationHandler) Accept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.cookie.SetSession(w, session.ID, output.User.Role.String())
-	res.JSON(w, http.StatusCreated, response.NewMeResponse(output.User, result.OrgContext))
+	// FIX-2FA: a brand-new invitation acceptance creates a user that
+	// cannot have opted into 2FA yet, but we still pass `false`
+	// explicitly so the field is present on the response — matches the
+	// /me shape exactly and avoids the toggle defaulting to OFF on
+	// first paint via a missing JSON key.
+	res.JSON(w, http.StatusCreated, response.NewMeResponse(output.User, result.OrgContext, false))
 }
 
 // ---------------------------------------------------------------------------

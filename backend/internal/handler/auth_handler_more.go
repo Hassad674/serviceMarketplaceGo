@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"marketplace-backend/internal/app/auth"
 	orgapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/user"
@@ -224,7 +226,29 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 
 	// Web mode: response body omits the tokens — the cookies above are
 	// the only credential the browser will replay on subsequent calls.
-	res.JSON(w, status, response.NewMeResponse(output.User, orgCtx))
+	//
+	// FIX-2FA: same flag lookup as /me so the login response carries the
+	// up-to-date 2FA state — without this, the user sees "two-factor: off"
+	// immediately after a successful login until the next /me probe lands.
+	res.JSON(w, status, response.NewMeResponse(output.User, orgCtx, h.resolveTwoFactorFlag(r, output.User.ID)))
+}
+
+// resolveTwoFactorFlag is a tiny helper that mirrors the /me handler's
+// flag lookup — kept here so the auth helpers do not duplicate the
+// "swallow Redis blip, default false" pattern. Returns false when the
+// flag dependency is not wired (tests, dev without 2FA) instead of
+// erroring, because a missing flag has the same user-facing semantics
+// as the flag being off.
+func (h *AuthHandler) resolveTwoFactorFlag(r *http.Request, userID uuid.UUID) bool {
+	if h.twoFactorFlag == nil {
+		return false
+	}
+	val, err := h.twoFactorFlag.IsEmailTwoFactorEnabled(r.Context(), userID)
+	if err != nil {
+		slog.Warn("two_factor: read flag for auth response failed", "user_id", userID, "error", err)
+		return false
+	}
+	return val
 }
 
 // permissionKeysFromOrgContext projects an org context's resolved
