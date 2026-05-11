@@ -19,7 +19,6 @@ class _FakeStatsRepository implements StatsRepository {
   _FakeStatsRepository({
     this.visibility,
     this.keywords = const <KeywordRow>[],
-    this.applications,
   });
 
   VisibilityStats? visibility;
