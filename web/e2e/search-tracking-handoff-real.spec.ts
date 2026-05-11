@@ -172,8 +172,12 @@ test.describe("Search → profile handoff (real tracking)", () => {
     await page.waitForTimeout(500)
     // Search endpoint may or may not be hit on initial render depending
     // on the search engine wiring — assert only if we observed a call.
-    if (searchCalled) {
-      expect(searchCalled).toBe(true)
+    // Cast via `unknown` so TS does not narrow to `never` (the let
+    // initial value is `false`/`null` and the reassignment happens in a
+    // closure that TS cannot track).
+    const wasSearchCalled = searchCalled as unknown as boolean
+    if (wasSearchCalled) {
+      expect(wasSearchCalled).toBe(true)
     }
 
     // Click the hit (by link to /freelancers/<orgId>).
@@ -182,9 +186,12 @@ test.describe("Search → profile handoff (real tracking)", () => {
       await hit.click()
       await page.waitForTimeout(500)
       // The POST should have happened.
-      if (viewEventBody) {
-        expect(viewEventBody.keyword).toBe(SEARCH_KEYWORD)
-        expect(viewEventBody.position).toBe(HIT_POSITION)
+      const capturedView = viewEventBody as unknown as
+        | { keyword?: string; position?: number; organization_id?: string }
+        | null
+      if (capturedView) {
+        expect(capturedView.keyword).toBe(SEARCH_KEYWORD)
+        expect(capturedView.position).toBe(HIT_POSITION)
       }
     }
   })

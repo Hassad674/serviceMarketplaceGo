@@ -61,8 +61,7 @@ test.describe("SEC-01 — JSON-LD XSS on public profile pages", () => {
     //    breakout works, the injected attacker script will set it to true.
     const newPage = await context.newPage()
     await newPage.addInitScript(() => {
-      // @ts-expect-error — test sentinel
-      window.__pwned = undefined
+      ;(window as unknown as { __pwned?: unknown }).__pwned = undefined
     })
 
     // 6. Visit the public freelance profile.
@@ -71,8 +70,7 @@ test.describe("SEC-01 — JSON-LD XSS on public profile pages", () => {
 
     // 7. Sentinel must remain undefined.
     const pwned = await newPage.evaluate(() => {
-      // @ts-expect-error — test sentinel
-      return window.__pwned
+      return (window as unknown as { __pwned?: unknown }).__pwned
     })
     expect(pwned).toBeUndefined()
 
