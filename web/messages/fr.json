@@ -1954,17 +1954,16 @@
     "billingIncompleteTitle": "Tes infos de facturation sont incomplètes",
     "billingIncompleteHint": "Avant de pouvoir payer, complète les informations qui apparaîtront sur ton reçu.",
     "billingIncompleteCta": "Compléter mes infos",
-    "inlineBilling": {
-      "legend": "Identité de facturation",
-      "subtitle": "Ces informations apparaîtront sur ton reçu. Tu peux les modifier plus tard depuis tes paramètres.",
-      "legalNameLabel": "Raison sociale",
-      "legalNamePlaceholder": "Ex. Acme Studio SARL",
-      "siretLabel": "SIRET",
-      "siretError": "Le SIRET doit contenir 14 chiffres.",
-      "vatLabel": "N° TVA intracommunautaire",
-      "vatOptional": "facultatif",
-      "vatError": "Format invalide (ex. FR12345678901).",
-      "saveError": "Impossible d'enregistrer tes infos. Réessaie."
+    "billingEmbed": {
+      "summaryTitle": "Identité de facturation",
+      "editCta": "Modifier",
+      "country": "Pays",
+      "address": "Adresse",
+      "entity": "Entité légale",
+      "tax": "Identifiants fiscaux",
+      "loading": "Chargement de tes informations",
+      "completePromptTitle": "Renseigne ton identité de facturation",
+      "completePromptBody": "Avant de confirmer le paiement, complète les informations qui apparaîtront sur ton reçu."
     },
     "uploadError": "L'envoi des fichiers a échoué. Veuillez réessayer.",
     "detailTitle": "Détails de la proposition",

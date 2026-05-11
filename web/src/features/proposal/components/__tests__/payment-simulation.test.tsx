@@ -89,6 +89,88 @@ vi.mock("@/shared/components/billing-profile/billing-profile-inline-modal", () =
     ) : null,
 }))
 
+// The embedded inline billing-profile card. Stubbed because its real
+// implementation depends on TanStack Query + the (heavier) shared form;
+// the parent's contract here is: "render embed in the requested mode,
+// surface onSaved + onEdit for parent state changes".
+vi.mock("@/shared/components/billing-profile/billing-profile-embed", () => ({
+  BillingProfileEmbed: ({
+    mode,
+    onEdit,
+    onSaved,
+  }: {
+    mode: "summary" | "form"
+    onEdit: () => void
+    onSaved: () => void
+  }) => (
+    <div data-testid="billing-embed" data-mode={mode}>
+      <button data-testid="billing-embed-edit" onClick={onEdit}>
+        edit
+      </button>
+      <button data-testid="billing-embed-saved" onClick={onSaved}>
+        saved
+      </button>
+    </div>
+  ),
+}))
+
+// The TanStack Query hook used by the payment form to decide whether
+// the Stripe Element should be rendered. By default the snapshot is
+// COMPLETE so existing happy-path tests continue to render the layout.
+// Individual tests can re-mock this with `.mockReturnValueOnce(...)`.
+type BillingMockReturn = {
+  data: {
+    profile: {
+      organization_id: string
+      profile_type: "business" | "individual"
+      legal_name: string
+      trading_name: string
+      legal_form: string
+      tax_id: string
+      vat_number: string
+      vat_validated_at: string | null
+      address_line1: string
+      address_line2: string
+      postal_code: string
+      city: string
+      country: string
+      invoicing_email: string
+      synced_from_kyc_at: string | null
+    }
+    missing_fields: { field: string; reason: string }[]
+    is_complete: boolean
+  } | undefined
+  isLoading: boolean
+}
+const completeMock: BillingMockReturn = {
+  data: {
+    profile: {
+      organization_id: "org-1",
+      profile_type: "business",
+      legal_name: "Acme",
+      trading_name: "",
+      legal_form: "",
+      tax_id: "12345678901234",
+      vat_number: "",
+      vat_validated_at: null,
+      address_line1: "12 rue de la Paix",
+      address_line2: "",
+      postal_code: "75001",
+      city: "Paris",
+      country: "FR",
+      invoicing_email: "",
+      synced_from_kyc_at: null,
+    },
+    missing_fields: [],
+    is_complete: true,
+  },
+  isLoading: false,
+}
+const useBillingProfileMock = vi.fn<() => BillingMockReturn>(() => completeMock)
+vi.mock("@/shared/hooks/billing-profile/use-billing-profile", () => ({
+  useBillingProfile: () => useBillingProfileMock(),
+}))
+
 // Lucide icons render as inert spans — keeps the DOM uncluttered.
 vi.mock("lucide-react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("lucide-react")>()
@@ -148,6 +230,8 @@ beforeEach(() => {
   replaceFn.mockReset()
   pushFn.mockReset()
   backFn.mockReset()
+  useBillingProfileMock.mockReset()
+  useBillingProfileMock.mockReturnValue(completeMock)
 })
 
 afterEach(() => {
@@ -435,5 +519,109 @@ describe("PaymentSimulation", () => {
     expect(
       screen.queryByRole("button", { name: /paymentRetry/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it("renders the embedded billing-profile in summary mode when the profile is complete on first paint (BILLING-IDENTITY-CLONE)", async () => {
+    // Default mock already returns a complete profile. The happy-path
+    // payment flow renders the embed in read-only mode AND the
+    // SimulationFallback's confirmPayment button (the test env has no
+    // NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, so the page renders the
+    // simulation branch — same gating logic applies on the Stripe
+    // branch in production).
+    getProposalMock.mockResolvedValue(baseProposal)
+    initiatePaymentMock.mockResolvedValue(stripePaymentData)
+
+    await renderPaymentSimulation()
+
+    const embed = await screen.findByTestId("billing-embed")
+    expect(embed).toBeInTheDocument()
+    expect(embed.getAttribute("data-mode")).toBe("summary")
+    // The confirmPayment CTA is rendered (gated by isPaymentReady === true).
+    expect(
+      screen.getByRole("button", { name: /confirmPayment/i }),
+    ).toBeInTheDocument()
+  })
+
+  it("renders the embedded billing-profile in FORM mode and HIDES the payment CTA when the profile is incomplete (BILLING-IDENTITY-CLONE gate)", async () => {
+    // Mock the snapshot as incomplete — the embed should default to
+    // form mode and the confirmPayment button MUST NOT render (whether
+    // the underlying branch is Stripe Elements or the simulation
+    // fallback). This is the gate from the brief: the client never
+    // sees the card form until their receipt identity is on file.
+    useBillingProfileMock.mockReturnValue({
+      data: {
+        profile: {
+          organization_id: "org-1",
+          profile_type: "business",
+          legal_name: "",
+          trading_name: "",
+          legal_form: "",
+          tax_id: "",
+          vat_number: "",
+          vat_validated_at: null,
+          address_line1: "",
+          address_line2: "",
+          postal_code: "",
+          city: "",
+          country: "FR",
+          invoicing_email: "",
+          synced_from_kyc_at: null,
+        },
+        missing_fields: [{ field: "legal_name", reason: "required" }],
+        is_complete: false,
+      },
+      isLoading: false,
+    })
+
+    getProposalMock.mockResolvedValue(baseProposal)
+    initiatePaymentMock.mockResolvedValue(stripePaymentData)
+
+    await renderPaymentSimulation()
+
+    const embed = await screen.findByTestId("billing-embed")
+    expect(embed.getAttribute("data-mode")).toBe("form")
+    expect(screen.queryByTestId("payment-element")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /confirmPayment/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("flips the embed back to summary mode after onSaved fires, exposing the payment CTA (BILLING-IDENTITY-CLONE save→pay)", async () => {
+    // Start with the default complete profile so the embed defaults to
+    // summary. Clicking "edit" flips to form; clicking "saved" inside
+    // the form stub flips back to summary.
+    getProposalMock.mockResolvedValue(baseProposal)
+    initiatePaymentMock.mockResolvedValue(stripePaymentData)
+
+    await renderPaymentSimulation()
+
+    let embed = await screen.findByTestId("billing-embed")
+    expect(embed.getAttribute("data-mode")).toBe("summary")
+
+    fireEvent.click(screen.getByTestId("billing-embed-edit"))
+    // The click triggers a state change AND useRouter returns a fresh
+    // object on every render → React's effect dep array sees a new
+    // `router` and re-fires the data-load pipeline. waitFor re-checks
+    // the embed once the pipeline has settled with the new mode.
+    await waitFor(() => {
+      const updated = screen.getByTestId("billing-embed")
+      expect(updated.getAttribute("data-mode")).toBe("form")
+    })
+    // In form mode the confirmPayment CTA MUST NOT render.
+    expect(
+      screen.queryByRole("button", { name: /confirmPayment/i }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId("billing-embed-saved"))
+    await waitFor(() => {
+      embed = screen.getByTestId("billing-embed")
+      expect(embed.getAttribute("data-mode")).toBe("summary")
+    })
+    // Back to summary → confirmPayment CTA renders again.
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /confirmPayment/i }),
+      ).toBeInTheDocument()
+    })
   })
 })
