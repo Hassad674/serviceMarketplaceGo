@@ -186,9 +186,17 @@ export function useMessagingWS(userId: string | undefined) {
   useEffect(() => {
     handleFrameRef.current = (frame: WSServerFrame) => {
       const uid = userIdRef.current
+      // TEMP DEBUG — see what frames actually arrive in the browser.
+      // Remove once realtime bug 2026-05-12 is resolved.
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line no-console
+        console.log("[WS-DEBUG]", frame.type, "uid=", uid, "active=", activeConversationIdRef.current, "payload=", frame.payload)
+      }
       switch (frame.type) {
         case "new_message": {
           const incomingMsg = frame.payload
+          // eslint-disable-next-line no-console
+          console.log("[WS-DEBUG/new_message]", "msg.id=", incomingMsg.id, "msg.conv=", incomingMsg.conversation_id, "sender=", incomingMsg.sender_id, "isActiveConv=", activeConversationIdRef.current === incomingMsg.conversation_id)
           addMessageToCache(incomingMsg)
           clearTyping(incomingMsg.conversation_id)
           syncProposalStatusInCache(incomingMsg)
