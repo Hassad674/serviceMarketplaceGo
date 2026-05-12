@@ -150,9 +150,12 @@ func TestWalletService_GetWalletOverview_AggregatesEscrowAndTransferred(t *testi
 	assert.Equal(t, "acct_test", ov.StripeAccountID)
 	assert.True(t, ov.ChargesEnabled)
 	assert.True(t, ov.PayoutsEnabled)
-	assert.Equal(t, int64(950), ov.EscrowAmount, "only succeeded+pending records count toward escrow")
+	// No milestone reader wired → conservative branch: every paid+pending
+	// record lands in escrow, AvailableAmount stays zero (never flag
+	// unverified funds as drainable).
+	assert.Equal(t, int64(950), ov.EscrowAmount, "succeeded+pending records sit in escrow when milestone reader is nil")
 	assert.Equal(t, int64(1900), ov.TransferredAmount, "only completed records count toward transferred")
-	assert.Equal(t, ov.EscrowAmount, ov.AvailableAmount, "available equals escrow")
+	assert.Zero(t, ov.AvailableAmount, "available stays zero without milestone reader — conservative default")
 	assert.Len(t, ov.Records, 3, "all records appear in the wallet record list")
 }
 

@@ -279,23 +279,6 @@ function ProposalCardActions({
           />
         )}
 
-        {showModifyButton && (
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={onModify}
-            className={cn(
-              "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-              "text-sm font-medium transition-all duration-200",
-              "border border-border",
-              "text-foreground",
-              "hover:border-primary/40",
-              "active:scale-[0.98]",
-            )}
-          >
-            <Pencil className="h-4 w-4" strokeWidth={1.5} />
-            {t("modify")}
-          </Button>
-        )}
 
         {showPayButton && (
           <Button variant="ghost" size="auto"

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/billing"
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/payment"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domainuser "marketplace-backend/internal/domain/user"
@@ -15,6 +16,27 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/system"
 )
+
+// MilestoneStatusReader is the narrow port the wallet uses to resolve
+// milestone status in batch when splitting a payment record into the
+// EscrowAmount vs AvailableAmount buckets. Defined locally (rather than
+// importing the full MilestoneRepository) so the wallet only sees the
+// method it actually needs — pure ISP.
+//
+// Contract:
+//   - Returns a map keyed by milestone id, value = current status.
+//   - Missing ids (milestone hard-deleted, corrupted FK) are omitted
+//     from the result — the caller treats them as "unknown" and keeps
+//     the record in escrow (conservative: never mark unverified funds
+//     as retire-eligible).
+//   - SYSTEM-ACTOR: this lookup is intrinsically cross-org (one org's
+//     wallet view may aggregate milestones owned by different proposal
+//     parties when the same record references multiple orgs through
+//     transfers). The adapter MUST tag ctx with system.WithSystemActor
+//     before the SQL hits the RLS-gated table.
+type MilestoneStatusReader interface {
+	StatusByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]milestonedomain.MilestoneStatus, error)
+}
 
 // WalletService is the read-side of the payment feature: wallet
 // overview, fee preview, payment-record reads, and the platform-fee
@@ -59,6 +81,15 @@ type WalletService struct {
 	// subscription feature is not wired — every user is then quoted /
 	// billed at the full grid rate.
 	subscriptions portservice.SubscriptionReader
+
+	// milestones resolves the per-milestone status used to split a
+	// payment record between EscrowAmount (client paid, milestone not
+	// yet approved) and AvailableAmount (milestone approved, transfer
+	// not yet dispatched). Nil when the milestone feature is not wired
+	// — wallet then degrades to the conservative "everything escrow,
+	// nothing available" mode rather than silently flagging unverified
+	// funds as retire-eligible.
+	milestones MilestoneStatusReader
 }
 
 // WalletServiceDeps groups every dependency NewWalletService needs.
@@ -98,6 +129,17 @@ func (w *WalletService) SetSubscriptionReader(r portservice.SubscriptionReader) 
 	w.subscriptions = r
 }
 
+// SetMilestoneStatusReader plugs the milestone status reader used by
+// GetWalletOverview to split a payment record between EscrowAmount
+// (client paid, milestone not yet approved) and AvailableAmount
+// (milestone approved, transfer pending). Passing nil keeps the
+// wallet in conservative mode: every paid record sits in escrow and
+// AvailableAmount stays zero — the apporteur cannot accidentally see
+// unverified funds as retire-eligible.
+func (w *WalletService) SetMilestoneStatusReader(r MilestoneStatusReader) {
+	w.milestones = r
+}
+
 // GetWalletOverview returns the organization's wallet state. Every
 // member of the same org sees the same wallet (Stripe Dashboard model).
 // Since phase R5 the Stripe account + KYC bookkeeping live on the org.
@@ -121,30 +163,16 @@ func (w *WalletService) GetWalletOverview(ctx context.Context, userID, orgID uui
 	}
 
 	for _, r := range records {
-		rec := WalletRecord{
-			ID:             r.ID.String(),
-			ProposalID:     r.ProposalID.String(),
-			ProposalAmount: r.ProposalAmount,
-			PlatformFee:    r.PlatformFeeAmount,
-			ProviderPayout: r.ProviderPayout,
-			PaymentStatus:  string(r.Status),
-			TransferStatus: string(r.TransferStatus),
-			CreatedAt:      r.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-		if r.MilestoneID != uuid.Nil {
-			rec.MilestoneID = r.MilestoneID.String()
-		}
-		wallet.Records = append(wallet.Records, rec)
-
-		switch {
-		case r.TransferStatus == domain.TransferCompleted:
-			wallet.TransferredAmount += r.ProviderPayout
-		case r.Status == domain.RecordStatusSucceeded && r.TransferStatus == domain.TransferPending:
-			wallet.EscrowAmount += r.ProviderPayout
-		}
+		wallet.Records = append(wallet.Records, recordToDTO(r))
 	}
 
-	wallet.AvailableAmount = wallet.EscrowAmount
+	// Resolve milestone statuses in a single batch to split escrow vs
+	// available. Failures (or a nil reader) drop us into the conservative
+	// branch: every paid+pending record sits in escrow, AvailableAmount
+	// stays zero. Better to under-report retire-eligibility than to
+	// flag unverified funds as drainable.
+	statuses := w.fetchMilestoneStatuses(ctx, records)
+	w.aggregateBuckets(wallet, records, statuses)
 
 	// Commission side — populated only when a referral wallet reader
 	// is wired (the referral feature might not be active in every
@@ -155,6 +183,155 @@ func (w *WalletService) GetWalletOverview(ctx context.Context, userID, orgID uui
 	}
 
 	return wallet, nil
+}
+
+// recordToDTO is the pure mapping from the domain payment record to
+// the wire-facing WalletRecord. Extracted so GetWalletOverview's
+// outer loop stays linear and the dispatch logic below can be unit-
+// tested independently.
+func recordToDTO(r *domain.PaymentRecord) WalletRecord {
+	rec := WalletRecord{
+		ID:             r.ID.String(),
+		ProposalID:     r.ProposalID.String(),
+		ProposalAmount: r.ProposalAmount,
+		PlatformFee:    r.PlatformFeeAmount,
+		ProviderPayout: r.ProviderPayout,
+		PaymentStatus:  string(r.Status),
+		TransferStatus: string(r.TransferStatus),
+		CreatedAt:      r.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+	if r.MilestoneID != uuid.Nil {
+		rec.MilestoneID = r.MilestoneID.String()
+	}
+	return rec
+}
+
+// fetchMilestoneStatuses batches every milestone status lookup into a
+// SINGLE backend call (no N+1). Returns an empty map and logs a
+// warning when the reader is missing or the call errors — the caller
+// treats every record as "unknown milestone status" which the
+// dispatcher maps to EscrowAmount (conservative).
+func (w *WalletService) fetchMilestoneStatuses(ctx context.Context, records []*domain.PaymentRecord) map[uuid.UUID]milestonedomain.MilestoneStatus {
+	if w.milestones == nil || len(records) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, 0, len(records))
+	seen := make(map[uuid.UUID]struct{}, len(records))
+	for _, r := range records {
+		if r == nil || r.MilestoneID == uuid.Nil {
+			continue
+		}
+		if _, dup := seen[r.MilestoneID]; dup {
+			continue
+		}
+		seen[r.MilestoneID] = struct{}{}
+		ids = append(ids, r.MilestoneID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	statuses, err := w.milestones.StatusByIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("payment: milestone status batch lookup failed, degrading to escrow-only",
+			"error", err, "milestone_count", len(ids))
+		return nil
+	}
+	return statuses
+}
+
+// aggregateBuckets dispatches every record into its money bucket
+// based on (transfer_status, payment_status, milestone.status). See
+// _plan_wallet_v2.md for the full decision matrix.
+//
+// Conservative default: missing milestone status → EscrowAmount. We
+// never put money in AvailableAmount unless we can PROVE the milestone
+// is approved by the client. The withdraw endpoint reads
+// AvailableAmount as the cap on what can be drained — getting this
+// wrong would let a provider drain escrowed (un-approved) funds.
+func (w *WalletService) aggregateBuckets(
+	wallet *WalletOverview,
+	records []*domain.PaymentRecord,
+	statuses map[uuid.UUID]milestonedomain.MilestoneStatus,
+) {
+	for _, r := range records {
+		if r == nil {
+			continue
+		}
+		bucket := classifyRecordBucket(r, statuses)
+		switch bucket {
+		case bucketTransferred:
+			wallet.TransferredAmount += r.ProviderPayout
+		case bucketAvailable:
+			wallet.AvailableAmount += r.ProviderPayout
+		case bucketEscrow:
+			wallet.EscrowAmount += r.ProviderPayout
+		}
+	}
+}
+
+// recordBucket enumerates the three money destinations on the wallet
+// overview. Used internally by classifyRecordBucket so callers don't
+// reach for stringly-typed comparisons.
+type recordBucket int
+
+const (
+	bucketSkip recordBucket = iota
+	bucketTransferred
+	bucketEscrow
+	bucketAvailable
+)
+
+// classifyRecordBucket is the pure dispatch decision: for a single
+// payment record + the milestone-status lookup table, return the
+// bucket the record's ProviderPayout should land in.
+//
+// Decision matrix (mirrors _plan_wallet_v2.md):
+//
+//	transfer_status=completed                                       → Transferred
+//	status=succeeded ∧ transfer=pending ∧ milestone=approved        → Available (client signed off)
+//	status=succeeded ∧ transfer=pending ∧ milestone=funded/submitted/disputed → Escrow
+//	status=succeeded ∧ transfer=pending ∧ milestone=released        → Transferred (defensive — should not happen)
+//	status=succeeded ∧ transfer=pending ∧ milestone missing/unknown → Escrow (conservative)
+//	any other (failed / refunded / pending payment)                 → Skip
+//
+// Extracted as a pure func so the matrix is straightforwardly
+// table-testable without standing up the wallet service.
+func classifyRecordBucket(
+	r *domain.PaymentRecord,
+	statuses map[uuid.UUID]milestonedomain.MilestoneStatus,
+) recordBucket {
+	if r.TransferStatus == domain.TransferCompleted {
+		return bucketTransferred
+	}
+	if r.Status != domain.RecordStatusSucceeded || r.TransferStatus != domain.TransferPending {
+		return bucketSkip
+	}
+	// Paid+pending — needs milestone context to decide escrow vs available.
+	if r.MilestoneID == uuid.Nil {
+		return bucketEscrow
+	}
+	status, ok := statuses[r.MilestoneID]
+	if !ok {
+		return bucketEscrow // conservative on missing status
+	}
+	switch status {
+	case milestonedomain.StatusApproved:
+		return bucketAvailable
+	case milestonedomain.StatusReleased:
+		// Defensive: transfer_status=pending while milestone=released
+		// means the transfer-status flip never landed but the milestone
+		// completed. Treat as transferred so the available bucket isn't
+		// padded with money the provider has effectively already
+		// received via another flow. Logged at the call site if needed.
+		return bucketTransferred
+	case milestonedomain.StatusFunded,
+		milestonedomain.StatusSubmitted,
+		milestonedomain.StatusDisputed:
+		return bucketEscrow
+	}
+	// pending_funding / cancelled / refunded with status=succeeded is
+	// data corruption — skip to keep the totals honest.
+	return bucketSkip
 }
 
 // populateCommissionSide fills in the apporteur view of the wallet.

@@ -191,6 +191,18 @@ func (s *Service) SetSubscriptionReader(r service.SubscriptionReader) {
 	s.wallet.SetSubscriptionReader(r)
 }
 
+// SetMilestoneStatusReader plugs the milestone status batch reader
+// used by GetWalletOverview to split a payment record's ProviderPayout
+// between EscrowAmount (paid, not yet approved by client) and
+// AvailableAmount (approved, transfer pending — retire-eligible).
+// Setter pattern because the milestone feature is wired AFTER payment
+// in main.go (the milestone repository belongs to the proposal
+// stack, which depends on the payment processor). Passing nil keeps
+// the wallet in conservative mode (everything escrow, available=0).
+func (s *Service) SetMilestoneStatusReader(r MilestoneStatusReader) {
+	s.wallet.SetMilestoneStatusReader(r)
+}
+
 // SetPerMilestoneInvoicer plugs the per-milestone platform_fee invoice
 // emitter into the payout sub-service. The invoicer fires after every
 // successful platform-to-connected-account Stripe transfer — at the

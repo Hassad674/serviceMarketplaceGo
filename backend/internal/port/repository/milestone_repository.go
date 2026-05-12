@@ -109,6 +109,18 @@ type MilestoneRepository interface {
 	// query, keyed by proposal_id. Used by list endpoints to avoid N+1
 	// when rendering a page of proposals with their milestone summaries.
 	ListByProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error)
+
+	// StatusByIDs returns a map of milestone id → current status for
+	// the given batch of ids in a single SQL round trip. Used by the
+	// payment wallet aggregation path to split a payment record into
+	// the escrow (paid, not yet client-approved) vs available
+	// (approved, transfer pending) bucket. Missing ids are omitted
+	// from the map — callers default to escrow on "unknown".
+	//
+	// SYSTEM-ACTOR: like ListByProposals, this is intrinsically cross-
+	// tenant (wallet aggregation crosses many counterpart orgs), so the
+	// caller MUST tag ctx with system.WithSystemActor.
+	StatusByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]milestone.MilestoneStatus, error)
 }
 
 // MilestoneTransitionRepository is the append-only audit trail for

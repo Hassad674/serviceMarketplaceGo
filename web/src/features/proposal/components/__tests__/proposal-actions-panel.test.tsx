@@ -100,10 +100,10 @@ function defaultProps(): React.ComponentProps<typeof ActionsPanel> {
 }
 
 describe("ActionsPanel — pending state", () => {
-  it("recipient sees accept/modify/decline buttons", () => {
+  it("recipient sees accept/decline buttons (modify removed)", () => {
     render(<ActionsPanel {...defaultProps()} isRecipient={true} />)
     expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /modify/i })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /modify/i })).toBeNull()
     expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument()
   })
 
@@ -127,14 +127,6 @@ describe("ActionsPanel — pending state", () => {
     render(<ActionsPanel {...props} />)
     fireEvent.click(screen.getByRole("button", { name: /decline/i }))
     expect(props.onDecline).toHaveBeenCalledTimes(1)
-  })
-
-  it("clicking modify fires onModify", () => {
-    const props = defaultProps()
-    props.isRecipient = true
-    render(<ActionsPanel {...props} />)
-    fireEvent.click(screen.getByRole("button", { name: /modify/i }))
-    expect(props.onModify).toHaveBeenCalledTimes(1)
   })
 
   it("buttons are disabled when isMutating=true", () => {

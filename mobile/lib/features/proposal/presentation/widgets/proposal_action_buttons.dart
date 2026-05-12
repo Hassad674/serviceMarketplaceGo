@@ -250,20 +250,6 @@ class _PendingRecipientCta extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: onModify,
-            icon: const Icon(Icons.edit_outlined, size: 16),
-            label: Text(l10n.proposalModify),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 44),
-              shape: const StadiumBorder(),
-              textStyle: SoleilTextStyles.button,
-            ),
-          ),
-        ),
       ],
     );
   }

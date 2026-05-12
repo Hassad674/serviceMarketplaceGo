@@ -194,23 +194,10 @@ describe("ProposalCard", () => {
     expect(screen.queryByText("pay")).toBeNull()
   })
 
-  it("shows Modify button when pending and own proposal (sender)", () => {
+  it("hides Modify button (feature removed)", () => {
     render(
       <ProposalCard
         metadata={createMetadata({ proposal_status: "pending" })}
-        isOwn={true}
-        currentUserId="user-1"
-        conversationId="conv-1"
-      />,
-    )
-
-    expect(screen.getByText("modify")).toBeDefined()
-  })
-
-  it("hides Modify button when not pending", () => {
-    render(
-      <ProposalCard
-        metadata={createMetadata({ proposal_status: "accepted" })}
         isOwn={true}
         currentUserId="user-1"
         conversationId="conv-1"
@@ -287,28 +274,6 @@ describe("ProposalCard", () => {
 
     fireEvent.click(screen.getByText("decline"))
     expect(declineMutateFn).toHaveBeenCalledWith("proposal-42")
-  })
-
-  it("navigates to modify page when Modify clicked", () => {
-    render(
-      <ProposalCard
-        metadata={createMetadata({
-          proposal_id: "proposal-42",
-          proposal_status: "pending",
-          proposal_provider_id: "prov-1",
-          proposal_client_id: "client-1",
-        })}
-        isOwn={true}
-        currentUserId="user-1"
-        conversationId="conv-1"
-      />,
-    )
-
-    fireEvent.click(screen.getByText("modify"))
-    expect(pushFn).toHaveBeenCalledOnce()
-    const calledUrl = pushFn.mock.calls[0][0] as string
-    expect(calledUrl).toContain("modify=proposal-42")
-    expect(calledUrl).toContain("conversation=conv-1")
   })
 
   it("navigates to pay page when Pay clicked", () => {

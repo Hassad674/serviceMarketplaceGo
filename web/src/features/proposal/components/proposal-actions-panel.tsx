@@ -216,12 +216,6 @@ function ActionButtons({
           icon={CheckCircle2}
           label={t("accept")}
         />
-        <OutlineButton
-          onClick={onModify}
-          disabled={isMutating}
-          icon={Pencil}
-          label={t("modify")}
-        />
         <GhostDestructiveButton
           onClick={onDecline}
           disabled={isMutating}

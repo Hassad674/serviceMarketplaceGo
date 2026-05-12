@@ -782,3 +782,113 @@ func synthCommissions(n int) []portservice.ReferralCommissionRecord {
 	}
 	return rows
 }
+
+// TestSummary_MissionSide_NoDoubleCount is the regression pin for the
+// "31207€ in both buckets" bug. The wallet overview comes in with
+// escrow+available+transferred already split (the new wallet.go
+// dispatch logic guarantees independence). The handler must NOT mirror
+// or sum them — total = escrow + available + transferred, each leg
+// counted once.
+func TestSummary_MissionSide_NoDoubleCount(t *testing.T) {
+	loader := &fakeMissionWalletLoader{
+		overview: &paymentapp.WalletOverview{
+			EscrowAmount:      31207_00,
+			AvailableAmount:   9876_00,
+			TransferredAmount: 3210_00,
+			// Records empty — recent_transactions timeline is unrelated.
+		},
+	}
+	wh := handler.NewWalletHandler(nil, nil).WithMissionWalletLoader(loader)
+	req := summaryRequest(t, uuid.New(), uuid.New(), "")
+	rec := httptest.NewRecorder()
+	wh.Summary(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	data := decodeSummary(t, rec)
+	breakdown := data["breakdown"].(map[string]any)
+	missions := breakdown["missions"].(map[string]any)
+
+	assert.Equal(t, float64(31207_00), missions["escrowed_cents"],
+		"escrow stands alone — it must NOT be mirrored into available")
+	assert.Equal(t, float64(9876_00), missions["available_cents"],
+		"available is what the wallet service computed via milestone status")
+	assert.Equal(t, float64(3210_00), missions["transmitted_cents"])
+	// total = sum of the three independent buckets, no double-count.
+	wantTotal := float64(31207_00 + 9876_00 + 3210_00)
+	assert.Equal(t, wantTotal, missions["total_cents"],
+		"total must equal the sum of the three legs — never the buggy 2*escrow + transferred")
+}
+
+// TestSummary_ApporteurSeesEscrowedCommissions is the regression pin
+// for Fix #2: when both projector and recorder are wired (the
+// production bootstrap state after this fix), an apporteur with
+// active milestones sees their projected escrow in the commissions
+// breakdown. Before the fix, the bootstrap wiring forgot to call
+// WithCommissionProjector + WithCommissionRecorder, so the apporteur
+// saw 0 in every commission bucket regardless of attribution state.
+func TestSummary_ApporteurSeesEscrowedCommissions(t *testing.T) {
+	now := time.Now().UTC()
+	// Apporteur attribution with an active (funded) milestone — the
+	// projection algorithm emits a ProjectionEscrowed row, which the
+	// handler routes to EscrowedCents.
+	projector := &fakeCommissionProjector{
+		rows: []referralapp.ProjectedCommission{
+			{
+				AttributionID:  uuid.New(),
+				MilestoneID:    uuid.New(),
+				ProposalID:     uuid.New(),
+				MissionTitle:   "Apport en cours",
+				ProjectedCents: 2500_00, // 2500€ commission projected
+				Currency:       "EUR",
+				Status:         referralapp.ProjectionEscrowed,
+				Source:         referralapp.SourceProjection,
+				ProjectedAt:    now,
+			},
+		},
+	}
+	// Recorder seeded with zero rows — proves the escrow value comes
+	// from the projector path (the canonical source) and NOT a stray
+	// record sum.
+	recorder := &fakeCommissionRecorder{rows: nil}
+
+	wh := handler.NewWalletHandler(nil, nil).
+		WithCommissionProjector(projector).
+		WithCommissionRecorder(recorder)
+	req := summaryRequest(t, uuid.New(), uuid.New(), "")
+	rec := httptest.NewRecorder()
+	wh.Summary(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	data := decodeSummary(t, rec)
+	breakdown := data["breakdown"].(map[string]any)
+	commissions := breakdown["commissions"].(map[string]any)
+	assert.Equal(t, float64(2500_00), commissions["escrowed_cents"],
+		"apporteur MUST see projected escrow > 0 — Fix #2 pin")
+	assert.Equal(t, float64(0), commissions["available_cents"])
+	assert.Equal(t, float64(0), commissions["transmitted_cents"])
+	assert.Equal(t, float64(2500_00), commissions["total_cents"],
+		"total commission leg = escrowed projection only")
+}
+
+// TestSummary_ApporteurWithoutProjector_SeesZero (regression pin for
+// the production bug) — if WithCommissionProjector is NEVER wired
+// (the pre-fix state), an apporteur with active attributions sees
+// zero in every commission bucket. This test acts as the negative
+// control: it documents the failure mode the fix in bootstrap.go
+// resolves, so a future refactor that forgets to call the setter
+// trips this test in spirit (a CI for the wiring).
+func TestSummary_ApporteurWithoutProjector_SeesZero(t *testing.T) {
+	// No WithCommissionProjector / WithCommissionRecorder — emulating
+	// the BUG state. We expect ZERO across every commission bucket.
+	wh := handler.NewWalletHandler(nil, nil)
+	req := summaryRequest(t, uuid.New(), uuid.New(), "")
+	rec := httptest.NewRecorder()
+	wh.Summary(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	data := decodeSummary(t, rec)
+	breakdown := data["breakdown"].(map[string]any)
+	commissions := breakdown["commissions"].(map[string]any)
+	assert.Equal(t, float64(0), commissions["escrowed_cents"])
+	assert.Equal(t, float64(0), commissions["available_cents"])
+	assert.Equal(t, float64(0), commissions["transmitted_cents"])
+	assert.Equal(t, float64(0), commissions["total_cents"])
+}

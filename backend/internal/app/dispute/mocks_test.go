@@ -449,6 +449,10 @@ func (m *mockMilestoneRepo) ListByProposals(_ context.Context, _ []uuid.UUID) (m
 	return map[uuid.UUID][]*milestonedomain.Milestone{}, nil
 }
 
+func (m *mockMilestoneRepo) StatusByIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]milestonedomain.MilestoneStatus, error) {
+	return map[uuid.UUID]milestonedomain.MilestoneStatus{}, nil
+}
+
 // synthDisputeMilestone returns a freshly-built submitted milestone
 // at sequence=1 with a deterministic amount large enough to satisfy
 // every existing dispute test's RequestedAmount value (most tests
