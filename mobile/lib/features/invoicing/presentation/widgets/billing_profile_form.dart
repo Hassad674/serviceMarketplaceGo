@@ -45,7 +45,11 @@ bool _isEuCountry(String code) => _kEuVatCountryCodes.contains(code);
 /// completeness gating are byte-for-byte identical to the legacy
 /// implementation. Only the visual chrome changed.
 class BillingProfileForm extends ConsumerStatefulWidget {
-  const BillingProfileForm({super.key, this.onSaved});
+  const BillingProfileForm({
+    super.key,
+    this.onSaved,
+    this.showStripePrefill = true,
+  });
 
   /// Fires once after a successful save AND only when the resulting
   /// profile passes server-side completeness. The screen wrapper uses
@@ -53,6 +57,13 @@ class BillingProfileForm extends ConsumerStatefulWidget {
   /// subscribe). Save attempts that leave the profile still incomplete
   /// keep the user on the form so they can fix the missing fields.
   final VoidCallback? onSaved;
+
+  /// Controls the "Sync depuis Stripe" CTA row at the top of the form.
+  /// Defaults to `true` for backwards compatibility with the prestataire
+  /// settings page. The client payment checkout passes `false` because
+  /// clients have no Stripe Connect KYC record to prefill from —
+  /// surfacing the button would be a meaningless action.
+  final bool showStripePrefill;
 
   @override
   ConsumerState<BillingProfileForm> createState() =>
@@ -163,13 +174,15 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
             BillingMissingBanner(fields: snapshot.missingFields),
             const SizedBox(height: 16),
           ],
-          BillingStripeSyncRow(
-            syncedAt: snapshot.profile.syncedFromKycAt,
-            syncing: _syncing,
-            onSync: _onSync,
-            error: _syncError,
-          ),
-          const SizedBox(height: 16),
+          if (widget.showStripePrefill) ...[
+            BillingStripeSyncRow(
+              syncedAt: snapshot.profile.syncedFromKycAt,
+              syncing: _syncing,
+              onSync: _onSync,
+              error: _syncError,
+            ),
+            const SizedBox(height: 16),
+          ],
           BillingSection(
             title: 'Pays',
             subtitle:

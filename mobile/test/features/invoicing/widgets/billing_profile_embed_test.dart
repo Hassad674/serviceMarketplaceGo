@@ -161,6 +161,70 @@ void main() {
     );
   });
 
+  testWidgets(
+      'hides "Sync depuis Stripe" CTA when showStripePrefill=false threads through',
+      (tester) async {
+    // Client-payment-ux fix: when the embed is mounted by the client
+    // payment screen, the prestataire-only prefill CTA must not surface.
+    final repo = RecordingInvoicingRepository()
+      ..getResponse = buildBillingProfileSnapshot(
+        profile: buildBillingProfile(legalName: ''),
+        missingFields: const [
+          MissingField(field: 'legal_name', reason: 'required'),
+        ],
+        isComplete: false,
+      );
+
+    await tester.pumpWidget(
+      _host(
+        repo,
+        BillingProfileEmbed(
+          mode: BillingEmbedMode.form,
+          onEdit: () {},
+          onSaved: () {},
+          showStripePrefill: false,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    tester.takeException();
+
+    expect(find.byType(BillingProfileForm), findsOneWidget);
+    expect(find.text('Sync depuis Stripe'), findsNothing);
+  });
+
+  testWidgets(
+      'renders "Sync depuis Stripe" CTA by default (prestataire context preserved)',
+      (tester) async {
+    final repo = RecordingInvoicingRepository()
+      ..getResponse = buildBillingProfileSnapshot(
+        profile: buildBillingProfile(legalName: ''),
+        missingFields: const [
+          MissingField(field: 'legal_name', reason: 'required'),
+        ],
+        isComplete: false,
+      );
+
+    await tester.pumpWidget(
+      _host(
+        repo,
+        BillingProfileEmbed(
+          mode: BillingEmbedMode.form,
+          onEdit: () {},
+          onSaved: () {},
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    tester.takeException();
+
+    // The CTA is in the form's StripeSyncRow when the profile is not
+    // yet synced. Default of `showStripePrefill=true` must surface it.
+    expect(find.text('Sync depuis Stripe'), findsOneWidget);
+  });
+
   testWidgets('shows a loading placeholder while the snapshot is fetching',
       (tester) async {
     // The pending repository keeps the Future hanging forever — the

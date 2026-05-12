@@ -298,6 +298,10 @@ class _PaymentForm extends ConsumerWidget {
           mode: billingMode,
           onEdit: billing.onEdit,
           onSaved: billing.onSaved,
+          // Clients have no Stripe Connect KYC to prefill from.
+          // Hiding the CTA keeps the checkout focused on filling the
+          // receipt identity once. Mirrors web/payment-simulation.tsx.
+          showStripePrefill: false,
         ),
         const SizedBox(height: 16),
         if (isPaymentReady)
