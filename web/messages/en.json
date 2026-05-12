@@ -3032,10 +3032,23 @@
     }
   },
   "referralIdentity": {
-    "reveal": {
-      "providerLink": "View the provider's profile",
-      "clientLink": "View the client's profile"
-    }
+    "providerTitle": "Recommended provider",
+    "clientTitle": "Proposed client",
+    "maskedSubtitle": "Identity revealed on acceptance",
+    "maskedNoDetail": "The referrer chose not to reveal any detail before acceptance.",
+    "rowExpertise": "Expertise",
+    "rowExperience": "Experience",
+    "rowRating": "Rating",
+    "rowPricing": "Pricing",
+    "rowRegion": "Region",
+    "rowLanguages": "Languages",
+    "rowSector": "Sector",
+    "rowSize": "Size",
+    "rowBudget": "Estimated budget",
+    "rowTiming": "Timing",
+    "rowNeed": "Need",
+    "yearsSuffix": "years",
+    "reviewsSuffix": "reviews"
   },
   "referralProjection": {
     "perMilestoneTitle": "Per-milestone projection",

@@ -68,6 +68,13 @@ export type Referral = {
   referrer_id: string
   provider_id: string
   client_id: string
+  // provider_display_name / client_display_name carry the clear
+  // human-readable label (org name when the user owns an
+  // agency/enterprise org, "First Last" otherwise). Populated ONLY
+  // when the viewer is the apporteur (referrer) — other roles see the
+  // masked snapshot and these fields are omitted by the backend.
+  provider_display_name?: string
+  client_display_name?: string
   rate_pct?: number
   duration_months: number
   status: ReferralStatus
@@ -120,6 +127,12 @@ export type ReferralAttribution = {
   proposal_id: string
   proposal_title?: string
   proposal_status?: string
+  // total_amount_cents is the gross proposal price (sum of milestones)
+  // in cents. Surfaced on the apporteur detail page next to the
+  // mission title — visible to every viewer (public mission price,
+  // not a commission number, so Modèle A does not require redaction).
+  // Always present; defaults to 0 when the proposal lookup failed.
+  total_amount_cents: number
   rate_pct_snapshot?: number
   attributed_at: string
   total_commission_cents?: number

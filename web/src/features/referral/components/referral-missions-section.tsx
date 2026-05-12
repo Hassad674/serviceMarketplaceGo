@@ -189,6 +189,14 @@ function AttributionRow({
             <span className="truncate text-sm font-semibold text-foreground">
               {title}
             </span>
+            {attribution.total_amount_cents > 0 && (
+              <span
+                data-testid="attribution-total-amount"
+                className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-foreground"
+              >
+                {formatEurCents(attribution.total_amount_cents)}
+              </span>
+            )}
             <span
               className={cn(
                 "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
