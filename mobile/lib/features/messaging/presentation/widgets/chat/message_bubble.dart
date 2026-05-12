@@ -129,8 +129,26 @@ class MessageBubble extends StatelessWidget {
     }
 
     // System messages for proposal lifecycle and call events.
+    //
+    // Regression fix: on `proposal_accepted` we surface the client-side
+    // "Payer maintenant" CTA directly on the pill — mirrors the web
+    // ProposalSystemMessage. Same gate as the rich ProposalCard: viewer
+    // must be the client, snapshot status must still be 'accepted'.
     if (isSystemMessageType(message.type)) {
-      return SystemMessageBubble(message: message);
+      final showPayCta = _shouldShowAcceptedPayCta(
+        type: message.type,
+        metadata: message.metadata,
+        currentUserId: currentUserId,
+      );
+      return SystemMessageBubble(
+        message: message,
+        showPayCta: showPayCta,
+        onPay: showPayCta && onPayProposal != null
+            ? () => onPayProposal!(
+                  (message.metadata?['proposal_id'] as String?) ?? '',
+                )
+            : null,
+      );
     }
 
     // Deleted message
@@ -163,4 +181,24 @@ class MessageBubble extends StatelessWidget {
       onReport: onReport,
     );
   }
+}
+
+/// Gates the "Payer maintenant" CTA on the `proposal_accepted` system
+/// message: the viewer must be the proposal's client, the snapshot
+/// status must still be `accepted`, and the metadata must carry a
+/// proposal id. Mirrors the web `ProposalSystemMessage` condition.
+bool _shouldShowAcceptedPayCta({
+  required String type,
+  required Map<String, dynamic>? metadata,
+  required String currentUserId,
+}) {
+  if (type != 'proposal_accepted') return false;
+  if (metadata == null) return false;
+  if (metadata['proposal_status'] != 'accepted') return false;
+  final clientId = metadata['proposal_client_id'] as String?;
+  if (clientId == null || clientId.isEmpty) return false;
+  if (clientId != currentUserId) return false;
+  final proposalId = metadata['proposal_id'] as String?;
+  if (proposalId == null || proposalId.isEmpty) return false;
+  return true;
 }
