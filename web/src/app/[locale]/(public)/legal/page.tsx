@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
+import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { LegalShell } from "@/shared/components/legal/legal-shell"
 import { CookieConsentManageButton } from "@/shared/components/analytics/cookie-consent-manage-button"
@@ -105,8 +106,8 @@ export default async function LegalIndexPage({
   )
 }
 
-async function EditorBlock() {
-  const t = await getTranslations("legal.mentions")
+function EditorBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">
@@ -154,8 +155,8 @@ async function EditorBlock() {
   )
 }
 
-async function DpoBlock() {
-  const t = await getTranslations("legal.mentions")
+function DpoBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">{t("dpoTitle")}</h2>
@@ -185,8 +186,8 @@ async function DpoBlock() {
   )
 }
 
-async function HostingBlock() {
-  const t = await getTranslations("legal.mentions")
+function HostingBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">
@@ -200,8 +201,8 @@ async function HostingBlock() {
   )
 }
 
-async function PspBlock() {
-  const t = await getTranslations("legal.mentions")
+function PspBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">{t("pspTitle")}</h2>
@@ -210,8 +211,8 @@ async function PspBlock() {
   )
 }
 
-async function ContactBlock() {
-  const t = await getTranslations("legal.mentions")
+function ContactBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">
@@ -233,8 +234,8 @@ async function ContactBlock() {
   )
 }
 
-async function MediationBlock() {
-  const t = await getTranslations("legal.mentions")
+function MediationBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">
@@ -245,8 +246,8 @@ async function MediationBlock() {
   )
 }
 
-async function IpBlock() {
-  const t = await getTranslations("legal.mentions")
+function IpBlock() {
+  const t = useTranslations("legal.mentions")
   return (
     <div className="space-y-2">
       <h2 className="font-display text-xl text-foreground">{t("ipTitle")}</h2>

@@ -2719,6 +2719,21 @@
         }
       }
     },
+    "antispamNotice": {
+      "ariaLabel": "Rappel des règles d'engagement",
+      "body": "Cette conversation est régie par notre <link>Code de conduite</link>. Harcèlement, spam, contournement de la plateforme et fraude entraînent une sanction immédiate. Signale tout abus via le bouton de signalement."
+    },
+    "reportButton": {
+      "label": "Signaler",
+      "ariaLabel": "Signaler ce {resourceType}",
+      "emailSubject": "[Signalement Atelier] {resourceType} {resourceId}",
+      "emailBodyIntro": "Bonjour, je souhaite signaler le contenu suivant pour violation du Code de conduite.",
+      "emailFieldResourceType": "Type",
+      "emailFieldResourceId": "Identifiant",
+      "emailFieldContext": "Contexte",
+      "emailFieldReason": "Motif (détaille la nature du manquement : harcèlement, spam, fraude, contenu illégal, etc.) :",
+      "emailBodyOutro": "Merci de votre instruction sous 10 jours ouvrés conformément à l'art. 17 du DSA."
+    },
     "mentions": {
       "title": "Mentions légales",
       "intro": "Conformément à l'article 6 III de la loi LCEN n° 2004-575 du 21 juin 2004, voici les mentions légales du service services.designedtrust.com (la « Plateforme »).",
@@ -3016,6 +3031,28 @@
         "liabilityBody": "La responsabilité de la Plateforme au titre des présentes CGV est strictement limitée comme indiqué à l'article 8 des CGU (12 mois de commissions, plafond 10 000 € HT par sinistre et par année civile). Les chargebacks, fraudes Stripe Radar et reverse-payments éventuels sont supportés conformément aux conditions Stripe Connect Custom signées par l'Organisation lors de l'onboarding. La Plateforme ne garantit pas la qualité, la conformité ou la solvabilité des Prestataires — la Plateforme est un intermédiaire technique au sens LCEN art. 6.",
         "lawHeading": "Article 13 — Loi applicable et juridiction",
         "lawBody": "Les présentes CGV sont régies par le droit français. Le Tribunal de commerce de Paris est compétent en cas de litige, sauf disposition impérative contraire."
+      },
+      "codeOfConduct": {
+        "title": "Code de conduite et politique de modération",
+        "subtitle": "Atelier connecte des professionnels et la confiance entre Utilisateurs est le fondement de la marketplace. Ce Code de conduite définit les comportements attendus, les comportements interdits, les sanctions applicables et la procédure de recours. Il fait partie intégrante des CGU et engage tout Utilisateur de la Plateforme.",
+        "preambleHeading": "Préambule",
+        "preambleBody": "La marketplace Atelier (services.designedtrust.com) met en relation des agences, des freelances, des entreprises et des apporteurs d'affaires. La qualité du service repose sur le respect mutuel, l'intégrité professionnelle et la confiance entre Utilisateurs. Tout Utilisateur — quel que soit son rôle (Client, Prestataire, Apporteur) — s'engage à respecter le présent Code de conduite, partie intégrante des CGU.",
+        "prohibitedHeading": "Comportements interdits",
+        "prohibitedIntro": "Sont strictement interdits sur la Plateforme et passibles de sanctions immédiates les comportements suivants :",
+        "prohibitedItems": "Harcèlement — sexuel, moral, racial, religieux, ou fondé sur l'orientation sexuelle, l'identité de genre, le handicap, la nationalité ou tout autre critère discriminatoire ;|Discrimination — refus de prestation ou de mise en relation fondé sur un critère discriminatoire au sens du Code pénal art. 225-1 (origine, sexe, orientation, handicap, opinions politiques, religion, syndicat, etc.) ;|Insultes, propos injurieux, langage haineux, menaces de violence ou d'atteinte aux biens ou aux personnes ;|Doxxing — partage d'informations personnelles d'autrui sans son consentement (adresse, téléphone, photos privées, etc.) ;|Tentatives de fraude — phishing, faux comptes, usurpation d'identité, faux justificatifs KYC, manipulation de l'historique de transactions ;|Contournement de la Plateforme (« off-platform circumvention ») — proposer ou solliciter une relation hors-plateforme pour éviter les commissions, motif n° 1 de bannissement Upwork et applicable ici dans les mêmes termes ;|Faux avis et manipulation du système de notation — création de faux comptes pour s'auto-évaluer ou évaluer un partenaire, échange de bonnes notes entre Utilisateurs, sollicitation d'avis contre rémunération ;|Concurrence déloyale et dénigrement — diffamation, parasitisme, débauchage abusif (art. 1240 Code civil) ;|Plagiat et vol de travail — appropriation de portfolio, de propositions ou de livrables d'autrui ;|Violation de propriété intellectuelle — utilisation non autorisée de logos, marques, contenus protégés ;|Contenus illégaux, haineux, sexuels non consentis, violents, désinformation médicale grave ;|Promotion de contenu relevant des Stripe Restricted Businesses (cf. CGV art. 10) — crypto, armes, drogues, jeux d'argent non agréés, contrefaçons, MLM, etc. ;|Spam — sollicitation massive non sollicitée, copy-paste de propositions identiques à grande échelle, mass messaging, abus de la fonctionnalité de notifications.",
+        "reportHeading": "Mécanisme de signalement",
+        "reportBody": "Tout Utilisateur peut signaler un comportement ou un contenu suspect via le bouton de signalement disponible sur chaque profil, message, proposition et conversation. Les signalements sont également recevables par email à trust@designedtrust.com, ou à support@designedtrust.com en l'absence de boîte trust dédiée. Conformément au Règlement DSA (UE) 2022/2065 art. 16, la Plateforme accuse réception du signalement sous 48 heures et l'instruit avec la priorité que sa gravité commande. Les signalements de bonne foi n'exposent leur auteur à aucune sanction.",
+        "sanctionsHeading": "Sanctions graduées",
+        "sanctionsIntro": "La gravité de la sanction est proportionnée au manquement constaté. La Plateforme applique la grille suivante, ajustable au regard de la jurisprudence et du contexte :",
+        "sanctionsItems": "Avertissement écrit (1er manquement mineur) — notification motivée + mention au dossier de l'Utilisateur. Les paiements et l'activité sont préservés ;|Suspension temporaire de 7, 30 ou 90 jours (manquement grave ou récidive) — accès en lecture seule, paiements en cours protégés, mise en pause des nouvelles missions, notification motivée écrite ;|Bannissement permanent (manquement très grave ou multi-récidive) — fermeture définitive du Compte, paiements en cours soldés selon le cycle CGV, commission Plateforme conservée, interdiction de créer un nouveau Compte ;|Gel immédiat des fonds (cas particulier de soupçon de fraude) — sous contrôle KYC de Stripe Payments Europe Ltd ; instruction sous 30 jours sauf demande d'autorité publique prolongeant ce délai.",
+        "appealHeading": "Procédure d'appel",
+        "appealBody": "L'Utilisateur sanctionné peut contester toute décision de modération ou de suspension significative par email à support@designedtrust.com dans un délai de trente (30) jours à compter de la notification. La Plateforme examine la contestation sous dix (10) jours ouvrés et notifie une décision motivée écrite. Les voies de recours juridictionnelles (Tribunal de commerce de Paris compétent — cf. CGU art. 16) restent intégralement préservées. L'Utilisateur peut également saisir le Coordinateur national des services numériques (ARCOM en France) au titre de l'article 21 du DSA et la CNIL en cas de décision automatisée significative (RGPD art. 22).",
+        "dsaHeading": "Engagements DSA art. 14 et 23",
+        "dsaBody": "Conformément aux articles 14 et 23 du Règlement DSA (UE) 2022/2065, la Plateforme s'engage à : (i) tenir le présent Code de conduite dans un langage clair, simple, intelligible, convivial et non ambigu, accessible dans un format consultable et indexable ; (ii) motiver par écrit toute décision de modération significative (Notice of Limitation, art. 17 DSA) et offrir une procédure d'appel ; (iii) appliquer des mesures proportionnées contre les abus (art. 23 — suspension graduée plutôt que ban immédiat sauf gravité manifeste).",
+        "transparencyHeading": "Transparence et rapport annuel",
+        "transparencyBody": "La Plateforme publiera annuellement un rapport de modération anonymisé indiquant : (i) le volume des signalements reçus par catégorie ; (ii) le taux de sanction (suspensions, bannissements) par type de manquement ; (iii) les délais moyens de traitement ; (iv) les motifs principaux d'appel et leur taux de succès. Le premier rapport est attendu en janvier 2027 pour l'année civile 2026.",
+        "reviewHeading": "Révision et mise à jour",
+        "reviewBody": "Le Code de conduite est révisé au moins annuellement et à chaque ajout de fonctionnalité significative. Toute modification substantielle est notifiée aux Utilisateurs par email et publication sur la Plateforme avec un préavis minimum de trente (30) jours, conformément à l'article 14 des CGU. La version actuellement en vigueur figure sur cette page avec sa date de version."
       }
     }
   },

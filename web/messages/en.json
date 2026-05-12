@@ -2719,6 +2719,21 @@
         }
       }
     },
+    "antispamNotice": {
+      "ariaLabel": "Rules of engagement reminder",
+      "body": "This conversation is governed by our <link>Code of conduct</link>. Harassment, spam, platform circumvention and fraud trigger immediate sanctions. Report any abuse via the report button."
+    },
+    "reportButton": {
+      "label": "Report",
+      "ariaLabel": "Report this {resourceType}",
+      "emailSubject": "[Atelier Report] {resourceType} {resourceId}",
+      "emailBodyIntro": "Hello, I would like to report the following content for breach of the Code of conduct.",
+      "emailFieldResourceType": "Type",
+      "emailFieldResourceId": "Identifier",
+      "emailFieldContext": "Context",
+      "emailFieldReason": "Reason (describe the nature of the breach: harassment, spam, fraud, illegal content, etc.):",
+      "emailBodyOutro": "Thank you for processing this report within 10 business days, in accordance with DSA art. 17."
+    },
     "mentions": {
       "title": "Legal notice",
       "intro": "Pursuant to article 6 III of the French LCEN law no. 2004-575 of 21 June 2004, here are the legal mentions for the services.designedtrust.com platform (the \"Platform\").",
@@ -3016,6 +3031,28 @@
         "liabilityBody": "The Platform's liability under these CGV is strictly limited as set out in article 8 of the CGU (12 months of commissions, cap of €10,000 HT per claim and per calendar year). Chargebacks, Stripe Radar fraud and any reverse payments are borne under the Stripe Connect Custom conditions signed by the Organisation during onboarding. The Platform does not guarantee the quality, conformity or solvency of Providers — the Platform is a technical intermediary under LCEN art. 6.",
         "lawHeading": "Article 13 — Applicable law and jurisdiction",
         "lawBody": "These CGV are governed by French law. The Paris Commercial Court has jurisdiction in case of dispute, save for any mandatory contrary provision."
+      },
+      "codeOfConduct": {
+        "title": "Code of conduct and moderation policy",
+        "subtitle": "Atelier connects professionals, and trust between Users is the foundation of the marketplace. This Code of conduct defines expected behaviours, prohibited behaviours, applicable sanctions and the appeal procedure. It is an integral part of the CGU and binds every User of the Platform.",
+        "preambleHeading": "Preamble",
+        "preambleBody": "The Atelier marketplace (services.designedtrust.com) connects agencies, freelancers, enterprises and business referrers. The quality of the service rests on mutual respect, professional integrity and trust between Users. Every User — regardless of their role (Client, Provider, Referrer) — commits to comply with this Code of conduct, which is an integral part of the CGU.",
+        "prohibitedHeading": "Prohibited behaviours",
+        "prohibitedIntro": "The following behaviours are strictly prohibited on the Platform and may trigger immediate sanctions:",
+        "prohibitedItems": "Harassment — sexual, moral, racial, religious, or based on sexual orientation, gender identity, disability, nationality or any other discriminatory criterion;|Discrimination — refusal to provide service or to make a connection based on a discriminatory criterion under French Criminal Code art. 225-1 (origin, sex, orientation, disability, political views, religion, union, etc.);|Insults, abusive language, hate speech, threats of violence or damage to persons or property;|Doxxing — sharing another person's personal information without their consent (address, phone, private photos, etc.);|Fraud attempts — phishing, fake accounts, identity theft, fake KYC documents, transaction-history manipulation;|Off-platform circumvention — proposing or soliciting an off-platform relationship to avoid commissions, the #1 motive of Upwork bans and applied here on the same terms;|Fake reviews and rating-system manipulation — creation of fake accounts to self-rate or rate a partner, exchange of good ratings between Users, paid solicitation of reviews;|Unfair competition and disparagement — defamation, parasitism, abusive poaching (art. 1240 French Civil Code);|Plagiarism and work theft — appropriation of portfolios, proposals or deliverables of others;|Intellectual property infringement — unauthorised use of logos, trademarks, protected content;|Illegal, hateful, non-consensual sexual, violent content, serious medical misinformation;|Promotion of content falling under Stripe Restricted Businesses (see CGV art. 10) — crypto, weapons, drugs, unlicensed gambling, counterfeits, MLM, etc.;|Spam — mass unsolicited solicitation, large-scale copy-paste proposals, mass messaging, abuse of the notifications feature.",
+        "reportHeading": "Reporting mechanism",
+        "reportBody": "Any User may report suspicious behaviour or content via the reporting button available on every profile, message, proposal and conversation. Reports are also accepted by email at trust@designedtrust.com, or at support@designedtrust.com in the absence of a dedicated trust mailbox. In accordance with DSA Regulation (EU) 2022/2065 art. 16, the Platform acknowledges receipt of the report within 48 hours and reviews it with priority commensurate to its severity. Good-faith reports expose their author to no sanction.",
+        "sanctionsHeading": "Graduated sanctions",
+        "sanctionsIntro": "Sanction severity is proportionate to the breach noted. The Platform applies the following grid, adjustable in light of case law and context:",
+        "sanctionsItems": "Written warning (1st minor breach) — motivated notification + entry in the User's record. Payments and activity preserved;|Temporary suspension of 7, 30 or 90 days (serious breach or repeat offence) — read-only access, in-flight payments protected, new missions paused, written motivated notification;|Permanent ban (very serious breach or multi-recidivism) — definitive Account closure, in-flight payments settled per the CGV cycle, Platform commission retained, prohibition to create a new Account;|Immediate fund freeze (special fraud-suspicion case) — under Stripe Payments Europe Ltd KYC review; investigation within 30 days save for public-authority request extending the deadline.",
+        "appealHeading": "Appeal procedure",
+        "appealBody": "A sanctioned User may contest any significant moderation or suspension decision by email at support@designedtrust.com within thirty (30) days of notification. The Platform reviews the contestation within ten (10) business days and issues a motivated written decision. Judicial remedies (Paris Commercial Court — see CGU art. 16) remain fully preserved. The User may also refer the matter to the national Digital Services Coordinator (ARCOM in France) under DSA art. 21, and to the French Data Protection Authority (CNIL) in case of a significant automated decision (GDPR art. 22).",
+        "dsaHeading": "DSA art. 14 and 23 commitments",
+        "dsaBody": "In accordance with DSA Regulation (EU) 2022/2065 articles 14 and 23, the Platform commits to: (i) maintain this Code of conduct in plain, simple, intelligible, user-friendly and unambiguous language, accessible in an indexable format; (ii) motivate in writing every significant moderation decision (Notice of Limitation, DSA art. 17) and offer an appeal procedure; (iii) apply proportionate measures against abuse (art. 23 — graduated suspension rather than immediate ban save for manifest severity).",
+        "transparencyHeading": "Transparency and annual report",
+        "transparencyBody": "The Platform will publish an annual anonymised moderation report indicating: (i) the volume of reports received by category; (ii) the sanction rate (suspensions, bans) by type of breach; (iii) average processing times; (iv) the main appeal grounds and their success rate. The first report is expected in January 2027 for calendar year 2026.",
+        "reviewHeading": "Review and update",
+        "reviewBody": "The Code of conduct is reviewed at least annually and at every significant feature addition. Any substantial modification is notified to Users by email and Platform publication with a minimum thirty (30) day notice, in accordance with CGU art. 14. The version currently in force appears on this page with its version date."
       }
     }
   },
