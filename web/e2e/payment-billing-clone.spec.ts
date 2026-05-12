@@ -270,4 +270,90 @@ test.describe("Payment page — billing-identity clone", () => {
       page.getByRole("button", { name: /Confirmer le paiement/i }),
     ).toHaveCount(0)
   })
+
+  // -------------------------------------------------------------------
+  // client-payment-ux fix — two regression pins:
+  //   1. The dashboard chrome (sidebar) must NOT render on /projects/pay
+  //      — the checkout uses a minimal PaymentCheckoutShell.
+  //   2. The prestataire-only "Pré-remplir depuis Stripe" CTA must NOT
+  //      surface on the client checkout, even when the embed is in
+  //      form mode (incomplete profile).
+  // -------------------------------------------------------------------
+
+  test("checkout page renders the minimal shell — NO dashboard sidebar, NO prefill CTA (client-payment-ux)", async ({
+    page,
+  }) => {
+    await mockAuth(page)
+    await mockProposal(page)
+    await mockInitiatePayment(page)
+    await mockBillingProfile(page, emptyProfile)
+
+    await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
+    await page.waitForLoadState("networkidle")
+
+    // The form must still render (BILLING-IDENTITY-CLONE contract).
+    await expect(
+      page.getByRole("heading", { name: "Pays" }),
+    ).toBeVisible({ timeout: 10_000 })
+
+    // The PaymentCheckoutShell exposes its testid so we can pin the
+    // route segment layout was actually rendered.
+    await expect(
+      page.getByTestId("payment-checkout-shell-header"),
+    ).toBeVisible()
+
+    // Sidebar guard: the dashboard sidebar exposes a "Tableau de bord"
+    // link in its primary nav. The minimal checkout shell only has a
+    // single "Retour au tableau de bord" back link. The dashboard
+    // sidebar would carry MULTIPLE other primary-nav links (Missions,
+    // Projets, Messages, Notifications, etc.). Assert at most 1 link
+    // mentions "Tableau de bord" — the back link in the shell header.
+    await expect(
+      page.getByRole("link", { name: /Tableau de bord/i }),
+    ).toHaveCount(1)
+
+    // The prestataire prefill CTA must NOT surface on the client
+    // checkout — it makes no sense in a context where the user has
+    // no Stripe Connect KYC record.
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+    ).toHaveCount(0)
+  })
+
+  test("checkout page renders the minimal shell when the profile is already complete (client-payment-ux)", async ({
+    page,
+  }) => {
+    // Twin assertion: same shell when the embed is in summary mode.
+    // The dashboard chrome must NOT leak through here either.
+    await mockAuth(page)
+    await mockProposal(page)
+    await mockInitiatePayment(page)
+    await mockBillingProfile(page, completeProfile)
+
+    await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
+    await page.waitForLoadState("networkidle")
+
+    await expect(page.getByText("Acme Studio SARL")).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(
+      page.getByTestId("payment-checkout-shell-header"),
+    ).toBeVisible()
+
+    // No prefill CTA even in summary mode (the embed gates it; this
+    // also catches a regression where switching to form mode via the
+    // "Modifier" CTA would re-introduce the button).
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+    ).toHaveCount(0)
+
+    // Flip to form mode — the CTA must STILL be absent.
+    await page.getByRole("button", { name: /Modifier/i }).click()
+    await expect(
+      page.getByRole("heading", { name: "Pays" }),
+    ).toBeVisible({ timeout: 5_000 })
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+    ).toHaveCount(0)
+  })
 })
