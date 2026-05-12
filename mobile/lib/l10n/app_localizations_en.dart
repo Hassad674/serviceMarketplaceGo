@@ -4534,10 +4534,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not end this referral right now.';
 
   @override
-  String get referralIdentityRevealProviderLink => 'View provider profile';
+  String get referralIdentityProviderTitle => 'Recommended provider';
 
   @override
-  String get referralIdentityRevealClientLink => 'View client profile';
+  String get referralIdentityClientTitle => 'Proposed client';
+
+  @override
+  String referralMissionsTotalAmount(String amount) {
+    return '$amount';
+  }
 
   @override
   String get referralProjectionPerMilestoneTitle => 'Per-milestone projection';

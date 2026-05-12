@@ -42,6 +42,8 @@ class Referral {
     this.activatedAt,
     this.expiresAt,
     this.rejectionReason,
+    this.providerDisplayName,
+    this.clientDisplayName,
   });
 
   final String id;
@@ -68,6 +70,15 @@ class Referral {
   final String? rejectionReason;
   final String createdAt;
   final String updatedAt;
+
+  /// Human-readable provider name (org name when the user owns an
+  /// agency/enterprise, "First Last" otherwise). Populated ONLY when
+  /// the viewer is the apporteur (referrer); other roles receive the
+  /// anonymised snapshot and this field is null.
+  final String? providerDisplayName;
+
+  /// Human-readable client name. Same rule as [providerDisplayName].
+  final String? clientDisplayName;
 
   bool get isPending =>
       status == 'pending_provider' ||
@@ -100,6 +111,8 @@ class Referral {
       rejectionReason: json['rejection_reason'] as String?,
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
+      providerDisplayName: json['provider_display_name'] as String?,
+      clientDisplayName: json['client_display_name'] as String?,
     );
   }
 }
@@ -292,6 +305,7 @@ class ReferralAttribution {
     required this.proposalId,
     this.proposalTitle = '',
     this.proposalStatus = '',
+    this.totalAmountCents = 0,
     this.ratePctSnapshot,
     required this.attributedAt,
     this.endedAt,
@@ -308,6 +322,13 @@ class ReferralAttribution {
   final String proposalId;
   final String proposalTitle;
   final String proposalStatus;
+
+  /// Gross proposal amount in cents — surfaced on the apporteur detail
+  /// page next to the mission title. Visible to every viewer (public
+  /// mission price, not a commission number). Defaults to 0 when the
+  /// proposal lookup failed.
+  final int totalAmountCents;
+
   final double? ratePctSnapshot;
   final String attributedAt;
 
@@ -333,6 +354,7 @@ class ReferralAttribution {
       proposalId: json['proposal_id'] as String,
       proposalTitle: (json['proposal_title'] as String?) ?? '',
       proposalStatus: (json['proposal_status'] as String?) ?? '',
+      totalAmountCents: (json['total_amount_cents'] as num?)?.toInt() ?? 0,
       ratePctSnapshot: (json['rate_pct_snapshot'] as num?)?.toDouble(),
       attributedAt: json['attributed_at'] as String,
       endedAt: json['ended_at'] as String?,

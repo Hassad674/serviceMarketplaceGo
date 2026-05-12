@@ -248,7 +248,7 @@ class _AttributionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title + status pill
+                // Title + total amount pill + status pill
                 Row(
                   children: [
                     Expanded(
@@ -262,6 +262,31 @@ class _AttributionRow extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (attribution.totalAmountCents > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        key: const ValueKey('attribution-total-amount'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          formatEurCents(attribution.totalAmountCents),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -523,8 +548,13 @@ class _CommissionColumn extends StatelessWidget {
     );
   }
 
-  static String _formatEur(int cents) {
-    final euros = cents ~/ 100;
-    return '$euros €';
-  }
+  static String _formatEur(int cents) => formatEurCents(cents);
+}
+
+/// Formats a centimes amount as `"<euros> €"`. Hoisted to a top-level
+/// helper so both `_AttributionRow` (mission total pill) and
+/// `_CommissionColumn` (commission stack) can reuse it.
+String formatEurCents(int cents) {
+  final euros = cents ~/ 100;
+  return '$euros €';
 }

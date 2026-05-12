@@ -8306,17 +8306,23 @@ abstract class AppLocalizations {
   /// **'Could not end this referral right now.'**
   String get referralEndIntroErrorGeneric;
 
-  /// No description provided for @referralIdentityRevealProviderLink.
+  /// No description provided for @referralIdentityProviderTitle.
   ///
   /// In en, this message translates to:
-  /// **'View provider profile'**
-  String get referralIdentityRevealProviderLink;
+  /// **'Recommended provider'**
+  String get referralIdentityProviderTitle;
 
-  /// No description provided for @referralIdentityRevealClientLink.
+  /// No description provided for @referralIdentityClientTitle.
   ///
   /// In en, this message translates to:
-  /// **'View client profile'**
-  String get referralIdentityRevealClientLink;
+  /// **'Proposed client'**
+  String get referralIdentityClientTitle;
+
+  /// Formatted gross proposal amount surfaced next to each mission title on the apporteur detail page.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}'**
+  String referralMissionsTotalAmount(String amount);
 
   /// No description provided for @referralProjectionPerMilestoneTitle.
   ///

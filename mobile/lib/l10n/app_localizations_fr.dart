@@ -4567,11 +4567,15 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de terminer la mise en relation pour le moment.';
 
   @override
-  String get referralIdentityRevealProviderLink =>
-      'Voir le profil du prestataire';
+  String get referralIdentityProviderTitle => 'Prestataire recommandé';
 
   @override
-  String get referralIdentityRevealClientLink => 'Voir le profil du client';
+  String get referralIdentityClientTitle => 'Client proposé';
+
+  @override
+  String referralMissionsTotalAmount(String amount) {
+    return '$amount';
+  }
 
   @override
   String get referralProjectionPerMilestoneTitle => 'Projection par jalon';
