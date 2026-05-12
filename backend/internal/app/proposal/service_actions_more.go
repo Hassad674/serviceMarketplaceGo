@@ -84,11 +84,14 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	// false on fresh providers meant zero commission rows ever landed.
 	s.prepareReferrerCommission(ctx, p.ID, current.ID, current.Amount)
 
-	// Per-milestone platform_fee invoice — emit synchronously so the
-	// provider sees the invoice on /fr/invoices the moment the client
-	// approves. Best-effort: a failure HERE never rolls back the
-	// approval (the monthly safety-net scheduler catches missed rows).
-	s.emitPerMilestoneInvoice(ctx, current.ID)
+	// NOTE: the per-milestone platform_fee invoice is NO LONGER emitted
+	// here. The legal trigger is now transfer.completed (handled by the
+	// payment feature inside PayoutService.TransferMilestone /
+	// RequestPayout / RetryFailedTransfer), because at milestone-approved
+	// time the provider's Stripe Connect KYC may still be incomplete
+	// and an invoice would be issued with a missing/empty
+	// billing_profile. See fix/invoicing-defer-till-transfer and
+	// internal/app/payment/payout_transfer.go.
 
 	// If the macro status is now completed, this was the LAST milestone
 	// of the proposal: run the end-of-project side effects (shared with

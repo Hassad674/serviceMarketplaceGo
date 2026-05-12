@@ -116,8 +116,11 @@ func wireBillingFeatures(deps billingFeatureDeps) billingFeature {
 			WalletHandler:   walletHandler,
 			ProposalHandler: deps.ProposalHandler,
 			SubscriptionSvc: subscriptionAppSvc,
-			ProposalSvc:     deps.ProposalSvc,
-			PaymentRecords:  deps.PaymentRecordRepo,
+			// PaymentSvc receives the per-milestone invoicer (trigger:
+			// transfer.completed). Moved here from ProposalSvc as part
+			// of fix/invoicing-defer-till-transfer.
+			PaymentSvc:     deps.PaymentInfoSvc,
+			PaymentRecords: deps.PaymentRecordRepo,
 		})
 		billingProfileHandler = invoicing.BillingProfile
 		invoiceHandler = invoicing.Invoice

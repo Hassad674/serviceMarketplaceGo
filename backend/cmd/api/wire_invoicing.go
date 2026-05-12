@@ -11,7 +11,7 @@ import (
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	viesadapter "marketplace-backend/internal/adapter/vies"
 	invoicingapp "marketplace-backend/internal/app/invoicing"
-	proposalapp "marketplace-backend/internal/app/proposal"
+	paymentapp "marketplace-backend/internal/app/payment"
 	subscriptionapp "marketplace-backend/internal/app/subscription"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/repository"
@@ -55,14 +55,18 @@ type invoicingDeps struct {
 	// its prior fail-open behaviour.
 	ProposalHandler *handler.ProposalHandler
 	SubscriptionSvc *subscriptionapp.Service
-	// ProposalSvc receives the per-milestone invoicer adapter so each
-	// milestone approval emits a platform_fee invoice synchronously.
-	// Optional — when nil the proposal flow stays on the legacy monthly
-	// consolidation path.
-	ProposalSvc *proposalapp.Service
+	// PaymentSvc receives the per-milestone invoicer adapter so each
+	// successful Stripe transfer.completed event emits a platform_fee
+	// invoice. The trigger moved from milestone.approved (proposal
+	// feature) to transfer.completed (payment feature) so the invoice
+	// fires only AFTER Stripe Connect has verified the provider's KYC —
+	// the moment the billing_profile is guaranteed populated.
+	// Optional — when nil the synchronous emission is disabled and the
+	// monthly safety-net scheduler still catches missed milestones.
+	PaymentSvc *paymentapp.Service
 	// PaymentRecords resolves the payment record from a milestone id —
-	// fed to the per-milestone invoicer adapter so the proposal app
-	// service never has to import the payment package directly.
+	// fed to the per-milestone invoicer adapter so the payment app
+	// service never has to import the invoicing package directly.
 	PaymentRecords repository.PaymentRecordRepository
 }
 
@@ -186,18 +190,21 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 		deps.SubscriptionSvc.SetBillingProfileReader(invoicingSvc)
 	}
 
-	// Per-milestone platform_fee invoicer — every milestone approval
-	// emits a platform_fee invoice synchronously through the proposal
-	// service. Best-effort: nil deps fall back to the legacy
-	// monthly-consolidation flow.
-	if deps.ProposalSvc != nil && deps.PaymentRecords != nil && deps.Organizations != nil {
+	// Per-milestone platform_fee invoicer — every successful Stripe
+	// transfer.completed (fired by TransferMilestone, RequestPayout,
+	// or RetryFailedTransfer) emits a platform_fee invoice through
+	// PayoutService. This is the legally-correct moment: Stripe has
+	// verified the provider's Connect KYC AND the billing_profile is
+	// guaranteed populated. Best-effort: nil deps fall back to the
+	// monthly-consolidation safety net.
+	if deps.PaymentSvc != nil && deps.PaymentRecords != nil && deps.Organizations != nil {
 		orgsReader := orgsOfUserAdapter{orgs: deps.Organizations}
 		adapter := invoicingapp.NewPerMilestoneInvoicerAdapter(invoicingSvc, deps.PaymentRecords, orgsReader)
-		deps.ProposalSvc.SetPerMilestoneInvoicer(adapter)
-		slog.Info("invoicing per-milestone emitter wired into proposal service")
+		deps.PaymentSvc.SetPerMilestoneInvoicer(adapter)
+		slog.Info("invoicing per-milestone emitter wired into payment service (trigger: transfer.completed)")
 	} else {
 		slog.Warn("invoicing per-milestone emitter NOT wired",
-			"has_proposal_svc", deps.ProposalSvc != nil,
+			"has_payment_svc", deps.PaymentSvc != nil,
 			"has_payment_records", deps.PaymentRecords != nil,
 			"has_organizations", deps.Organizations != nil)
 	}
