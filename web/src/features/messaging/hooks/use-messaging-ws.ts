@@ -309,17 +309,6 @@ export function useMessagingWS(userId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
-        case "presence_snapshot": {
-          // One-shot frame received immediately after WS connect that
-          // hydrates the client with the conversation partners
-          // currently online. Same invalidation policy as `presence`
-          // — the backend's BulkIsOnline already powers the org-level
-          // `online` field on the conversations list, so a refetch is
-          // the simplest correct path. Direct cache patching is a
-          // future optimisation.
-          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-          break
-        }
       }
     }
   }, [queryClient, addMessageToCache, clearTyping, syncProposalStatusInCache])
@@ -344,16 +333,6 @@ export function useMessagingWS(userId: string | undefined) {
       const seqMap = lastSeqMapRef.current
       if (Object.keys(seqMap).length > 0) {
         sendFrame({ type: "sync", conversations: seqMap })
-      }
-
-      // Safety-net for the bidirectional-presence regression: even if
-      // the backend `presence_snapshot` is dropped (slow Redis, full
-      // send buffer), a fresh conversations refetch hydrates the
-      // org-level `online` field from BulkIsOnline. Layered defence
-      // alongside the snapshot frame.
-      const uidOnOpen = userIdRef.current
-      if (uidOnOpen) {
-        queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uidOnOpen) })
       }
     }
 
@@ -384,7 +363,7 @@ export function useMessagingWS(userId: string | undefined) {
     ws.onerror = () => {
       ws.close()
     }
-  }, [userId, sendFrame, queryClient])
+  }, [userId, sendFrame])
 
   useEffect(() => {
     connect()
