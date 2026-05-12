@@ -18,6 +18,13 @@ type ReferralResponse struct {
 	ReferrerID       uuid.UUID              `json:"referrer_id"`
 	ProviderID       uuid.UUID              `json:"provider_id"`
 	ClientID         uuid.UUID              `json:"client_id"`
+	// ProviderDisplayName / ClientDisplayName carry the human label
+	// (org name when the user owns an agency/enterprise org, "First
+	// Last" otherwise). They are populated for the apporteur viewer
+	// only — other viewers see the anonymised intro snapshot and the
+	// reveal happens through conversation activation, not the DTO.
+	ProviderDisplayName string                `json:"provider_display_name,omitempty"`
+	ClientDisplayName   string                `json:"client_display_name,omitempty"`
 	RatePct          *float64               `json:"rate_pct,omitempty"` // omitted when viewer is client pre-activation
 	DurationMonths   int16                  `json:"duration_months"`
 	Status           referral.Status        `json:"status"`
@@ -32,11 +39,32 @@ type ReferralResponse struct {
 	UpdatedAt       time.Time               `json:"updated_at"`
 }
 
+// ReferralDisplayNames carries the optional human-readable labels the
+// handler resolves at request time (via the app service's party
+// display-name resolver). Both fields default to the empty string when
+// the resolver is not wired or the lookup fails. Only attached to the
+// DTO when the viewer is the apporteur (referrer) — the other parties
+// see the anonymised snapshot and the names are exchanged through the
+// activated conversation, not the DTO.
+type ReferralDisplayNames struct {
+	Provider string
+	Client   string
+}
+
 // NewReferralResponse formats a referral for the given viewer, applying the
 // rate-redaction rule: the client sees no rate until the intro is active.
 // The intro_message_for_me field picks the right variant (provider or client)
 // based on the viewer.
 func NewReferralResponse(r *referral.Referral, viewerID uuid.UUID) ReferralResponse {
+	return NewReferralResponseWithNames(r, viewerID, ReferralDisplayNames{})
+}
+
+// NewReferralResponseWithNames is the apporteur-aware variant. When the
+// viewer is the referrer, the provider/client display names are
+// included in the DTO so the page can render the simplified identity
+// cards without an extra fetch. Other viewers receive the same DTO
+// shape but with the names omitted (Modèle A confidentiality).
+func NewReferralResponseWithNames(r *referral.Referral, viewerID uuid.UUID, names ReferralDisplayNames) ReferralResponse {
 	out := ReferralResponse{
 		ID:             r.ID,
 		ReferrerID:     r.ReferrerID,
@@ -75,6 +103,12 @@ func NewReferralResponse(r *referral.Referral, viewerID uuid.UUID) ReferralRespo
 		// Referrer sees both pitches? Expose provider-side by default; the UI
 		// can also read intro_snapshot for context.
 		out.IntroMessageForMe = r.IntroMessageProvider
+		// The apporteur (owner) view also gets the human-readable
+		// provider + client names so the detail page can render a
+		// purely informational, minimalist identity card instead of
+		// the masked snapshot reserved for the other two viewers.
+		out.ProviderDisplayName = names.Provider
+		out.ClientDisplayName = names.Client
 	}
 
 	return out
@@ -145,6 +179,13 @@ type AttributionResponse struct {
 	ProposalID                uuid.UUID `json:"proposal_id"`
 	ProposalTitle             string    `json:"proposal_title,omitempty"`
 	ProposalStatus            string    `json:"proposal_status,omitempty"`
+	// TotalAmountCents is the gross proposal amount (sum of milestones)
+	// in cents. Surfaced on the apporteur detail page next to the
+	// mission title so each row reads "1 230 € — Mission alpha" rather
+	// than just the title. Visible to every viewer — it's the public
+	// mission price, not a commission number, so Modèle A does not
+	// require redaction. Defaults to 0 when the proposal lookup failed.
+	TotalAmountCents          int64     `json:"total_amount_cents"`
 	RatePctSnapshot           *float64  `json:"rate_pct_snapshot,omitempty"`
 	AttributedAt              time.Time `json:"attributed_at"`
 	// EndedAt is the RFC3339-formatted timestamp at which the
@@ -177,6 +218,7 @@ func NewAttributionListFromStats(rows []attributionWithStats, viewerID uuid.UUID
 			ProposalID:        r.Attribution.ProposalID,
 			ProposalTitle:     r.ProposalTitle,
 			ProposalStatus:    r.ProposalStatus,
+			TotalAmountCents:  r.ProposalAmountCents,
 			AttributedAt:      r.Attribution.AttributedAt,
 			MilestonesPaid:    r.MilestonesPaid,
 			MilestonesPending: r.MilestonesPending,
@@ -215,6 +257,7 @@ type attributionWithStats = struct {
 	Attribution               *referral.Attribution
 	ProposalTitle             string
 	ProposalStatus            string
+	ProposalAmountCents       int64
 	TotalCommissionCents      int64
 	PendingCommissionCents    int64
 	ClawedBackCommissionCents int64

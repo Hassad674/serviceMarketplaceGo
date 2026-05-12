@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -101,7 +102,30 @@ func (h *ReferralHandler) Get(w http.ResponseWriter, r *http.Request) {
 		handleReferralError(w, err)
 		return
 	}
-	res.JSON(w, http.StatusOK, response.NewReferralResponse(found, userID))
+	// Resolve provider + client display names so the apporteur owner
+	// can see clear identities on the simplified detail card. The
+	// service short-circuits to empty strings when the viewer is not
+	// the referrer or the resolver is not wired.
+	names := h.resolveDisplayNamesForOwner(r.Context(), found, userID)
+	res.JSON(w, http.StatusOK, response.NewReferralResponseWithNames(found, userID, names))
+}
+
+// resolveDisplayNamesForOwner returns the human-readable provider +
+// client labels when the viewer is the referrer. Other viewers get an
+// empty struct so the DTO omits the fields — keeping the masked-card
+// behaviour intact for provider / client.
+func (h *ReferralHandler) resolveDisplayNamesForOwner(
+	ctx context.Context,
+	r *referral.Referral,
+	viewerID uuid.UUID,
+) response.ReferralDisplayNames {
+	if r == nil || viewerID != r.ReferrerID {
+		return response.ReferralDisplayNames{}
+	}
+	return response.ReferralDisplayNames{
+		Provider: h.svc.ResolvePartyDisplayName(ctx, r.ProviderID),
+		Client:   h.svc.ResolvePartyDisplayName(ctx, r.ClientID),
+	}
 }
 
 // ListMine handles GET /api/v1/referrals/me (referrer view).
@@ -285,6 +309,7 @@ func (h *ReferralHandler) ListAttributions(w http.ResponseWriter, r *http.Reques
 		Attribution               *referral.Attribution
 		ProposalTitle             string
 		ProposalStatus            string
+		ProposalAmountCents       int64
 		TotalCommissionCents      int64
 		PendingCommissionCents    int64
 		ClawedBackCommissionCents int64
@@ -298,6 +323,7 @@ func (h *ReferralHandler) ListAttributions(w http.ResponseWriter, r *http.Reques
 			Attribution               *referral.Attribution
 			ProposalTitle             string
 			ProposalStatus            string
+			ProposalAmountCents       int64
 			TotalCommissionCents      int64
 			PendingCommissionCents    int64
 			ClawedBackCommissionCents int64
@@ -309,6 +335,7 @@ func (h *ReferralHandler) ListAttributions(w http.ResponseWriter, r *http.Reques
 			Attribution:               a.Attribution,
 			ProposalTitle:             a.ProposalTitle,
 			ProposalStatus:            a.ProposalStatus,
+			ProposalAmountCents:       a.ProposalAmountCents,
 			TotalCommissionCents:      a.TotalCommissionCents,
 			PendingCommissionCents:    a.PendingCommissionCents,
 			ClawedBackCommissionCents: a.ClawedBackCommissionCents,

@@ -62,6 +62,7 @@ type AttributionWithStats struct {
 	Attribution               *referral.Attribution
 	ProposalTitle             string
 	ProposalStatus            string
+	ProposalAmountCents       int64 // gross proposal amount (sum of milestones) — informational, surfaced on the apporteur detail page next to the title
 	TotalCommissionCents      int64 // sum of commissions in status=paid
 	PendingCommissionCents    int64 // sum of commissions in status=pending or pending_kyc
 	ClawedBackCommissionCents int64 // sum of commissions in status=clawed_back
@@ -143,6 +144,7 @@ func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, vie
 		if sum, ok := summaries[att.ProposalID]; ok {
 			row.ProposalTitle = sum.Title
 			row.ProposalStatus = sum.Status
+			row.ProposalAmountCents = sum.AmountCents
 			row.MilestonesTotal = sum.MilestonesTotal
 			// MilestonesPaid is repurposed to mean "milestones the
 			// CLIENT has approved" (status approved or released) — what

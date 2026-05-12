@@ -96,6 +96,15 @@ func wireReferral(deps referralDeps) referralWiring {
 		// the underlying repositories.
 		MilestonesByProposal: deps.Milestones,
 		OrgMembersLister:     deps.OrganizationMems,
+		// Apporteur detail page: human-readable provider + client
+		// names. Org name wins when the user owns an agency/enterprise
+		// org; falls back to the user's FullName otherwise. Wired with
+		// the segregated readers so the resolver depends on the
+		// smallest possible interfaces.
+		PartyDisplayNames: referralapp.NewOrgFirstPartyDisplayNameResolver(
+			deps.Users,
+			deps.Organizations,
+		),
 	})
 	// Setter-based wiring to avoid import cycles between
 	// proposal/payment/embedded.

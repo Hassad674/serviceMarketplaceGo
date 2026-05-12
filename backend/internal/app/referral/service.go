@@ -22,6 +22,10 @@
 package referral
 
 import (
+	"context"
+
+	"github.com/google/uuid"
+
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
@@ -69,6 +73,11 @@ type ServiceDeps struct {
 	// underlying users (referrals.referrer_id is a user id). Optional:
 	// nil disables projected commissions for the deployment.
 	OrgMembersLister OrgMemberLister
+	// PartyDisplayNames resolves a user id into a human-readable label
+	// (org name or FullName). Used by the handler to expose
+	// provider/client display names on the apporteur detail page.
+	// Optional: when nil, names default to empty strings (UI degrades).
+	PartyDisplayNames PartyDisplayNameResolver
 }
 
 // Service is the referral feature's application service. It implements the
@@ -90,6 +99,23 @@ type Service struct {
 	// Run B (WALLET-UNIFY) — narrow ports for ProjectedCommissions.
 	milestonesByProposal MilestonesByProposalLister
 	orgMemberLister      OrgMemberLister
+	partyDisplayNames    PartyDisplayNameResolver
+}
+
+// ResolvePartyDisplayName exposes the underlying resolver to the
+// handler layer so the DTO can attach human-readable provider/client
+// labels. Returns the empty string (and no error) when the resolver
+// is not wired or the lookup fails — the UI degrades gracefully to a
+// placeholder rather than crashing on a missing label.
+func (s *Service) ResolvePartyDisplayName(ctx context.Context, userID uuid.UUID) string {
+	if s == nil || s.partyDisplayNames == nil {
+		return ""
+	}
+	name, err := s.partyDisplayNames.ResolveDisplayName(ctx, userID)
+	if err != nil {
+		return ""
+	}
+	return name
 }
 
 // Compile-time assertions that the Service satisfies the eight exposed ports.
@@ -121,5 +147,6 @@ func NewService(deps ServiceDeps) *Service {
 		audits:           deps.Audits,
 		milestonesByProposal: deps.MilestonesByProposal,
 		orgMemberLister:      deps.OrgMembersLister,
+		partyDisplayNames:    deps.PartyDisplayNames,
 	}
 }

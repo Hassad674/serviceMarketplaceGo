@@ -9762,6 +9762,7 @@ export interface components {
         };
         ReferralResponse: {
             activated_at?: string | null;
+            client_display_name?: string;
             /** Format: byte */
             client_id: string;
             /** Format: date-time */
@@ -9799,6 +9800,7 @@ export interface components {
             };
             /** Format: date-time */
             last_action_at: string;
+            provider_display_name?: string;
             /** Format: byte */
             provider_id: string;
             rate_pct?: number | null;
