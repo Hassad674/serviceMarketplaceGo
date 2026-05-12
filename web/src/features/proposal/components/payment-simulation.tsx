@@ -252,6 +252,10 @@ export function PaymentSimulation() {
       mode={billingMode}
       onEdit={() => setIsEditingBilling(true)}
       onSaved={() => setIsEditingBilling(false)}
+      // Clients (enterprise role) don't have a Stripe Connect KYC
+      // record to prefill from. Hiding the CTA keeps the checkout
+      // focused on filling the receipt identity once.
+      showStripePrefill={false}
     />
   )
 

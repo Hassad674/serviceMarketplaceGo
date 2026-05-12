@@ -98,12 +98,18 @@ vi.mock("@/shared/components/billing-profile/billing-profile-embed", () => ({
     mode,
     onEdit,
     onSaved,
+    showStripePrefill,
   }: {
     mode: "summary" | "form"
     onEdit: () => void
     onSaved: () => void
+    showStripePrefill?: boolean
   }) => (
-    <div data-testid="billing-embed" data-mode={mode}>
+    <div
+      data-testid="billing-embed"
+      data-mode={mode}
+      data-show-prefill={String(showStripePrefill ?? "")}
+    >
       <button data-testid="billing-embed-edit" onClick={onEdit}>
         edit
       </button>
@@ -623,5 +629,19 @@ describe("PaymentSimulation", () => {
         screen.getByRole("button", { name: /confirmPayment/i }),
       ).toBeInTheDocument()
     })
+  })
+
+  it("passes showStripePrefill={false} to the billing embed (client context, no Connect KYC to pull from)", async () => {
+    // Regression: clients (enterprise role) don't have a Stripe Connect
+    // KYC record. Surfacing the "Pré-remplir depuis Stripe" button on
+    // their checkout is meaningless. The payment page must explicitly
+    // disable the prefill CTA via the embed prop.
+    getProposalMock.mockResolvedValue(baseProposal)
+    initiatePaymentMock.mockResolvedValue(stripePaymentData)
+
+    await renderPaymentSimulation()
+
+    const embed = await screen.findByTestId("billing-embed")
+    expect(embed.getAttribute("data-show-prefill")).toBe("false")
   })
 })
