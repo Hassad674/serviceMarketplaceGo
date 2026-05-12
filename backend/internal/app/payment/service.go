@@ -191,6 +191,18 @@ func (s *Service) SetSubscriptionReader(r service.SubscriptionReader) {
 	s.wallet.SetSubscriptionReader(r)
 }
 
+// SetPerMilestoneInvoicer plugs the per-milestone platform_fee invoice
+// emitter into the payout sub-service. The invoicer fires after every
+// successful platform-to-connected-account Stripe transfer — at the
+// moment KYC is verified by Stripe and the billing_profile has had a
+// chance to be hydrated. Setter pattern because invoicing is built
+// AFTER payment in main.go. Passing nil disables the synchronous
+// emission — the monthly safety-net scheduler still catches missed
+// milestones on its next run.
+func (s *Service) SetPerMilestoneInvoicer(i service.PerMilestoneInvoicer) {
+	s.payout.SetPerMilestoneInvoicer(i)
+}
+
 // ---------------------------------------------------------------------------
 // Sub-service accessors — for callers that want the focused contract
 // instead of the whole facade. Production code mostly uses the legacy
