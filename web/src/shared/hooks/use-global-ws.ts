@@ -8,12 +8,11 @@ import { unreadNotifCountKey } from "@/features/notification/hooks/use-unread-no
 import { notificationsQueryKey } from "@/features/notification/hooks/use-notifications"
 
 const HEARTBEAT_INTERVAL = 30_000
-// Bornes du backoff exponentiel : un plancher de 2 s évite les
-// reconnexions immédiates qui saturaient le rate-limit IP en dev
-// React 19 StrictMode (cf. revert perf c0c68dbf). Le plafond 60 s
-// laisse une fenêtre de retry raisonnable avant abandon visuel.
-const MIN_RECONNECT_DELAY = 2_000
 const MAX_RECONNECT_DELAY = 60_000
+// Floor reconnect delay so the very first reconnect after a clean
+// drop does not race the page-mount fetches and trip the global IP
+// rate limit. PERF-FIX-W-IDLE-CPU.
+const MIN_RECONNECT_DELAY = 2_000
 
 async function getWSUrl(): Promise<string> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
@@ -62,14 +61,6 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
   const reconnectAttemptRef = useRef(0)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMessagingPageActiveRef = useRef(false)
-  // Sentinel synchrone : `connect()` est async et fait `await getWSUrl()`
-  // avant `new WebSocket()`. Deux invocations parallèles (StrictMode,
-  // changement d'identité du callback) peuvent passer le guard
-  // readyState pendant la microtask de l'await. Ce sentinel bloque
-  // toute deuxième entrée dans `connect()` tant qu'une connexion est
-  // en vol — il est obligatoirement reset dans onopen / onclose /
-  // onerror / catch / cleanup pour éviter de coller à `true`.
-  const pendingConnectRef = useRef(false)
 
   // Store the callback in a ref so that WS connection is not torn down
   // when the callback identity changes (e.g. when call state updates).
@@ -103,31 +94,19 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
 
   const connect = useCallback(async () => {
     if (!userId) return
-    // Guard 1 — déjà OPEN/CONNECTING. React 19 dev StrictMode re-runs
-    // every useEffect (run → cleanup → run again). Sans ce guard, le
-    // second run race la handshake du premier socket et ouvre un WS
-    // parallèle (le backend ferme le doublon, le survivant voit
-    // onclose et reconnecte → tempête 4-8 s en dev).
+    // Guard against double-mounts (React StrictMode in dev re-runs
+    // every effect). Without checking CONNECTING, a freshly opened
+    // socket races the second mount's `connect()` call and we end
+    // up with two parallel websockets — which the backend then
+    // closes, triggering the reconnect storm. PERF-FIX-W-IDLE-CPU.
     const state = wsRef.current?.readyState
     if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return
-    // Guard 2 — connect() déjà en vol (await getWSUrl). Empêche la
-    // race async où deux appels parallèles passent le guard readyState
-    // avant que `new WebSocket()` ne soit exécuté.
-    if (pendingConnectRef.current) return
-    pendingConnectRef.current = true
 
-    let url: string
-    try {
-      url = await getWSUrl()
-    } catch (err) {
-      pendingConnectRef.current = false
-      throw err
-    }
+    const url = await getWSUrl()
     const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {
-      pendingConnectRef.current = false
       reconnectAttemptRef.current = 0
       heartbeatRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -189,16 +168,14 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     }
 
     ws.onclose = () => {
-      pendingConnectRef.current = false
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current)
         heartbeatRef.current = null
       }
-      // Backoff exponentiel borné par MIN_RECONNECT_DELAY (2 s) +
-      // jitter 0-500 ms. Re-introduit après revert perf c0c68dbf :
-      // sans le plancher, plusieurs onglets reconnectent en lockstep
-      // et saturent le rate-limit IP ; sans le jitter, des onglets
-      // ouverts en même temps relancent tous au même tick.
+      // Exponential backoff with floor + jitter. The floor protects
+      // the global IP rate limit on a 429-driven close; the jitter
+      // prevents every browser tab from reconnecting in lockstep
+      // after a backend restart. PERF-FIX-W-IDLE-CPU.
       const attempt = reconnectAttemptRef.current
       const base = Math.min(MIN_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY)
       const jitter = Math.floor(Math.random() * 500)
@@ -207,7 +184,6 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     }
 
     ws.onerror = () => {
-      pendingConnectRef.current = false
       ws.close()
     }
   }, [userId, queryClient])
@@ -216,7 +192,6 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     connect()
 
     return () => {
-      pendingConnectRef.current = false
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }

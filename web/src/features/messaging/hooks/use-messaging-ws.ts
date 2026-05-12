@@ -11,12 +11,11 @@ import { proposalQueryKey } from "@/shared/lib/query-keys/proposal"
 
 const HEARTBEAT_INTERVAL = 30_000
 const TYPING_CLEAR_DELAY = 5_000
-// Bornes du backoff exponentiel : un plancher de 2 s évite les
-// reconnexions immédiates qui saturaient le rate-limit IP en dev
-// React 19 StrictMode (cf. revert perf c0c68dbf). Le plafond 60 s
-// laisse une fenêtre de retry raisonnable avant abandon visuel.
-const MIN_RECONNECT_DELAY = 2_000
 const MAX_RECONNECT_DELAY = 60_000
+// Floor reconnect delay — see PERF-FIX-W-IDLE-CPU. Prevents a
+// 429-driven close from bouncing a new upgrade against the same
+// rate-limit window. Mirrors `useGlobalWS`.
+const MIN_RECONNECT_DELAY = 2_000
 
 async function getWSUrl(): Promise<string> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
@@ -55,13 +54,6 @@ export function useMessagingWS(userId: string | undefined) {
   const lastSeqMapRef = useRef<Record<string, number>>({})
   const userIdRef = useRef(userId)
   const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  // Sentinel synchrone : `connect()` est async et fait `await getWSUrl()`
-  // avant `new WebSocket()`. Deux invocations parallèles (StrictMode,
-  // changement de dépendance) peuvent passer le guard readyState
-  // pendant la microtask de l'await. Ce sentinel bloque toute
-  // deuxième entrée tant qu'une connexion est en vol — reset
-  // obligatoire dans onopen / onclose / onerror / catch / cleanup.
-  const pendingConnectRef = useRef(false)
 
   // Ref to track the currently active (viewed) conversation.
   // Updated by the parent component via setActiveConversationId.
@@ -321,48 +313,21 @@ export function useMessagingWS(userId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
-        case "presence_snapshot": {
-          // Backend sends this ONCE per WS connect with the list of
-          // currently-online conversation partners. Invalidate the
-          // conversations query so BulkIsOnline picks up the fresh
-          // state. Safe: only fires on receipt of the snapshot frame,
-          // NOT on ws.onopen (a previous attempt to invalidate on
-          // onopen caused an upstream re-render → cleanup → reconnect
-          // loop that froze realtime — see commit 401e7dea revert).
-          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-          break
-        }
       }
     }
   }, [queryClient, addMessageToCache, clearTyping, syncProposalStatusInCache])
 
   const connect = useCallback(async () => {
     if (!userId) return
-    // Guard 1 — déjà OPEN/CONNECTING. React 19 dev StrictMode re-runs
-    // every useEffect (run → cleanup → run again). Sans ce guard, le
-    // second run race la handshake du premier socket et ouvre un WS
-    // parallèle (le backend ferme le doublon, le survivant voit
-    // onclose et reconnecte → tempête 4-8 s en dev).
+    // Guard against StrictMode double-mounts — see PERF-FIX-W-IDLE-CPU.
     const state = wsRef.current?.readyState
     if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return
-    // Guard 2 — connect() déjà en vol (await getWSUrl). Empêche la
-    // race async où deux appels parallèles passent le guard readyState
-    // avant que `new WebSocket()` ne soit exécuté.
-    if (pendingConnectRef.current) return
-    pendingConnectRef.current = true
 
-    let url: string
-    try {
-      url = await getWSUrl()
-    } catch (err) {
-      pendingConnectRef.current = false
-      throw err
-    }
+    const url = await getWSUrl()
     const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {
-      pendingConnectRef.current = false
       setIsConnected(true)
       reconnectAttemptRef.current = 0
 
@@ -387,18 +352,13 @@ export function useMessagingWS(userId: string | undefined) {
     }
 
     ws.onclose = () => {
-      pendingConnectRef.current = false
       setIsConnected(false)
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current)
         heartbeatRef.current = null
       }
 
-      // Backoff exponentiel borné par MIN_RECONNECT_DELAY (2 s) +
-      // jitter 0-500 ms. Re-introduit après revert perf c0c68dbf :
-      // sans le plancher, plusieurs onglets reconnectent en lockstep
-      // et saturent le rate-limit IP ; sans le jitter, des onglets
-      // ouverts en même temps relancent tous au même tick.
+      // Exponential backoff with floor + jitter — see PERF-FIX-W-IDLE-CPU.
       const attempt = reconnectAttemptRef.current
       const base = Math.min(MIN_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY)
       const jitter = Math.floor(Math.random() * 500)
@@ -408,7 +368,6 @@ export function useMessagingWS(userId: string | undefined) {
     }
 
     ws.onerror = () => {
-      pendingConnectRef.current = false
       ws.close()
     }
   }, [userId, sendFrame])
@@ -417,7 +376,6 @@ export function useMessagingWS(userId: string | undefined) {
     connect()
 
     return () => {
-      pendingConnectRef.current = false
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }
