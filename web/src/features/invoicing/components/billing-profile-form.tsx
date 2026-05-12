@@ -48,6 +48,14 @@ import { Button } from "@/shared/components/ui/button"
  *     indicator since the sync runs automatically on mount in that
  *     context.
  *
+ * showStripePrefill controls the "Pré-remplir depuis Stripe" CTA row.
+ * Defaults to `true` for backwards compatibility with the prestataire
+ * context (`/settings/billing-profile`). The client payment checkout
+ * sets this to `false` because clients don't have a Connect KYC record
+ * to pull from — showing the button would surface a meaningless
+ * action. When `false`, both the prefill button AND the synced-from-
+ * Stripe indicator are hidden (the entire row collapses).
+ *
  * onSaved fires once after a successful update mutation lands AND the
  * resulting profile passes CheckCompleteness. The upgrade modal uses
  * it to transition from the billing step to the payment step.
@@ -55,11 +63,13 @@ import { Button } from "@/shared/components/ui/button"
 export type BillingProfileFormProps = {
   variant?: "page" | "compact"
   onSaved?: () => void
+  showStripePrefill?: boolean
 }
 
 export function BillingProfileForm({
   variant = "page",
   onSaved,
+  showStripePrefill = true,
 }: BillingProfileFormProps = {}) {
   const { data, isLoading, isError } = useBillingProfile()
   const updateMutation = useUpdateBillingProfile()
@@ -120,29 +130,31 @@ export function BillingProfileForm({
           <MissingFieldsBanner fields={data.missing_fields} />
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          {!isCompact && (
-            <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
-          )}
-          {isCompact && <span />}
-          <Button variant="ghost" size="auto"
-            type="button"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-1.5 text-xs font-semibold text-foreground transition-colors",
-              "hover:bg-primary-soft/40 disabled:opacity-50",
+        {showStripePrefill && (
+          <div className="flex items-center justify-between gap-3">
+            {!isCompact && (
+              <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
             )}
-          >
-            {syncMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            Pré-remplir depuis Stripe
-          </Button>
-        </div>
-        {syncMutation.isError && (
+            {isCompact && <span />}
+            <Button variant="ghost" size="auto"
+              type="button"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-1.5 text-xs font-semibold text-foreground transition-colors",
+                "hover:bg-primary-soft/40 disabled:opacity-50",
+              )}
+            >
+              {syncMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              Pré-remplir depuis Stripe
+            </Button>
+          </div>
+        )}
+        {showStripePrefill && syncMutation.isError && (
           <FormError message="La synchronisation Stripe a échoué. Réessaie ou complète manuellement." />
         )}
 

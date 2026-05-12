@@ -258,4 +258,64 @@ describe("BillingProfileForm", () => {
       expect(btn).toBeDisabled()
     })
   })
+
+  // showStripePrefill toggle — added with the client-payment-ux fix.
+  // Default behavior (true) preserves the prestataire-facing page; the
+  // false branch is set explicitly by the client checkout embed.
+  describe("showStripePrefill prop", () => {
+    it.each([
+      { name: "default (undefined)", props: {} },
+      { name: "explicit true", props: { showStripePrefill: true } },
+    ])("renders the prefill button when $name", async ({ props }) => {
+      mockFetch.mockResolvedValue(SNAPSHOT)
+      render(withQueryClient(<BillingProfileForm {...props} />))
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+        ).toBeInTheDocument(),
+      )
+    })
+
+    it("hides the prefill button AND the synced-from-Stripe indicator when showStripePrefill={false}", async () => {
+      mockFetch.mockResolvedValue(SNAPSHOT)
+      render(withQueryClient(<BillingProfileForm showStripePrefill={false} />))
+      await waitFor(() =>
+        expect(
+          (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+        ).toBe("Acme SAS"),
+      )
+      // The CTA must NOT render — clients have no Connect KYC to pull
+      // from, surfacing the button would be a UX bug.
+      expect(
+        screen.queryByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+      ).not.toBeInTheDocument()
+      // The synced-from-Stripe indicator is in the same row and is
+      // equally prestataire-centric — it must collapse with the button.
+      expect(
+        screen.queryByText(/Synchronisé depuis Stripe/i),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/Profil non synchronisé/i),
+      ).not.toBeInTheDocument()
+    })
+
+    it("does not surface a sync error banner when showStripePrefill={false} (defensive)", async () => {
+      // Even if a previous sync mutation failed in the cache, the
+      // error banner must remain hidden when prefill is disabled — the
+      // user never triggered the sync, so they shouldn't see a failure.
+      mockFetch.mockResolvedValue(SNAPSHOT)
+      mockSync.mockRejectedValue(new Error("boom"))
+      render(withQueryClient(<BillingProfileForm showStripePrefill={false} />))
+      await waitFor(() =>
+        expect(
+          (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+        ).toBe("Acme SAS"),
+      )
+      // The error banner would mention "synchronisation Stripe" —
+      // because the row is hidden, this copy must NOT appear.
+      expect(
+        screen.queryByText(/La synchronisation Stripe a échoué/i),
+      ).not.toBeInTheDocument()
+    })
+  })
 })
