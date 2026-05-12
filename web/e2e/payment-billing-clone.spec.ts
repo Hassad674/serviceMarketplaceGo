@@ -96,6 +96,21 @@ function snapshotFromProfile(profile: BillingProfile) {
 }
 
 async function mockAuth(page: Page) {
+  // The Next.js middleware (src/middleware.ts) redirects every
+  // protected route to /login when the `session_id` cookie is absent.
+  // Tests must seed a synthetic cookie BEFORE the first goto so the
+  // middleware short-circuits and lets the page render with our
+  // mocked /auth/me response.
+  await page.context().addCookies([
+    {
+      name: "session_id",
+      value: "playwright-fake-session",
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+    },
+  ])
+
   await page.route(/\/api\/v1\/auth\/me\b/, async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -177,7 +192,11 @@ async function mockInitiatePayment(page: Page) {
 
 async function mockBillingProfile(page: Page, initial: BillingProfile) {
   let current = { ...initial }
-  await page.route(/\/api\/v1\/billing-profile(?:\?.*)?$/, async (route: Route) => {
+  // The shared billing-profile hook calls `/api/v1/me/billing-profile`
+  // (not the bare `/api/v1/billing-profile` — that's the prestataire-
+  // scoped legacy path). Match both for forwards-compat but the
+  // canonical URL is the `/me/...` one used by the embed in production.
+  await page.route(/\/api\/v1\/(me\/)?billing-profile(?:\?.*)?$/, async (route: Route) => {
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as Partial<BillingProfile>
       current = { ...current, ...body }
@@ -206,7 +225,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, completeProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // The summary card shows the saved legal name + address.
     await expect(page.getByText("Acme Studio SARL")).toBeVisible({
@@ -230,7 +251,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, emptyProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // The full form is rendered — the "Pays" section header is the
     // canonical first heading of the prestataire form.
@@ -254,7 +277,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, completeProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // Wait for the summary card.
     await expect(page.getByText("Acme Studio SARL")).toBeVisible({
@@ -268,6 +293,94 @@ test.describe("Payment page — billing-identity clone", () => {
     ).toBeVisible({ timeout: 5_000 })
     await expect(
       page.getByRole("button", { name: /Confirmer le paiement/i }),
+    ).toHaveCount(0)
+  })
+
+  // -------------------------------------------------------------------
+  // client-payment-ux fix — two regression pins:
+  //   1. The dashboard chrome (sidebar) must NOT render on /projects/pay
+  //      — the checkout uses a minimal PaymentCheckoutShell.
+  //   2. The prestataire-only "Pré-remplir depuis Stripe" CTA must NOT
+  //      surface on the client checkout, even when the embed is in
+  //      form mode (incomplete profile).
+  // -------------------------------------------------------------------
+
+  test("checkout page renders the minimal shell — NO dashboard sidebar, NO prefill CTA (client-payment-ux)", async ({
+    page,
+  }) => {
+    await mockAuth(page)
+    await mockProposal(page)
+    await mockInitiatePayment(page)
+    await mockBillingProfile(page, emptyProfile)
+
+    await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Wait on the actual UI signal
+    // we care about: the form heading is rendered.
+
+    // The form must still render (BILLING-IDENTITY-CLONE contract).
+    await expect(
+      page.getByRole("heading", { name: "Pays" }),
+    ).toBeVisible({ timeout: 15_000 })
+
+    // The PaymentCheckoutShell exposes its testid so we can pin the
+    // route segment layout was actually rendered.
+    await expect(
+      page.getByTestId("payment-checkout-shell-header"),
+    ).toBeVisible()
+
+    // Sidebar guard: the dashboard sidebar exposes a "Tableau de bord"
+    // link in its primary nav. The minimal checkout shell only has a
+    // single "Retour au tableau de bord" back link. The dashboard
+    // sidebar would carry MULTIPLE other primary-nav links (Missions,
+    // Projets, Messages, Notifications, etc.). Assert at most 1 link
+    // mentions "Tableau de bord" — the back link in the shell header.
+    await expect(
+      page.getByRole("link", { name: /Tableau de bord/i }),
+    ).toHaveCount(1)
+
+    // The prestataire prefill CTA must NOT surface on the client
+    // checkout — it makes no sense in a context where the user has
+    // no Stripe Connect KYC record.
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+    ).toHaveCount(0)
+  })
+
+  test("checkout page renders the minimal shell when the profile is already complete (client-payment-ux)", async ({
+    page,
+  }) => {
+    // Twin assertion: same shell when the embed is in summary mode.
+    // The dashboard chrome must NOT leak through here either.
+    await mockAuth(page)
+    await mockProposal(page)
+    await mockInitiatePayment(page)
+    await mockBillingProfile(page, completeProfile)
+
+    await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
+    // Skip waitForLoadState("networkidle") — see neighbour test.
+
+    await expect(page.getByText("Acme Studio SARL")).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(
+      page.getByTestId("payment-checkout-shell-header"),
+    ).toBeVisible()
+
+    // No prefill CTA even in summary mode (the embed gates it; this
+    // also catches a regression where switching to form mode via the
+    // "Modifier" CTA would re-introduce the button).
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
+    ).toHaveCount(0)
+
+    // Flip to form mode — the CTA must STILL be absent.
+    await page.getByRole("button", { name: /Modifier/i }).click()
+    await expect(
+      page.getByRole("heading", { name: "Pays" }),
+    ).toBeVisible({ timeout: 5_000 })
+    await expect(
+      page.getByRole("button", { name: /Pré-remplir depuis Stripe/i }),
     ).toHaveCount(0)
   })
 })

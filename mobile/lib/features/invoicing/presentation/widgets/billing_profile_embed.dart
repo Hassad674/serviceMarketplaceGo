@@ -29,6 +29,7 @@ class BillingProfileEmbed extends ConsumerWidget {
     required this.mode,
     required this.onEdit,
     required this.onSaved,
+    this.showStripePrefill = true,
   });
 
   /// Controlled rendering mode.
@@ -42,6 +43,11 @@ class BillingProfileEmbed extends ConsumerWidget {
   /// server-side completeness. The parent must flip its mode state
   /// back to [BillingEmbedMode.summary].
   final VoidCallback onSaved;
+
+  /// Threaded through to [BillingProfileForm]. Defaults to `true`
+  /// (prestataire context). The client payment screen passes `false`
+  /// because clients have no Stripe Connect KYC record to prefill from.
+  final bool showStripePrefill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +72,10 @@ class BillingProfileEmbed extends ConsumerWidget {
             if (!snapshot.isComplete)
               _CompletePromptBanner(l10n: l10n),
             if (!snapshot.isComplete) const SizedBox(height: 12),
-            BillingProfileForm(onSaved: onSaved),
+            BillingProfileForm(
+              onSaved: onSaved,
+              showStripePrefill: showStripePrefill,
+            ),
           ],
         );
       },

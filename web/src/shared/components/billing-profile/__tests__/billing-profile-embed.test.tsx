@@ -17,16 +17,24 @@ vi.mock("next-intl", () => ({
 
 // Stub the canonical form so we don't need a QueryClientProvider just
 // to exercise the embed's branches. Exposes a save button so we can
-// fire onSaved synchronously from the test.
+// fire onSaved synchronously from the test. The form stub also
+// records the `showStripePrefill` flag as a data-attribute so the
+// embed's prop threading can be asserted from the test.
 vi.mock("@/features/invoicing/components/billing-profile-form", () => ({
   BillingProfileForm: ({
     variant,
     onSaved,
+    showStripePrefill,
   }: {
     variant?: string
     onSaved?: () => void
+    showStripePrefill?: boolean
   }) => (
-    <div data-testid="form-stub" data-variant={variant ?? ""}>
+    <div
+      data-testid="form-stub"
+      data-variant={variant ?? ""}
+      data-show-prefill={String(showStripePrefill ?? "")}
+    >
       <button data-testid="form-save" onClick={onSaved}>
         save
       </button>
@@ -82,6 +90,7 @@ async function renderEmbed(props: {
   mode: "summary" | "form"
   onEdit?: () => void
   onSaved?: () => void
+  showStripePrefill?: boolean
 }) {
   const { BillingProfileEmbed } = await import("../billing-profile-embed")
   return render(
@@ -89,6 +98,9 @@ async function renderEmbed(props: {
       mode={props.mode}
       onEdit={props.onEdit ?? (() => {})}
       onSaved={props.onSaved ?? (() => {})}
+      {...(props.showStripePrefill !== undefined
+        ? { showStripePrefill: props.showStripePrefill }
+        : {})}
     />,
   )
 }
@@ -155,5 +167,33 @@ describe("BillingProfileEmbed", () => {
     mockReturn = { data: undefined, isLoading: false }
     await renderEmbed({ mode: "summary" })
     expect(screen.getByTestId("form-stub")).toBeInTheDocument()
+  })
+
+  // showStripePrefill threading — added with the client-payment-ux fix.
+  // The embed must surface the prop on the underlying form so the
+  // client checkout (payment-simulation.tsx) can hide the prestataire-
+  // only Stripe prefill CTA.
+  describe("showStripePrefill threading", () => {
+    it("passes showStripePrefill={false} through to BillingProfileForm", async () => {
+      mockReturn = { data: incompleteSnapshot, isLoading: false }
+      await renderEmbed({ mode: "form", showStripePrefill: false })
+      const stub = screen.getByTestId("form-stub")
+      expect(stub.getAttribute("data-show-prefill")).toBe("false")
+    })
+
+    it("defaults to showStripePrefill=true when the prop is omitted (prestataire context preserved)", async () => {
+      mockReturn = { data: incompleteSnapshot, isLoading: false }
+      await renderEmbed({ mode: "form" })
+      const stub = screen.getByTestId("form-stub")
+      // The default surfaces as `true` on the form stub.
+      expect(stub.getAttribute("data-show-prefill")).toBe("true")
+    })
+
+    it("explicit showStripePrefill={true} threads through unchanged", async () => {
+      mockReturn = { data: incompleteSnapshot, isLoading: false }
+      await renderEmbed({ mode: "form", showStripePrefill: true })
+      const stub = screen.getByTestId("form-stub")
+      expect(stub.getAttribute("data-show-prefill")).toBe("true")
+    })
   })
 })

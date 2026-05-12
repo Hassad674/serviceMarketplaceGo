@@ -2056,6 +2056,8 @@
     "proposalFlow_pay_subtitle": "Le montant est sécurisé en escrow. Il est libéré une fois la mission validée.",
     "proposalFlow_pay_summary": "Récapitulatif",
     "proposalFlow_pay_secureNotice": "Paiement sécurisé · escrow garanti par la plateforme",
+    "proposalFlow_pay_shellBrand": "Marketplace Service",
+    "proposalFlow_pay_shellBackLink": "Retour au tableau de bord",
     "proposalFlow_detail_eyebrowPending": "ATELIER · PROPOSITION EN ATTENTE",
     "proposalFlow_detail_eyebrowAccepted": "ATELIER · PROPOSITION ACCEPTÉE",
     "proposalFlow_detail_eyebrowActive": "ATELIER · MISSION EN COURS",

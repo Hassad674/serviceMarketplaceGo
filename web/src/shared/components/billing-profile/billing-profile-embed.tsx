@@ -58,12 +58,19 @@ export type BillingProfileEmbedProps = {
    * should set its mode state back to "summary".
    */
   onSaved: () => void
+  /**
+   * Threaded through to {@link BillingProfileForm}. Defaults to `true`
+   * (prestataire context). The client payment checkout passes `false`
+   * because clients have no Stripe Connect KYC record to prefill from.
+   */
+  showStripePrefill?: boolean
 }
 
 export function BillingProfileEmbed({
   mode,
   onEdit,
   onSaved,
+  showStripePrefill = true,
 }: BillingProfileEmbedProps) {
   const t = useTranslations("proposal.billingEmbed")
   const { data, isLoading } = useBillingProfile()
@@ -97,7 +104,11 @@ export function BillingProfileEmbed({
           </p>
         </div>
       )}
-      <BillingProfileForm variant="compact" onSaved={onSaved} />
+      <BillingProfileForm
+        variant="compact"
+        onSaved={onSaved}
+        showStripePrefill={showStripePrefill}
+      />
     </div>
   )
 }

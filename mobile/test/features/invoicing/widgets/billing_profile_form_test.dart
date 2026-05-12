@@ -15,19 +15,22 @@ import '../helpers/invoicing_test_helpers.dart';
 /// size. Mirrors what a real phone screen offers.
 Widget _hostForm({
   required RecordingInvoicingRepository repo,
+  bool showStripePrefill = true,
 }) {
   return wrapInvoicingWidget(
     overrides: [
       invoicingRepositoryProvider
           .overrideWithValue(repo as InvoicingRepository),
     ],
-    child: const Center(
+    child: Center(
       child: SizedBox(
         width: 720,
         height: 2000,
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: BillingProfileForm(),
+          padding: const EdgeInsets.all(16),
+          child: BillingProfileForm(
+            showStripePrefill: showStripePrefill,
+          ),
         ),
       ),
     ),
@@ -232,5 +235,38 @@ void main() {
 
     expect(repo.validateVatCalls, 1);
     expect(find.textContaining('validé le 20/04/2026'), findsOneWidget);
+  });
+
+  // showStripePrefill toggle — added with the client-payment-ux fix.
+  // Default behavior (true) preserves the prestataire-facing screen;
+  // the false branch is set explicitly by the client checkout embed.
+  group('showStripePrefill flag', () {
+    testWidgets('renders the "Sync depuis Stripe" CTA by default',
+        (tester) async {
+      final repo = RecordingInvoicingRepository()
+        ..getResponse = buildBillingProfileSnapshot();
+      await tester.pumpWidget(_hostForm(repo: repo));
+      await _settle(tester);
+
+      // The prestataire-facing form shows the CTA when no sync has
+      // ever happened — the default snapshot has syncedFromKycAt null.
+      expect(find.text('Sync depuis Stripe'), findsOneWidget);
+    });
+
+    testWidgets(
+        'hides the "Sync depuis Stripe" CTA when showStripePrefill=false',
+        (tester) async {
+      final repo = RecordingInvoicingRepository()
+        ..getResponse = buildBillingProfileSnapshot();
+      await tester.pumpWidget(
+        _hostForm(repo: repo, showStripePrefill: false),
+      );
+      await _settle(tester);
+
+      // Client checkout context — the CTA must NOT render. The
+      // synced-from-Stripe indicator collapses with it as well.
+      expect(find.text('Sync depuis Stripe'), findsNothing);
+      expect(find.text('Profil non synchronisé depuis Stripe'), findsNothing);
+    });
   });
 }
