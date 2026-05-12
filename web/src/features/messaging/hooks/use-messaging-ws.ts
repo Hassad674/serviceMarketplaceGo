@@ -309,6 +309,17 @@ export function useMessagingWS(userId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
+        case "presence_snapshot": {
+          // Backend sends this ONCE per WS connect with the list of
+          // currently-online conversation partners. Invalidate the
+          // conversations query so BulkIsOnline picks up the fresh
+          // state. Safe: only fires on receipt of the snapshot frame,
+          // NOT on ws.onopen (a previous attempt to invalidate on
+          // onopen caused an upstream re-render → cleanup → reconnect
+          // loop that froze realtime — see commit 401e7dea revert).
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
+          break
+        }
       }
     }
   }, [queryClient, addMessageToCache, clearTyping, syncProposalStatusInCache])

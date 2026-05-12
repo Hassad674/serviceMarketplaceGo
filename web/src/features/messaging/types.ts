@@ -142,3 +142,4 @@ export type WSServerFrame =
   | { type: "message_edited"; payload: Message }
   | { type: "message_deleted"; payload: { message_id: string; conversation_id: string } }
   | { type: "presence"; payload: { user_id: string; online: boolean } }
+  | { type: "presence_snapshot"; payload: { online_user_ids: string[] } }
