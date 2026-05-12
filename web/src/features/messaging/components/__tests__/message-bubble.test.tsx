@@ -54,7 +54,12 @@ vi.mock("../proposal-card", () => ({
 }))
 
 vi.mock("../proposal-system-message", () => ({
-  ProposalSystemMessage: ({ type }: { type: string }) => (
+  ProposalSystemMessage: ({
+    type,
+  }: {
+    type: string
+    currentUserId?: string
+  }) => (
     <span data-testid={`proposal-system-${type}`} />
   ),
   PaymentRequestedMessage: () => (

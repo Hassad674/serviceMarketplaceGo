@@ -125,17 +125,37 @@ function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslation
 export function ProposalSystemMessage({
   type,
   metadata,
+  currentUserId,
 }: {
   type: string
   metadata: ProposalMessageMetadata
+  currentUserId?: string
 }) {
   const t = useTranslations("proposal")
+  const router = useRouter()
   const config = SYSTEM_MESSAGE_STYLES[type]
   if (!config) return null
 
   const Icon = config.icon
   const title = getSystemMessageTitle(type, t)
   const subtitle = `${metadata.proposal_title} — ${formatCurrency(metadata.proposal_amount / 100)}`
+
+  // Regression fix: when a client ACCEPTS a proposal in chat, the
+  // system bubble "Proposal accepted" needs a quick path to pay. The
+  // proposal card already has a Pay button, but it can be scrolled
+  // out of view by the time the accept happens — the user only sees
+  // the system bubble and has no obvious next step.
+  //
+  // We mirror the EXACT same gate as proposal-card.tsx so the two
+  // surfaces stay consistent: status snapshot must be "accepted" and
+  // the viewer must be the client. The provider never pays their own
+  // proposal; on "paid"/"completed" the snapshot moves past
+  // "accepted" so the CTA disappears.
+  const showPayCta =
+    type === "proposal_accepted" &&
+    metadata.proposal_status === "accepted" &&
+    Boolean(currentUserId) &&
+    metadata.proposal_client_id === currentUserId
 
   return (
     <div className="flex justify-center py-2">
@@ -153,6 +173,20 @@ export function ProposalSystemMessage({
             </p>
           </div>
         </div>
+        {showPayCta && (
+          <>
+            <div className="mt-3 border-t border-border" />
+            <button
+              type="button"
+              onClick={() => router.push(`/projects/pay?proposal=${metadata.proposal_id}`)}
+              className={CTA_CLASSES}
+              data-testid="proposal-accepted-pay-cta"
+            >
+              {t("payNow")}
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

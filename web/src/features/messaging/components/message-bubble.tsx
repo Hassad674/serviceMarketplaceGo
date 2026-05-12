@@ -96,8 +96,16 @@ export function MessageBubble({
   }
 
   // System messages for proposal state changes.
+  // currentUserId is forwarded so the "Proposal accepted" bubble can
+  // render the "Payer maintenant" CTA for the client (regression fix).
   if (PROPOSAL_SYSTEM_TYPES.has(message.type) && isProposalMetadata(message.metadata)) {
-    return <ProposalSystemMessage type={message.type} metadata={message.metadata} />
+    return (
+      <ProposalSystemMessage
+        type={message.type}
+        metadata={message.metadata}
+        currentUserId={state.currentUserId}
+      />
+    )
   }
 
   // Payment requested — system message with action.
