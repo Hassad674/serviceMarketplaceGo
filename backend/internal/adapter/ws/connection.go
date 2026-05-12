@@ -74,6 +74,14 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 		// gosec G118: explicit detached context replaces context.Background().
 		bgCtx := context.WithoutCancel(r.Context())
 		go broadcastPresenceChange(bgCtx, userID, true, deps)
+		// Closes the unidirectional-presence bug: the newly connected
+		// client otherwise learns about peers ONLY through subsequent
+		// online/offline broadcasts, so a peer who joined first stays
+		// "Offline" in this client's UI until the next event. We push
+		// a snapshot of the currently online conversation partners so
+		// the receiving client can hydrate its presence view at once.
+		// Sent to `client` only — never broadcast.
+		go sendPresenceSnapshot(bgCtx, client, deps)
 
 		// writePump and readPump intentionally outlive the HTTP
 		// handler — the WS connection persists for as long as the
@@ -415,6 +423,63 @@ func writePump(conn *websocket.Conn, client *Client) {
 			// Presence refresh is handled by client heartbeats via handleHeartbeat.
 		}
 	}
+}
+
+// sendPresenceSnapshot pushes a one-shot `presence_snapshot` frame to
+// the newly connected client containing the user ids of the
+// conversation partners that are CURRENTLY online. This fixes the
+// historical asymmetry where the second-to-connect user only learnt
+// about peers via subsequent online/offline broadcasts — peers that
+// were already connected stayed "Offline" in the new client's UI
+// until they happened to fire a presence event.
+//
+// Scope: conversation partners only (via MessagingQuerier.GetContactIDs).
+// Never the global online set — that would leak unrelated users and
+// scale poorly. BulkIsOnline is a single batched call (no N+1).
+//
+// Best-effort: every failure path returns silently. The frontend
+// safety-net (refetch conversations on WS open) covers the case
+// where this snapshot is dropped.
+//
+// gosec G118: parent context comes from the caller (request-scoped
+// + WithoutCancel), not context.Background().
+func sendPresenceSnapshot(parent context.Context, client *Client, deps ConnDeps) {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	defer cancel()
+
+	contactIDs, err := deps.MessagingSvc.GetContactIDs(ctx, client.UserID)
+	if err != nil {
+		slog.Warn("presence snapshot: failed to fetch contact ids",
+			"error", err, "user_id", client.UserID)
+		return
+	}
+
+	onlineIDs := make([]string, 0)
+	if len(contactIDs) > 0 {
+		// Single batched check — Redis MGET-equivalent. No N+1.
+		onlineMap, err := deps.PresenceSvc.BulkIsOnline(ctx, contactIDs)
+		if err != nil {
+			slog.Warn("presence snapshot: BulkIsOnline failed",
+				"error", err, "user_id", client.UserID)
+			return
+		}
+		for _, id := range contactIDs {
+			if onlineMap[id] {
+				onlineIDs = append(onlineIDs, id.String())
+			}
+		}
+	}
+
+	envelope, err := json.Marshal(Envelope{
+		Type:    TypePresenceSnapshot,
+		Payload: map[string]any{"online_user_ids": onlineIDs},
+	})
+	if err != nil {
+		slog.Error("presence snapshot: marshal failed", "error", err)
+		return
+	}
+
+	sendOrDrop(client, envelope, TypePresenceSnapshot)
 }
 
 // broadcastPresenceChange notifies all contacts of a user's online/offline
