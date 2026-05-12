@@ -68,6 +68,18 @@ WHERE proposal_id = ANY($1::uuid[])
 ORDER BY proposal_id, sequence ASC
 `
 
+// queryStatusesByMilestoneIDs is a minimal projection (id, status) for
+// the wallet aggregation path. The full milestone row is overkill when
+// the caller only needs to split a payment record into the escrow /
+// available / transferred bucket — keeping the SELECT narrow lets
+// PostgreSQL satisfy the query from the proposal_milestones index on
+// id alone, no heap fetch needed for the 200+ byte rows.
+const queryStatusesByMilestoneIDs = `
+SELECT id, status
+FROM proposal_milestones
+WHERE id = ANY($1::uuid[])
+`
+
 // queryGetCurrentActiveMilestone returns the lowest-sequence non-terminal
 // milestone of a proposal. Terminal statuses are released, cancelled, refunded.
 const queryGetCurrentActiveMilestone = `

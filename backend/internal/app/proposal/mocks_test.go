@@ -350,6 +350,25 @@ func (m *mockMilestoneRepo) ListByProposals(ctx context.Context, proposalIDs []u
 	return out, nil
 }
 
+// StatusByIDs returns the current status for every milestone id in the
+// batch. Test mock: walks the in-memory store and matches by id.
+func (m *mockMilestoneRepo) StatusByIDs(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]milestone.MilestoneStatus, error) {
+	m.init()
+	out := make(map[uuid.UUID]milestone.MilestoneStatus, len(ids))
+	wanted := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		wanted[id] = struct{}{}
+	}
+	for _, list := range m.byProposal {
+		for _, ms := range list {
+			if _, ok := wanted[ms.ID]; ok {
+				out[ms.ID] = ms.Status
+			}
+		}
+	}
+	return out, nil
+}
+
 // seedMilestone is a test helper that injects a single milestone at
 // sequence=1 into the mock repository's in-memory store. Used by
 // action-method tests to simulate the post-CreateProposal state

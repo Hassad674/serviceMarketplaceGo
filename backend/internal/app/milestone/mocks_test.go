@@ -108,3 +108,7 @@ func (m *mockRepo) ListByProposals(ctx context.Context, proposalIDs []uuid.UUID)
 	}
 	return map[uuid.UUID][]*domain.Milestone{}, nil
 }
+
+func (m *mockRepo) StatusByIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]domain.MilestoneStatus, error) {
+	return map[uuid.UUID]domain.MilestoneStatus{}, nil
+}

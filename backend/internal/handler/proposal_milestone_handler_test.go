@@ -94,6 +94,10 @@ func (m *mockMilestoneRepo) ListByProposals(_ context.Context, _ []uuid.UUID) (m
 	return nil, nil
 }
 
+func (m *mockMilestoneRepo) StatusByIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]milestonedomain.MilestoneStatus, error) {
+	return map[uuid.UUID]milestonedomain.MilestoneStatus{}, nil
+}
+
 // Compile-time check.
 var _ repository.MilestoneRepository = (*mockMilestoneRepo)(nil)
 

@@ -497,6 +497,50 @@ func (r *MilestoneRepository) ListByProposals(ctx context.Context, proposalIDs [
 	return result, nil
 }
 
+// StatusByIDs returns a map of milestone id → status for the given
+// batch of milestone ids in a SINGLE SQL round trip. Used by the
+// payment wallet aggregation to split a payment record between the
+// escrow and available buckets without an N+1 query.
+//
+// Like ListByProposals, this lookup is INHERENTLY cross-tenant: a
+// single org's wallet may aggregate milestones whose parent proposals
+// belong to different counterpart orgs. Callers MUST tag ctx with
+// system.WithSystemActor — the wallet aggregation path already does
+// this when constructing the read context.
+//
+// Missing ids (milestone hard-deleted, FK corruption) are silently
+// omitted from the result map — the caller treats them as "unknown"
+// and applies the conservative-escrow default.
+func (r *MilestoneRepository) StatusByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]milestone.MilestoneStatus, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]milestone.MilestoneStatus{}, nil
+	}
+
+	warnIfNotSystemActor(ctx, "MilestoneRepository.StatusByIDs")
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryStatusesByMilestoneIDs, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("status by milestone ids: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[uuid.UUID]milestone.MilestoneStatus, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		var status string
+		if err := rows.Scan(&id, &status); err != nil {
+			return nil, fmt.Errorf("scan milestone status: %w", err)
+		}
+		out[id] = milestone.MilestoneStatus(status)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows err: %w", err)
+	}
+	return out, nil
+}
+
 // scanner abstracts *sql.Row and *sql.Rows so scanMilestone can serve both.
 type scanner interface {
 	Scan(dest ...any) error
