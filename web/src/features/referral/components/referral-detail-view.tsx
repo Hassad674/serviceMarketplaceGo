@@ -59,19 +59,20 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
         )}
         {viewerRole === "referrer" && (
           <>
-            {/* WALLET-UNIFY Run C: the apporteur (owner) sees both
-                identities un-masked because they made the intro and
-                already know who's involved. Other viewers keep the
-                anonymised cards until the intro activates. */}
+            {/* The apporteur (owner) sees a minimalist informational
+                card with just the display name — no button, no badge,
+                no masking explainer. They already know who they
+                introduced; the card confirms it. Other viewers keep
+                the anonymised cards until activation. */}
             <AnonymizedProviderCard
               snapshot={referral.intro_snapshot.provider}
               revealed
-              providerId={referral.provider_id}
+              displayName={referral.provider_display_name}
             />
             <AnonymizedClientCard
               snapshot={referral.intro_snapshot.client}
               revealed
-              clientId={referral.client_id}
+              displayName={referral.client_display_name}
             />
           </>
         )}

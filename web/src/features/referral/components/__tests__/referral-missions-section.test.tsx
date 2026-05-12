@@ -55,6 +55,7 @@ function makeAttribution(over: Partial<Record<string, unknown>> = {}) {
     proposal_status: "completed",
     attributed_at: "2026-05-01T10:00:00Z",
     rate_pct_snapshot: 5,
+    total_amount_cents: 0,
     total_commission_cents: 0,
     escrow_commission_cents: 0,
     clawed_back_commission_cents: 0,
@@ -163,5 +164,48 @@ describe("ReferralMissionsSection — milestone counter", () => {
     )
 
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe("ReferralMissionsSection — mission total amount", () => {
+  it("renders the total amount pill alongside the title when > 0", () => {
+    mockAttributions([
+      makeAttribution({
+        proposal_title: "Refonte LP",
+        total_amount_cents: 123_000,
+      }),
+    ])
+    render(
+      <ReferralMissionsSection referralId="ref-1" viewerIsClient={false} />,
+    )
+    const pill = screen.getByTestId("attribution-total-amount")
+    expect(pill).toBeInTheDocument()
+    // Intl French formatting: NBSP + €. Assert digits + currency are present.
+    expect(pill.textContent ?? "").toContain("1")
+    expect(pill.textContent ?? "").toContain("€")
+  })
+
+  it("omits the total amount pill when the value is 0 (proposal lookup failed)", () => {
+    mockAttributions([
+      makeAttribution({ proposal_title: "Mission inconnue", total_amount_cents: 0 }),
+    ])
+    render(
+      <ReferralMissionsSection referralId="ref-1" viewerIsClient={false} />,
+    )
+    expect(
+      screen.queryByTestId("attribution-total-amount"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders the total amount pill ALSO for the client viewer (public mission price, not commission)", () => {
+    mockAttributions([
+      makeAttribution({ total_amount_cents: 50_000 }),
+    ])
+    render(
+      <ReferralMissionsSection referralId="ref-1" viewerIsClient />,
+    )
+    expect(
+      screen.getByTestId("attribution-total-amount"),
+    ).toBeInTheDocument()
   })
 })

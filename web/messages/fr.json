@@ -3032,10 +3032,23 @@
     }
   },
   "referralIdentity": {
-    "reveal": {
-      "providerLink": "Voir le profil du prestataire",
-      "clientLink": "Voir le profil du client"
-    }
+    "providerTitle": "Prestataire recommandé",
+    "clientTitle": "Client proposé",
+    "maskedSubtitle": "Identité révélée à l'acceptation",
+    "maskedNoDetail": "L'apporteur a choisi de ne révéler aucun détail avant l'acceptation.",
+    "rowExpertise": "Expertise",
+    "rowExperience": "Expérience",
+    "rowRating": "Notation",
+    "rowPricing": "Tarif",
+    "rowRegion": "Région",
+    "rowLanguages": "Langues",
+    "rowSector": "Secteur",
+    "rowSize": "Taille",
+    "rowBudget": "Budget estimé",
+    "rowTiming": "Timing",
+    "rowNeed": "Besoin",
+    "yearsSuffix": "ans",
+    "reviewsSuffix": "avis"
   },
   "referralProjection": {
     "perMilestoneTitle": "Projection par jalon",

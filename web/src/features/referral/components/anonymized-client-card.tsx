@@ -1,5 +1,4 @@
-import Link from "next/link"
-import { Briefcase, Building2, CalendarClock, Coins, ExternalLink, MapPin } from "lucide-react"
+import { Briefcase, Building2, CalendarClock, Coins, MapPin } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { cn } from "@/shared/lib/utils"
@@ -9,14 +8,21 @@ interface AnonymizedClientCardProps {
   snapshot: ClientSnapshot
   className?: string
   /**
-   * When `revealed` is true the card stops masking the client —
-   * the eyebrow flips to "tu es l'apporteur" and the header
-   * surfaces a profile link. Defaults to false to preserve the
-   * masked behaviour for the provider viewer.
+   * When `revealed` is true the card stops masking the client. For the
+   * apporteur owner the card becomes purely informational — the only
+   * content is the display name. There is no profile link, no eyebrow
+   * label, no masking explainer.
+   * Defaults to false to preserve the masked behaviour for the
+   * provider viewer.
    */
   revealed?: boolean
-  /** Client user id, used to build the public profile URL. */
-  clientId?: string
+  /**
+   * Human-readable client name resolved server-side (organization name
+   * when the user owns an enterprise / agency, "First Last" otherwise).
+   * Required when `revealed` is true; rendered with the Soleil v2
+   * Fraunces display face for the minimalist card.
+   */
+  displayName?: string
 }
 
 const SIZE_LABELS: Record<string, string> = {
@@ -30,13 +36,82 @@ const SIZE_LABELS: Record<string, string> = {
 // provider's modal-as-page side. Company name, logo, and contact are
 // intentionally absent — the apporteur surfaces sector / size / region /
 // budget so the provider can decide whether the deal is worth their time.
+//
+// When the apporteur (owner) views the card, the masked snapshot is
+// replaced by a minimalist card showing just the display name — they
+// already know who they introduced.
 export function AnonymizedClientCard({
   snapshot,
   className,
   revealed = false,
-  clientId,
+  displayName,
 }: AnonymizedClientCardProps) {
-  const t = useTranslations("referralIdentity.reveal")
+  const t = useTranslations("referralIdentity")
+  if (revealed) {
+    return (
+      <RevealedClientCard
+        title={t("clientTitle")}
+        displayName={displayName}
+        className={className}
+      />
+    )
+  }
+  return <MaskedClientCard snapshot={snapshot} className={className} t={t} />
+}
+
+interface RevealedClientCardProps {
+  title: string
+  displayName?: string
+  className?: string
+}
+
+// RevealedClientCard is the minimalist apporteur-only variant: just
+// the display name in the Soleil v2 Fraunces face, role label above.
+// No button, no badge, no explainer.
+function RevealedClientCard({
+  title,
+  displayName,
+  className,
+}: RevealedClientCardProps) {
+  return (
+    <article
+      data-testid="anonymized-client-revealed"
+      className={cn(
+        "rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-blue-50 text-blue-500">
+          <Building2 className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {title}
+          </p>
+          <p
+            className="truncate font-serif text-2xl font-medium text-foreground"
+            data-testid="revealed-identity-name"
+          >
+            {displayName || "—"}
+          </p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+interface MaskedClientCardProps {
+  snapshot: ClientSnapshot
+  className?: string
+  t: ReturnType<typeof useTranslations>
+}
+
+function MaskedClientCard({
+  snapshot,
+  className,
+  t,
+}: MaskedClientCardProps) {
   const hasAnyField =
     snapshot.industry ||
     snapshot.size_bucket ||
@@ -60,56 +135,37 @@ export function AnonymizedClientCard({
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-foreground">
-              Client proposé
+              {t("clientTitle")}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {revealed
-                ? "Identité visible (tu es l'apporteur)"
-                : "Identité révélée à l'acceptation"}
+              {t("maskedSubtitle")}
             </p>
           </div>
         </div>
-        {revealed && clientId && (
-          <Link
-            href={`/enterprises/${clientId}`}
-            data-testid="anonymized-client-reveal-link"
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5",
-              "bg-primary text-[12px] font-semibold text-primary-foreground",
-              "transition-colors hover:bg-primary-deep",
-            )}
-          >
-            {t("clientLink")}
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        )}
       </header>
 
       {!hasAnyField ? (
-        <p className="text-sm text-muted-foreground">
-          L&rsquo;apporteur a choisi de ne révéler aucun détail avant
-          l&rsquo;acceptation.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("maskedNoDetail")}</p>
       ) : (
         <dl className="space-y-3 text-sm">
           {snapshot.industry && (
-            <Row icon={<Briefcase className="h-4 w-4" />} label="Secteur">
+            <Row icon={<Briefcase className="h-4 w-4" />} label={t("rowSector")}>
               {snapshot.industry}
             </Row>
           )}
           {snapshot.size_bucket && (
-            <Row icon={<Building2 className="h-4 w-4" />} label="Taille">
+            <Row icon={<Building2 className="h-4 w-4" />} label={t("rowSize")}>
               {SIZE_LABELS[snapshot.size_bucket] ?? snapshot.size_bucket}
             </Row>
           )}
           {snapshot.region && (
-            <Row icon={<MapPin className="h-4 w-4" />} label="Région">
+            <Row icon={<MapPin className="h-4 w-4" />} label={t("rowRegion")}>
               {snapshot.region}
             </Row>
           )}
           {snapshot.budget_estimate_min_cents !== null &&
             snapshot.budget_estimate_min_cents !== undefined && (
-              <Row icon={<Coins className="h-4 w-4" />} label="Budget estimé">
+              <Row icon={<Coins className="h-4 w-4" />} label={t("rowBudget")}>
                 {formatBudget(
                   snapshot.budget_estimate_min_cents,
                   snapshot.budget_estimate_max_cents,
@@ -118,14 +174,14 @@ export function AnonymizedClientCard({
               </Row>
             )}
           {snapshot.timeline && (
-            <Row icon={<CalendarClock className="h-4 w-4" />} label="Timing">
+            <Row icon={<CalendarClock className="h-4 w-4" />} label={t("rowTiming")}>
               {snapshot.timeline}
             </Row>
           )}
           {snapshot.need_summary && (
             <div className="rounded-lg bg-muted p-3 text-sm text-foreground">
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Besoin
+                {t("rowNeed")}
               </p>
               {snapshot.need_summary}
             </div>
