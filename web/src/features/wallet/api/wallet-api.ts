@@ -203,15 +203,23 @@ export type WithdrawLegError = {
 
 /**
  * Body of the success envelope for POST /api/v1/wallet/withdraw.
- * `errors` is present on a 207 Multi-Status; empty on 200.
+ *
+ * IMPORTANT: every field is optional at runtime. The backend struct
+ * declares `errors` as `omitempty` (see
+ * `backend/internal/handler/wallet_withdraw.go`), so the JSON omits
+ * the key entirely when no leg failed. The UI MUST guard every
+ * access with `?? defaults` — destructuring `result.errors.length`
+ * directly crashes the page on a clean 200 success. See bug
+ * `fix/wallet-ui-crash-and-aggregation` for the regression we
+ * captured here.
  */
 export type WithdrawResult = {
-  drained_cents: number
-  missions_cents: number
-  commissions_cents: number
-  stripe_transfer_ids: string[]
-  currency: string
-  errors: WithdrawLegError[]
+  drained_cents?: number
+  missions_cents?: number
+  commissions_cents?: number
+  stripe_transfer_ids?: string[]
+  currency?: string
+  errors?: WithdrawLegError[]
 }
 
 type WithdrawResultEnvelope = { data: WithdrawResult }

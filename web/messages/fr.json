@@ -2982,7 +2982,8 @@
     },
     "toast": {
       "success": "Retrait en cours — tu recevras un mail dès que Stripe confirme.",
-      "partial": "Retrait partiellement réussi — voir les détails."
+      "partial": "Retrait partiellement réussi — voir les détails.",
+      "unknown": "Retrait en cours — on actualise ton portefeuille."
     },
     "result": {
       "title": "Détails du retrait",

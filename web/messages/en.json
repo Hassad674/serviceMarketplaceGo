@@ -2982,7 +2982,8 @@
     },
     "toast": {
       "success": "Withdrawal in progress — we will email you once Stripe confirms.",
-      "partial": "Partial success — see the details."
+      "partial": "Partial success — see the details.",
+      "unknown": "Withdrawal in progress — refreshing your wallet."
     },
     "result": {
       "title": "Withdrawal details",

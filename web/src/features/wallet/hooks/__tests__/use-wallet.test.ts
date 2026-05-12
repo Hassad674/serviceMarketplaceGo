@@ -319,7 +319,7 @@ describe("useWalletWithdraw (Run C — unified drain)", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.errors).toHaveLength(1)
-    expect(result.current.data?.errors[0].source).toBe("commissions")
+    expect(result.current.data?.errors?.[0]?.source).toBe("commissions")
   })
 
   it("propagates a 422 kyc_required ApiError to the caller", async () => {

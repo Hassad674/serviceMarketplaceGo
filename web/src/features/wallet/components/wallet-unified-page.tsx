@@ -94,18 +94,35 @@ export function WalletUnifiedPage() {
     }
     withdrawMutation.mutate(undefined, {
       onSuccess: (result) => {
-        if (result.errors.length > 0 && result.drained_cents > 0) {
+        // Defensive consumption — the backend envelope can omit
+        // any of these fields. Never destructure `result.errors`
+        // directly: when no leg failed the JSON omits the key
+        // entirely (`omitempty` in `wallet_withdraw.go`), causing a
+        // hard runtime crash on `undefined.length`. This was bug
+        // `fix/wallet-ui-crash-and-aggregation`.
+        const errors = result?.errors ?? []
+        const drained = result?.drained_cents ?? 0
+        const missions = result?.missions_cents ?? 0
+        const commissions = result?.commissions_cents ?? 0
+        if (errors.length > 0 && drained > 0) {
           // Partial success (207) — open the breakdown modal.
-          setResultErrors(result.errors)
+          setResultErrors(errors)
           setResultBreakdown({
-            drained: result.drained_cents,
-            missions: result.missions_cents,
-            commissions: result.commissions_cents,
+            drained,
+            missions,
+            commissions,
           })
           setResultModalOpen(true)
           toast(t("toast.partial"))
-        } else if (result.drained_cents > 0) {
+        } else if (drained > 0) {
           toast(t("toast.success"))
+        } else {
+          // Unknown shape OR a backend that responded 200 with
+          // zero drained AND no errors — both extremely unlikely,
+          // but a defensive fallback keeps the user out of a dead
+          // state. Surface a generic "retrait en cours" notice and
+          // let the cache invalidation reflect the real state.
+          toast(t("toast.unknown"))
         }
       },
       onError: (err) => {

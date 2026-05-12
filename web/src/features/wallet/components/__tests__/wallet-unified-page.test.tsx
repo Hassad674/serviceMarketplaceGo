@@ -280,4 +280,75 @@ describe("WalletUnifiedPage (Run C) — withdraw branches", () => {
       container.querySelector('[data-testid="wallet-unified-withdraw"]'),
     ).toBeNull()
   })
+
+  // ─── Bug 1 regression — defensive WithdrawResult consumption ────────
+  // The backend `withdrawResponse.Errors` field is `omitempty`. A clean
+  // 200 success returns JSON without an `errors` key, so the old
+  // `result.errors.length` access threw a TypeError and surfaced the
+  // Next.js error overlay on a money-moving page. Every response shape
+  // below MUST render without throwing.
+
+  it("does NOT crash and shows a success toast when the response omits `errors`", async () => {
+    // Simulates the real backend: `errors` is `omitempty` and absent
+    // on a clean 200 success.
+    mockWithdrawMutate.mockImplementation((_amt, opts) => {
+      opts?.onSuccess?.({
+        drained_cents: 100_00,
+        missions_cents: 100_00,
+        commissions_cents: 0,
+        stripe_transfer_ids: ["tr_1"],
+        currency: "EUR",
+        // `errors` key intentionally absent — matches the wire shape.
+      })
+    })
+
+    render(<WalletUnifiedPage />)
+    expect(() =>
+      fireEvent.click(screen.getByTestId("wallet-unified-withdraw")),
+    ).not.toThrow()
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith("walletUnified.toast.success"),
+    )
+    expect(
+      screen.queryByRole("dialog", { name: /result-modal/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("does NOT crash and surfaces the defensive toast on an empty 200 body", async () => {
+    // Worst case: the backend returns {} (no fields at all). The UI
+    // must stay alive and surface a benign "retrait en cours" message
+    // so the user knows something happened — the wallet cache
+    // invalidation will refresh the truth.
+    mockWithdrawMutate.mockImplementation((_amt, opts) => {
+      opts?.onSuccess?.({})
+    })
+
+    render(<WalletUnifiedPage />)
+    expect(() =>
+      fireEvent.click(screen.getByTestId("wallet-unified-withdraw")),
+    ).not.toThrow()
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith("walletUnified.toast.unknown"),
+    )
+    expect(
+      screen.queryByRole("dialog", { name: /result-modal/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("does NOT crash when both `errors` and `drained_cents` are absent", async () => {
+    // Defensive matrix: nothing in the body except `currency`.
+    // Mirrors a degenerate backend response. UI must still surface
+    // the defensive toast.
+    mockWithdrawMutate.mockImplementation((_amt, opts) => {
+      opts?.onSuccess?.({ currency: "EUR" })
+    })
+
+    render(<WalletUnifiedPage />)
+    expect(() =>
+      fireEvent.click(screen.getByTestId("wallet-unified-withdraw")),
+    ).not.toThrow()
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith("walletUnified.toast.unknown"),
+    )
+  })
 })

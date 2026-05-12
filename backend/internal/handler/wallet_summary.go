@@ -15,7 +15,6 @@ import (
 
 	paymentapp "marketplace-backend/internal/app/payment"
 	referralapp "marketplace-backend/internal/app/referral"
-	domainreferral "marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/handler/middleware"
 	portservice "marketplace-backend/internal/port/service"
 	res "marketplace-backend/pkg/response"
@@ -36,6 +35,28 @@ type commissionProjector interface {
 // ReferralWalletReader contract.
 type commissionRecorder interface {
 	RecentCommissions(ctx context.Context, referrerID uuid.UUID, limit int) ([]portservice.ReferralCommissionRecord, error)
+}
+
+// proposalTitleResolver returns the human-readable title for a proposal
+// id so the unified timeline rows can render the mission title instead
+// of "Sans titre". Narrow contract — only Title is consumed.
+//
+// The real *proposalapp.Service satisfies this via its GetProposalByID
+// method (the returned proposal exposes Title). Wrapped in this narrow
+// port so tests can drive the title-lookup path without standing up
+// the full proposal stack, and so a worktree without the proposal
+// feature wired still boots (titles degrade to empty).
+type proposalTitleResolver interface {
+	TitleForProposal(ctx context.Context, proposalID uuid.UUID) (string, error)
+}
+
+// missionWalletLoader is the narrow contract Summary depends on for
+// the mission-side overview. Defined here so handler tests can drive
+// the mission-leg + mission-title path without instantiating the full
+// *paymentapp.Service. The real service satisfies it via its existing
+// GetWalletOverview method.
+type missionWalletLoader interface {
+	GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID) (*paymentapp.WalletOverview, error)
 }
 
 // WithCommissionProjector wires the projection reader so
@@ -157,19 +178,92 @@ func (h *WalletHandler) Summary(w http.ResponseWriter, r *http.Request) {
 
 	transactions := buildTransactionTimeline(missions, commissions)
 	page, next := paginateTransactions(transactions, cursor, limit)
+	h.enrichWithProposalTitles(r.Context(), page, missions, commissions)
 	response.RecentTransactions = page
 	response.NextCursor = next
 
 	res.JSON(w, http.StatusOK, map[string]any{"data": response})
 }
 
-// loadMissionSide fetches the provider wallet overview. Failures
-// degrade to an empty overview — the commissions side still renders.
+// enrichWithProposalTitles walks the page of timeline entries and
+// fills `mission_title` from the proposal service. Performs ONE
+// lookup per unique proposal id (the natural deduplication keeps the
+// fan-out bounded by the page size — typically 20). Errors are
+// swallowed individually: a row whose title cannot be resolved keeps
+// an empty title, and the UI falls back to the i18n "Sans titre".
+//
+// To avoid a fan-out on the proposal repo per page, we resolve
+// proposal IDs from the source overview/commission slices BEFORE
+// pagination — but only fetch the proposals that map to the page
+// we're about to return, so missions with hundreds of records but
+// limit=20 never hit 100 lookups.
+func (h *WalletHandler) enrichWithProposalTitles(
+	ctx context.Context,
+	page []summaryTransaction,
+	missions *paymentapp.WalletOverview,
+	commissions commissionSideView,
+) {
+	if h.proposalTitles == nil || len(page) == 0 {
+		return
+	}
+	// Build a reference_id → proposal_id map from the source slices.
+	// Mission rows use record ID as ReferenceID; commission rows use
+	// the commission UUID. Either way the proposal id is sourced from
+	// the original entity, not parsed out of the timeline row.
+	proposalByRef := map[string]uuid.UUID{}
+	for _, r := range missions.Records {
+		if r.ProposalID == "" {
+			continue
+		}
+		pid, err := uuid.Parse(r.ProposalID)
+		if err != nil {
+			continue
+		}
+		proposalByRef[r.ID] = pid
+	}
+	for _, r := range commissions.records {
+		if r.ProposalID == uuid.Nil {
+			continue
+		}
+		proposalByRef[r.ID.String()] = r.ProposalID
+	}
+	// Resolve titles only for the proposals on the current page so a
+	// long history never blows up the request — page size is bounded
+	// by `limit` (default 20, hard cap 100).
+	titlesByProposal := map[uuid.UUID]string{}
+	for i, tx := range page {
+		pid, ok := proposalByRef[tx.ReferenceID]
+		if !ok {
+			continue
+		}
+		title, seen := titlesByProposal[pid]
+		if !seen {
+			resolved, err := h.proposalTitles.TitleForProposal(ctx, pid)
+			if err != nil {
+				slog.Warn("wallet summary: proposal title lookup failed",
+					"proposal_id", pid, "error", err)
+				// Cache the empty result so a repeated id on the same
+				// page does not re-hit the failing proposal lookup.
+				titlesByProposal[pid] = ""
+				continue
+			}
+			title = resolved
+			titlesByProposal[pid] = title
+		}
+		page[i].MissionTitle = title
+	}
+}
+
+// loadMissionSide fetches the provider wallet overview through the
+// narrow missionWalletLoader port. Failures degrade to an empty
+// overview — the commissions side still renders. Production wires
+// *paymentapp.Service into the loader in NewWalletHandler; tests
+// inject a fake via WithMissionWalletLoader.
 func (h *WalletHandler) loadMissionSide(ctx context.Context, userID, orgID uuid.UUID) *paymentapp.WalletOverview {
-	if h.paymentSvc == nil {
+	if h.missionWallet == nil {
 		return &paymentapp.WalletOverview{}
 	}
-	wallet, err := h.paymentSvc.GetWalletOverview(ctx, userID, orgID)
+	wallet, err := h.missionWallet.GetWalletOverview(ctx, userID, orgID)
 	if err != nil || wallet == nil {
 		if err != nil {
 			slog.Warn("wallet summary: mission side load failed",
@@ -236,38 +330,52 @@ func missionLeg(w *paymentapp.WalletOverview) summaryBreakdownLeg {
 	}
 }
 
-// commissionLeg derives the commission-side totals from rows + projections.
+// commissionLeg derives the commission-side totals from the
+// projection stream — the canonical source of truth for commission
+// aggregates.
 //
-//   - TransmittedCents: sum of records with status=paid AND PaidAt set
-//     (paid_at being non-empty is the marker that the Stripe transfer
-//     actually settled).
-//   - EscrowedCents: sum of projections with status in {Escrowed,
-//     Pending} — projections by definition have no DB row yet, so they
-//     are "in flight" from the apporteur's perspective.
-//   - AvailableCents: sum of records with status in {pending_kyc,
-//     failed} — those are the rows the unified withdraw endpoint can
-//     drain.
-//   - TotalCents: sum of all three.
+// History: the previous implementation summed BOTH the DB records
+// AND the SourceProjection projections, which double-counted any
+// commission whose row had been persisted while a SourceProjection
+// entry was emitted in parallel (e.g. attribution timing race, or an
+// `approved` milestone whose row was missed by the per-milestone
+// lookup → safety-net ProjectionPending). Symptom: a single 1298 €
+// pending_kyc commission showed as 1298 € in BOTH the "séquestre"
+// AND "disponible" cards.
+//
+// Fix: projections already cover EVERY state via dispatchMilestone:
+//
+//   - funded/submitted/disputed (active escrow) → ProjectionEscrowed
+//     (source=projection).
+//   - approved/released + commission row → SourceRow row carrying the
+//     row's status (paid → ProjectionPaid, failed → ProjectionFailed,
+//     pending_kyc/pending → ProjectionPending, clawed_back/cancelled
+//     → ProjectionFailed bucket).
+//   - approved/released + missing row → safety-net ProjectionPending
+//     (source=projection).
+//   - pending_funding / cancelled / refunded → SKIP.
+//
+// So the records loop is redundant — and worse, it double-counts.
+// The records slice still feeds the recent_transactions timeline
+// (records are the human-facing history), but aggregates derive only
+// from the projection stream.
+//
+// Bucket mapping:
+//   - ProjectionPaid       → TransmittedCents (money already at the apporteur)
+//   - ProjectionEscrowed   → EscrowedCents     (locked, awaiting milestone release)
+//   - ProjectionPending    → AvailableCents    (drainable via withdraw — UI shows "Retirer")
+//   - ProjectionFailed     → AvailableCents    (retire-eligible too, same drain path)
+//   - TotalCents = sum of all three.
 func commissionLeg(view commissionSideView) summaryBreakdownLeg {
 	leg := summaryBreakdownLeg{}
-	for _, r := range view.records {
-		switch r.Status {
-		case string(domainreferral.CommissionPaid):
-			leg.TransmittedCents += r.CommissionCents
-		case string(domainreferral.CommissionPendingKYC), string(domainreferral.CommissionFailed):
-			leg.AvailableCents += r.CommissionCents
-		}
-	}
 	for _, p := range view.projections {
-		// Projections are about money not-yet-paid. Row-backed
-		// projections are also surfaced via the records loop above —
-		// we count them ONCE on the records side to avoid double
-		// counting.
-		if p.Source == referralapp.SourceRow {
-			continue
-		}
-		if p.Status == referralapp.ProjectionEscrowed || p.Status == referralapp.ProjectionPending {
+		switch p.Status {
+		case referralapp.ProjectionPaid:
+			leg.TransmittedCents += p.ProjectedCents
+		case referralapp.ProjectionEscrowed:
 			leg.EscrowedCents += p.ProjectedCents
+		case referralapp.ProjectionPending, referralapp.ProjectionFailed:
+			leg.AvailableCents += p.ProjectedCents
 		}
 	}
 	leg.TotalCents = leg.AvailableCents + leg.EscrowedCents + leg.TransmittedCents

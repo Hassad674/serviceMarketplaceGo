@@ -237,6 +237,86 @@ func TestWithdraw_PartialAmount(t *testing.T) {
 	assert.Equal(t, 2, retrier.calls, "retrier must stop once amount_cents is reached")
 }
 
+// TestWithdrawWithdraw_RefusesAmountAboveAvailable pins the safety
+// behavior the user verified manually after the UI crash on /wallet:
+// when the client asks for MORE cents than are actually drainable,
+// the backend NEVER overdraws. It caps the drained amount at what is
+// authoritatively eligible (retire-eligible commissions + completed-
+// mission payouts).
+//
+// Setup: 1 retire-eligible commission of 100 cents + 1 escrowed
+// (non-retire-eligible) commission of 200 cents. Client asks for
+// 300 cents — that's available + escrowed.
+//
+// Expected:
+//   - response.drained_cents == 100 (NOT 300), proving the backend
+//     refused to transfer the escrowed funds.
+//   - The retrier is called exactly once (on the eligible row only) —
+//     proving the escrowed row was never tapped for drain.
+//   - HTTP status is 200 (the implementation treats overshoot as a
+//     non-error: drain what you can, return the breakdown).
+//
+// This is the regression pin for the user-reported scenario: the
+// frontend crashed but the funds stayed put — the backend's safety
+// behavior was the unsung hero, and we lock it in here so a future
+// refactor can't accidentally make `amount_cents` an authoritative
+// drain instruction.
+func TestWalletWithdraw_RefusesAmountAboveAvailable(t *testing.T) {
+	probe := &fakeKYCProbe{ready: true}
+	availableCommission := portservice.ReferralCommissionRecord{
+		ID:              uuid.New(),
+		CommissionCents: 100,
+		Currency:        "EUR",
+		Status:          "pending_kyc",
+		RetireEligible:  true,
+		CreatedAt:       time.Now(),
+	}
+	// Non-retire-eligible — represents money in escrow that can't be
+	// withdrawn yet (mission not approved / commission not crystallised).
+	escrowedCommission := portservice.ReferralCommissionRecord{
+		ID:              uuid.New(),
+		CommissionCents: 200,
+		Currency:        "EUR",
+		Status:          "pending",
+		RetireEligible:  false,
+		CreatedAt:       time.Now(),
+	}
+	recorder := &fakeCommissionRecorder{
+		rows: []portservice.ReferralCommissionRecord{
+			availableCommission,
+			escrowedCommission,
+		},
+	}
+	retrier := &fakeWithdrawCommissionRetrier{
+		outcomes: []portservice.ReferralCommissionRetryOutcome{
+			{Result: portservice.ReferralCommissionRetryPaid, StripeAccount: "acct_xxx"},
+		},
+	}
+	wh := handler.NewWalletHandler(nil, nil).
+		WithPayoutReadinessProbe(probe).
+		WithCommissionRecorder(recorder).
+		WithCommissionRetrier(retrier)
+
+	// Ask for 300 cents — that's available (100) + escrowed (200).
+	req := withdrawAuthReq(t, uuid.New(), uuid.New(), map[string]any{"amount_cents": 300})
+	rec := httptest.NewRecorder()
+	wh.Withdraw(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code,
+		"backend must respond 200 — the implementation drains what it can, not what was asked")
+	data := decodeWithdraw(t, rec)
+	assert.Equal(t, float64(100), data["drained_cents"],
+		"drained must be CAPPED at the available 100 cents, never the requested 300")
+	assert.Equal(t, float64(100), data["commissions_cents"],
+		"commission leg must report 100 cents drained")
+	assert.Equal(t, float64(0), data["missions_cents"],
+		"mission leg unchanged (no payment service wired)")
+	// The retrier is called exactly once — on the eligible row only.
+	// The escrowed row was never tapped, proving the funds did not move.
+	assert.Equal(t, 1, retrier.calls,
+		"retrier must be called once — once for the eligible row, never for the escrowed row")
+}
+
 // TestWithdraw_SkipsNonRetireEligible — commissions without
 // RetireEligible=true are skipped (e.g. paid, clawed_back).
 func TestWithdraw_SkipsNonRetireEligible(t *testing.T) {

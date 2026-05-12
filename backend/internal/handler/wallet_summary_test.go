@@ -106,10 +106,13 @@ func TestSummary_EmptyWallet_DegradesGracefully(t *testing.T) {
 }
 
 // TestSummary_CommissionsOnly composes a summary with no mission
-// service wired but a commission recorder + projector populated.
-// Verifies the breakdown maths.
+// service wired but a commission projector populated. Verifies the
+// breakdown maths — projections are the canonical source for the
+// commission aggregates (records still feed the timeline).
 func TestSummary_CommissionsOnly(t *testing.T) {
 	paidAt := time.Now().UTC().Add(-1 * time.Hour)
+	// Each projection contributes to ONE bucket only; records still
+	// flow into recent_transactions but no longer drive aggregates.
 	recorder := &fakeCommissionRecorder{
 		rows: []portservice.ReferralCommissionRecord{
 			{
@@ -131,6 +134,28 @@ func TestSummary_CommissionsOnly(t *testing.T) {
 	}
 	projector := &fakeCommissionProjector{
 		rows: []referralapp.ProjectedCommission{
+			// Paid → TransmittedCents (the row's commission is exposed
+			// via SourceRow with ProjectionPaid status).
+			{
+				AttributionID:  uuid.New(),
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 100_00,
+				Currency:       "EUR",
+				Status:         referralapp.ProjectionPaid,
+				Source:         referralapp.SourceRow,
+				ProjectedAt:    paidAt,
+			},
+			// Failed → AvailableCents (retire-eligible).
+			{
+				AttributionID:  uuid.New(),
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 50_00,
+				Currency:       "EUR",
+				Status:         referralapp.ProjectionFailed,
+				Source:         referralapp.SourceRow,
+				ProjectedAt:    paidAt.Add(-2 * time.Hour),
+			},
+			// Escrowed → EscrowedCents (active milestone, no row yet).
 			{
 				AttributionID:  uuid.New(),
 				MilestoneID:    uuid.New(),
@@ -158,19 +183,30 @@ func TestSummary_CommissionsOnly(t *testing.T) {
 	assert.Equal(t, float64(175_00), commissions["total_cents"])
 }
 
-// TestSummary_RowSourcedProjection_NotDoubleCounted ensures a
-// projection with Source=row is NOT added to commission.escrowed_cents
-// — its row counterpart is already counted on the records side.
-func TestSummary_RowSourcedProjection_NotDoubleCounted(t *testing.T) {
+// TestSummary_RecordsDoNotDoubleCountProjections is the regression pin
+// for the user-reported bug: a single pending_kyc commission appeared
+// as 1298 € in BOTH "séquestre" AND "disponible" cards. Root cause was
+// the previous aggregator summing records AND SourceProjection
+// projections in parallel — the same commission contributed to two
+// buckets. After the fix, projections own the aggregates and records
+// only feed the timeline. The same commission must appear in exactly
+// one bucket.
+func TestSummary_RecordsDoNotDoubleCountProjections(t *testing.T) {
+	now := time.Now().UTC()
+	milestoneID := uuid.New()
+	// The row exists in `referral_commissions` with status pending_kyc
+	// (UI shows "Retirer"). It is ALSO surfaced by the projection
+	// stream as a SourceRow ProjectionPending entry (canonical).
+	commissionID := uuid.New()
 	recorder := &fakeCommissionRecorder{
 		rows: []portservice.ReferralCommissionRecord{
 			{
-				ID:              uuid.New(),
-				CommissionCents: 100_00,
+				ID:              commissionID,
+				MilestoneID:     milestoneID,
+				CommissionCents: 1298_00,
 				Currency:        "EUR",
-				Status:          "paid",
-				PaidAt:          ptrTime(time.Now()),
-				CreatedAt:       time.Now(),
+				Status:          "pending_kyc",
+				CreatedAt:       now,
 			},
 		},
 	}
@@ -178,12 +214,12 @@ func TestSummary_RowSourcedProjection_NotDoubleCounted(t *testing.T) {
 		rows: []referralapp.ProjectedCommission{
 			{
 				AttributionID:  uuid.New(),
-				MilestoneID:    uuid.New(),
-				ProjectedCents: 100_00,
+				MilestoneID:    milestoneID,
+				ProjectedCents: 1298_00,
 				Currency:       "EUR",
-				Status:         referralapp.ProjectionPaid,
+				Status:         referralapp.ProjectionPending,
 				Source:         referralapp.SourceRow,
-				ProjectedAt:    time.Now(),
+				ProjectedAt:    now,
 			},
 		},
 	}
@@ -197,10 +233,136 @@ func TestSummary_RowSourcedProjection_NotDoubleCounted(t *testing.T) {
 	data := decodeSummary(t, rec)
 	breakdown := data["breakdown"].(map[string]any)
 	commissions := breakdown["commissions"].(map[string]any)
-	// transmitted_cents = 100,00 (from the row), escrowed_cents = 0
-	// because the row-sourced projection is skipped.
-	assert.Equal(t, float64(100_00), commissions["transmitted_cents"])
-	assert.Equal(t, float64(0), commissions["escrowed_cents"])
+	// Available only — escrowed must be zero. Total = available.
+	assert.Equal(t, float64(1298_00), commissions["available_cents"],
+		"pending_kyc commission must surface in available only")
+	assert.Equal(t, float64(0), commissions["escrowed_cents"],
+		"pending_kyc commission must NOT also appear in escrowed (double-count regression)")
+	assert.Equal(t, float64(0), commissions["transmitted_cents"])
+	assert.Equal(t, float64(1298_00), commissions["total_cents"])
+}
+
+// TestSummary_NoDoubleCount is the explicit table-driven matrix asked
+// for in the fix brief. For every (commission state × milestone state)
+// pair the projection algorithm covers, the corresponding cents must
+// land in EXACTLY ONE bucket — never in two.
+func TestSummary_NoDoubleCount(t *testing.T) {
+	tests := []struct {
+		name                string
+		projection          referralapp.ProjectedCommission
+		record              *portservice.ReferralCommissionRecord
+		wantAvailableCents  int64
+		wantEscrowedCents   int64
+		wantTransmitted     int64
+	}{
+		{
+			name: "paid (row-sourced projection + paid record)",
+			projection: referralapp.ProjectedCommission{
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 100_00,
+				Status:         referralapp.ProjectionPaid,
+				Source:         referralapp.SourceRow,
+				ProjectedAt:    time.Now(),
+				Currency:       "EUR",
+			},
+			record: &portservice.ReferralCommissionRecord{
+				ID: uuid.New(), CommissionCents: 100_00, Status: "paid",
+				PaidAt: ptrTime(time.Now()), CreatedAt: time.Now(), Currency: "EUR",
+			},
+			wantTransmitted: 100_00,
+		},
+		{
+			name: "pending_kyc (row-sourced projection + pending_kyc record)",
+			projection: referralapp.ProjectedCommission{
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 1298_00,
+				Status:         referralapp.ProjectionPending,
+				Source:         referralapp.SourceRow,
+				ProjectedAt:    time.Now(),
+				Currency:       "EUR",
+			},
+			record: &portservice.ReferralCommissionRecord{
+				ID: uuid.New(), CommissionCents: 1298_00, Status: "pending_kyc",
+				CreatedAt: time.Now(), Currency: "EUR",
+			},
+			wantAvailableCents: 1298_00,
+		},
+		{
+			name: "failed (row-sourced projection + failed record)",
+			projection: referralapp.ProjectedCommission{
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 50_00,
+				Status:         referralapp.ProjectionFailed,
+				Source:         referralapp.SourceRow,
+				ProjectedAt:    time.Now(),
+				Currency:       "EUR",
+			},
+			record: &portservice.ReferralCommissionRecord{
+				ID: uuid.New(), CommissionCents: 50_00, Status: "failed",
+				CreatedAt: time.Now(), Currency: "EUR",
+			},
+			wantAvailableCents: 50_00,
+		},
+		{
+			name: "escrowed (active milestone, no record yet — projection only)",
+			projection: referralapp.ProjectedCommission{
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 75_00,
+				Status:         referralapp.ProjectionEscrowed,
+				Source:         referralapp.SourceProjection,
+				ProjectedAt:    time.Now(),
+				Currency:       "EUR",
+			},
+			record:            nil,
+			wantEscrowedCents: 75_00,
+		},
+		{
+			name: "approved with missing row (safety-net pending projection)",
+			projection: referralapp.ProjectedCommission{
+				MilestoneID:    uuid.New(),
+				ProjectedCents: 200_00,
+				Status:         referralapp.ProjectionPending,
+				Source:         referralapp.SourceProjection,
+				ProjectedAt:    time.Now(),
+				Currency:       "EUR",
+			},
+			record:             nil,
+			wantAvailableCents: 200_00,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := &fakeCommissionRecorder{rows: nil}
+			if tt.record != nil {
+				recorder.rows = []portservice.ReferralCommissionRecord{*tt.record}
+			}
+			projector := &fakeCommissionProjector{
+				rows: []referralapp.ProjectedCommission{tt.projection},
+			}
+			wh := handler.NewWalletHandler(nil, nil).
+				WithCommissionRecorder(recorder).
+				WithCommissionProjector(projector)
+			req := summaryRequest(t, uuid.New(), uuid.New(), "")
+			rec := httptest.NewRecorder()
+			wh.Summary(rec, req)
+			assert.Equal(t, http.StatusOK, rec.Code)
+			data := decodeSummary(t, rec)
+			breakdown := data["breakdown"].(map[string]any)
+			commissions := breakdown["commissions"].(map[string]any)
+			assert.Equal(t, float64(tt.wantAvailableCents),
+				commissions["available_cents"], "available_cents")
+			assert.Equal(t, float64(tt.wantEscrowedCents),
+				commissions["escrowed_cents"], "escrowed_cents")
+			assert.Equal(t, float64(tt.wantTransmitted),
+				commissions["transmitted_cents"], "transmitted_cents")
+			// Total must equal the single non-zero bucket — never the sum
+			// of two.
+			expectedTotal := tt.wantAvailableCents + tt.wantEscrowedCents + tt.wantTransmitted
+			assert.Equal(t, float64(expectedTotal),
+				commissions["total_cents"], "total_cents must equal exactly one bucket's value")
+		})
+	}
 }
 
 // TestSummary_Pagination paginates 50 entries by cursor + limit and
@@ -421,6 +583,184 @@ func TestSummary_OrderingDescending(t *testing.T) {
 	second := txs[1].(map[string]any)
 	assert.Equal(t, newer.ID.String(), first["reference_id"], "newest must be first")
 	assert.Equal(t, older.ID.String(), second["reference_id"])
+}
+
+// fakeProposalTitleResolver satisfies the wallet handler's
+// proposalTitleResolver port for unit tests, driven by a map keyed by
+// proposal id.
+type fakeProposalTitleResolver struct {
+	titles map[uuid.UUID]string
+	err    error
+}
+
+func (f *fakeProposalTitleResolver) TitleForProposal(_ context.Context, id uuid.UUID) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.titles[id], nil
+}
+
+// fakeMissionWalletLoader satisfies the narrow missionWalletLoader
+// port so tests can drive the mission-side overview without
+// instantiating the full payment service.
+type fakeMissionWalletLoader struct {
+	overview *paymentapp.WalletOverview
+	err      error
+}
+
+func (f *fakeMissionWalletLoader) GetWalletOverview(_ context.Context, _, _ uuid.UUID) (*paymentapp.WalletOverview, error) {
+	return f.overview, f.err
+}
+
+// TestWalletSummary_RecentTransactionsHaveTitle pins Bug 3: every
+// row in recent_transactions must carry the proposal.title so the
+// frontend renders the mission name instead of falling back to "Sans
+// titre". Covers BOTH mission rows (records → payment_records →
+// proposals.title) and commission rows (commission → proposal_id →
+// proposals.title) in one go.
+func TestWalletSummary_RecentTransactionsHaveTitle(t *testing.T) {
+	now := time.Now().UTC()
+	missionProposalA := uuid.New()
+	missionProposalB := uuid.New()
+	commissionProposal := uuid.New()
+	missionRecA := paymentapp.WalletRecord{
+		ID:             uuid.New().String(),
+		ProposalID:     missionProposalA.String(),
+		ProviderPayout: 100_00,
+		PaymentStatus:  "succeeded",
+		TransferStatus: "completed",
+		CreatedAt:      now.Format("2006-01-02T15:04:05Z"),
+	}
+	missionRecB := paymentapp.WalletRecord{
+		ID:             uuid.New().String(),
+		ProposalID:     missionProposalB.String(),
+		ProviderPayout: 50_00,
+		PaymentStatus:  "succeeded",
+		TransferStatus: "completed",
+		CreatedAt:      now.Add(-1 * time.Hour).Format("2006-01-02T15:04:05Z"),
+	}
+	commissionRec := portservice.ReferralCommissionRecord{
+		ID:              uuid.New(),
+		ProposalID:      commissionProposal,
+		CommissionCents: 25_00,
+		Currency:        "EUR",
+		Status:          "paid",
+		PaidAt:          ptrTime(now.Add(-30 * time.Minute)),
+		CreatedAt:       now.Add(-30 * time.Minute),
+	}
+
+	// Stub the payment service via the test export — the handler
+	// resolves missions via h.paymentSvc.GetWalletOverview at request
+	// time. Since *paymentapp.Service is concrete, we bypass it here
+	// and verify the title path through the timeline construction
+	// path directly when the records are wired into a real overview.
+	// In the e2e wallet_summary path, paymentSvc must be non-nil for
+	// missions to flow. For this unit test, we drive the path via a
+	// new fakePaymentService injected via the WithPaymentOverview
+	// builder — but the cleaner path is to use the existing
+	// WithCommissionRecorder for commissions and reuse the
+	// MissionLegForTest helper to assert mission-side title is
+	// surfaced. Here we exercise the full handler path through the
+	// commission side (which has its own seam) + the timeline
+	// integration test for the mission side below.
+
+	t.Run("mission rows carry proposal title (full handler integration)", func(t *testing.T) {
+		// Drive the full Summary path through the narrow
+		// missionWalletLoader port — verifies the enrichment fills
+		// `mission_title` for every mission row on the page.
+		loader := &fakeMissionWalletLoader{
+			overview: &paymentapp.WalletOverview{
+				Records: []paymentapp.WalletRecord{missionRecA, missionRecB},
+			},
+		}
+		titles := &fakeProposalTitleResolver{
+			titles: map[uuid.UUID]string{
+				missionProposalA: "Mission Alpha",
+				missionProposalB: "Mission Beta",
+			},
+		}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithMissionWalletLoader(loader).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 2)
+		got := map[string]string{}
+		for _, tx := range txs {
+			row := tx.(map[string]any)
+			got[row["reference_id"].(string)] = row["mission_title"].(string)
+		}
+		assert.Equal(t, "Mission Alpha", got[missionRecA.ID])
+		assert.Equal(t, "Mission Beta", got[missionRecB.ID])
+	})
+
+	t.Run("commission rows carry proposal title via enrichment", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		titles := &fakeProposalTitleResolver{
+			titles: map[uuid.UUID]string{
+				commissionProposal: "Refonte landing corail",
+			},
+		}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 1)
+		row := txs[0].(map[string]any)
+		assert.Equal(t, "Refonte landing corail", row["mission_title"],
+			"commission row must surface the proposal title from the resolver")
+	})
+
+	t.Run("missing title degrades to empty string (no panic)", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		// Resolver returns "" for everything (proposal not found).
+		titles := &fakeProposalTitleResolver{titles: map[uuid.UUID]string{}}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 1)
+		row := txs[0].(map[string]any)
+		_, hasTitle := row["mission_title"]
+		// The handler emits the JSON field with omitempty, so an
+		// empty title can either be absent or "" — both are valid.
+		// Either way the UI falls back to "Sans titre".
+		if hasTitle {
+			assert.Equal(t, "", row["mission_title"])
+		}
+	})
+
+	t.Run("resolver error degrades to empty title, no 500", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		titles := &fakeProposalTitleResolver{err: fmt.Errorf("boom-rls-denied")}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code,
+			"resolver error must not break the summary response")
+	})
 }
 
 // ─── helpers ──────────────────────────────────────────────────────
