@@ -29,8 +29,14 @@ final messagingWsServiceProvider = Provider<MessagingWsService>((ref) {
 /// status_update, etc.). Handles heartbeat (every 30s) and automatic
 /// reconnection with exponential backoff on disconnect.
 ///
-/// On successful (re)connection, emits a synthetic `{"type":"reconnected"}`
+/// On successful re-connection, emits a synthetic `{"type":"reconnected"}`
 /// event so that listeners can refresh stale state (e.g. presence).
+///
+/// Forwards the backend `presence_snapshot` frame transparently — it
+/// is emitted once per connection (first-connect AND reconnect) and
+/// fixes the unidirectional-presence regression where a late-joining
+/// client only learnt about peers via subsequent broadcasts. Higher
+/// layers consume it identically to the existing `presence` event.
 class MessagingWsService {
   final ApiClient _api;
   final SecureStorageService _storage;
@@ -77,10 +83,13 @@ class MessagingWsService {
   ///
   /// Each event has a `type` field:
   /// `new_message`, `typing`, `status_update`, `unread_count`,
-  /// `message_edited`, `message_deleted`, `presence`, `reconnected`.
+  /// `message_edited`, `message_deleted`, `presence`,
+  /// `presence_snapshot`, `reconnected`.
   ///
   /// The `reconnected` type is a synthetic client-side event emitted
   /// after a successful reconnection so consumers can refresh state.
+  /// The `presence_snapshot` type comes from the backend and is
+  /// emitted once per WS connection.
   Stream<Map<String, dynamic>> get events => _eventController.stream;
 
   /// Whether the WebSocket is currently connected.

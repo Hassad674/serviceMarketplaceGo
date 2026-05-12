@@ -565,4 +565,102 @@ describe("useMessagingWS", () => {
 
     expect(result.current.isConnected).toBe(true)
   })
+
+  // --- Bidirectional presence regression: open-refetch + snapshot handler ---
+
+  it("invalidates conversations on WS open (presence safety net)", async () => {
+    // Spy on a fresh QueryClient so we can assert invalidation happened.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries")
+
+    const Wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children)
+    Wrapper.displayName = "OpenRefetchWrapper"
+
+    renderHook(() => useMessagingWS("user-1"), { wrapper: Wrapper })
+    await flushWSConnect()
+
+    invalidateSpy.mockClear() // ignore any invalidations during mount
+
+    act(() => {
+      mockWSInstance.readyState = MockWebSocket.OPEN
+      mockWSInstance.onopen?.()
+    })
+
+    // The hook MUST invalidate the conversations query so the
+    // refetch picks up the current BulkIsOnline state — fixes the
+    // unidirectional presence regression where the late-joining
+    // client never learnt about peers already online.
+    const calls = invalidateSpy.mock.calls
+    const matchedConversations = calls.some((call) => {
+      const arg = call[0] as { queryKey?: unknown[] } | undefined
+      const key = arg?.queryKey
+      return Array.isArray(key) && key.includes("conversations")
+    })
+    expect(matchedConversations).toBe(true)
+  })
+
+  it("handles presence_snapshot frame and invalidates conversations", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries")
+
+    const Wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children)
+    Wrapper.displayName = "SnapshotWrapper"
+
+    const { result } = renderHook(() => useMessagingWS("user-1"), { wrapper: Wrapper })
+    await flushWSConnect()
+
+    act(() => {
+      mockWSInstance.readyState = MockWebSocket.OPEN
+      mockWSInstance.onopen?.()
+    })
+
+    invalidateSpy.mockClear() // ignore the open-refetch invalidation
+
+    // Backend sends presence_snapshot listing currently-online partners.
+    act(() => {
+      mockWSInstance.onmessage?.({
+        data: JSON.stringify({
+          type: "presence_snapshot",
+          payload: { online_user_ids: ["user-2", "user-3"] },
+        }),
+      })
+    })
+
+    const matched = invalidateSpy.mock.calls.some((call) => {
+      const arg = call[0] as { queryKey?: unknown[] } | undefined
+      const key = arg?.queryKey
+      return Array.isArray(key) && key.includes("conversations")
+    })
+    expect(matched).toBe(true)
+    expect(result.current.isConnected).toBe(true)
+  })
+
+  it("handles empty presence_snapshot payload without crashing", async () => {
+    const { result } = renderHook(() => useMessagingWS("user-1"), {
+      wrapper: createWrapper(),
+    })
+    await flushWSConnect()
+
+    act(() => {
+      mockWSInstance.readyState = MockWebSocket.OPEN
+      mockWSInstance.onopen?.()
+    })
+
+    act(() => {
+      mockWSInstance.onmessage?.({
+        data: JSON.stringify({
+          type: "presence_snapshot",
+          payload: { online_user_ids: [] },
+        }),
+      })
+    })
+
+    expect(result.current.isConnected).toBe(true)
+  })
 })

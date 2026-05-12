@@ -17,6 +17,18 @@ const (
 	TypeStatusUpdate = "status_update"
 	TypeUnreadCount  = "unread_count"
 	TypePresence     = "presence"
+	// TypePresenceSnapshot is emitted ONCE per WebSocket connection,
+	// immediately after registration, to bridge the gap left by the
+	// fire-and-forget broadcastPresenceChange model: a freshly
+	// connected client did not previously learn about peers that were
+	// already online — it only learnt about peers that connected or
+	// disconnected AFTER it joined. The snapshot fixes that asymmetry.
+	//
+	// Payload: {"online_user_ids":["uuid","uuid",...]} — the subset
+	// of the new client's conversation partners that are currently
+	// online. Scoped to conversation partners (privacy + scale), not
+	// the global online set.
+	TypePresenceSnapshot = "presence_snapshot"
 	TypePong         = "pong"
 	TypeSyncResult   = "sync_result"
 	TypeError            = "error"

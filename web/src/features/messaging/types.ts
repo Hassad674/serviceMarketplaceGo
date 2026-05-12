@@ -142,3 +142,9 @@ export type WSServerFrame =
   | { type: "message_edited"; payload: Message }
   | { type: "message_deleted"; payload: { message_id: string; conversation_id: string } }
   | { type: "presence"; payload: { user_id: string; online: boolean } }
+  // presence_snapshot is emitted once per WS connection, immediately
+  // after registration. It carries the subset of the client's
+  // conversation partners that are currently online — fixes the
+  // unidirectional-presence regression where the late-joining client
+  // only learned about peers via subsequent broadcasts.
+  | { type: "presence_snapshot"; payload: { online_user_ids: string[] } }
