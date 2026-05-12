@@ -58,9 +58,15 @@ const CASES = [
     label: "legal",
     indexable: true,
   },
+  // Short /cgu and /cgv are legacy placeholder shells — the canonical
+  // CGU/CGV content lives under /legal/cgu and /legal/cgv (indexable).
+  // Keep these noindex so they do not generate duplicate content.
   { mod: Cgu, namespace: "legal.cgu", label: "cgu", indexable: false },
   { mod: Cgv, namespace: "legal.cgv", label: "cgv", indexable: false },
-  { mod: Sub, namespace: "legal.subprocessors", label: "sous-processeurs", indexable: false },
+  // /sous-processeurs MUST be crawlable — RGPD art. 28 transparency
+  // + DSA art. 14 require visitors and auditors to access the
+  // sub-processors list without authentication.
+  { mod: Sub, namespace: "legal.subprocessors", label: "sous-processeurs", indexable: true },
 ] as const
 
 describe("legal placeholder pages metadata", () => {

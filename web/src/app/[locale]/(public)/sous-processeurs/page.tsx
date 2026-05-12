@@ -12,10 +12,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: "legal.subprocessors" })
+  // RGPD art. 28 transparency + DSA art. 14: the sub-processors
+  // list must be publicly indexable so Stripe + auditors + visitors
+  // can verify the third parties handling personal data.
   return {
     title: `${t("title")} | Marketplace Service`,
     description: t("intro"),
-    robots: { index: false, follow: false },
+    alternates: { canonical: "/sous-processeurs" },
   }
 }
 

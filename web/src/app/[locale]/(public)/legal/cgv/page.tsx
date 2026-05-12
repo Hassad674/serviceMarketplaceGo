@@ -3,9 +3,15 @@ import { getTranslations } from "next-intl/server"
 import { LegalDocument } from "@/shared/components/legal/legal-document"
 import type { LegalSection } from "@/shared/components/legal/legal-document"
 
-// /legal/cgv — D4 (GDPR Phase C). Public surface for the full CGV.
-// Source Markdown canonique : /legal/cgv.md. The short /cgv page
-// remains accessible via the legal footer as a synthetic entry point.
+// /legal/cgv — Conditions Générales de Vente (B2B).
+//
+// Stripe Restricted Businesses + DSA art. 14 + Code de la consommation
+// L.111-1 require the CGV to be publicly indexable AND to disclose
+// final prices in a clear, precise, unambiguous manner. The legal-
+// max-blindage round fixes the rates (5 % Client + 10 % Provider + 5 %
+// Referrer), documents the invoicing mandate (art. 289 I-2 CGI), DAC7,
+// the Stripe Restricted Businesses alignment, and the platform refund
+// policy.
 export async function generateMetadata({
   params,
 }: {
@@ -16,7 +22,7 @@ export async function generateMetadata({
   return {
     title: `${t("title")} | Marketplace Service`,
     description: t("subtitle"),
-    robots: { index: false, follow: false },
+    alternates: { canonical: "/legal/cgv" },
   }
 }
 
@@ -33,7 +39,12 @@ export default async function LegalCgvPage({
     {
       id: "model",
       heading: t("modelHeading"),
-      blocks: [{ type: "p", content: t("modelBody") }],
+      blocks: [
+        { type: "p", content: t("modelBody") },
+        { type: "ul", items: t("modelItems").split("|") },
+        { type: "p", content: t("modelStripeFees") },
+        { type: "p", content: t("modelPremium") },
+      ],
     },
     {
       id: "kyc",
@@ -63,12 +74,46 @@ export default async function LegalCgvPage({
     {
       id: "invoices",
       heading: t("invoicesHeading"),
-      blocks: [{ type: "p", content: t("invoicesBody") }],
+      blocks: [
+        { type: "p", content: t("invoicesIntroBody") },
+        { type: "ul", items: t("invoicesItems").split("|") },
+        { type: "p", content: t("invoicesMandate") },
+        { type: "p", content: t("invoicesVat") },
+        { type: "p", content: t("invoicesRetention") },
+      ],
+    },
+    {
+      id: "dac7",
+      heading: t("dac7Heading"),
+      blocks: [{ type: "p", content: t("dac7Body") }],
+    },
+    {
+      id: "refunds",
+      heading: t("refundsHeading"),
+      blocks: [{ type: "p", content: t("refundsBody") }],
+    },
+    {
+      id: "restricted",
+      heading: t("restrictedHeading"),
+      blocks: [
+        { type: "p", content: t("restrictedIntro") },
+        { type: "ul", items: t("restrictedItems").split("|") },
+      ],
     },
     {
       id: "dormant",
       heading: t("dormantHeading"),
       blocks: [{ type: "p", content: t("dormantBody") }],
+    },
+    {
+      id: "liability",
+      heading: t("liabilityHeading"),
+      blocks: [{ type: "p", content: t("liabilityBody") }],
+    },
+    {
+      id: "law",
+      heading: t("lawHeading"),
+      blocks: [{ type: "p", content: t("lawBody") }],
     },
   ]
 

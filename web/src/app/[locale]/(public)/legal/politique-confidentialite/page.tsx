@@ -17,10 +17,14 @@ export async function generateMetadata({
     locale,
     namespace: "legal.docs.politiqueConfidentialite",
   })
+  // CNIL — the privacy policy is the canonical single source of
+  // truth (after the May 2026 merge of the short /privacy into this
+  // URL) and MUST be crawlable. RGPD art. 12 requires accessibility
+  // in a clear, intelligible, easily-accessible format.
   return {
     title: `${t("title")} | Marketplace Service`,
     description: t("subtitle"),
-    robots: { index: false, follow: false },
+    alternates: { canonical: "/legal/politique-confidentialite" },
   }
 }
 

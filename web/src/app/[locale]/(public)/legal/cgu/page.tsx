@@ -3,9 +3,14 @@ import { getTranslations } from "next-intl/server"
 import { LegalDocument } from "@/shared/components/legal/legal-document"
 import type { LegalSection } from "@/shared/components/legal/legal-document"
 
-// /legal/cgu — D4 (GDPR Phase C). Public surface for the full CGU.
-// Source Markdown canonique : /legal/cgu.md. The short /cgu page
-// remains accessible via the legal footer as a synthetic entry point.
+// /legal/cgu — Conditions Générales d'Utilisation (B2B).
+//
+// Stripe Restricted Businesses + DSA art. 14 require the CGU to be
+// publicly indexable. The page renders the structured i18n content
+// described in `legal.docs.cgu.*` plus the legal-max-blindage
+// additions: definitions, anti-circumvention, force majeure,
+// modification, worker classification (Malt verbatim), DSA, and
+// referrer KYC.
 export async function generateMetadata({
   params,
 }: {
@@ -16,7 +21,7 @@ export async function generateMetadata({
   return {
     title: `${t("title")} | Marketplace Service`,
     description: t("subtitle"),
-    robots: { index: false, follow: false },
+    alternates: { canonical: "/legal/cgu" },
   }
 }
 
@@ -31,6 +36,17 @@ export default async function LegalCguPage({
 
   const sections: LegalSection[] = [
     {
+      id: "definitions",
+      heading: t("definitionsHeading"),
+      blocks: [
+        { type: "p", content: t("definitionsIntro") },
+        {
+          type: "ul",
+          items: t("definitionsItems").split("|"),
+        },
+      ],
+    },
+    {
       id: "object",
       heading: t("objectHeading"),
       blocks: [{ type: "p", content: t("objectBody") }],
@@ -43,12 +59,35 @@ export default async function LegalCguPage({
     {
       id: "behavior",
       heading: t("behaviorHeading"),
-      blocks: [{ type: "p", content: t("behaviorBody") }],
+      blocks: [
+        { type: "p", content: t("behaviorBody") },
+        {
+          type: "callout",
+          variant: "info",
+          content: t("behaviorCodeOfConduct"),
+        },
+      ],
     },
     {
       id: "finance",
       heading: t("financeHeading"),
       blocks: [{ type: "p", content: t("financeBody") }],
+    },
+    {
+      id: "anti-circumvention",
+      heading: t("antiCircumventionHeading"),
+      blocks: [
+        { type: "p", content: t("antiCircumventionBody") },
+        {
+          type: "ul",
+          items: t("antiCircumventionItems").split("|"),
+        },
+        {
+          type: "callout",
+          variant: "warning",
+          content: t("antiCircumventionSanction"),
+        },
+      ],
     },
     {
       id: "ip",
@@ -61,9 +100,54 @@ export default async function LegalCguPage({
       blocks: [{ type: "p", content: t("liabilityBody") }],
     },
     {
+      id: "worker-classification",
+      heading: t("workerClassificationHeading"),
+      blocks: [
+        { type: "p", content: t("workerClassificationIntro") },
+        {
+          type: "ul",
+          items: t("workerClassificationItems").split("|"),
+        },
+        { type: "p", content: t("workerClassificationDuration") },
+        { type: "p", content: t("workerClassificationPlurality") },
+        { type: "p", content: t("workerClassificationDisclaimer") },
+      ],
+    },
+    {
+      id: "referrer",
+      heading: t("referrerHeading"),
+      blocks: [{ type: "p", content: t("referrerBody") }],
+    },
+    {
+      id: "moderation",
+      heading: t("moderationHeading"),
+      blocks: [
+        { type: "p", content: t("moderationBody") },
+        {
+          type: "ul",
+          items: t("moderationItems").split("|"),
+        },
+      ],
+    },
+    {
+      id: "suspension",
+      heading: t("suspensionHeading"),
+      blocks: [{ type: "p", content: t("suspensionBody") }],
+    },
+    {
       id: "termination",
       heading: t("terminationHeading"),
       blocks: [{ type: "p", content: t("terminationBody") }],
+    },
+    {
+      id: "modification",
+      heading: t("modificationHeading"),
+      blocks: [{ type: "p", content: t("modificationBody") }],
+    },
+    {
+      id: "force-majeure",
+      heading: t("forceMajeureHeading"),
+      blocks: [{ type: "p", content: t("forceMajeureBody") }],
     },
     {
       id: "law",
