@@ -14,6 +14,39 @@ import (
 	"marketplace-backend/internal/system"
 )
 
+// firePerMilestoneInvoice emits the platform_fee invoice for a record
+// whose transfer_status just flipped to 'completed'. Best-effort:
+//
+//   - Nil invoicer (feature disabled) is a silent no-op.
+//   - The system actor tag is required because the invoicing pipeline
+//     reaches into payment_records (RLS-gated) without an explicit org
+//     context — payments are looked up by milestone_id, not by org.
+//   - Errors are LOGGED at ERROR level but NEVER propagated. The
+//     transfer is already committed and rolling it back over a billing
+//     hiccup would be the wrong trade-off. The monthly safety-net
+//     scheduler picks up missed milestones on its next run.
+//
+// Idempotence: the invoicer itself short-circuits a second call via
+// FindPlatformFeeByMilestoneID + the partial UNIQUE index on
+// invoice(milestone_id) WHERE source_type='platform_fee'. A replayed
+// webhook (Stripe sends the same transfer.created event twice) lands
+// on the same dedup probe and produces zero duplicate invoices.
+func (p *PayoutService) firePerMilestoneInvoice(ctx context.Context, milestoneID uuid.UUID) {
+	if p == nil || p.perMilestoneInvoicer == nil {
+		return
+	}
+	if milestoneID == uuid.Nil {
+		slog.Warn("payment: fire per-milestone invoice called with zero milestone id")
+		return
+	}
+	if err := p.perMilestoneInvoicer.IssueFromMilestone(system.WithSystemActor(ctx), milestoneID); err != nil {
+		slog.Error("payment: per-milestone invoice emission failed on transfer.completed; safety-net scheduler will retry",
+			"milestone_id", milestoneID,
+			"error", err,
+		)
+	}
+}
+
 // payout_transfer.go — the transfer-side methods of PayoutService:
 // every state transition that pushes money OUT of platform escrow to a
 // provider's connected account or back to the client. Phase 3.1 split
@@ -185,6 +218,14 @@ func (p *PayoutService) TransferMilestone(ctx context.Context, milestoneID uuid.
 	if err := p.records.Update(ctx, record); err != nil {
 		return err
 	}
+
+	// Per-milestone platform_fee invoice — fire AFTER the DB write
+	// commits so a retry of this method (replayed webhook, network
+	// blip) lands on a record that is already TransferCompleted and
+	// short-circuits via ErrTransferAlreadyDone above without
+	// double-invoicing. The invoicer is itself idempotent on
+	// milestone_id (DB-level partial UNIQUE) — belt + suspenders.
+	p.firePerMilestoneInvoice(ctx, record.MilestoneID)
 
 	// Referral commission split — fire-and-forget into the referral
 	// feature. A non-nil distributor means the referral feature is

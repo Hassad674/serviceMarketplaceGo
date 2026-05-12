@@ -363,6 +363,64 @@ func TestIssueMonthlyConsolidated_SafetyNet_BillsOnlyUninvoiced(t *testing.T) {
 		"the surviving line must be the one without a synchronous invoice")
 }
 
+// TestIssueMonthlyConsolidated_RetriesIncompleteBilling is the
+// safety-net regression for fix/invoicing-defer-till-transfer. When a
+// milestone's transfer.completed handler skipped emission because the
+// billing_profile was still incomplete at transfer time
+// (HasUniversalFields() returned false), the milestone has NO
+// platform_fee invoice yet. On the next monthly tick, the org has
+// since completed its billing profile — the monthly scheduler MUST
+// pick the milestone up and bill it.
+//
+// Mechanically, the scheduler's only probe for "already invoiced" is
+// FindPlatformFeeByMilestoneID. Since the per-milestone path returned
+// (nil, nil) on the previous attempt (skip, no row written), the
+// probe returns ErrNotFound here and the milestone falls through into
+// the consolidated invoice — same code path as a regular not-yet-
+// invoiced milestone. This test pins that behaviour so a future
+// regression doesn't break the safety net.
+func TestIssueMonthlyConsolidated_RetriesIncompleteBilling(t *testing.T) {
+	svc, invRepo, profileRepo, _, _, _, _ := newSvc(t)
+	orgID := uuid.New()
+
+	// Billing profile is NOW complete (was incomplete when the
+	// transfer fired the per-milestone emission and got skipped).
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+
+	periodStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	previouslySkippedMID := uuid.New()
+	rec := repository.ReleasedPaymentRecord{
+		ID:                  uuid.New(),
+		MilestoneID:         previouslySkippedMID,
+		ProposalID:          uuid.New(),
+		ProposalAmountCents: 100_00,
+		PlatformFeeCents:    5_00,
+		Currency:            "EUR",
+		TransferredAt:       periodStart.Add(24 * time.Hour),
+	}
+	invRepo.listReleasedForOrgFn = func(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
+		return []repository.ReleasedPaymentRecord{rec}, nil
+	}
+	// No platform_fee invoice exists for this milestone — the
+	// per-milestone path returned (nil, nil) on the prior attempt
+	// because the universal-fields gate caught the incomplete profile.
+	invRepo.findPlatformFeeByMilFn = func(_ context.Context, _ uuid.UUID) (*invoicing.Invoice, error) {
+		return nil, invoicing.ErrNotFound
+	}
+
+	out, err := svc.IssueMonthlyConsolidated(context.Background(), monthlyInput(orgID))
+	require.NoError(t, err)
+	require.NotNil(t, out, "safety net must consolidate the previously-skipped milestone")
+	require.Len(t, out.Items, 1)
+	require.NotNil(t, out.Items[0].MilestoneID)
+	assert.Equal(t, previouslySkippedMID, *out.Items[0].MilestoneID,
+		"the consolidated invoice must bill the milestone that the synchronous path skipped")
+	assert.Equal(t, int64(5_00), out.Items[0].AmountCents,
+		"the line amount must equal the original platform_fee_cents")
+}
+
 func TestGetCurrentMonthAggregate_SumsCorrectly(t *testing.T) {
 	svc, invRepo, _, _, _, _, _ := newSvc(t)
 	orgID := uuid.New()

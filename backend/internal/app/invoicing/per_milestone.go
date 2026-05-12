@@ -99,6 +99,27 @@ func (s *Service) IssueFromMilestone(ctx context.Context, in IssueFromMilestoneI
 		}
 		return nil, fmt.Errorf("invoicing: load billing profile: %w", err)
 	}
+
+	// Defense-in-depth completeness gate. The trigger now fires on
+	// transfer.completed (after Stripe Connect has approved KYC), so the
+	// universal address-level fields SHOULD be present. If they are not
+	// (edge case: webhook race where transfer succeeded before the local
+	// billing_profile finished hydrating from KYC), SKIP silently and
+	// return (nil, nil) — the monthly safety-net scheduler retries on
+	// its next run. Returning an error here would crash the transfer
+	// flow, which is a worse outcome than a brief delay before the
+	// invoice appears.
+	if !profile.HasUniversalFields() {
+		logger.Warn("invoicing: skipping platform_fee — billing profile missing universal fields (legal_name/country/address); monthly safety-net will retry",
+			"profile_legal_name_set", profile.LegalName != "",
+			"profile_country_set", profile.Country != "",
+			"profile_address_line1_set", profile.AddressLine1 != "",
+			"profile_postal_code_set", profile.PostalCode != "",
+			"profile_city_set", profile.City != "",
+		)
+		return nil, nil
+	}
+
 	recipient := buildRecipient(profile)
 
 	approvedAt := in.ApprovedAt

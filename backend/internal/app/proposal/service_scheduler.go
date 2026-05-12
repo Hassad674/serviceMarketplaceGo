@@ -231,11 +231,9 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 	// commission row in the apporteur wallet. CRIT-REF.
 	s.prepareReferrerCommission(ctx, p.ID, m.ID, m.Amount)
 
-	// Per-milestone platform_fee invoice — same hook as the
-	// manual-approve path so the auto-approved milestone also lands on
-	// /fr/invoices. Best-effort: failure leaves the row to the safety-net
-	// monthly scheduler.
-	s.emitPerMilestoneInvoice(ctx, m.ID)
+	// NOTE: the per-milestone platform_fee invoice is NO LONGER emitted
+	// here. The legal trigger is now transfer.completed (handled by the
+	// payment feature). See the matching note in CompleteProposal.
 
 	// End-of-project effects only on macro completion (last milestone).
 	// Mid-project releases just emit the lighter "milestone_released"

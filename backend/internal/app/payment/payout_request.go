@@ -135,6 +135,10 @@ func (p *PayoutService) RequestPayout(ctx context.Context, userID, orgID uuid.UU
 			)
 			continue
 		}
+		// Per-milestone platform_fee invoice — fire after the
+		// per-record DB write commits. Same idempotence properties as
+		// the TransferMilestone path (see firePerMilestoneInvoice).
+		p.firePerMilestoneInvoice(ctx, r.MilestoneID)
 		transferred += r.ProviderPayout
 	}
 
@@ -331,6 +335,11 @@ func (p *PayoutService) RetryFailedTransfer(ctx context.Context, userID, orgID, 
 	if uErr := p.records.Update(ctx, record); uErr != nil {
 		return nil, fmt.Errorf("persist retried transfer: %w", uErr)
 	}
+
+	// Per-milestone platform_fee invoice — fire after the retry
+	// successfully commits. Same idempotence properties as the other
+	// transfer paths (see firePerMilestoneInvoice).
+	p.firePerMilestoneInvoice(ctx, record.MilestoneID)
 
 	// Treat a successful retry as the same "first payout" consent as
 	// RequestPayout — the user explicitly clicked to release the funds

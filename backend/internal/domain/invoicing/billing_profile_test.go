@@ -150,3 +150,63 @@ func TestProfileType_IsValid(t *testing.T) {
 	assert.True(t, invoicing.ProfileBusiness.IsValid())
 	assert.False(t, invoicing.ProfileType("nope").IsValid())
 }
+
+// HasUniversalFields is the narrow gate used by the per-milestone
+// invoicing path post-trigger-move (transfer.completed). It checks
+// only the five fields legally required to print ANY invoice —
+// country-specific extras (FR SIRET, EU VAT) are NOT a blocker.
+func TestBillingProfile_HasUniversalFields(t *testing.T) {
+	t.Run("complete FR profile satisfies the gate", func(t *testing.T) {
+		assert.True(t, completeFRBusiness().HasUniversalFields())
+	})
+
+	t.Run("complete DE profile (with VAT) satisfies the gate", func(t *testing.T) {
+		assert.True(t, completeDEBusiness().HasUniversalFields())
+	})
+
+	t.Run("complete US profile satisfies the gate", func(t *testing.T) {
+		assert.True(t, completeUSBusiness().HasUniversalFields())
+	})
+
+	t.Run("EU profile WITHOUT validated VAT still passes the universal gate", func(t *testing.T) {
+		// The per-milestone path's defense-in-depth gate must NOT block
+		// on country-specific extras — only the address-level minimum.
+		p := completeDEBusiness()
+		p.VATNumber = ""
+		p.VATValidatedAt = nil
+		assert.True(t, p.HasUniversalFields(),
+			"per-milestone gate must only verify universal address fields")
+	})
+
+	t.Run("FR profile WITHOUT SIRET still passes the universal gate", func(t *testing.T) {
+		p := completeFRBusiness()
+		p.TaxID = ""
+		assert.True(t, p.HasUniversalFields(),
+			"per-milestone gate must not block on FR SIRET")
+	})
+
+	fieldOmissions := []struct {
+		name    string
+		mutator func(*invoicing.BillingProfile)
+	}{
+		{"missing legal_name", func(p *invoicing.BillingProfile) { p.LegalName = "" }},
+		{"missing country", func(p *invoicing.BillingProfile) { p.Country = "" }},
+		{"missing address_line1", func(p *invoicing.BillingProfile) { p.AddressLine1 = "" }},
+		{"missing postal_code", func(p *invoicing.BillingProfile) { p.PostalCode = "" }},
+		{"missing city", func(p *invoicing.BillingProfile) { p.City = "" }},
+		{"whitespace-only legal_name", func(p *invoicing.BillingProfile) { p.LegalName = "  " }},
+		{"whitespace-only country", func(p *invoicing.BillingProfile) { p.Country = "   " }},
+		{"whitespace-only address_line1", func(p *invoicing.BillingProfile) { p.AddressLine1 = "  " }},
+		{"whitespace-only postal_code", func(p *invoicing.BillingProfile) { p.PostalCode = " " }},
+		{"whitespace-only city", func(p *invoicing.BillingProfile) { p.City = "  " }},
+	}
+
+	for _, tc := range fieldOmissions {
+		t.Run(tc.name+" fails the universal gate", func(t *testing.T) {
+			p := completeFRBusiness()
+			tc.mutator(&p)
+			assert.False(t, p.HasUniversalFields(),
+				"universal-field gate must reject when %s", tc.name)
+		})
+	}
+}
