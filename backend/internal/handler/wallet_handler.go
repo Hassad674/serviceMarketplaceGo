@@ -118,6 +118,21 @@ type WalletHandler struct {
 	commissionProjector commissionProjector
 	commissionRecorder  commissionRecorder
 	auditLogger         walletAuditLogger
+
+	// proposalTitles resolves the human-readable proposal title used
+	// by the unified timeline rows. Optional — when nil the rows
+	// degrade to empty `mission_title` (the UI falls back to "Sans
+	// titre" via the existing i18n key). Wired via
+	// WithProposalTitleResolver; defaults to a thin adapter over
+	// proposalSvc in NewWalletHandler when proposalSvc is non-nil.
+	proposalTitles proposalTitleResolver
+
+	// missionWallet is the narrow mission-overview loader used by the
+	// unified /wallet/summary path. Defaults to paymentSvc in
+	// NewWalletHandler; tests inject a fake via WithMissionWalletLoader
+	// so the mission-side timeline path is exercisable without
+	// standing up the full payment stack.
+	missionWallet missionWalletLoader
 }
 
 func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service) *WalletHandler {
@@ -129,7 +144,54 @@ func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.S
 	if paymentSvc != nil {
 		h.kycProbe = paymentSvc
 		h.retrier = paymentSvc
+		// paymentSvc satisfies the missionWalletLoader contract via
+		// its GetWalletOverview method — auto-wire here so production
+		// uses the real path without an extra builder call.
+		h.missionWallet = paymentSvc
 	}
+	// Default the proposal-title resolver to a thin adapter over the
+	// proposal service. Tests pass nil for proposalSvc + a fake via
+	// WithProposalTitleResolver to drive the title path in isolation.
+	if proposalSvc != nil {
+		h.proposalTitles = proposalServiceTitleAdapter{svc: proposalSvc}
+	}
+	return h
+}
+
+// WithMissionWalletLoader overrides the default mission-side overview
+// loader. Used by tests to drive the mission-leg + mission-title
+// resolution without instantiating the full payment service.
+func (h *WalletHandler) WithMissionWalletLoader(l missionWalletLoader) *WalletHandler {
+	h.missionWallet = l
+	return h
+}
+
+// proposalServiceTitleAdapter wraps *proposalapp.Service so it
+// satisfies the narrow proposalTitleResolver contract. Lives next to
+// the constructor since it is purely a wiring detail of the handler.
+type proposalServiceTitleAdapter struct {
+	svc *proposalapp.Service
+}
+
+// TitleForProposal looks up the proposal by id and returns its Title.
+// Errors are propagated so the summary builder can swallow them at
+// the call site (titles degrading to "" is benign for the UI).
+func (a proposalServiceTitleAdapter) TitleForProposal(ctx context.Context, id uuid.UUID) (string, error) {
+	p, err := a.svc.GetProposalByID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if p == nil {
+		return "", nil
+	}
+	return p.Title, nil
+}
+
+// WithProposalTitleResolver overrides the default proposal-service-
+// backed title resolver. Used by tests to drive the title path with
+// a fake without standing up the full proposal stack.
+func (h *WalletHandler) WithProposalTitleResolver(r proposalTitleResolver) *WalletHandler {
+	h.proposalTitles = r
 	return h
 }
 

@@ -585,6 +585,184 @@ func TestSummary_OrderingDescending(t *testing.T) {
 	assert.Equal(t, older.ID.String(), second["reference_id"])
 }
 
+// fakeProposalTitleResolver satisfies the wallet handler's
+// proposalTitleResolver port for unit tests, driven by a map keyed by
+// proposal id.
+type fakeProposalTitleResolver struct {
+	titles map[uuid.UUID]string
+	err    error
+}
+
+func (f *fakeProposalTitleResolver) TitleForProposal(_ context.Context, id uuid.UUID) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.titles[id], nil
+}
+
+// fakeMissionWalletLoader satisfies the narrow missionWalletLoader
+// port so tests can drive the mission-side overview without
+// instantiating the full payment service.
+type fakeMissionWalletLoader struct {
+	overview *paymentapp.WalletOverview
+	err      error
+}
+
+func (f *fakeMissionWalletLoader) GetWalletOverview(_ context.Context, _, _ uuid.UUID) (*paymentapp.WalletOverview, error) {
+	return f.overview, f.err
+}
+
+// TestWalletSummary_RecentTransactionsHaveTitle pins Bug 3: every
+// row in recent_transactions must carry the proposal.title so the
+// frontend renders the mission name instead of falling back to "Sans
+// titre". Covers BOTH mission rows (records → payment_records →
+// proposals.title) and commission rows (commission → proposal_id →
+// proposals.title) in one go.
+func TestWalletSummary_RecentTransactionsHaveTitle(t *testing.T) {
+	now := time.Now().UTC()
+	missionProposalA := uuid.New()
+	missionProposalB := uuid.New()
+	commissionProposal := uuid.New()
+	missionRecA := paymentapp.WalletRecord{
+		ID:             uuid.New().String(),
+		ProposalID:     missionProposalA.String(),
+		ProviderPayout: 100_00,
+		PaymentStatus:  "succeeded",
+		TransferStatus: "completed",
+		CreatedAt:      now.Format("2006-01-02T15:04:05Z"),
+	}
+	missionRecB := paymentapp.WalletRecord{
+		ID:             uuid.New().String(),
+		ProposalID:     missionProposalB.String(),
+		ProviderPayout: 50_00,
+		PaymentStatus:  "succeeded",
+		TransferStatus: "completed",
+		CreatedAt:      now.Add(-1 * time.Hour).Format("2006-01-02T15:04:05Z"),
+	}
+	commissionRec := portservice.ReferralCommissionRecord{
+		ID:              uuid.New(),
+		ProposalID:      commissionProposal,
+		CommissionCents: 25_00,
+		Currency:        "EUR",
+		Status:          "paid",
+		PaidAt:          ptrTime(now.Add(-30 * time.Minute)),
+		CreatedAt:       now.Add(-30 * time.Minute),
+	}
+
+	// Stub the payment service via the test export — the handler
+	// resolves missions via h.paymentSvc.GetWalletOverview at request
+	// time. Since *paymentapp.Service is concrete, we bypass it here
+	// and verify the title path through the timeline construction
+	// path directly when the records are wired into a real overview.
+	// In the e2e wallet_summary path, paymentSvc must be non-nil for
+	// missions to flow. For this unit test, we drive the path via a
+	// new fakePaymentService injected via the WithPaymentOverview
+	// builder — but the cleaner path is to use the existing
+	// WithCommissionRecorder for commissions and reuse the
+	// MissionLegForTest helper to assert mission-side title is
+	// surfaced. Here we exercise the full handler path through the
+	// commission side (which has its own seam) + the timeline
+	// integration test for the mission side below.
+
+	t.Run("mission rows carry proposal title (full handler integration)", func(t *testing.T) {
+		// Drive the full Summary path through the narrow
+		// missionWalletLoader port — verifies the enrichment fills
+		// `mission_title` for every mission row on the page.
+		loader := &fakeMissionWalletLoader{
+			overview: &paymentapp.WalletOverview{
+				Records: []paymentapp.WalletRecord{missionRecA, missionRecB},
+			},
+		}
+		titles := &fakeProposalTitleResolver{
+			titles: map[uuid.UUID]string{
+				missionProposalA: "Mission Alpha",
+				missionProposalB: "Mission Beta",
+			},
+		}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithMissionWalletLoader(loader).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 2)
+		got := map[string]string{}
+		for _, tx := range txs {
+			row := tx.(map[string]any)
+			got[row["reference_id"].(string)] = row["mission_title"].(string)
+		}
+		assert.Equal(t, "Mission Alpha", got[missionRecA.ID])
+		assert.Equal(t, "Mission Beta", got[missionRecB.ID])
+	})
+
+	t.Run("commission rows carry proposal title via enrichment", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		titles := &fakeProposalTitleResolver{
+			titles: map[uuid.UUID]string{
+				commissionProposal: "Refonte landing corail",
+			},
+		}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 1)
+		row := txs[0].(map[string]any)
+		assert.Equal(t, "Refonte landing corail", row["mission_title"],
+			"commission row must surface the proposal title from the resolver")
+	})
+
+	t.Run("missing title degrades to empty string (no panic)", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		// Resolver returns "" for everything (proposal not found).
+		titles := &fakeProposalTitleResolver{titles: map[uuid.UUID]string{}}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		data := decodeSummary(t, rec)
+		txs := data["recent_transactions"].([]any)
+		require.Len(t, txs, 1)
+		row := txs[0].(map[string]any)
+		_, hasTitle := row["mission_title"]
+		// The handler emits the JSON field with omitempty, so an
+		// empty title can either be absent or "" — both are valid.
+		// Either way the UI falls back to "Sans titre".
+		if hasTitle {
+			assert.Equal(t, "", row["mission_title"])
+		}
+	})
+
+	t.Run("resolver error degrades to empty title, no 500", func(t *testing.T) {
+		recorder := &fakeCommissionRecorder{
+			rows: []portservice.ReferralCommissionRecord{commissionRec},
+		}
+		titles := &fakeProposalTitleResolver{err: fmt.Errorf("boom-rls-denied")}
+		wh := handler.NewWalletHandler(nil, nil).
+			WithCommissionRecorder(recorder).
+			WithProposalTitleResolver(titles)
+		req := summaryRequest(t, uuid.New(), uuid.New(), "")
+		rec := httptest.NewRecorder()
+		wh.Summary(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code,
+			"resolver error must not break the summary response")
+	})
+}
+
 // ─── helpers ──────────────────────────────────────────────────────
 
 func ptrTime(t time.Time) *time.Time { return &t }
