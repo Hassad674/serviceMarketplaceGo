@@ -87,13 +87,14 @@ type Service struct {
 	// got any commission row because TransferMilestone was skipped).
 	referralCommissionPreparer service.ReferralCommissionPreparer
 
-	// perMilestoneInvoicer — wired post-construction via
-	// SetPerMilestoneInvoicer so the proposal flow emits a platform_fee
-	// invoice the moment a milestone is approved. Optional: when nil the
-	// approval path stays on the legacy monthly-consolidation flow
-	// (which still acts as a safety net for the synchronous path).
-	// Failures here MUST NOT roll back the approval.
-	perMilestoneInvoicer service.PerMilestoneInvoicer
+	// NOTE: the per-milestone platform_fee invoicer was previously wired
+	// here so the approval path (CompleteProposal + AutoApproveMilestone)
+	// emitted the invoice synchronously. The trigger has since moved to
+	// the payment feature's PayoutService at the moment transfer_status
+	// flips to 'completed' (i.e. after Stripe Connect KYC is verified) —
+	// that is the legally-correct moment because the billing_profile is
+	// guaranteed populated and the invoice's recipient identity is
+	// valid. See fix/invoicing-defer-till-transfer for the rationale.
 
 	// moderationOrchestrator runs an async scan on the proposal title +
 	// description after a successful create. Optional: when nil, the
@@ -119,16 +120,6 @@ func (s *Service) SetReferralAttributor(a service.ReferralAttributor) {
 // link that previously caused CRIT-REF (referrer wallet always empty).
 func (s *Service) SetReferralCommissionPreparer(p service.ReferralCommissionPreparer) {
 	s.referralCommissionPreparer = p
-}
-
-// SetPerMilestoneInvoicer plugs the per-milestone platform_fee invoice
-// emitter in post-construction. Called on every milestone approval so a
-// non-Premium provider gets an immediate invoice for the platform fee —
-// the synchronous path users see when they hit /fr/invoices. Best-effort:
-// emission failures DO NOT roll back the milestone approval (the monthly
-// safety-net scheduler catches missed milestones on its next run).
-func (s *Service) SetPerMilestoneInvoicer(p service.PerMilestoneInvoicer) {
-	s.perMilestoneInvoicer = p
 }
 
 // SetModerationOrchestrator wires the central moderation pipeline.

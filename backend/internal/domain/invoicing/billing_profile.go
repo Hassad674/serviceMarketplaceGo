@@ -124,3 +124,33 @@ func CheckCompleteness(p BillingProfile) []MissingField {
 func (p BillingProfile) IsComplete() bool {
 	return len(CheckCompleteness(p)) == 0
 }
+
+// HasUniversalFields reports whether the profile carries the five fields
+// strictly required to print ANY legal invoice — legal_name, country,
+// address_line1, postal_code, city. Country-specific extras (FR SIRET,
+// EU validated VAT number) are intentionally NOT checked here.
+//
+// Why a lighter gate than IsComplete: the per-milestone emission path
+// runs at transfer-completion time, right after Stripe Connect has
+// approved the provider's bank-payout capability. At that point KYC has
+// definitely landed the address-level fields (Stripe collected them as
+// part of the onboarding flow). The country-specific tax IDs may still
+// be pending the user's manual confirmation on the "Mes infos de
+// facturation" page — blocking the invoice on those would defeat the
+// whole point of deferring (we want the invoice to fire as soon as the
+// legal minimum is in place). The monthly safety-net scheduler is
+// already responsible for catching truly-incomplete profiles via its
+// own probe.
+//
+// Used by app/invoicing.IssueFromMilestone as defense-in-depth: even
+// after the trigger moves from milestone.approved to transfer.completed,
+// an edge case (transfer somehow succeeds but Stripe has not yet
+// surfaced the address fields onto our local billing_profile row) will
+// SKIP rather than crash the transfer path.
+func (p BillingProfile) HasUniversalFields() bool {
+	return strings.TrimSpace(p.LegalName) != "" &&
+		strings.TrimSpace(p.Country) != "" &&
+		strings.TrimSpace(p.AddressLine1) != "" &&
+		strings.TrimSpace(p.PostalCode) != "" &&
+		strings.TrimSpace(p.City) != ""
+}

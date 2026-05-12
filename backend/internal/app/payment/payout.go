@@ -71,6 +71,23 @@ type PayoutService struct {
 	// nil, RequestPayout logs a warning and falls back to the legacy
 	// behaviour so the payment feature stays bootable without proposal.
 	proposalStatuses portservice.ProposalStatusReader
+
+	// perMilestoneInvoicer fires the platform_fee invoice the moment a
+	// payment record's transfer_status flips to 'completed' — i.e. the
+	// platform-to-connected-account Stripe transfer just succeeded. At
+	// that point Stripe Connect has approved the provider's KYC AND the
+	// billing_profile has had a chance to be hydrated, so the invoice
+	// is legally valid. Wired post-construction via SetPerMilestoneInvoicer
+	// because the invoicing app service is built after payment in
+	// main.go. Nil when invoicing is disabled — emission becomes a
+	// silent no-op and the monthly safety-net scheduler catches the
+	// milestone on its next run.
+	//
+	// Best-effort: emission errors are LOGGED but NEVER propagated —
+	// the transfer is already committed and rolling it back would be a
+	// worse outcome than a brief invoice delay. The monthly scheduler
+	// is the catch-all.
+	perMilestoneInvoicer portservice.PerMilestoneInvoicer
 }
 
 // PayoutServiceDeps groups every dependency NewPayoutService needs.
@@ -108,4 +125,15 @@ func (p *PayoutService) SetReferralDistributor(d portservice.ReferralCommissionD
 // in unusual wirings (tests, migrations, one-off binaries).
 func (p *PayoutService) SetProposalStatusReader(r portservice.ProposalStatusReader) {
 	p.proposalStatuses = r
+}
+
+// SetPerMilestoneInvoicer plugs the per-milestone platform_fee invoice
+// emitter. Fired after every successful platform-to-connected-account
+// transfer (TransferMilestone, RequestPayout, RetryFailedTransfer) so
+// the invoice is generated at the moment Stripe Connect KYC is verified.
+// Setter pattern because the invoicing service is constructed AFTER
+// payment in main.go. Passing nil disables the synchronous emission —
+// the monthly safety-net scheduler still catches everything.
+func (p *PayoutService) SetPerMilestoneInvoicer(i portservice.PerMilestoneInvoicer) {
+	p.perMilestoneInvoicer = i
 }
