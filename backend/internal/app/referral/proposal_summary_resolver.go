@@ -32,6 +32,7 @@ type ProposalSummary struct {
 	MilestonesFunded    int   // informational — milestones currently in escrow-ish states
 	MilestonesCompleted int   // milestones in approved or released status — drives the "X/Y jalons" UI counter
 	FundedAmountCents   int64 // sum of Amount for milestones in non-released escrow states
+	AmountCents         int64 // gross proposal amount in cents — surfaced next to the title on the apporteur detail page
 }
 
 // ProposalSummaryResolver batches proposal summaries by id for the

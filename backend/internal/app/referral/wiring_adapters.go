@@ -3,10 +3,12 @@ package referral
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/milestone"
+	orgdomain "marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/system"
@@ -238,9 +240,10 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 			continue
 		}
 		out[id] = &ProposalSummary{
-			ID:     p.ID,
-			Title:  p.Title,
-			Status: string(p.Status),
+			ID:          p.ID,
+			Title:       p.Title,
+			Status:      string(p.Status),
+			AmountCents: p.Amount,
 		}
 	}
 	if r.milestones == nil || len(out) == 0 {
@@ -325,6 +328,70 @@ func (c *ConversationRelationshipChecker) AreInRelation(ctx context.Context, use
 		return false, nil
 	}
 	return c.conversations.AreInRelation(ctx, userA, userB)
+}
+
+// ─── PartyDisplayNameResolver adapters ────────────────────────────────────
+
+// OrgFirstPartyDisplayNameResolver builds a human-readable label for a
+// referral party. The apporteur detail page surfaces the result in
+// clear so its cards become purely informational.
+//
+// Resolution order:
+//  1. If the user owns an organization (agency or enterprise), use the
+//     organization name. The marketplace's economic entity is the org,
+//     not the individual user, so the org name is the most truthful
+//     label for an apporteur card.
+//  2. Otherwise, fall back to `FirstName + " " + LastName` from the
+//     user row (typical for an individual freelancer with no org).
+//
+// Returns an empty string (not an error) when the lookup fails so the
+// caller can render a placeholder without crashing the page.
+type OrgFirstPartyDisplayNameResolver struct {
+	users repository.UserReader
+	orgs  repository.OrganizationReader
+}
+
+// NewOrgFirstPartyDisplayNameResolver wires the resolver. Safe with
+// nil dependencies — the resolver degrades to returning an empty
+// string and a nil error, matching the documented graceful-degradation
+// contract.
+func NewOrgFirstPartyDisplayNameResolver(
+	users repository.UserReader,
+	orgs repository.OrganizationReader,
+) *OrgFirstPartyDisplayNameResolver {
+	return &OrgFirstPartyDisplayNameResolver{users: users, orgs: orgs}
+}
+
+// ResolveDisplayName returns the org name when the user owns an org of
+// type agency or enterprise, otherwise the user's "First Last".
+func (r *OrgFirstPartyDisplayNameResolver) ResolveDisplayName(ctx context.Context, userID uuid.UUID) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	// Prefer the org name when the user has one of type agency or
+	// enterprise. Provider individuals' org is provider_personal — we
+	// skip that and fall back to their human name instead because the
+	// personal org name is typically a generated placeholder.
+	if r.orgs != nil {
+		org, err := r.orgs.FindByUserID(ctx, userID)
+		if err == nil && org != nil {
+			switch org.Type {
+			case orgdomain.OrgTypeAgency, orgdomain.OrgTypeEnterprise:
+				if name := strings.TrimSpace(org.Name); name != "" {
+					return name, nil
+				}
+			}
+		}
+	}
+	if r.users == nil {
+		return "", nil
+	}
+	u, err := r.users.GetByID(ctx, userID)
+	if err != nil || u == nil {
+		return "", nil
+	}
+	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	return name, nil
 }
 
 // ─── OrgMemberResolver adapters ───────────────────────────────────────────

@@ -2891,6 +2891,9 @@
               }
             ]
           },
+          "client_display_name": {
+            "type": "string"
+          },
           "client_id": {
             "format": "byte",
             "type": "string"
@@ -3061,6 +3064,9 @@
           },
           "last_action_at": {
             "format": "date-time",
+            "type": "string"
+          },
+          "provider_display_name": {
             "type": "string"
           },
           "provider_id": {
