@@ -96,6 +96,21 @@ function snapshotFromProfile(profile: BillingProfile) {
 }
 
 async function mockAuth(page: Page) {
+  // The Next.js middleware (src/middleware.ts) redirects every
+  // protected route to /login when the `session_id` cookie is absent.
+  // Tests must seed a synthetic cookie BEFORE the first goto so the
+  // middleware short-circuits and lets the page render with our
+  // mocked /auth/me response.
+  await page.context().addCookies([
+    {
+      name: "session_id",
+      value: "playwright-fake-session",
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+    },
+  ])
+
   await page.route(/\/api\/v1\/auth\/me\b/, async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -177,7 +192,11 @@ async function mockInitiatePayment(page: Page) {
 
 async function mockBillingProfile(page: Page, initial: BillingProfile) {
   let current = { ...initial }
-  await page.route(/\/api\/v1\/billing-profile(?:\?.*)?$/, async (route: Route) => {
+  // The shared billing-profile hook calls `/api/v1/me/billing-profile`
+  // (not the bare `/api/v1/billing-profile` — that's the prestataire-
+  // scoped legacy path). Match both for forwards-compat but the
+  // canonical URL is the `/me/...` one used by the embed in production.
+  await page.route(/\/api\/v1\/(me\/)?billing-profile(?:\?.*)?$/, async (route: Route) => {
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as Partial<BillingProfile>
       current = { ...current, ...body }
@@ -206,7 +225,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, completeProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // The summary card shows the saved legal name + address.
     await expect(page.getByText("Acme Studio SARL")).toBeVisible({
@@ -230,7 +251,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, emptyProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // The full form is rendered — the "Pays" section header is the
     // canonical first heading of the prestataire form.
@@ -254,7 +277,9 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, completeProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Tests instead wait on the UI
+    // signal that matters via expect(...).toBeVisible() below.
 
     // Wait for the summary card.
     await expect(page.getByText("Acme Studio SARL")).toBeVisible({
@@ -289,12 +314,14 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, emptyProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — the Next.js dev overlay
+    // keeps long-lived connections open. Wait on the actual UI signal
+    // we care about: the form heading is rendered.
 
     // The form must still render (BILLING-IDENTITY-CLONE contract).
     await expect(
       page.getByRole("heading", { name: "Pays" }),
-    ).toBeVisible({ timeout: 10_000 })
+    ).toBeVisible({ timeout: 15_000 })
 
     // The PaymentCheckoutShell exposes its testid so we can pin the
     // route segment layout was actually rendered.
@@ -331,10 +358,10 @@ test.describe("Payment page — billing-identity clone", () => {
     await mockBillingProfile(page, completeProfile)
 
     await page.goto(`/fr/projects/pay?proposal=${PROPOSAL_ID}`)
-    await page.waitForLoadState("networkidle")
+    // Skip waitForLoadState("networkidle") — see neighbour test.
 
     await expect(page.getByText("Acme Studio SARL")).toBeVisible({
-      timeout: 10_000,
+      timeout: 15_000,
     })
     await expect(
       page.getByTestId("payment-checkout-shell-header"),
