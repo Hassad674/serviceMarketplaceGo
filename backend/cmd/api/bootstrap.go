@@ -259,6 +259,13 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	pendingEventsWorker := proposalWire.PendingEventsWorker
 
 	paymentInfoSvc.SetProposalStatusReader(newProposalStatusAdapter(proposalSvc))
+	// Mission-side wallet split: the milestone status reader powers
+	// the EscrowAmount vs AvailableAmount dispatch in GetWalletOverview.
+	// Without it the wallet falls back to the conservative "escrow only"
+	// branch (AvailableAmount stays zero) — a safe degradation but the
+	// UI shows nothing in "Disponible". Wire AFTER proposal because the
+	// milestone repo lives on the proposal side.
+	paymentInfoSvc.SetMilestoneStatusReader(newWalletMilestoneStatusAdapter(milestoneRepo))
 
 	typesenseClient := wireSearchIndexer(cfg, infra.DB, pendingEventsWorker)
 	searchHandler, adminSearchStatsHandler := wireSearchQuery(cfg, infra.DB, typesenseClient)
@@ -534,7 +541,18 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 	// the referral service is built later in the boot sequence and the
 	// wallet handler is the natural integration point.
 	if walletHandler != nil && referralSvc != nil {
-		walletHandler = walletHandler.WithCommissionRetrier(referralSvc)
+		// The referral service satisfies three contracts the wallet
+		// handler depends on:
+		//   - commissionRetrier  → POST /wallet/commissions/{id}/retry
+		//   - commissionProjector → projected (escrowed) commissions on /wallet/summary
+		//   - commissionRecorder  → recent commission history on /wallet/summary
+		// All three must be wired here — without the projector + recorder
+		// the apporteur sees zero in every commission bucket on
+		// /wallet/summary even when their attributions have active escrow.
+		walletHandler = walletHandler.
+			WithCommissionRetrier(referralSvc).
+			WithCommissionProjector(referralSvc).
+			WithCommissionRecorder(referralSvc)
 	}
 	// D1+D2 — same wiring story for the Stripe webhook handler: hook
 	// the transfer.failed listener so failed commission transfers land
