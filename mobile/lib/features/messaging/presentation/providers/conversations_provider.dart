@@ -148,6 +148,8 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
         _handleStatusUpdate(event);
       case 'presence':
         _handlePresence(event);
+      case 'presence_snapshot':
+        _handlePresenceSnapshot(event);
       case 'reconnected':
         // WS reconnected after a disconnect — refresh conversations to
         // pick up any presence changes or messages missed while offline.
@@ -272,6 +274,21 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     // mobile client does not cache, so the cheapest correct option
     // is to refetch the list and let the backend fan-out do its work
     // again.
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
+    loadConversations();
+  }
+
+  /// Handles the one-shot presence_snapshot frame emitted by the
+  /// backend immediately after WS connect — fixes the unidirectional
+  /// presence regression where a freshly-connected mobile client only
+  /// learnt about peers via subsequent broadcasts.
+  ///
+  /// Same refetch policy as `_handlePresence` and `reconnected`: the
+  /// org-level `online` field on the conversation list is computed
+  /// server-side via BulkIsOnline, so a refetch is the simplest
+  /// correct path.
+  void _handlePresenceSnapshot(Map<String, dynamic> event) {
     final payload = event['payload'] as Map<String, dynamic>?;
     if (payload == null) return;
     loadConversations();
