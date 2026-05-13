@@ -66,6 +66,14 @@ func (h *AuthHandler) VerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserID string `json:"user_id"`
 		Code   string `json:"code"`
+		// ChallengeID is accepted for forward-compat with clients
+		// that thread the freshest challenge id back to the server,
+		// but the backend doesn't need it: VerifyChallenge selects
+		// the most recent unconsumed challenge for the user.
+		// Declaring the field here keeps DecodeJSON (with
+		// DisallowUnknownFields) from rejecting the request body
+		// when web/mobile send it.
+		ChallengeID string `json:"challenge_id,omitempty"`
 	}
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
