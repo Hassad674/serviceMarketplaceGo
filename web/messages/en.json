@@ -2596,7 +2596,7 @@
       "acceptAll": "Accept all",
       "refuseAll": "Refuse all",
       "preferences": "Customise",
-      "footer": "<a href=\"/en/privacy\">Privacy policy</a> · <a href=\"/en/cookies\">Cookies</a>"
+      "footer": "<privacy>Privacy policy</privacy> · <cookies>Cookies</cookies> · <notices>Legal notice</notices> · <subprocessors>Sub-processors</subprocessors>"
     },
     "preferences": {
       "title": "Cookie preferences",

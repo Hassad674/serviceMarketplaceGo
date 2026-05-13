@@ -82,7 +82,8 @@ const messages = {
       acceptAll: "Tout accepter",
       refuseAll: "Tout refuser",
       preferences: "Personnaliser",
-      footer: "<a>Cookies</a>",
+      footer:
+        "<privacy>Politique de confidentialité</privacy> · <cookies>Cookies</cookies> · <notices>Mentions légales</notices> · <subprocessors>Sous-processeurs</subprocessors>",
     },
     preferences: {
       title: "Préférences",
@@ -198,5 +199,69 @@ describe("CookieConsentProvider", () => {
     const cfg = lastRunConfig()
     cfg.onFirstConsent({ cookie: { categories: ["necessary", "analytics"] } })
     expect(posthogSdkMock.opt_in_capturing).toHaveBeenCalledTimes(1)
+  })
+
+  // Regression: the cookieConsent.banner.footer message used to embed
+  // raw `<a href="...">` markup, which next-intl 4.x rejects with
+  // `INVALID_MESSAGE: INVALID_TAG` (the ICU parser does not allow tag
+  // attributes). It now uses ICU rich-text tags inflated by `t.markup()`
+  // so the i18n value is parser-safe AND the resulting HTML carries
+  // locale-aware hrefs.
+  describe("banner footer", () => {
+    function footerOnLocale(locale: "fr" | "en"): string {
+      const cfg = lastRunConfig()
+      // both translations are built with the same buildFooterMarkup helper
+      // and use the active `locale` for href resolution.
+      const trans = cfg.language.translations[locale] as {
+        consentModal: { footer: string }
+      }
+      return trans.consentModal.footer
+    }
+
+    it("renders four legal anchors (privacy + cookies + notices + subprocessors)", async () => {
+      await mountProvider("fr")
+      const html = footerOnLocale("fr")
+      expect(html).toMatch(/Politique de confidentialité/)
+      expect(html).toMatch(/Cookies/)
+      expect(html).toMatch(/Mentions légales/)
+      expect(html).toMatch(/Sous-processeurs/)
+      // 4 anchors total
+      const anchorMatches = html.match(/<a /g)
+      expect(anchorMatches).toHaveLength(4)
+    })
+
+    it("emits FR-prefixed hrefs on the FR locale (as-needed + non-default)", async () => {
+      await mountProvider("fr")
+      const html = footerOnLocale("fr")
+      expect(html).toContain(
+        'href="/fr/legal/politique-confidentialite"',
+      )
+      expect(html).toContain('href="/fr/cookies"')
+      expect(html).toContain('href="/fr/legal"')
+      expect(html).toContain('href="/fr/sous-processeurs"')
+    })
+
+    it("emits bare EN-named hrefs on the EN (default) locale", async () => {
+      await mountProvider("en")
+      const html = footerOnLocale("en")
+      // EN is defaultLocale + as-needed → no /en prefix.
+      // Legal segments use their EN-named slugs.
+      expect(html).toContain('href="/legal/privacy"')
+      expect(html).toContain('href="/cookies"')
+      expect(html).toContain('href="/legal"')
+      expect(html).toContain('href="/subprocessors"')
+    })
+
+    it("never embeds raw <a href> attribute syntax in the i18n string itself", () => {
+      // Belt-and-braces against a regression where someone re-introduces
+      // the legacy footer pattern. The fixture string must use ICU rich
+      // tags, never raw attribute-bearing anchors.
+      const raw = messages.cookieConsent.banner.footer
+      expect(raw).not.toMatch(/<a\s+href=/)
+      expect(raw).toMatch(/<privacy>/)
+      expect(raw).toMatch(/<cookies>/)
+      expect(raw).toMatch(/<notices>/)
+      expect(raw).toMatch(/<subprocessors>/)
+    })
   })
 })

@@ -8,6 +8,7 @@ import "vanilla-cookieconsent/dist/cookieconsent.css"
 import "@/styles/cookie-consent.css"
 
 import { applyCustomConsent } from "@/shared/lib/posthog-consent"
+import { legalHref } from "@i18n/routing"
 
 /**
  * Mounts the vanilla-cookieconsent CMP and gates analytics opt-in on
@@ -79,8 +80,8 @@ export function CookieConsentProvider() {
         language: {
           default: locale,
           translations: {
-            fr: buildTranslation(t),
-            en: buildTranslation(t),
+            fr: buildTranslation(t, locale),
+            en: buildTranslation(t, locale),
           },
         },
         onFirstConsent: ({ cookie }) => syncConsentToAnalytics(cookie.categories),
@@ -102,8 +103,18 @@ export function CookieConsentProvider() {
  * Translate the CMP modals from the same `cookieConsent.*` i18n
  * namespace used everywhere else in the app. Pulled out so the
  * (heavy) literal table is not inlined in the effect.
+ *
+ * The `footer` field is rendered as raw HTML by vanilla-cookieconsent,
+ * so we use `t.markup()` (next-intl's HTML-string variant of `t.rich()`)
+ * to inflate the `<privacy>`, `<cookies>`, `<notices>`, `<subprocessors>`
+ * ICU tags into proper `<a>` anchors. Embedding raw `<a href="...">`
+ * directly in the i18n string is rejected by next-intl 4.x (the ICU
+ * parser raises `INVALID_TAG` on attribute-bearing tags).
  */
-function buildTranslation(t: (k: string) => string): CookieConsent.Translation {
+function buildTranslation(
+  t: ReturnType<typeof useTranslations<"cookieConsent">>,
+  locale: string,
+): CookieConsent.Translation {
   return {
     consentModal: {
       title: t("banner.title"),
@@ -111,7 +122,7 @@ function buildTranslation(t: (k: string) => string): CookieConsent.Translation {
       acceptAllBtn: t("banner.acceptAll"),
       acceptNecessaryBtn: t("banner.refuseAll"),
       showPreferencesBtn: t("banner.preferences"),
-      footer: t("banner.footer"),
+      footer: buildFooterMarkup(t, locale),
     },
     preferencesModal: {
       title: t("preferences.title"),
@@ -148,4 +159,47 @@ function buildTranslation(t: (k: string) => string): CookieConsent.Translation {
 function syncConsentToAnalytics(categories: string[]): void {
   const analyticsAccepted = categories.includes("analytics")
   applyCustomConsent(analyticsAccepted, categories)
+}
+
+/**
+ * Canonical CMP footer link slots. Maps the ICU rich-text tag names
+ * embedded in `cookieConsent.banner.footer` to the canonical (FR) path
+ * key declared in `web/i18n/routing.ts`. The locale-aware URL is then
+ * resolved by `legalHref()` so the rendered HTML always points to the
+ * right localized segment (e.g. `/legal/privacy` on EN,
+ * `/fr/legal/politique-confidentialite` on FR).
+ *
+ * Defined at module scope so the array is allocated exactly once — the
+ * CMP boots on every page mount and re-allocating per call would be
+ * gratuitous garbage.
+ */
+const FOOTER_LINK_SLOTS = [
+  { tag: "privacy", path: "/legal/politique-confidentialite" },
+  { tag: "cookies", path: "/cookies" },
+  { tag: "notices", path: "/legal" },
+  { tag: "subprocessors", path: "/sous-processeurs" },
+] as const
+
+/**
+ * Translate the ICU rich-text `<privacy>…</privacy>` (etc.) tags in the
+ * `cookieConsent.banner.footer` message into proper `<a>` HTML anchors
+ * with the correct locale-aware hrefs. Returned as an HTML string so the
+ * CMP can inject it directly into its modal DOM.
+ *
+ * `t.markup()` is the next-intl 4.x escape hatch that renders rich-text
+ * tags to plain strings (instead of React nodes). Each tag function must
+ * return a string — the result is concatenated and used verbatim by
+ * vanilla-cookieconsent.
+ */
+function buildFooterMarkup(
+  t: ReturnType<typeof useTranslations<"cookieConsent">>,
+  locale: string,
+): string {
+  const values: Record<string, (chunks: string) => string> = {}
+  for (const { tag, path } of FOOTER_LINK_SLOTS) {
+    const href = legalHref(path, locale)
+    values[tag] = (chunks) =>
+      `<a href="${href}" class="cc__link">${chunks}</a>`
+  }
+  return t.markup("banner.footer", values)
 }
