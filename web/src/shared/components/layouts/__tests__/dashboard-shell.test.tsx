@@ -11,6 +11,23 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
+import { NextIntlClientProvider } from "next-intl"
+import frMessages from "@/../messages/fr.json"
+
+/**
+ * Wrap children in `NextIntlClientProvider` so descendant components
+ * that call `useTranslations` / `useLocale` (e.g. `DashboardLegalLinks`
+ * mounted at the bottom of the shell) don't crash for lack of i18n
+ * context. We use the real FR message catalogue to avoid surprises
+ * about which keys are required.
+ */
+function renderShell(ui: React.ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="fr" messages={frMessages}>
+      {ui}
+    </NextIntlClientProvider>,
+  )
+}
 
 // We capture the props handed to Sidebar / Header so tests can
 // drive their callbacks (toggleCollapse, onMenuToggle, onClose).
@@ -83,7 +100,7 @@ beforeEach(() => {
 
 describe("DashboardShell — PERF-W-01", () => {
   it("renders children inside the call slot", async () => {
-    render(
+    renderShell(
       <DashboardShell>
         <span data-testid="page-content">page</span>
       </DashboardShell>,
@@ -96,7 +113,7 @@ describe("DashboardShell — PERF-W-01", () => {
   })
 
   it("forwards the WS register handler to CallSlot (no eager LiveKit)", async () => {
-    render(
+    renderShell(
       <DashboardShell>
         <span>x</span>
       </DashboardShell>,
@@ -113,7 +130,7 @@ describe("DashboardShell — PERF-W-01", () => {
   })
 
   it("renders sidebar, header, and chat widget", async () => {
-    render(
+    renderShell(
       <DashboardShell>
         <span>page</span>
       </DashboardShell>,
@@ -129,7 +146,7 @@ describe("DashboardShell — PERF-W-01", () => {
   it("rehydrates the collapsed sidebar from localStorage", async () => {
     window.localStorage.setItem("marketplace-sidebar-collapsed", "true")
 
-    render(
+    renderShell(
       <DashboardShell>
         <span>x</span>
       </DashboardShell>,
@@ -143,7 +160,7 @@ describe("DashboardShell — PERF-W-01", () => {
   })
 
   it("toggleCollapse persists the new state to localStorage", async () => {
-    render(
+    renderShell(
       <DashboardShell>
         <span>x</span>
       </DashboardShell>,
@@ -174,7 +191,7 @@ describe("DashboardShell — PERF-W-01", () => {
   })
 
   it("Sidebar's onClose closes the mobile drawer", async () => {
-    render(
+    renderShell(
       <DashboardShell>
         <span>x</span>
       </DashboardShell>,
