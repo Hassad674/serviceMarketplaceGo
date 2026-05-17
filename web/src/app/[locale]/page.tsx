@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: t("metaDescription"),
       url: alternates.canonical,
       locale: locale === "fr" ? "fr_FR" : "en_US",
-      siteName: "Atelier",
+      siteName: "DesignedTrust Services",
     },
     twitter: {
       card: "summary_large_image",

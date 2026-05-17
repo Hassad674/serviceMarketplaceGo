@@ -9,7 +9,7 @@ import { LandingFooter } from "../landing-footer"
 //     in-page section (#how-it-works / #pricing / #referrers) or a
 //     real route. The "Company" column (About/Contact → "/") and the
 //     "Credit system" link (→ "#") are gone entirely.
-//   * Item 4 — the "© Atelier · Made in Paris" line and the X /
+//   * Item 4 — the old "© Atelier · Made in Paris" line and the X /
 //     LinkedIn / Instagram social trio are replaced by a single
 //     author signature + one LinkedIn icon to the maintainer's
 //     profile.
@@ -65,8 +65,12 @@ describe("LandingFooter — no dead links (item 3)", () => {
     // "/" as a dead destination (old companyAbout / companyContact).
     const homeLinks = anchors.filter((a) => a.getAttribute("href") === "/")
     expect(homeLinks.length).toBeLessThanOrEqual(2) // desktop + mobile brand
+    // The brand mark is now an inline SVG logo carrying its accessible
+    // name via aria-label (no text node), so assert on that instead.
     homeLinks.forEach((a) =>
-      expect(a.textContent ?? "").toMatch(/Atelier/),
+      expect(a.getAttribute("aria-label") ?? "").toMatch(
+        /DesignedTrust Services/,
+      ),
     )
   })
 

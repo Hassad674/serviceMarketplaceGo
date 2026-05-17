@@ -3456,7 +3456,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get m02_titlePrefix => 'How would you like to use';
 
   @override
-  String get m02_titleAccent => 'Atelier?';
+  String get m02_titleAccent => 'DesignedTrust?';
 
   @override
   String get m02_subtitle => 'You can add the second role later.';

@@ -10,7 +10,7 @@ import '../providers/auth_provider.dart';
 
 /// Login screen — ported to Soleil v2.
 ///
-/// Single column layout (Atelier mobile design): brand mark on top, Fraunces
+/// Single column layout (DesignedTrust mobile design): brand mark on top, Fraunces
 /// headline + italic subtitle, email + password fields, italic forgot link,
 /// rounded-pill primary CTA, footer link to register. Source-of-truth:
 /// `design/assets/sources/phase1/soleil-app-lot5.jsx` `AppLogin`.
@@ -100,7 +100,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 40),
-              const _AtelierBrandMark(),
+              const _BrandLogo(),
               const SizedBox(height: 36),
               Text(
                 showOtpForm ? l10n.twoFactorTitle : l10n.loginTitle,
@@ -260,36 +260,82 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// AtelierMark — corail rounded-rectangle brand mark.
+/// DesignedTrust Services brand mark — the "Key Hole" pictogram.
 ///
-/// Visual: 48x48 corail square, radius 14, with the storefront icon centered
-/// in white. The icon (kept as Material's `Icons.storefront_rounded`) is the
-/// repo's existing brand glyph; the JSX source uses a Fraunces "A" but we
-/// keep the icon to honor the existing widget-test contract.
-class _AtelierBrandMark extends StatelessWidget {
-  const _AtelierBrandMark();
+/// Drawn natively via [CustomPainter] (no bitmap asset) so the mark stays
+/// crisp at any density, mirroring the web `BrandLogo` SVG: a quarter-round
+/// "D" in the brand orange with a keyhole punched out in negative (white).
+///
+/// BRAND COLOR: 0xFFFF7A1F is the fixed DesignedTrust brand orange — this
+/// widget IS the brand asset (like [Portrait]'s painter), so the literal is
+/// intentional; no Soleil theme token applies to a logo. 48x48 footprint,
+/// matching the previous mark.
+class _BrandLogo extends StatelessWidget {
+  const _BrandLogo();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        width: 48,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: colorScheme.primary,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        ),
-        child: Icon(
-          Icons.storefront_rounded,
-          size: 24,
-          color: colorScheme.onPrimary,
+      child: Semantics(
+        label: 'DesignedTrust Services',
+        image: true,
+        child: const SizedBox(
+          width: 48,
+          height: 48,
+          child: CustomPaint(painter: _BrandLogoPainter()),
         ),
       ),
     );
   }
+}
+
+/// Paints the Key Hole mark. Geometry is normalized from the canonical
+/// 200x200 SVG box (D spans x:0->180, y:0->200) onto the widget size.
+class _BrandLogoPainter extends CustomPainter {
+  const _BrandLogoPainter();
+
+  static const Color _brandOrange = Color(0xFFFF7A1F);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double s = size.width / 200.0; // uniform scale from the SVG box
+    final Paint orange = Paint()
+      ..color = _brandOrange
+      ..isAntiAlias = true;
+    final Paint white = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..isAntiAlias = true;
+
+    // D shape: M0 0 H80 A100 100 0 0 1 80 200 H0 Z (quarter-round right edge).
+    final Path d = Path()
+      ..moveTo(0, 0)
+      ..lineTo(80 * s, 0)
+      ..arcToPoint(
+        Offset(180 * s, 100 * s),
+        radius: Radius.circular(100 * s),
+      )
+      ..arcToPoint(
+        Offset(80 * s, 200 * s),
+        radius: Radius.circular(100 * s),
+      )
+      ..lineTo(0, 200 * s)
+      ..close();
+    canvas.drawPath(d, orange);
+
+    // Keyhole in negative: circle (cx100 cy80 r22) + stem (M86 80 V148 H114).
+    canvas.drawCircle(Offset(100 * s, 80 * s), 22 * s, white);
+    final Path stem = Path()
+      ..moveTo(86 * s, 80 * s)
+      ..lineTo(86 * s, 148 * s)
+      ..lineTo(114 * s, 148 * s)
+      ..lineTo(114 * s, 80 * s)
+      ..close();
+    canvas.drawPath(stem, white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BrandLogoPainter oldDelegate) => false;
 }
 
 /// Small uppercase-style label used above each form field.

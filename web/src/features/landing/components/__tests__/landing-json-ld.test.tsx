@@ -5,7 +5,7 @@ import { LandingJsonLd } from "../landing-json-ld"
 /**
  * landing-json-ld.test.tsx asserts the structured-data payload
  * Googlebot ingests when crawling `/`. Two payloads are emitted:
- *  - Organization: brand identity (Atelier, Paris, founding year)
+ *  - Organization: brand identity (DesignedTrust Services, Paris, founding year)
  *  - WebSite: SearchAction telling Google the in-site search box
  *    is at /freelancers?q={search_term_string}
  *
@@ -25,7 +25,7 @@ describe("LandingJsonLd", () => {
     const org = JSON.parse(scripts[0].innerHTML)
     expect(org["@context"]).toBe("https://schema.org")
     expect(org["@type"]).toBe("Organization")
-    expect(org.name).toBe("Atelier")
+    expect(org.name).toBe("DesignedTrust Services")
     expect(org.address.addressLocality).toBe("Paris")
     expect(org.address.addressCountry).toBe("FR")
     expect(typeof org.url).toBe("string")

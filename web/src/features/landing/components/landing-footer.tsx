@@ -2,6 +2,7 @@ import { Heart, Linkedin } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { legalHref, legalPathnames } from "@i18n/routing"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 
 // Author signature — the maintainer's public LinkedIn. Hardcoded on
 // purpose: it is a fixed personal profile URL, not an env-driven or
@@ -86,12 +87,10 @@ function FooterBrand() {
     <div>
       <Link
         href="/"
-        className="inline-flex items-center font-serif text-2xl font-medium tracking-[-0.02em] text-foreground"
+        className="inline-flex items-center text-foreground"
+        aria-label="DesignedTrust Services"
       >
-        <span>Atelier</span>
-        <span aria-hidden="true" className="ml-[2px] text-primary">
-          .
-        </span>
+        <BrandLogo className="h-7 w-auto" />
       </Link>
       <p className="mt-4 max-w-xs text-[13.5px] leading-[1.55] text-muted-foreground">
         {t("tagline")}
@@ -157,12 +156,10 @@ function MobileFooter() {
     <div className="block border-t border-border pt-10 sm:hidden">
       <Link
         href="/"
-        className="inline-flex items-center font-serif text-2xl font-medium tracking-[-0.02em] text-foreground"
+        className="inline-flex items-center text-foreground"
+        aria-label="DesignedTrust Services"
       >
-        <span>Atelier</span>
-        <span aria-hidden="true" className="ml-[2px] text-primary">
-          .
-        </span>
+        <BrandLogo className="h-7 w-auto" />
       </Link>
       <p className="mt-3 max-w-xs text-[13px] leading-[1.55] text-muted-foreground">
         {t("mobileTagline")}

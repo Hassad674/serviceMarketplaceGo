@@ -19,7 +19,7 @@ function buildOrganization(homeUrl: string) {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": `${homeUrl}#organization`,
-    name: "Atelier",
+    name: "DesignedTrust Services",
     url: homeUrl,
     description: ORGANIZATION_DESCRIPTION,
     foundingDate: "2026",
@@ -37,7 +37,7 @@ function buildWebsite(homeUrl: string, searchUrl: string, organizationId: string
     "@type": "WebSite",
     "@id": `${homeUrl}#website`,
     url: homeUrl,
-    name: "Atelier",
+    name: "DesignedTrust Services",
     publisher: { "@id": organizationId },
     potentialAction: {
       "@type": "SearchAction",

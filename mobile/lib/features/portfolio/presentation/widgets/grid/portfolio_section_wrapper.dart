@@ -9,7 +9,7 @@ import '../../../../../core/theme/app_theme.dart';
 /// to corailSoft/corail tokens; the legacy rose-100/red-50 gradient
 /// and the rose-600 saturated CTA are gone. The card chrome reuses
 /// the same ivoire-surface + outline-border vocabulary as every other
-/// Atelier section card.
+/// DesignedTrust section card.
 class PortfolioSectionWrapper extends StatelessWidget {
   const PortfolioSectionWrapper({
     super.key,

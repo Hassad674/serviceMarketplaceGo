@@ -1,14 +1,15 @@
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 
 // LandingHeader — top bar of the public landing page.
 //
-// Soleil v2 anatomy: Atelier wordmark (Fraunces) with corail dot, a
-// thin row of contextual nav links, then Se connecter ghost link
-// and Créer un compte filled CTA. The mobile mockup collapses the
-// inline nav so the bar shows only logo + Se connecter — Tailwind
-// breakpoints (`hidden lg:flex` / `hidden sm:inline-flex`) handle
-// the responsive split.
+// Soleil v2 anatomy: DesignedTrust Services logo, a thin row of
+// contextual nav links, then Se connecter ghost link and Créer un
+// compte filled CTA. The mobile mockup collapses the inline nav so
+// the bar shows only logo + Se connecter — Tailwind breakpoints
+// (`hidden lg:flex` / `hidden sm:inline-flex`) handle the responsive
+// split.
 //
 // Server Component — no event handlers, no state.
 
@@ -33,12 +34,10 @@ function BrandMark() {
   return (
     <Link
       href="/"
-      className="inline-flex items-center font-serif text-2xl font-medium tracking-[-0.02em] text-foreground"
+      className="inline-flex items-center text-foreground"
+      aria-label="DesignedTrust Services"
     >
-      <span>Atelier</span>
-      <span aria-hidden="true" className="ml-[2px] text-primary">
-        .
-      </span>
+      <BrandLogo className="h-7 w-auto sm:h-8" />
     </Link>
   )
 }

@@ -4,7 +4,7 @@ import { Star } from "lucide-react"
 import { Portrait } from "@/shared/components/ui/portrait"
 
 // LandingReferrers — the dark editorial section "L'innovation
-// Atelier · Les apporteurs d'affaires, enfin notés."
+// DesignedTrust · Les apporteurs d'affaires, enfin notés."
 //
 // Encre background (#2a1f15 via --foreground reversed onto bg), warm
 // ivoire body copy, corail italic accent on "enfin". Right column:

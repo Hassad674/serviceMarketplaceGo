@@ -373,7 +373,7 @@
     "previewFile": "Preview of selected file",
     "removeFile": "Remove selected file",
     "marketplace": "Marketplace",
-    "atelier": "Atelier"
+    "atelier": "DesignedTrust Services"
   },
   "forms": {
     "languageMultiSelect": {
@@ -388,9 +388,9 @@
     "description": "The B2B platform connecting agencies, freelancers and enterprises"
   },
   "landing": {
-    "metaTitle": "Atelier — The freelance marketplace that pays providers in full",
+    "metaTitle": "DesignedTrust Services — The freelance marketplace that pays providers in full",
     "metaDescription": "Zero-commission B2B marketplace: 0% on the client side, capped flat fees on the freelance side, agencies and referrers rated on real missions. Secure payments via Stripe Connect.",
-    "metaOgAlt": "Atelier · The freelance marketplace with 0% commission",
+    "metaOgAlt": "DesignedTrust Services · The freelance marketplace with 0% commission",
     "skipToContent": "Skip to main content",
     "nav": {
       "howItWorks": "How it works",
@@ -405,7 +405,7 @@
       "eyebrowMobile": "0% commission · Rated referrers",
       "titleLead": "Talent that delivers.",
       "titleAccent": "People who find them.",
-      "subtitleDesktop": "Atelier is the first freelance marketplace that also lists agencies and business referrers — and rates them all by the clients they have actually served.",
+      "subtitleDesktop": "DesignedTrust Services is the first freelance marketplace that also lists agencies and business referrers — and rates them all by the clients they have actually served.",
       "subtitleMobile": "The freelance marketplace that also lists agencies and business referrers — rated by the clients they have actually served.",
       "ctaPrimary": "Create a free account",
       "ctaSecondary": "Find a provider"
@@ -434,7 +434,7 @@
       "suggestion5": "Branding studio"
     },
     "features": {
-      "eyebrow": "Why Atelier",
+      "eyebrow": "Why DesignedTrust",
       "titleLead": "Three choices that change everything",
       "titleAccent": "for both sides",
       "titleTrail": "of the market.",
@@ -443,7 +443,7 @@
       "card1Body": "No commission taken. Funds are held in escrow via Stripe Connect for the duration of the mission, then released in full to the provider on validation.",
       "card2Tag": "Audited agencies",
       "card2Title": "The first marketplace that also rates agencies.",
-      "card2Body": "Until now you had to take an agency's word for the reviews on its own site. Atelier rates them like freelancers: public, verified reviews tied to real missions.",
+      "card2Body": "Until now you had to take an agency's word for the reviews on its own site. DesignedTrust rates them like freelancers: public, verified reviews tied to real missions.",
       "card3Tag": "Rated referrers",
       "card3Title": "For the first time, referrers are rated.",
       "card3Body": "Their average score reflects the freelancers they have recommended. The opaque network is over: the real quality of their introductions is public."
@@ -475,7 +475,7 @@
       "rowAgency": "Agency",
       "rowAgencyDetail": "Flat fee on missions of €2,500 and above. Capped. €0 with subscription.",
       "rowAgencyAmount": "up to €69",
-      "footnote": "Bottom line: neither the client nor the referrer pays anything. The provider's flat fees disappear with an Atelier subscription."
+      "footnote": "Bottom line: neither the client nor the referrer pays anything. The provider's flat fees disappear with a DesignedTrust subscription."
     },
     "credits": {
       "eyebrow": "Credit system",
@@ -507,11 +507,11 @@
       "cardFootnote": "No purchases. Credits come only from the weekly reset and missions you deliver."
     },
     "referrers": {
-      "eyebrow": "The Atelier innovation",
+      "eyebrow": "The DesignedTrust innovation",
       "titleLead": "Business referrers,",
       "titleAccent": "finally",
       "titleTrail": "rated on the quality of what they bring.",
-      "p1": "Before Atelier, business referral was a network game. The most visible captured the best missions, with no client able to tell whether their recommendations held up. Quiet skilled people stayed invisible; well-connected talkers grabbed everything.",
+      "p1": "Before DesignedTrust, business referral was a network game. The most visible captured the best missions, with no client able to tell whether their recommendations held up. Quiet skilled people stayed invisible; well-connected talkers grabbed everything.",
       "p2Prefix": "We flipped the logic:",
       "p2Highlight": "a referrer's rating is the average of the ratings of every freelancer they have recommended on completed missions.",
       "p2Suffix": "Not their charisma. Not their address book. The work delivered.",
@@ -545,14 +545,14 @@
       "titleLead": "Pick an agency without",
       "titleAccent": "taking their word for it.",
       "p1": "Until now, picking an agency meant reading the testimonials they post on their own site. Three glowing quotes from no-one-knows-who, and you sign for tens of thousands of euros.",
-      "p2Highlight": "On Atelier, agencies and freelancers go through the same filter.",
+      "p2Highlight": "On DesignedTrust, agencies and freelancers go through the same filter.",
       "p2Trail": "Public, verified reviews tied to real missions. The studios that genuinely deliver come out on top. The rest do too.",
       "cta": "List my agency",
       "compareBeforeLabel": "Before",
       "compareBeforeName": "Studio Mercure",
       "compareBeforeQuote": "“Clients love working with us!”",
       "compareBeforeFootnote": "Reviews on their own site. Verifiable? No idea.",
-      "compareAfterLabel": "On Atelier",
+      "compareAfterLabel": "On DesignedTrust",
       "compareAfterName": "Studio Mercure",
       "compareAfterScore": "4.7",
       "compareAfterMissions": "23 missions",
@@ -571,7 +571,7 @@
       "ctaReferrer": "I'm a referrer",
       "mobileTitleLead": "Ready to",
       "mobileTitleAccent": "join",
-      "mobileTitleTrail": "Atelier?",
+      "mobileTitleTrail": "DesignedTrust?",
       "mobileSubtitle": "Signup takes 3 minutes. Whether you're an enterprise, freelance, agency or referrer.",
       "mobileCtaPrimary": "Create an account",
       "mobileCtaSecondary": "Sign in"
@@ -606,7 +606,7 @@
     "loginTitlePrefix": "Pick up",
     "loginTitleAccent": "where you left off.",
     "loginSubtitleSoleil": "Sign in to track your missions, applications, and resume your conversations.",
-    "heroEyebrow": "Atelier · the right word",
+    "heroEyebrow": "DesignedTrust · the right word",
     "heroTitlePart1": "The marketplace where you keep",
     "heroTitleAccent1": "100% of your rate.",
     "heroTitleConnector": "No cut,",
@@ -687,7 +687,7 @@
     "providerEmailPlaceholder": "john.doe@email.com",
     "W02_eyebrow": "↳ Step 1 of 3",
     "W02_titlePrefix": "What brings you",
-    "W02_titleAccent": "to Atelier?",
+    "W02_titleAccent": "to DesignedTrust?",
     "W02_subtitle": "No pressure — you can switch later. We just tailor what we show you.",
     "W02_eyebrowAgency": "I represent…",
     "W02_eyebrowProvider": "I am…",
@@ -2718,7 +2718,7 @@
     "reportButton": {
       "label": "Report",
       "ariaLabel": "Report this {resourceType}",
-      "emailSubject": "[Atelier Report] {resourceType} {resourceId}",
+      "emailSubject": "[DesignedTrust Report] {resourceType} {resourceId}",
       "emailBodyIntro": "Hello, I would like to report the following content for breach of the Code of conduct.",
       "emailFieldResourceType": "Type",
       "emailFieldResourceId": "Identifier",
@@ -3041,9 +3041,9 @@
       },
       "codeOfConduct": {
         "title": "Code of conduct and moderation policy",
-        "subtitle": "Atelier connects professionals, and trust between Users is the foundation of the marketplace. This Code of conduct defines expected behaviours, prohibited behaviours, applicable sanctions and the appeal procedure. It is an integral part of the CGU and binds every User of the Platform.",
+        "subtitle": "DesignedTrust Services connects professionals, and trust between Users is the foundation of the marketplace. This Code of conduct defines expected behaviours, prohibited behaviours, applicable sanctions and the appeal procedure. It is an integral part of the CGU and binds every User of the Platform.",
         "preambleHeading": "Preamble",
-        "preambleBody": "The Atelier marketplace (services.designedtrust.com) connects agencies, freelancers, enterprises and business referrers. The quality of the service rests on mutual respect, professional integrity and trust between Users. Every User — regardless of their role (Client, Provider, Referrer) — commits to comply with this Code of conduct, which is an integral part of the CGU.",
+        "preambleBody": "The DesignedTrust Services marketplace (services.designedtrust.com) connects agencies, freelancers, enterprises and business referrers. The quality of the service rests on mutual respect, professional integrity and trust between Users. Every User — regardless of their role (Client, Provider, Referrer) — commits to comply with this Code of conduct, which is an integral part of the CGU.",
         "prohibitedHeading": "Prohibited behaviours",
         "prohibitedIntro": "The following behaviours are strictly prohibited on the Platform and may trigger immediate sanctions:",
         "prohibitedItems": "Harassment — sexual, moral, racial, religious, or based on sexual orientation, gender identity, disability, nationality or any other discriminatory criterion;|Discrimination — refusal to provide service or to make a connection based on a discriminatory criterion under French Criminal Code art. 225-1 (origin, sex, orientation, disability, political views, religion, union, etc.);|Insults, abusive language, hate speech, threats of violence or damage to persons or property;|Doxxing — sharing another person's personal information without their consent (address, phone, private photos, etc.);|Fraud attempts — phishing, fake accounts, identity theft, fake KYC documents, transaction-history manipulation;|Off-platform circumvention — proposing or soliciting an off-platform relationship to avoid commissions, the #1 motive of Upwork bans and applied here on the same terms;|Fake reviews and rating-system manipulation — creation of fake accounts to self-rate or rate a partner, exchange of good ratings between Users, paid solicitation of reviews;|Unfair competition and disparagement — defamation, parasitism, abusive poaching (art. 1240 French Civil Code);|Plagiarism and work theft — appropriation of portfolios, proposals or deliverables of others;|Intellectual property infringement — unauthorised use of logos, trademarks, protected content;|Illegal, hateful, non-consensual sexual, violent content, serious medical misinformation;|Promotion of content falling under Stripe Restricted Businesses (see CGV art. 10) — crypto, weapons, drugs, unlicensed gambling, counterfeits, MLM, etc.;|Spam — mass unsolicited solicitation, large-scale copy-paste proposals, mass messaging, abuse of the notifications feature.",

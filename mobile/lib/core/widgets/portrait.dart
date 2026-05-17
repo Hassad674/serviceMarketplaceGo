@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Atelier — stylized SVG portrait used everywhere a person is referenced.
+/// DesignedTrust — stylized SVG portrait used everywhere a person is referenced.
 ///
 /// 6 deterministic palettes selected by `id % 6`. Replaces ALL initials,
 /// emojis, or generic gray placeholders. Drawn natively via [CustomPainter]

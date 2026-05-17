@@ -1,7 +1,7 @@
 /**
  * Stripe Connect Embedded Components — Soleil v2 appearance.
  *
- * Visual port of the previous Rose theme to the Atelier ivoire/corail
+ * Visual port of the previous Rose theme to the Soleil v2 ivoire/corail
  * palette so the Stripe-rendered widgets blend with the host app.
  *
  * IMPORTANT: this object is consumed by `loadConnectAndInitialize` and

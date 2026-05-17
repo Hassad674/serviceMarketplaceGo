@@ -25,7 +25,7 @@ import '../widgets/role_layouts.dart';
 /// Out-of-scope flagged:
 ///   - "Pipeline" section (no clean mission-feed hook on mobile)
 ///   - Wallet/monthly revenue tile (no monthly-revenue hook on mobile)
-///   - "Cette semaine" editorial card / "Atelier Premium" CTA — same
+///   - "Cette semaine" editorial card / "DesignedTrust Premium" CTA — same
 ///     scope flags as before (W-11 batch).
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});

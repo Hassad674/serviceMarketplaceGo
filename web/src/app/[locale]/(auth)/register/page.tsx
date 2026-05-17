@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Link } from "@i18n/navigation"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 import { Portrait } from "@/shared/components/ui/portrait"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { cn } from "@/shared/lib/utils"
@@ -16,7 +17,7 @@ import { cn } from "@/shared/lib/utils"
 // Source: design/assets/sources/phase1/soleil-lotE.jsx `SoleilSignupRole`
 // (lines 133-238) + design/assets/pdf/web-desktop.pdf p.6.
 //
-// Visual chrome: top bar with AtelierMark + "Déjà un compte ?" link.
+// Visual chrome: top bar with brand logo + "Déjà un compte ?" link.
 // Centered editorial header (eyebrow + Fraunces display with italic
 // corail accent) above a 3-column grid of role cards. Each card is a
 // `<Link>` to its dedicated registration sub-route — no client state
@@ -121,18 +122,14 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Top bar — full width, AtelierMark left, login link right */}
+      {/* Top bar — full width, brand logo left, login link right */}
       <header className="flex items-center justify-between px-6 py-7 sm:px-10 lg:px-14">
         <Link
           href="/"
-          className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          className="flex items-center text-foreground transition-opacity hover:opacity-80"
+          aria-label="DesignedTrust Services"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold italic text-primary-foreground">
-            a
-          </span>
-          <span className="font-serif text-2xl font-medium tracking-tight text-foreground">
-            Atelier
-          </span>
+          <BrandLogo className="h-8 w-auto" />
         </Link>
         <div className="flex items-center gap-4">
           <p className="hidden text-[13px] text-muted-foreground sm:block">

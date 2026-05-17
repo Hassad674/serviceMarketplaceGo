@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { ProviderRegisterForm } from "@/features/auth/components/provider-register-form"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 import { Portrait } from "@/shared/components/ui/portrait"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 
@@ -8,7 +9,7 @@ import { ThemeToggle } from "@/shared/components/theme-toggle"
 //
 // Mirrors the W-01 Login + W-02 Register step-1 visual identity:
 // split 2 cols on desktop (form 1fr + editorial hero 1.2fr), single
-// column on mobile (hero hidden). The AtelierMark + theme toggle live
+// column on mobile (hero hidden). The brand logo + theme toggle live
 // inside the form column so the layout matches the rest of the auth
 // flow exactly.
 //
@@ -27,14 +28,10 @@ export default function RegisterProviderPage() {
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+            className="flex items-center text-foreground transition-opacity hover:opacity-80"
+            aria-label="DesignedTrust Services"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold italic text-primary-foreground">
-              a
-            </span>
-            <span className="font-serif text-2xl font-medium tracking-tight text-foreground">
-              Atelier
-            </span>
+            <BrandLogo className="h-8 w-auto" />
           </Link>
           <ThemeToggle />
         </div>
@@ -79,7 +76,7 @@ export default function RegisterProviderPage() {
 
         {/* Footer — micro */}
         <div className="text-center font-mono text-[11px] text-subtle-foreground">
-          © Atelier ·{" "}
+          © DesignedTrust Services ·{" "}
           <Link href="/legal/cgu" className="hover:text-foreground">
             {tAuth("terms")}
           </Link>{" "}

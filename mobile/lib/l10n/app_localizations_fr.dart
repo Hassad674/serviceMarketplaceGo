@@ -3482,7 +3482,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get m02_titlePrefix => 'Comment souhaitez-vous utiliser';
 
   @override
-  String get m02_titleAccent => 'Atelier ?';
+  String get m02_titleAccent => 'DesignedTrust ?';
 
   @override
   String get m02_subtitle => 'Vous pourrez ajouter le second rôle plus tard.';

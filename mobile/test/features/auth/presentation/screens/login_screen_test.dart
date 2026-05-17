@@ -181,11 +181,14 @@ void main() {
       expect(find.text('Welcome back,'), findsOneWidget);
     });
 
-    testWidgets('storefront icon', (tester) async {
+    testWidgets('DesignedTrust Services brand logo', (tester) async {
       await tester.pumpWidget(_buildTestableLoginScreen());
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('DesignedTrust Services'),
+        findsOneWidget,
+      );
     });
   });
 

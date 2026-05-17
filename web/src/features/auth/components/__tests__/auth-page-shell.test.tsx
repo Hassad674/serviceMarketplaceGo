@@ -115,9 +115,11 @@ describe("AuthPageShell", () => {
     expect(screen.queryByText(/frais cachés/i)).toBeNull()
   })
 
-  it("links the Atelier brand mark to the home page", () => {
+  it("links the brand mark to the home page", () => {
     renderShell(baseProps)
-    const brandLink = screen.getByRole("link", { name: /Atelier/ })
+    const brandLink = screen.getByRole("link", {
+      name: /DesignedTrust Services/,
+    })
     expect(brandLink).toHaveAttribute("href", "/")
   })
 

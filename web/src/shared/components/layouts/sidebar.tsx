@@ -31,6 +31,7 @@ import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { cn } from "@/shared/lib/utils"
 
 import { Button } from "@/shared/components/ui/button"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 import { Portrait } from "@/shared/components/ui/portrait"
 import { UserAvatar } from "@/shared/components/ui/user-avatar"
 import { LogoutConfirmDialog } from "@/shared/components/layouts/logout-confirm-dialog"
@@ -224,14 +225,15 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
       >
         {/* Brand */}
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold italic text-primary-foreground">
-              a
-            </span>
-            {!collapsed && (
-              <span className="font-serif text-xl font-medium tracking-tight text-foreground">
-                Atelier
-              </span>
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 overflow-hidden text-foreground"
+            aria-label="DesignedTrust Services"
+          >
+            {collapsed ? (
+              <BrandLogo variant="mark" className="h-8 w-8" />
+            ) : (
+              <BrandLogo className="h-7 w-auto" />
             )}
           </Link>
           <Button variant="ghost" size="auto"

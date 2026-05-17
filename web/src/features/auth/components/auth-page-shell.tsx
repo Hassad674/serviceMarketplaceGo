@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
+import { BrandLogo } from "@/shared/components/ui/brand-logo"
 import { Portrait } from "@/shared/components/ui/portrait"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 
@@ -58,14 +59,10 @@ export function AuthPageShell({
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+            className="flex items-center text-foreground transition-opacity hover:opacity-80"
+            aria-label="DesignedTrust Services"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold italic text-primary-foreground">
-              a
-            </span>
-            <span className="font-serif text-2xl font-medium tracking-tight text-foreground">
-              Atelier
-            </span>
+            <BrandLogo className="h-8 w-auto" />
           </Link>
           <ThemeToggle />
         </div>
@@ -88,7 +85,7 @@ export function AuthPageShell({
 
         {/* Footer — micro */}
         <div className="text-center font-mono text-[11px] text-subtle-foreground">
-          © Atelier ·{" "}
+          © DesignedTrust Services ·{" "}
           <Link href="/legal/cgu" className="hover:text-foreground">
             {t("terms")}
           </Link>{" "}

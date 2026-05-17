@@ -1,8 +1,8 @@
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
-// LandingFeatures — "Pourquoi Atelier · Trois choix qui changent
-// tout pour les deux côtés du marché."
+// LandingFeatures — "Pourquoi DesignedTrust · Trois choix qui
+// changent tout pour les deux côtés du marché."
 //
 // Three colored cards (rose pâle, sapin pâle, corail soft) anchor
 // the value propositions: 0% commission, audited agencies, rated

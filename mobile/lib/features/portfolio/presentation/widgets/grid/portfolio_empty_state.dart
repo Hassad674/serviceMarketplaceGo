@@ -8,7 +8,7 @@ import '../../../../../core/theme/app_theme.dart';
 /// Soleil v2 (BATCH-PROFIL-FIX item #5): replaces the legacy rose
 /// gradient + saturated rose-500/600 icon plate with the same ivoire
 /// surface + corailSoft icon plate vocabulary used by every other
-/// Atelier card. The CTA stays a `FilledButton` with the corail
+/// DesignedTrust card. The CTA stays a `FilledButton` with the corail
 /// primary and `StadiumBorder` pill — already aligned in M-16-fix.
 class PortfolioEmptyState extends StatelessWidget {
   const PortfolioEmptyState({super.key, required this.onCreate});

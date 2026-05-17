@@ -373,7 +373,7 @@
     "previewFile": "Aperçu du fichier sélectionné",
     "removeFile": "Retirer le fichier sélectionné",
     "marketplace": "Marketplace",
-    "atelier": "Atelier"
+    "atelier": "DesignedTrust Services"
   },
   "forms": {
     "languageMultiSelect": {
@@ -388,9 +388,9 @@
     "description": "La plateforme B2B qui connecte agences, freelances et entreprises"
   },
   "landing": {
-    "metaTitle": "Atelier — La marketplace freelance qui paie ses prestataires en intégralité",
+    "metaTitle": "DesignedTrust Services — La marketplace freelance qui paie ses prestataires en intégralité",
     "metaDescription": "Marketplace B2B sans commission : 0 % côté client, frais fixes plafonnés côté freelance, agences et apporteurs notés sur des missions réelles. Paiements sécurisés via Stripe Connect.",
-    "metaOgAlt": "Atelier · La marketplace freelance avec 0 % de commission",
+    "metaOgAlt": "DesignedTrust Services · La marketplace freelance avec 0 % de commission",
     "skipToContent": "Aller au contenu principal",
     "nav": {
       "howItWorks": "Comment ça marche",
@@ -405,7 +405,7 @@
       "eyebrowMobile": "0 % commission · Apporteurs notés",
       "titleLead": "Le talent qui livre.",
       "titleAccent": "L'humain qui le trouve.",
-      "subtitleDesktop": "Atelier est la première marketplace freelance qui référence aussi les agences et les apporteurs d'affaires — et qui les arbitre tous, par les notes des clients qu'ils ont servis.",
+      "subtitleDesktop": "DesignedTrust Services est la première marketplace freelance qui référence aussi les agences et les apporteurs d'affaires — et qui les arbitre tous, par les notes des clients qu'ils ont servis.",
       "subtitleMobile": "La marketplace freelance qui référence aussi les agences et les apporteurs d'affaires — et qui les arbitre par les notes des clients.",
       "ctaPrimary": "Créer un compte gratuit",
       "ctaSecondary": "Trouver un prestataire"
@@ -434,7 +434,7 @@
       "suggestion5": "Studio branding"
     },
     "features": {
-      "eyebrow": "Pourquoi Atelier",
+      "eyebrow": "Pourquoi DesignedTrust",
       "titleLead": "Trois choix qui changent tout",
       "titleAccent": "pour les deux côtés",
       "titleTrail": "du marché.",
@@ -443,7 +443,7 @@
       "card1Body": "Aucune commission prélevée. Les fonds sont en séquestre via Stripe Connect le temps de la mission, puis versés en intégralité au prestataire à la validation.",
       "card2Tag": "Agences arbitrées",
       "card2Title": "La première marketplace qui note aussi les agences.",
-      "card2Body": "Avant, on devait croire sur parole les avis affichés sur le site d'une agence. Atelier les arbitre comme les freelances : avis publics, vérifiés, et liés à des missions réelles.",
+      "card2Body": "Avant, on devait croire sur parole les avis affichés sur le site d'une agence. DesignedTrust les arbitre comme les freelances : avis publics, vérifiés, et liés à des missions réelles.",
       "card3Tag": "Apporteurs notés",
       "card3Title": "Pour la première fois, on arbitre les apporteurs.",
       "card3Body": "Leur note moyenne reflète celles des freelances qu'ils ont recommandés. Fini le réseau opaque : la qualité réelle de leurs apports est publique."
@@ -475,7 +475,7 @@
       "rowAgency": "Agence",
       "rowAgencyDetail": "Frais fixe sur les missions de 2 500 € et plus. Plafonné. 0 € avec abonnement.",
       "rowAgencyAmount": "jusqu'à 69 €",
-      "footnote": "À retenir : ni le client ni l'apporteur ne paient quoi que ce soit. Les frais fixes du prestataire disparaissent avec un abonnement Atelier."
+      "footnote": "À retenir : ni le client ni l'apporteur ne paient quoi que ce soit. Les frais fixes du prestataire disparaissent avec un abonnement DesignedTrust."
     },
     "credits": {
       "eyebrow": "Système de crédits",
@@ -507,11 +507,11 @@
       "cardFootnote": "Pas d'achat possible. Tes crédits viennent uniquement du reset hebdo et de tes missions livrées."
     },
     "referrers": {
-      "eyebrow": "L'innovation Atelier",
+      "eyebrow": "L'innovation DesignedTrust",
       "titleLead": "Les apporteurs d'affaires,",
       "titleAccent": "enfin",
       "titleTrail": "notés sur la qualité de ce qu'ils apportent.",
-      "p1": "Avant Atelier, l'apport d'affaires marchait au réseau. Les plus visibles emportaient les plus belles missions, sans qu'aucun client ne sache si leurs recommandations tenaient la route. Les méritants discrets restaient invisibles ; les bavards bien connectés captaient tout.",
+      "p1": "Avant DesignedTrust, l'apport d'affaires marchait au réseau. Les plus visibles emportaient les plus belles missions, sans qu'aucun client ne sache si leurs recommandations tenaient la route. Les méritants discrets restaient invisibles ; les bavards bien connectés captaient tout.",
       "p2Prefix": "On a inversé la logique :",
       "p2Highlight": "la note d'un apporteur, c'est la moyenne des notes de tous les freelances qu'il a recommandés sur des missions terminées.",
       "p2Suffix": "Pas son charisme. Pas son carnet d'adresses. Le travail livré.",
@@ -545,14 +545,14 @@
       "titleLead": "Choisir une agence sans",
       "titleAccent": "croire sur parole.",
       "p1": "Jusqu'ici, choisir une agence c'était lire les avis qu'elle affiche sur son propre site. Trois témoignages élogieux d'on-ne-sait-qui, et tu signes pour des dizaines de milliers d'euros.",
-      "p2Highlight": "Sur Atelier, agences et freelances passent au même filtre.",
+      "p2Highlight": "Sur DesignedTrust, agences et freelances passent au même filtre.",
       "p2Trail": "Avis publics, vérifiés, attachés à des missions réelles. Les studios qui livrent vraiment ressortent. Les autres aussi.",
       "cta": "Référencer mon agence",
       "compareBeforeLabel": "Avant",
       "compareBeforeName": "Studio Mercure",
       "compareBeforeQuote": "« Nos clients adorent travailler avec nous ! »",
       "compareBeforeFootnote": "Avis sur leur propre site. Vérifiables ? Aucune idée.",
-      "compareAfterLabel": "Sur Atelier",
+      "compareAfterLabel": "Sur DesignedTrust",
       "compareAfterName": "Studio Mercure",
       "compareAfterScore": "4,7",
       "compareAfterMissions": "23 missions",
@@ -571,7 +571,7 @@
       "ctaReferrer": "Je suis apporteur",
       "mobileTitleLead": "Prêt à",
       "mobileTitleAccent": "rejoindre",
-      "mobileTitleTrail": "Atelier ?",
+      "mobileTitleTrail": "DesignedTrust ?",
       "mobileSubtitle": "L'inscription prend 3 minutes. Que tu sois entreprise, freelance, agence ou apporteur.",
       "mobileCtaPrimary": "Créer un compte",
       "mobileCtaSecondary": "Se connecter"
@@ -606,7 +606,7 @@
     "loginTitlePrefix": "Reprends là",
     "loginTitleAccent": "où tu en étais.",
     "loginSubtitleSoleil": "Connecte-toi pour suivre tes missions, tes candidatures, et reprendre tes conversations en cours.",
-    "heroEyebrow": "Atelier · le mot juste",
+    "heroEyebrow": "DesignedTrust · le mot juste",
     "heroTitlePart1": "La marketplace où tu gardes",
     "heroTitleAccent1": "100 % de ton tarif.",
     "heroTitleConnector": "Aucune part,",
@@ -687,7 +687,7 @@
     "providerEmailPlaceholder": "jean.dupont@email.com",
     "W02_eyebrow": "↳ Étape 1 sur 3",
     "W02_titlePrefix": "Tu viens chercher",
-    "W02_titleAccent": "quoi sur Atelier ?",
+    "W02_titleAccent": "quoi sur DesignedTrust ?",
     "W02_subtitle": "Pas d'inquiétude, tu peux changer plus tard. On adapte juste ce qu'on te montre.",
     "W02_eyebrowAgency": "Je représente…",
     "W02_eyebrowProvider": "Je suis…",
@@ -2718,7 +2718,7 @@
     "reportButton": {
       "label": "Signaler",
       "ariaLabel": "Signaler ce {resourceType}",
-      "emailSubject": "[Signalement Atelier] {resourceType} {resourceId}",
+      "emailSubject": "[Signalement DesignedTrust] {resourceType} {resourceId}",
       "emailBodyIntro": "Bonjour, je souhaite signaler le contenu suivant pour violation du Code de conduite.",
       "emailFieldResourceType": "Type",
       "emailFieldResourceId": "Identifiant",
@@ -3041,9 +3041,9 @@
       },
       "codeOfConduct": {
         "title": "Code de conduite et politique de modération",
-        "subtitle": "Atelier connecte des professionnels et la confiance entre Utilisateurs est le fondement de la marketplace. Ce Code de conduite définit les comportements attendus, les comportements interdits, les sanctions applicables et la procédure de recours. Il fait partie intégrante des CGU et engage tout Utilisateur de la Plateforme.",
+        "subtitle": "DesignedTrust Services connecte des professionnels et la confiance entre Utilisateurs est le fondement de la marketplace. Ce Code de conduite définit les comportements attendus, les comportements interdits, les sanctions applicables et la procédure de recours. Il fait partie intégrante des CGU et engage tout Utilisateur de la Plateforme.",
         "preambleHeading": "Préambule",
-        "preambleBody": "La marketplace Atelier (services.designedtrust.com) met en relation des agences, des freelances, des entreprises et des apporteurs d'affaires. La qualité du service repose sur le respect mutuel, l'intégrité professionnelle et la confiance entre Utilisateurs. Tout Utilisateur — quel que soit son rôle (Client, Prestataire, Apporteur) — s'engage à respecter le présent Code de conduite, partie intégrante des CGU.",
+        "preambleBody": "La marketplace DesignedTrust Services (services.designedtrust.com) met en relation des agences, des freelances, des entreprises et des apporteurs d'affaires. La qualité du service repose sur le respect mutuel, l'intégrité professionnelle et la confiance entre Utilisateurs. Tout Utilisateur — quel que soit son rôle (Client, Prestataire, Apporteur) — s'engage à respecter le présent Code de conduite, partie intégrante des CGU.",
         "prohibitedHeading": "Comportements interdits",
         "prohibitedIntro": "Sont strictement interdits sur la Plateforme et passibles de sanctions immédiates les comportements suivants :",
         "prohibitedItems": "Harcèlement — sexuel, moral, racial, religieux, ou fondé sur l'orientation sexuelle, l'identité de genre, le handicap, la nationalité ou tout autre critère discriminatoire ;|Discrimination — refus de prestation ou de mise en relation fondé sur un critère discriminatoire au sens du Code pénal art. 225-1 (origine, sexe, orientation, handicap, opinions politiques, religion, syndicat, etc.) ;|Insultes, propos injurieux, langage haineux, menaces de violence ou d'atteinte aux biens ou aux personnes ;|Doxxing — partage d'informations personnelles d'autrui sans son consentement (adresse, téléphone, photos privées, etc.) ;|Tentatives de fraude — phishing, faux comptes, usurpation d'identité, faux justificatifs KYC, manipulation de l'historique de transactions ;|Contournement de la Plateforme (« off-platform circumvention ») — proposer ou solliciter une relation hors-plateforme pour éviter les commissions, motif n° 1 de bannissement Upwork et applicable ici dans les mêmes termes ;|Faux avis et manipulation du système de notation — création de faux comptes pour s'auto-évaluer ou évaluer un partenaire, échange de bonnes notes entre Utilisateurs, sollicitation d'avis contre rémunération ;|Concurrence déloyale et dénigrement — diffamation, parasitisme, débauchage abusif (art. 1240 Code civil) ;|Plagiat et vol de travail — appropriation de portfolio, de propositions ou de livrables d'autrui ;|Violation de propriété intellectuelle — utilisation non autorisée de logos, marques, contenus protégés ;|Contenus illégaux, haineux, sexuels non consentis, violents, désinformation médicale grave ;|Promotion de contenu relevant des Stripe Restricted Businesses (cf. CGV art. 10) — crypto, armes, drogues, jeux d'argent non agréés, contrefaçons, MLM, etc. ;|Spam — sollicitation massive non sollicitée, copy-paste de propositions identiques à grande échelle, mass messaging, abus de la fonctionnalité de notifications.",

@@ -8,7 +8,7 @@ import 'theme_text_styles.dart';
 export 'theme_colors.dart' show AppColors;
 export 'theme_text_styles.dart' show SoleilTextStyles;
 
-/// Atelier — Direction Soleil v2 mobile theme.
+/// DesignedTrust Services — Direction Soleil v2 mobile theme.
 ///
 /// Palette ivoire & corail. Typographie Fraunces (display) + Inter Tight
 /// (UI) + Geist Mono (numbers/IDs). Source-of-truth: design/DESIGN_SYSTEM.md.
