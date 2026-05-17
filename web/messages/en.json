@@ -2641,7 +2641,7 @@
       "copyright": "© {year} Marketplace Service. All rights reserved."
     },
     "common": {
-      "placeholder": "This page will be completed shortly. The final wording is being prepared and will be published at the end of the GDPR documentation phase.",
+      "placeholder": "This document is the version in force. For any question, write to hassadsmara@designedtrust.com.",
       "lastUpdated": "Last updated: {date}",
       "contactDpo": "Question about your data? Reach out to {email}.",
       "back": "Back to home"

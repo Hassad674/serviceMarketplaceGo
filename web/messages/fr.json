@@ -2641,7 +2641,7 @@
       "copyright": "© {year} Marketplace Service. Tous droits réservés."
     },
     "common": {
-      "placeholder": "Cette page sera complétée prochainement. La rédaction définitive est en cours et sera publiée à l'issue de la phase documentaire RGPD.",
+      "placeholder": "Le présent document constitue la version en vigueur. Pour toute question, écris à hassadsmara@designedtrust.com.",
       "lastUpdated": "Dernière mise à jour : {date}",
       "contactDpo": "Une question sur tes données ? Écris à {email}.",
       "back": "Revenir à l'accueil"
