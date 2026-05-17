@@ -589,22 +589,14 @@
       "understandHowItWorks": "How it works",
       "understandManifesto": "Referrer manifesto",
       "understandSecurity": "Payment security",
-      "understandCredits": "Credit system",
-      "companyLabel": "Company",
-      "companyAbout": "About",
-      "companyContact": "Contact",
       "legalLabel": "Legal",
       "legalTerms": "Terms",
       "legalPrivacy": "Privacy",
       "legalNotices": "Legal notice",
       "legalCookies": "Cookies",
       "legalHelp": "Help",
-      "copyright": "© {year} Atelier · Made in Paris",
-      "social": {
-        "linkedin": "LinkedIn",
-        "x": "X",
-        "instagram": "Instagram"
-      }
+      "madeBy": "DesignedTrust Services {year} — made with {heart} by Hassad Smara",
+      "authorLinkedInAria": "LinkedIn — Hassad Smara"
     }
   },
   "auth": {
@@ -615,10 +607,10 @@
     "loginTitleAccent": "where you left off.",
     "loginSubtitleSoleil": "Sign in to track your missions, applications, and resume your conversations.",
     "heroEyebrow": "Atelier · the right word",
-    "heroTitlePart1": "A marketplace that respects",
-    "heroTitleAccent1": "your time",
-    "heroTitleConnector": "and your",
-    "heroTitleAccent2": "rates.",
+    "heroTitlePart1": "The marketplace where you keep",
+    "heroTitleAccent1": "100% of your rate.",
+    "heroTitleConnector": "No cut,",
+    "heroTitleAccent2": "no surprises.",
     "pillar": {
       "secure": {
         "label": "Secure payments",
@@ -629,8 +621,8 @@
         "description": "KYC, references, human interview"
       },
       "noFee": {
-        "label": "No hidden fees",
-        "description": "5% on the enterprise side, that's it"
+        "label": "0% commission",
+        "description": "We never take a cut of your earnings — keep 100% of what you bill."
       }
     },
     "terms": "Terms",

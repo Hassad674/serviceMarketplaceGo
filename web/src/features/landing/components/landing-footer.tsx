@@ -1,6 +1,13 @@
+import { Heart, Linkedin } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { legalHref, legalPathnames } from "@i18n/routing"
+
+// Author signature — the maintainer's public LinkedIn. Hardcoded on
+// purpose: it is a fixed personal profile URL, not an env-driven or
+// tenant-specific value.
+const AUTHOR_LINKEDIN_URL =
+  "https://www.linkedin.com/in/hassad-s-24714929b/"
 
 // LandingFooter — site footer.
 //
@@ -30,12 +37,6 @@ const UNDERSTAND_LINKS = [
   { labelKey: "understandHowItWorks", href: "#how-it-works" },
   { labelKey: "understandManifesto", href: "#referrers" },
   { labelKey: "understandSecurity", href: "#pricing" },
-  { labelKey: "understandCredits", href: "#" },
-] as const
-
-const COMPANY_LINKS = [
-  { labelKey: "companyAbout", href: "/" },
-  { labelKey: "companyContact", href: "/" },
 ] as const
 
 const LEGAL_LINKS = [
@@ -68,11 +69,10 @@ export function LandingFooter() {
 function DesktopFooter() {
   return (
     <div className="hidden sm:block">
-      <div className="grid gap-10 border-t border-border pt-12 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
+      <div className="grid gap-10 border-t border-border pt-12 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
         <FooterBrand />
         <FooterColumn labelKey="productLabel" links={PRODUCT_LINKS} />
         <FooterColumn labelKey="understandLabel" links={UNDERSTAND_LINKS} />
-        <FooterColumn labelKey="companyLabel" links={COMPANY_LINKS} />
         <FooterColumn labelKey="legalLabel" links={LEGAL_LINKS} />
       </div>
       <FooterBottom />
@@ -101,46 +101,52 @@ function FooterBrand() {
 }
 
 function FooterBottom() {
-  const t = useTranslations("landing.footer")
-  const year = new Date().getFullYear()
   return (
     <div className="mt-10 flex items-center justify-between border-t border-border pt-6 text-[12.5px] text-muted-foreground">
-      <p>{t("copyright", { year })}</p>
-      <ul className="flex items-center gap-6">
-        <li>
-          <SocialLink href="https://www.linkedin.com" labelKey="social.linkedin" />
-        </li>
-        <li>
-          <SocialLink href="https://x.com" labelKey="social.x" />
-        </li>
-        <li>
-          <SocialLink
-            href="https://www.instagram.com"
-            labelKey="social.instagram"
-          />
-        </li>
-      </ul>
+      <AuthorSignature />
+      <AuthorLinkedInLink />
     </div>
   )
 }
 
-function SocialLink({ href, labelKey }: { href: string; labelKey: string }) {
+// AuthorSignature — "DesignedTrust Services {year} — made with ❤️ by
+// Hassad Smara". The heart is a real lucide glyph (Soleil corail
+// accent) injected via t.rich so the copy stays fully i18n-keyed.
+function AuthorSignature() {
+  const t = useTranslations("landing.footer")
+  const year = new Date().getFullYear()
+  return (
+    <p className="inline-flex flex-wrap items-center gap-x-1">
+      {t.rich("madeBy", {
+        year,
+        heart: () => (
+          <Heart
+            className="inline size-3.5 fill-accent text-accent align-[-2px]"
+            aria-hidden="true"
+          />
+        ),
+      })}
+    </p>
+  )
+}
+
+function AuthorLinkedInLink() {
   const t = useTranslations("landing.footer")
   return (
     <a
-      href={href}
+      href={AUTHOR_LINKEDIN_URL}
       target="_blank"
       rel="noreferrer noopener"
+      aria-label={t("authorLinkedInAria")}
       className="transition-colors hover:text-foreground"
     >
-      {t(labelKey)}
+      <Linkedin className="size-4" aria-hidden="true" />
     </a>
   )
 }
 
 function MobileFooter() {
   const t = useTranslations("landing.footer")
-  const year = new Date().getFullYear()
   return (
     <div className="block border-t border-border pt-10 sm:hidden">
       <Link
@@ -162,9 +168,10 @@ function MobileFooter() {
           </li>
         ))}
       </ul>
-      <p className="mt-6 text-[12px] text-muted-foreground">
-        {t("copyright", { year })}
-      </p>
+      <div className="mt-6 flex items-center justify-between text-[12px] text-muted-foreground">
+        <AuthorSignature />
+        <AuthorLinkedInLink />
+      </div>
     </div>
   )
 }

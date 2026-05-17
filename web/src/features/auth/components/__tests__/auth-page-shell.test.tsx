@@ -96,6 +96,25 @@ describe("AuthPageShell", () => {
     ).toBeInTheDocument()
   })
 
+  it("states the 0% commission positioning in the hero and the trust pillar", () => {
+    renderShell(baseProps)
+    // Hero H2 — punchier value prop: keep 100% of your rate, no cut.
+    const hero = screen.getByRole("heading", { level: 2 })
+    expect(hero).toHaveTextContent(/100\s*% de ton tarif/i)
+    expect(hero).toHaveTextContent(/aucune part/i)
+    // Third pillar — was the vague "Sans commission cachée", now an
+    // explicit "0 % de commission" promise (keep 100% of what you bill).
+    expect(
+      screen.getByText(/^0\s*% de commission$/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/tu gardes 100\s*% de ce que tu factures/i),
+    ).toBeInTheDocument()
+    // No leftover "commission cachée" / "frais cachés" wording.
+    expect(screen.queryByText(/commission cachée/i)).toBeNull()
+    expect(screen.queryByText(/frais cachés/i)).toBeNull()
+  })
+
   it("links the Atelier brand mark to the home page", () => {
     renderShell(baseProps)
     const brandLink = screen.getByRole("link", { name: /Atelier/ })

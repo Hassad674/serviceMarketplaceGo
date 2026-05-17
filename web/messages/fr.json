@@ -589,22 +589,14 @@
       "understandHowItWorks": "Comment ça marche",
       "understandManifesto": "Le manifeste apporteurs",
       "understandSecurity": "Sécurité des paiements",
-      "understandCredits": "Système de crédits",
-      "companyLabel": "Entreprise",
-      "companyAbout": "À propos",
-      "companyContact": "Contact",
       "legalLabel": "Légal",
       "legalTerms": "CGU",
       "legalPrivacy": "Confidentialité",
       "legalNotices": "Mentions légales",
       "legalCookies": "Cookies",
       "legalHelp": "Aide",
-      "copyright": "© {year} Atelier · Made in Paris",
-      "social": {
-        "linkedin": "LinkedIn",
-        "x": "X",
-        "instagram": "Instagram"
-      }
+      "madeBy": "DesignedTrust Services {year} — made with {heart} by Hassad Smara",
+      "authorLinkedInAria": "LinkedIn — Hassad Smara"
     }
   },
   "auth": {
@@ -615,10 +607,10 @@
     "loginTitleAccent": "où tu en étais.",
     "loginSubtitleSoleil": "Connecte-toi pour suivre tes missions, tes candidatures, et reprendre tes conversations en cours.",
     "heroEyebrow": "Atelier · le mot juste",
-    "heroTitlePart1": "Une marketplace qui respecte",
-    "heroTitleAccent1": "ton temps",
-    "heroTitleConnector": "et tes",
-    "heroTitleAccent2": "tarifs.",
+    "heroTitlePart1": "La marketplace où tu gardes",
+    "heroTitleAccent1": "100 % de ton tarif.",
+    "heroTitleConnector": "Aucune part,",
+    "heroTitleAccent2": "aucune surprise.",
     "pillar": {
       "secure": {
         "label": "Paiement sécurisé",
@@ -629,8 +621,8 @@
         "description": "KYC, références, entretien humain"
       },
       "noFee": {
-        "label": "Sans commission cachée",
-        "description": "5 % côté entreprise, c'est tout"
+        "label": "0 % de commission",
+        "description": "On ne prend jamais de part sur tes revenus — tu gardes 100 % de ce que tu factures."
       }
     },
     "terms": "Conditions",

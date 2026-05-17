@@ -66,7 +66,11 @@ export function EnterpriseDashboard(props: EnterpriseDashboardProps) {
         />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ActionsTodoCard actions={props.actions} isLoading={props.actionsLoading} />
+        <ActionsTodoCard
+          actions={props.actions}
+          isLoading={props.actionsLoading}
+          hideWhenEmpty
+        />
         <SectionCard
           title={t("activeRecruitments.title")}
           ctaLabel={t("activeRecruitments.cta")}

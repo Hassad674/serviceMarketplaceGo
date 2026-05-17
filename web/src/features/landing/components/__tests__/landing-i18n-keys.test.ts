@@ -114,10 +114,8 @@ const REQUIRED_KEYS = [
   "footer.productPricing",
   "footer.understandLabel",
   "footer.legalLabel",
-  "footer.copyright",
-  "footer.social.linkedin",
-  "footer.social.x",
-  "footer.social.instagram",
+  "footer.madeBy",
+  "footer.authorLinkedInAria",
 ] as const
 
 function resolveDottedKey(

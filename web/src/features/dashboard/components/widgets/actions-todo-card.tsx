@@ -16,6 +16,15 @@ import type { DashboardAction } from "../../types"
 interface ActionsTodoCardProps {
   actions: DashboardAction[]
   isLoading?: boolean
+  /**
+   * When true, the whole card is not rendered once there is nothing
+   * to act on (no actions, not loading). Used by the Enterprise
+   * layout — an empty "all clear" card adds no value there since the
+   * profile-completion nudge (its main driver) never applies to
+   * enterprises. Defaults to false so freelance / agency / referrer
+   * keep the reassuring "Tout est à jour" empty state.
+   */
+  hideWhenEmpty?: boolean
 }
 
 const SEVERITY_TONE: Record<DashboardAction["severity"], string> = {
@@ -30,8 +39,16 @@ const SEVERITY_ICON = {
   critical: AlertCircle,
 } as const
 
-export function ActionsTodoCard({ actions, isLoading }: ActionsTodoCardProps) {
+export function ActionsTodoCard({
+  actions,
+  isLoading,
+  hideWhenEmpty = false,
+}: ActionsTodoCardProps) {
   const t = useTranslations("dashboard.actions")
+
+  if (hideWhenEmpty && !isLoading && actions.length === 0) {
+    return null
+  }
 
   return (
     <section

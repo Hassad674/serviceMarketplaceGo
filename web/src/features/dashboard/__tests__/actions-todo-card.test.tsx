@@ -19,6 +19,14 @@ function renderWith(actions: DashboardAction[], isLoading = false) {
   )
 }
 
+function renderHideWhenEmpty(actions: DashboardAction[], isLoading = false) {
+  return render(
+    <NextIntlClientProvider locale="fr" messages={messages}>
+      <ActionsTodoCard actions={actions} isLoading={isLoading} hideWhenEmpty />
+    </NextIntlClientProvider>,
+  )
+}
+
 describe("ActionsTodoCard", () => {
   it("renders the empty state when no actions are pending", () => {
     renderWith([])
@@ -55,6 +63,30 @@ describe("ActionsTodoCard", () => {
     const { container } = renderWith([], true)
     const skeletons = container.querySelectorAll(".animate-pulse")
     expect(skeletons.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("hideWhenEmpty: renders nothing when there are no actions (Enterprise layout)", () => {
+    const { container } = renderHideWhenEmpty([])
+    expect(container.querySelector("section")).toBeNull()
+    expect(screen.queryByText(/Tout est à jour/i)).toBeNull()
+  })
+
+  it("hideWhenEmpty: still renders while loading (avoids layout flash)", () => {
+    const { container } = renderHideWhenEmpty([], true)
+    expect(container.querySelector("section")).not.toBeNull()
+  })
+
+  it("hideWhenEmpty: still renders the card when actions are present", () => {
+    renderHideWhenEmpty([
+      {
+        id: "kyc-pending",
+        severity: "critical",
+        label: "KYC pending",
+        ctaLabel: "Vérifier",
+        href: "/payment-info",
+      },
+    ])
+    expect(screen.getByText("KYC pending")).toBeInTheDocument()
   })
 
   it("renders the action count when at least one action is pending", () => {
