@@ -2,28 +2,31 @@
  * /legal (Mentions légales) test — covers LCEN art. 6-III compliance.
  *
  * Asserts:
- *   1. The Editor block surfaces the structured 8 fields (raison
- *      sociale, forme juridique, capital, RCS, TVA intra-UE, adresse,
- *      directeur de publication, contact). When a corporate field is
- *      pending registration, the canonical fallback ("en cours
- *      d'enregistrement auprès du greffe — disponibles sur demande à
- *      support@designedtrust.com") is used — never "[À COMPLÉTER]"
- *      which is a Stripe blacklist trigger.
+ *   1. The Editor block surfaces the structured LCEN art. 6-III fields
+ *      for a French micro-entreprise (entrepreneur individuel): raison
+ *      sociale, nom commercial, forme juridique, RCS/SIREN, mention de
+ *      dispense d'immatriculation, code APE, TVA intra-UE (franchise
+ *      en base — art. 293 B CGI), adresse, directeur de publication,
+ *      contact. The real registered identity is rendered from the
+ *      env-driven `@/config/legal-issuer` module — never a placeholder
+ *      ("[À COMPLÉTER]" or "en cours d'enregistrement") which is a
+ *      Stripe blacklist trigger.
  *   2. The Hosting block names all three hosting providers with
  *      complete postal addresses (Vercel, Railway, Neon — plus
  *      Cloudflare R2).
- *   3. The Contact block surfaces a mailto: link to
- *      support@designedtrust.com.
+ *   3. The Contact block surfaces a mailto: link to the real editor
+ *      contact email.
  *   4. The page metadata is indexable (no robots noindex) — Stripe +
  *      DSA art. 14 require it.
- *   5. The placeholder text never includes the literal
- *      "[À COMPLÉTER]" anywhere on the page.
+ *   5. The page never includes the literal "[À COMPLÉTER]" nor the
+ *      stale "Designed Trust SAS" entity anywhere.
  */
 
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render } from "@testing-library/react"
 import type { ReactElement, ReactNode } from "react"
 import frMessages from "@/../messages/fr.json"
+import { legalIssuer } from "@/config/legal-issuer"
 
 // next-intl/server's `getTranslations` and next-intl's
 // `useTranslations` both need a vitest-friendly mock. We resolve
@@ -112,31 +115,40 @@ async function renderAsync(): Promise<ReturnType<typeof render>> {
 }
 
 describe("/legal — Mentions légales (LCEN art. 6-III)", () => {
-  it("surfaces the structured 8 editor fields", async () => {
+  it("surfaces the structured LCEN art. 6-III editor fields", async () => {
     await renderAsync()
     const text = document.body.textContent ?? ""
-    // 8 mandatory LCEN fields. We assert presence of the i18n labels
-    // (not specific values, which may evolve as the company finishes
-    // registration).
+    // Mandatory LCEN labels for a micro-entreprise. We assert presence
+    // of the i18n labels for the chrome.
     expect(text).toContain(frMessages.legal.mentions.editorCompanyLabel)
+    expect(text).toContain(frMessages.legal.mentions.editorTradingNameLabel)
     expect(text).toContain(frMessages.legal.mentions.editorFormLabel)
-    expect(text).toContain(frMessages.legal.mentions.editorCapitalLabel)
     expect(text).toContain(frMessages.legal.mentions.editorRcsLabel)
+    expect(text).toContain(frMessages.legal.mentions.editorRcsMentionLabel)
+    expect(text).toContain(frMessages.legal.mentions.editorApeLabel)
     expect(text).toContain(frMessages.legal.mentions.editorVatLabel)
     expect(text).toContain(frMessages.legal.mentions.editorAddressLabel)
     expect(text).toContain(frMessages.legal.mentions.editorDirectorLabel)
     expect(text).toContain(frMessages.legal.mentions.editorContactLabel)
   })
 
-  it("never displays the Stripe-blacklisted '[À COMPLÉTER]' literal", async () => {
+  it("renders the real registered identity (no placeholder, no stale entity)", async () => {
     await renderAsync()
     const text = document.body.textContent ?? ""
-    // Stripe Restricted Businesses rejects pages containing the
-    // canonical placeholder marker — we use a fallback formula
-    // instead. Regression test against any future copy that would
-    // re-introduce the marker.
+    // Real micro-entreprise identity from the env-driven config.
+    expect(text).toContain(legalIssuer.legalName)
+    expect(text).toContain(legalIssuer.siret)
+    expect(text).toContain(legalIssuer.siren)
+    expect(text).toContain(legalIssuer.vatNumber)
+    expect(text).toContain(legalIssuer.postalCode)
+    // VAT franchise mention is mandatory for a micro-entreprise.
+    expect(text).toContain("293 B")
+    // Stripe Restricted Businesses rejects pages with the placeholder
+    // marker; the stale "Designed Trust SAS" entity must be gone too.
     expect(text).not.toMatch(/\[À COMPLÉTER\]/)
     expect(text).not.toMatch(/\[A COMPLETER\]/)
+    expect(text).not.toMatch(/Designed Trust SAS/)
+    expect(text).not.toMatch(/en cours d'enregistrement/)
   })
 
   it("names all three production hosting providers", async () => {
@@ -148,10 +160,10 @@ describe("/legal — Mentions légales (LCEN art. 6-III)", () => {
     expect(text).toContain("Cloudflare")
   })
 
-  it("exposes a mailto: link to support@designedtrust.com (DSA art. 12 contact)", async () => {
+  it("exposes a mailto: link to the real editor contact email (DSA art. 12)", async () => {
     await renderAsync()
     const mailto = document.querySelector(
-      'a[href^="mailto:support@designedtrust.com"]',
+      `a[href^="mailto:${legalIssuer.contactEmail}"]`,
     )
     expect(mailto).not.toBeNull()
   })
