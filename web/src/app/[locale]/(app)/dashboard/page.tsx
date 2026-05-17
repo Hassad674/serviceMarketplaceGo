@@ -126,7 +126,11 @@ function useDashboardActions(): DashboardActionsResult {
   return useMemo(() => {
     const list: DashboardAction[] = []
     pushKycAction(list, user?.kyc_status, user?.kyc_deadline, t)
-    if (completion && completion.percent < 80) {
+    // Profile-completion is only meaningful for freelance / agency —
+    // an Enterprise (client) has no public profile to "complete" for
+    // discoverability, so the nudge is hidden for that role.
+    const showCompletion = user?.role !== "enterprise"
+    if (showCompletion && completion && completion.percent < 80) {
       list.push({
         id: "profile-completion",
         severity: completion.percent < 50 ? "warning" : "info",
