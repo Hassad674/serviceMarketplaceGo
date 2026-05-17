@@ -182,7 +182,14 @@ describe("AuthProvider boot probe (hard reload recovery)", () => {
     })
 
     expect(fetchSpy).toHaveBeenCalled()
-    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined
+    // `vi.fn(async () => …)` infers a zero-arg signature, so
+    // `mock.calls[0]` is typed as the empty tuple `[]` and indexing
+    // `[1]` fails type-check (TS2493). At runtime the real `fetch` is
+    // invoked as `fetch(url, init)`; cast through `unknown` to the
+    // actual call shape to read the second positional argument safely.
+    const init = (
+      fetchSpy.mock.calls[0] as unknown as [string, RequestInit?]
+    )?.[1]
     expect(init?.credentials).toBe("include")
   })
 })
