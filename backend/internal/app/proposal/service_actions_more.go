@@ -436,7 +436,15 @@ func (s *Service) providerCanReceivePayouts(ctx context.Context, providerUserID 
 // click "Retirer" in the wallet. Three conditions, ALL required:
 //
 //  1. The proposal service has a PaymentProcessor wired (production).
-//  2. The provider's Stripe Connect account is ready (KYC + capabilities).
+//  2. The provider is ready for an auto-transfer: their Stripe Connect
+//     account is KYC-ready (payouts_enabled) AND their billing profile
+//     is complete enough to legally emit the transfer-time
+//     platform_fee invoice. This is the combined gate
+//     ProviderReadyForAutoTransfer — when EITHER KYC or billing is
+//     missing the milestone is NOT auto-transferred (and NOT
+//     re-escrowed): the payment record stays Succeeded+TransferPending
+//     which the wallet projection classifies as Available, so the
+//     provider drains it manually once their profile is in order.
 //  3. The provider's org has previously completed a successful manual
 //     payout — the consent + the proof that Stripe payouts work for
 //     them. Without this, a fresh provider whose KYC just landed but
@@ -454,7 +462,7 @@ func (s *Service) providerEligibleForAutoTransfer(ctx context.Context, providerU
 	if err != nil || providerUser.OrganizationID == nil {
 		return false
 	}
-	ready, err := s.payments.CanProviderReceivePayouts(ctx, *providerUser.OrganizationID)
+	ready, err := s.payments.ProviderReadyForAutoTransfer(ctx, *providerUser.OrganizationID)
 	if err != nil || !ready {
 		return false
 	}

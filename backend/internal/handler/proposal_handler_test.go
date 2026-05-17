@@ -80,6 +80,16 @@ func (m *mockPaymentProcessor) HasAutoPayoutConsent(_ context.Context, _ uuid.UU
 	return false, nil
 }
 
+// ProviderReadyForAutoTransfer mirrors the production combined gate.
+// Falls back to canProviderReceiveFn (the KYC stub) when no explicit
+// override is set so existing handler tests keep their behaviour.
+func (m *mockPaymentProcessor) ProviderReadyForAutoTransfer(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	if m.canProviderReceiveFn != nil {
+		return m.canProviderReceiveFn(ctx, providerOrgID)
+	}
+	return true, nil
+}
+
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)
 
 // ---------------------------------------------------------------------------

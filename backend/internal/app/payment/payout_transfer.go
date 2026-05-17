@@ -427,6 +427,61 @@ func (p *PayoutService) CanProviderReceivePayouts(ctx context.Context, providerO
 	return info.PayoutsEnabled, nil
 }
 
+// ProviderReadyForAutoTransfer reports whether the milestone-approval
+// path may auto-transfer the freshly-released funds to the provider's
+// connected account WITHOUT waiting for an explicit "Retirer" click.
+//
+// It combines BOTH gates the money-out flow enforces:
+//
+//  1. KYC: Stripe Connect account exists AND payouts_enabled == true
+//     (delegated to CanProviderReceivePayouts).
+//  2. Billing profile: the provider org's billing profile is complete
+//     enough to legally emit the transfer-time platform_fee invoice
+//     (delegated to the optional billingGate).
+//
+// Business rule (validated by the product owner): a milestone is
+// auto-transferred ONLY when KYC AND billing are both OK. When either
+// is missing — or when we cannot determine readiness — the milestone
+// is NOT transferred and NOT re-escrowed: the payment record stays
+// Succeeded+TransferPending which the wallet projection classifies as
+// AvailableAmount. The provider then completes their profile and
+// drains the funds via the manual "Retirer" flow (which re-checks
+// both gates and surfaces the correct KYC vs billing modal).
+//
+// Conservative-on-error posture: the brief for this money-critical
+// path is "money in Available rather than Transferred in case of
+// doubt". So a billing-gate I/O error returns false (NOT ready) —
+// the opposite of the withdraw endpoint's fail-open billing gate,
+// which is correct because the failure modes differ: blocking a
+// money-out CLICK on a flaky gate is bad UX, but auto-moving money
+// on partial information is unrecoverable.
+//
+// A nil billingGate (invoicing feature disabled) degrades to the
+// KYC-only readiness — the pre-fix behaviour — so the payment feature
+// stays bootable without invoicing.
+func (p *PayoutService) ProviderReadyForAutoTransfer(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	kycReady, err := p.CanProviderReceivePayouts(ctx, providerOrgID)
+	if err != nil {
+		return false, err
+	}
+	if !kycReady {
+		return false, nil
+	}
+	if p.billingGate == nil {
+		// Invoicing disabled — KYC readiness is authoritative.
+		return true, nil
+	}
+	complete, berr := p.billingGate.IsBillingProfileComplete(ctx, providerOrgID)
+	if berr != nil {
+		// Conservative: never auto-transfer on partial information.
+		// The funds stay Available; the provider drains them manually.
+		slog.Warn("payment: billing-profile gate probe failed, deferring auto-transfer (funds stay Available)",
+			"provider_org_id", providerOrgID, "error", berr)
+		return false, nil
+	}
+	return complete, nil
+}
+
 // HasAutoPayoutConsent implements service.PaymentProcessor. Reads the
 // AutoPayoutEnabledAt timestamp from the organization. The first
 // successful RequestPayout / RetryFailedTransfer stamps the column;

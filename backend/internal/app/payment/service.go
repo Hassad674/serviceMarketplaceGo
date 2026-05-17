@@ -215,6 +215,15 @@ func (s *Service) SetPerMilestoneInvoicer(i service.PerMilestoneInvoicer) {
 	s.payout.SetPerMilestoneInvoicer(i)
 }
 
+// SetBillingProfileGate plugs the billing-profile completeness gate
+// folded into the milestone-approval auto-transfer decision (see
+// PayoutService.ProviderReadyForAutoTransfer). Setter pattern because
+// invoicing is built AFTER payment in main.go. Passing nil keeps the
+// gate in KYC-only mode (pre-fix behaviour).
+func (s *Service) SetBillingProfileGate(g service.BillingProfileGate) {
+	s.payout.SetBillingProfileGate(g)
+}
+
 // ---------------------------------------------------------------------------
 // Sub-service accessors — for callers that want the focused contract
 // instead of the whole facade. Production code mostly uses the legacy
@@ -307,6 +316,13 @@ func (s *Service) CanProviderReceivePayouts(ctx context.Context, providerOrgID u
 // HasAutoPayoutConsent delegates to PayoutService.
 func (s *Service) HasAutoPayoutConsent(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
 	return s.payout.HasAutoPayoutConsent(ctx, providerOrgID)
+}
+
+// ProviderReadyForAutoTransfer delegates to PayoutService. Combines the
+// KYC + billing-profile gates for the milestone-approval auto-transfer
+// decision (see PayoutService.ProviderReadyForAutoTransfer).
+func (s *Service) ProviderReadyForAutoTransfer(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	return s.payout.ProviderReadyForAutoTransfer(ctx, providerOrgID)
 }
 
 // WaivePlatformFeeOnActiveRecords delegates to PayoutService.

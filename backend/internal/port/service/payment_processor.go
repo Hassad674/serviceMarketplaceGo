@@ -60,6 +60,19 @@ type PaymentProcessor interface {
 	// the right posture for a fresh provider whose Stripe account has
 	// not been proven to work yet.
 	HasAutoPayoutConsent(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+
+	// ProviderReadyForAutoTransfer reports whether the milestone-
+	// approval path may auto-transfer the released funds. It combines
+	// the KYC gate (CanProviderReceivePayouts) AND the billing-profile
+	// completeness gate so a milestone is auto-transferred ONLY when
+	// BOTH are OK. When either is missing the milestone is NOT
+	// transferred and NOT re-escrowed — the funds stay in the wallet's
+	// Available bucket until the provider completes their profile and
+	// drains them via the manual "Retirer" flow.
+	//
+	// Conservative-on-error: a gate I/O failure returns false (NOT
+	// ready) so money is never auto-moved on partial information.
+	ProviderReadyForAutoTransfer(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
 }
 
 type PaymentIntentInput struct {

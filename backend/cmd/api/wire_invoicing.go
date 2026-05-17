@@ -202,6 +202,19 @@ func wireInvoicing(deps invoicingDeps) invoicingWiring {
 		adapter := invoicingapp.NewPerMilestoneInvoicerAdapter(invoicingSvc, deps.PaymentRecords, orgsReader)
 		deps.PaymentSvc.SetPerMilestoneInvoicer(adapter)
 		slog.Info("invoicing per-milestone emitter wired into payment service (trigger: transfer.completed)")
+
+		// Billing-profile gate — folded into the milestone-approval
+		// auto-transfer decision so a provider whose KYC is fine but
+		// whose billing profile is incomplete does NOT auto-transfer:
+		// the funds stay in the wallet's Available bucket until the
+		// provider completes their profile and pulls them via the
+		// manual "Retirer" flow. Without this, an incomplete-billing
+		// provider's approved milestone was transferred unconditionally
+		// (fix/wallet-kyc-billing-regression Volet 3).
+		deps.PaymentSvc.SetBillingProfileGate(
+			invoicingapp.NewBillingProfileGateAdapter(invoicingSvc),
+		)
+		slog.Info("invoicing billing-profile gate wired into payment auto-transfer decision")
 	} else {
 		slog.Warn("invoicing per-milestone emitter NOT wired",
 			"has_payment_svc", deps.PaymentSvc != nil,

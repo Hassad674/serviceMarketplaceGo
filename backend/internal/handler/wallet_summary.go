@@ -109,11 +109,21 @@ type summaryTransaction struct {
 
 // summaryResponse is the envelope returned by GET /wallet/summary.
 type summaryResponse struct {
-	Currency           string               `json:"currency"`
-	TotalCents         int64                `json:"total_cents"`
-	AvailableCents     int64                `json:"available_cents"`
-	EscrowedCents      int64                `json:"escrowed_cents"`
-	TransmittedCents   int64                `json:"transmitted_cents"`
+	Currency         string `json:"currency"`
+	TotalCents       int64  `json:"total_cents"`
+	AvailableCents   int64  `json:"available_cents"`
+	EscrowedCents    int64  `json:"escrowed_cents"`
+	TransmittedCents int64  `json:"transmitted_cents"`
+	// PayoutsEnabled mirrors the provider org's Stripe Connect KYC
+	// state (payouts_enabled on the live Stripe account). The unified
+	// wallet page uses it for the KYC pre-flight gate: when false the
+	// "Retirer" click opens the KYC modal up front instead of firing
+	// the withdraw request (parity with the legacy WalletPayoutSection
+	// pre-flight — restored in fix/wallet-kyc-billing-regression). The
+	// server-side 422 kyc_required net stays the authoritative gate;
+	// this flag only avoids a wasted round-trip + surfaces the modal
+	// instantly. Additive, non-breaking field.
+	PayoutsEnabled     bool                 `json:"payouts_enabled"`
 	Breakdown          summaryBreakdown     `json:"breakdown"`
 	RecentTransactions []summaryTransaction `json:"recent_transactions"`
 	NextCursor         string               `json:"next_cursor,omitempty"`
@@ -170,6 +180,12 @@ func (h *WalletHandler) Summary(w http.ResponseWriter, r *http.Request) {
 	response := summaryResponse{
 		Currency:  pickCurrency(missions, commissions),
 		Breakdown: composeBreakdown(missions, commissions),
+		// Sourced from the mission-side overview, which already calls
+		// Stripe GetAccount and exposes PayoutsEnabled. Defaults to
+		// false (the safe gate posture) when the mission side failed
+		// to load — the unified page then shows the KYC modal pre-flight
+		// and the server 422 net still catches the rest.
+		PayoutsEnabled: missions != nil && missions.PayoutsEnabled,
 	}
 	response.TotalCents = response.Breakdown.Missions.TotalCents + response.Breakdown.Commissions.TotalCents
 	response.AvailableCents = response.Breakdown.Missions.AvailableCents + response.Breakdown.Commissions.AvailableCents

@@ -166,16 +166,16 @@ var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 // "there is a current milestone" can omit all the stub functions.
 
 type mockMilestoneRepo struct {
-	createBatchFn       func(ctx context.Context, milestones []*milestone.Milestone) error
-	getByIDFn           func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
-	getByIDWithVersionFn  func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
-	listByProposalFn    func(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error)
-	getCurrentActiveFn  func(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error)
-	updateFn            func(ctx context.Context, m *milestone.Milestone) error
-	createDeliverableFn func(ctx context.Context, d *milestone.Deliverable) error
-	listDeliverablesFn  func(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Deliverable, error)
-	deleteDeliverableFn func(ctx context.Context, id uuid.UUID) error
-	listByProposalsFn   func(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error)
+	createBatchFn        func(ctx context.Context, milestones []*milestone.Milestone) error
+	getByIDFn            func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	getByIDWithVersionFn func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	listByProposalFn     func(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error)
+	getCurrentActiveFn   func(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error)
+	updateFn             func(ctx context.Context, m *milestone.Milestone) error
+	createDeliverableFn  func(ctx context.Context, d *milestone.Deliverable) error
+	listDeliverablesFn   func(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Deliverable, error)
+	deleteDeliverableFn  func(ctx context.Context, id uuid.UUID) error
+	listByProposalsFn    func(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error)
 
 	// store is the in-memory backing map used when no stub function
 	// is set, indexed by milestone id. Tests that want to rely on
@@ -485,16 +485,16 @@ var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 // --- mockUserRepo ---
 
 type mockUserRepo struct {
-	getByIDFn     func(ctx context.Context, id uuid.UUID) (*user.User, error)
-	getByIDsFn    func(ctx context.Context, ids []uuid.UUID) ([]*user.User, error)
+	getByIDFn  func(ctx context.Context, id uuid.UUID) (*user.User, error)
+	getByIDsFn func(ctx context.Context, ids []uuid.UUID) ([]*user.User, error)
 	// getByIDsCalls counts batch calls for PERF-B-02 N+1 regression
 	// tests so we can assert the page hits the DB once (not 2*N times).
 	getByIDsCalls int
 }
 
-func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error      { return nil }
-func (m *mockUserRepo) Update(ctx context.Context, u *user.User) error      { return nil }
-func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error      { return nil }
+func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error          { return nil }
+func (m *mockUserRepo) Update(ctx context.Context, u *user.User) error          { return nil }
+func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 func (m *mockUserRepo) ExistsByEmail(_ context.Context, _ string) (bool, error) { return false, nil }
 func (m *mockUserRepo) GetByEmail(_ context.Context, _ string) (*user.User, error) {
 	return nil, user.ErrUserNotFound
@@ -647,12 +647,12 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 // provider->org resolution returns a deterministic id).
 
 type mockJobCreditRepo struct {
-	getOrCreateFn  func(ctx context.Context, orgID uuid.UUID) (int, error)
-	decrementFn    func(ctx context.Context, orgID uuid.UUID) error
-	refundFn       func(ctx context.Context, orgID uuid.UUID) error
-	addBonusFn     func(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error
-	resetForOrgFn  func(ctx context.Context, orgID uuid.UUID, minCredits int) error
-	resetWeeklyFn  func(ctx context.Context, minCredits int) error
+	getOrCreateFn func(ctx context.Context, orgID uuid.UUID) (int, error)
+	decrementFn   func(ctx context.Context, orgID uuid.UUID) error
+	refundFn      func(ctx context.Context, orgID uuid.UUID) error
+	addBonusFn    func(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error
+	resetForOrgFn func(ctx context.Context, orgID uuid.UUID, minCredits int) error
+	resetWeeklyFn func(ctx context.Context, minCredits int) error
 
 	addBonusCalls []addBonusCall
 }
@@ -768,6 +768,7 @@ func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 // "no DB write happened".
 type mockPaymentProcessor struct {
 	canProviderReceiveFn   func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+	readyForAutoTransferFn func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
 	hasAutoPayoutConsentFn func() (bool, error)
 	transferMilestoneCalls int
 	transferProposalCalls  int
@@ -804,6 +805,21 @@ func (m *mockPaymentProcessor) HasAutoPayoutConsent(_ context.Context, _ uuid.UU
 		return m.hasAutoPayoutConsentFn()
 	}
 	return false, nil
+}
+
+// ProviderReadyForAutoTransfer mirrors the production combined gate
+// (KYC + billing). When no explicit override is set it falls back to
+// canProviderReceiveFn so existing tests that gate auto-transfer via
+// the KYC stub keep their behaviour (billing is implicitly OK in the
+// legacy stub), then defaults to ready=true.
+func (m *mockPaymentProcessor) ProviderReadyForAutoTransfer(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	if m.readyForAutoTransferFn != nil {
+		return m.readyForAutoTransferFn(ctx, providerOrgID)
+	}
+	if m.canProviderReceiveFn != nil {
+		return m.canProviderReceiveFn(ctx, providerOrgID)
+	}
+	return true, nil
 }
 
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)

@@ -88,6 +88,19 @@ type PayoutService struct {
 	// worse outcome than a brief invoice delay. The monthly scheduler
 	// is the catch-all.
 	perMilestoneInvoicer portservice.PerMilestoneInvoicer
+
+	// billingGate reports whether the receiving provider org's billing
+	// profile is complete. Folded into CanProviderReceivePayouts so the
+	// auto-transfer-on-milestone-approval path defers the transfer when
+	// the provider's KYC is fine but their billing profile is not yet
+	// complete — the money then sits in the wallet's Available bucket
+	// (NOT re-escrowed, NOT transferred) until the provider completes
+	// their profile and pulls it via "Retirer". Wired post-construction
+	// via SetBillingProfileGate because the invoicing service is built
+	// after payment in main.go. Nil when invoicing is disabled — the
+	// gate degrades to KYC-only readiness (pre-fix behaviour) so the
+	// payment feature stays bootable without invoicing.
+	billingGate portservice.BillingProfileGate
 }
 
 // PayoutServiceDeps groups every dependency NewPayoutService needs.
@@ -136,4 +149,15 @@ func (p *PayoutService) SetProposalStatusReader(r portservice.ProposalStatusRead
 // the monthly safety-net scheduler still catches everything.
 func (p *PayoutService) SetPerMilestoneInvoicer(i portservice.PerMilestoneInvoicer) {
 	p.perMilestoneInvoicer = i
+}
+
+// SetBillingProfileGate plugs the billing-profile completeness check
+// used by CanProviderReceivePayouts to keep a milestone from
+// auto-transferring when the provider's KYC is fine but their billing
+// profile is incomplete. Setter pattern because the invoicing service
+// is constructed AFTER payment in main.go. Passing nil keeps the gate
+// in KYC-only mode (pre-fix behaviour) so the payment feature stays
+// bootable in wirings without invoicing (tests, one-off binaries).
+func (p *PayoutService) SetBillingProfileGate(g portservice.BillingProfileGate) {
+	p.billingGate = g
 }
