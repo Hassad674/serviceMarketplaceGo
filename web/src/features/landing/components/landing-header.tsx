@@ -37,7 +37,7 @@ function BrandMark() {
       className="inline-flex items-center text-foreground"
       aria-label="DesignedTrust Services"
     >
-      <BrandLogo className="h-7 w-auto sm:h-8" />
+      <BrandLogo className="h-8 w-auto sm:h-9" />
     </Link>
   )
 }

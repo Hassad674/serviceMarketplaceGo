@@ -233,7 +233,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
             {collapsed ? (
               <BrandLogo variant="mark" className="h-8 w-8" />
             ) : (
-              <BrandLogo className="h-7 w-auto" />
+              <BrandLogo className="h-9 w-auto" />
             )}
           </Link>
           <Button variant="ghost" size="auto"

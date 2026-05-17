@@ -86,11 +86,17 @@ export function BrandLogo({
   const c = TONE[tone]
   const wordmarkFont = "var(--font-inter-tight), Inter, system-ui, sans-serif"
 
-  // Full lockup — verbatim from the supplied SVG (viewBox 0 0 1080 320):
-  // scaled mark at (220,100), wordmark group at (490,130).
+  // Full lockup — verbatim artwork from the supplied SVG (mark at
+  // translate(220,100) scale(2), wordmark at translate(490,130)). The
+  // source viewBox was 0 0 1080 320 but the artwork only spans
+  // ~x:236→960, y:112→220 — ~70% of that box was empty padding, which
+  // made the logo render tiny at a fixed h-* (most of the height was
+  // whitespace). viewBox is cropped to the content bounds (with ~8px
+  // margin) so the SAME h-7 now shows the logo ~3× larger. Artwork and
+  // coordinates are unchanged — only the visible window is tightened.
   return (
     <svg
-      viewBox="0 0 1080 320"
+      viewBox="225 105 745 122"
       className={className}
       role="img"
       aria-label={BRAND_LABEL}
