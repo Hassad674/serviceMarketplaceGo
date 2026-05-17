@@ -290,8 +290,10 @@ class _BrandLogo extends StatelessWidget {
   }
 }
 
-/// Paints the Key Hole mark. Geometry is normalized from the canonical
-/// 200x200 SVG box (D spans x:0->180, y:0->200) onto the widget size.
+/// Paints the Key Hole mark, verbatim from the owner-supplied SVG.
+/// Coordinates live in a 64-unit box (the D spans x:8->56, y:6->58)
+/// scaled uniformly onto the widget size. The orange mark reads on both
+/// light and dark surfaces, so no tone variant is needed for the mark.
 class _BrandLogoPainter extends CustomPainter {
   const _BrandLogoPainter();
 
@@ -299,7 +301,7 @@ class _BrandLogoPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double s = size.width / 200.0; // uniform scale from the SVG box
+    final double s = size.width / 64.0; // uniform scale from the SVG box
     final Paint orange = Paint()
       ..color = _brandOrange
       ..isAntiAlias = true;
@@ -307,31 +309,44 @@ class _BrandLogoPainter extends CustomPainter {
       ..color = const Color(0xFFFFFFFF)
       ..isAntiAlias = true;
 
-    // D shape: M0 0 H80 A100 100 0 0 1 80 200 H0 Z (quarter-round right edge).
+    // D shape: M8 6 H30 A26 26 0 0 1 56 32 A26 26 0 0 1 30 58 H8 Z
     final Path d = Path()
-      ..moveTo(0, 0)
-      ..lineTo(80 * s, 0)
+      ..moveTo(8 * s, 6 * s)
+      ..lineTo(30 * s, 6 * s)
       ..arcToPoint(
-        Offset(180 * s, 100 * s),
-        radius: Radius.circular(100 * s),
+        Offset(56 * s, 32 * s),
+        radius: Radius.circular(26 * s),
       )
       ..arcToPoint(
-        Offset(80 * s, 200 * s),
-        radius: Radius.circular(100 * s),
+        Offset(30 * s, 58 * s),
+        radius: Radius.circular(26 * s),
       )
-      ..lineTo(0, 200 * s)
+      ..lineTo(8 * s, 58 * s)
       ..close();
     canvas.drawPath(d, orange);
 
-    // Keyhole in negative: circle (cx100 cy80 r22) + stem (M86 80 V148 H114).
-    canvas.drawCircle(Offset(100 * s, 80 * s), 22 * s, white);
+    // Keyhole in negative: circle (cx34 cy26 r6) + stem (M30 26 .. 38 26).
+    canvas.drawCircle(Offset(34 * s, 26 * s), 6 * s, white);
     final Path stem = Path()
-      ..moveTo(86 * s, 80 * s)
-      ..lineTo(86 * s, 148 * s)
-      ..lineTo(114 * s, 148 * s)
-      ..lineTo(114 * s, 80 * s)
+      ..moveTo(30 * s, 26 * s)
+      ..lineTo(30 * s, 44 * s)
+      ..lineTo(38 * s, 44 * s)
+      ..lineTo(38 * s, 26 * s)
       ..close();
     canvas.drawPath(stem, white);
+
+    // Faint inner highlight: M10 12 L14 12 L14 22 (white, 40% opacity).
+    final Paint highlight = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 * s
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    final Path hl = Path()
+      ..moveTo(10 * s, 12 * s)
+      ..lineTo(14 * s, 12 * s)
+      ..lineTo(14 * s, 22 * s);
+    canvas.drawPath(hl, highlight);
   }
 
   @override

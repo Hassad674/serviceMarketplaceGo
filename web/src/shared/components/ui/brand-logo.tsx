@@ -1,57 +1,78 @@
 // BrandLogo — DesignedTrust Services brand identity (Key Hole logo).
 //
 // Inline SVG (never a bitmap) so the mark stays razor-sharp at every
-// size and can be themed/scaled via `className` (set the height with a
+// size and can be scaled via `className` (set the height with a
 // Tailwind `h-*` utility — the SVG keeps its aspect ratio).
 //
-// Variants:
-//   • "mark" — the Key Hole pictogram only (square, "D" + keyhole).
-//   • "full" — pictogram + "DesignedTrust Services" wordmark (default).
+// This is the canonical brand asset provided by the owner. Geometry and
+// colours are reproduced verbatim from the supplied SVG — do not
+// "improve" it.
 //
-// Geometry is a faithful, minimal recreation of the canonical
-// "DesignedTrust — Key Hole" middle (orange) variant: a quarter-round
-// "D" with a keyhole punched out in negative (white), beside the
-// wordmark "Designed" + "Trust" (Trust in brand orange) + "Services".
+// Props:
+//   • variant — "full" (pictogram + wordmark, default) | "mark"
+//     (Key Hole pictogram only, square).
+//   • tone — "light" (default, for ivoire/light surfaces) | "dark"
+//     (for dark-mode / dark backgrounds). Only the wordmark inks flip;
+//     the brand orange and the white keyhole are identical in both.
 //
-// BRAND COLOR: #FF7A1F is the DesignedTrust brand orange. It is the
-// fixed visual identity of the company — intentionally hardcoded here
-// because this file IS the brand asset (a logo), not a themed UI
-// surface. No design-system token applies to a brand mark; every other
-// component must keep using semantic tokens.
+// BRAND COLOURS are intentionally hardcoded here because this file IS
+// the brand asset (a logo), not a themed UI surface. No design-system
+// token applies to a brand mark; every other component must keep using
+// semantic tokens.
 //
 // Server Component — pure render, no state, no browser API.
 
 const BRAND_ORANGE = "#FF7A1F"
 const BRAND_LABEL = "DesignedTrust Services"
 
+// Wordmark inks that depend on the surface (everything else is fixed).
+const TONE = {
+  light: { designed: "#0E0E12", bar: "#DDDFE5", services: "#5C5C68" },
+  dark: { designed: "#FFFBF5", bar: "#3A3A42", services: "#A9A9B4" },
+} as const
+
 interface BrandLogoProps {
   /** "mark" = pictogram only · "full" = pictogram + wordmark. Default "full". */
   variant?: "full" | "mark"
+  /** "light" for ivoire surfaces (default) · "dark" for dark backgrounds. */
+  tone?: "light" | "dark"
   /** Tailwind sizing (set height, e.g. `h-7`). Width auto-scales. */
   className?: string
 }
 
-// Pictogram — quarter-round "D" with a keyhole in negative. Drawn in a
-// 200×200 box (the D spans x:0→180, y:0→200) so the mark sits flush on
-// its left edge.
+// Pictogram — "D" quarter-round with a keyhole punched in white, plus
+// the faint inner highlight stroke. Drawn in its own ~64×64 space
+// (path spans x:8→56, y:6→58) so the mark variant crops tight.
 function KeyHoleMark() {
   return (
     <g>
       <path
-        d="M0 0 H80 A100 100 0 0 1 180 100 A100 100 0 0 1 80 200 H0 Z"
+        d="M8 6 H30 A26 26 0 0 1 56 32 A26 26 0 0 1 30 58 H8 Z"
         fill={BRAND_ORANGE}
       />
-      <circle cx="100" cy="80" r="22" fill="#fff" />
-      <path d="M86 80 V148 H114 V80 Z" fill="#fff" />
+      <circle cx="34" cy="26" r="6" fill="#fff" />
+      <path d="M30 26 L30 44 L38 44 L38 26 Z" fill="#fff" />
+      <path
+        d="M10 12 L14 12 L14 22"
+        stroke="#fff"
+        strokeWidth="2"
+        strokeOpacity="0.4"
+        fill="none"
+        strokeLinecap="round"
+      />
     </g>
   )
 }
 
-export function BrandLogo({ variant = "full", className }: BrandLogoProps) {
+export function BrandLogo({
+  variant = "full",
+  tone = "light",
+  className,
+}: BrandLogoProps) {
   if (variant === "mark") {
     return (
       <svg
-        viewBox="0 0 200 200"
+        viewBox="2 0 60 64"
         className={className}
         role="img"
         aria-label={BRAND_LABEL}
@@ -62,42 +83,68 @@ export function BrandLogo({ variant = "full", className }: BrandLogoProps) {
     )
   }
 
-  // Full lockup: mark (200 wide) + gap + wordmark, on a 980×200 canvas.
-  // 980 (not 760) so the full "DesignedTrust" wordmark at fontSize 92
-  // never clips on its right edge — the 760 box cut off "…st".
+  const c = TONE[tone]
+  const wordmarkFont = "var(--font-inter-tight), Inter, system-ui, sans-serif"
+
+  // Full lockup — verbatim from the supplied SVG (viewBox 0 0 1080 320):
+  // scaled mark at (220,100), wordmark group at (490,130).
   return (
     <svg
-      viewBox="0 0 980 200"
+      viewBox="0 0 1080 320"
       className={className}
       role="img"
       aria-label={BRAND_LABEL}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <KeyHoleMark />
-      <text
-        x="232"
-        y="118"
-        fontFamily="var(--font-inter-tight), Inter, system-ui, sans-serif"
-        fontWeight="800"
-        fontSize="92"
-        letterSpacing="-3"
-        fill="currentColor"
-      >
-        Designed
-        <tspan fill={BRAND_ORANGE}>Trust</tspan>
-      </text>
-      <text
-        x="234"
-        y="178"
-        fontFamily="var(--font-inter-tight), Inter, system-ui, sans-serif"
-        fontWeight="500"
-        fontSize="42"
-        letterSpacing="6"
-        fill="currentColor"
-        opacity="0.62"
-      >
-        SERVICES
-      </text>
+      <g transform="translate(220 100) scale(2.0)">
+        <KeyHoleMark />
+      </g>
+
+      <g transform="translate(490 130)">
+        <text
+          x="0"
+          y="36"
+          fontFamily={wordmarkFont}
+          fontWeight="900"
+          fontSize="62"
+          letterSpacing="-2.6"
+          fill={c.designed}
+        >
+          Designed
+        </text>
+        {/* Mini keyhole (brand orange) between the two words */}
+        <g transform="translate(290 16)">
+          <circle cx="11" cy="16" r="9" fill={BRAND_ORANGE} />
+          <path d="M6 16 L6 40 L16 40 L16 16 Z" fill={BRAND_ORANGE} />
+        </g>
+        <text
+          x="320"
+          y="36"
+          fontFamily={wordmarkFont}
+          fontWeight="900"
+          fontSize="62"
+          letterSpacing="-2.6"
+          fill={BRAND_ORANGE}
+        >
+          Trust
+        </text>
+
+        {/* Sub-brand "SERVICES" with its rule */}
+        <g transform="translate(0 64)">
+          <rect x="0" y="14" width="42" height="2" fill={c.bar} />
+          <text
+            x="58"
+            y="22"
+            fontFamily={wordmarkFont}
+            fontWeight="600"
+            fontSize="20"
+            letterSpacing="2.4"
+            fill={c.services}
+          >
+            SERVICES
+          </text>
+        </g>
+      </g>
     </svg>
   )
 }
