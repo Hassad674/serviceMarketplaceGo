@@ -103,11 +103,16 @@ func TestClassifyRecordBucket_Matrix(t *testing.T) {
 			wantBucket:     bucketAvailable,
 		},
 		{
-			name:           "succeeded+pending+released → transferred (defensive)",
+			// Volet 3 regression guard: client completed the mission
+			// (Approve→Release) but provider KYC/billing is incomplete
+			// so the auto-transfer was deferred. transfer_status stays
+			// pending → money is drainable manually, NOT transferred.
+			// Must be Available (Disponible), never Transferred.
+			name:           "succeeded+pending+released → available (transfer deferred, KYC/billing incomplete)",
 			paymentStatus:  domain.RecordStatusSucceeded,
 			transferStatus: domain.TransferPending,
 			milestoneSt:    milestonedomain.StatusReleased,
-			wantBucket:     bucketTransferred,
+			wantBucket:     bucketAvailable,
 		},
 		{
 			name:           "succeeded+pending+pending_funding → skip (data corruption)",

@@ -288,9 +288,8 @@ const (
 // Decision matrix (internal design note):
 //
 //	transfer_status=completed                                       → Transferred
-//	status=succeeded ∧ transfer=pending ∧ milestone=approved        → Available (client signed off)
+//	status=succeeded ∧ transfer=pending ∧ milestone=approved/released → Available (signed off, transfer deferred)
 //	status=succeeded ∧ transfer=pending ∧ milestone=funded/submitted/disputed → Escrow
-//	status=succeeded ∧ transfer=pending ∧ milestone=released        → Transferred (defensive — should not happen)
 //	status=succeeded ∧ transfer=pending ∧ milestone missing/unknown → Escrow (conservative)
 //	any other (failed / refunded / pending payment)                 → Skip
 //
@@ -315,15 +314,23 @@ func classifyRecordBucket(
 		return bucketEscrow // conservative on missing status
 	}
 	switch status {
-	case milestonedomain.StatusApproved:
+	case milestonedomain.StatusApproved, milestonedomain.StatusReleased:
+		// Client signed off. CompleteProposal does m.Approve() THEN
+		// m.Release(), so the normal end-of-mission state is Released,
+		// not Approved. The ONLY authoritative "money actually left"
+		// signal is transfer_status=completed — already handled at the
+		// top of this function. A Released milestone whose transfer is
+		// still pending means the auto-transfer was deliberately
+		// deferred because the provider's KYC or billing profile is
+		// incomplete (Volet 3: providerEligibleForAutoTransfer == false).
+		// The funds are NOT gone — they are drainable manually via
+		// "Retirer", so they belong in Available, never Transferred.
+		// Pre-Volet-3 this branch returned Transferred on the
+		// "released+pending should not happen" assumption; Volet 3 made
+		// it a normal state, so that assumption became wrong and was the
+		// root cause of money showing as Transféré instead of Disponible
+		// when KYC/billing is incomplete.
 		return bucketAvailable
-	case milestonedomain.StatusReleased:
-		// Defensive: transfer_status=pending while milestone=released
-		// means the transfer-status flip never landed but the milestone
-		// completed. Treat as transferred so the available bucket isn't
-		// padded with money the provider has effectively already
-		// received via another flow. Logged at the call site if needed.
-		return bucketTransferred
 	case milestonedomain.StatusFunded,
 		milestonedomain.StatusSubmitted,
 		milestonedomain.StatusDisputed:
