@@ -26,14 +26,14 @@ Tutoiement utilisé en français — version anglaise disponible sur `/en/legal/
 |---|---|
 | Nom du service | Marketplace Service |
 | URL | `https://services.designedtrust.com` |
-| Raison sociale | `[À COMPLÉTER : raison sociale légale]` |
-| Forme juridique | `[À COMPLÉTER]` |
-| RCS / SIREN | `[À COMPLÉTER]` |
-| Siège social | `[À COMPLÉTER]` |
-| Représentant légal | `[À COMPLÉTER : nom + fonction]` |
-| Directeur de la publication | `[À COMPLÉTER]` |
+| Raison sociale | Hassad SMARA — Entrepreneur Individuel (EI) |
+| Forme juridique | Micro-entreprise (entrepreneur individuel) |
+| SIREN / SIRET | 878912963 / 87891296300021 — dispensé d'immatriculation au RCS et au RM (micro-entreprise) |
+| Établissement | 254 rue Vendôme, 69003 Lyon, France |
+| Représentant légal | Hassad SMARA, entrepreneur individuel |
+| Directeur de la publication | Hassad SMARA |
 | Email de contact RGPD | `dpo@designedtrust.com` |
-| Délégué à la Protection des Données (DPO) | `[À COMPLÉTER : DPO interne ou prestataire externe]` |
+| Contact protection des données | dpo@designedtrust.com (l'entreprise n'est pas tenue de désigner un DPO au sens de l'art. 37 RGPD ; un point de contact dédié est néanmoins maintenu) |
 
 Le **responsable de traitement** est l'entité qui détermine les finalités et les moyens du traitement de tes données. Pour tout ce qui concerne tes données personnelles sur le service, c'est Marketplace Service. Pour les paiements, Stripe agit en parallèle comme responsable de traitement pour ses propres finalités (anti-fraude, conformité PSD2).
 
@@ -278,8 +278,8 @@ L'historique des versions est conservé dans Git (`legal/politique-confidentiali
 
 ## English version (summary)
 
-This Privacy Policy is available in French as the legally binding version. An English summary is available on request to `dpo@designedtrust.com`. The English routing `/en/legal/politique-confidentialite` renders this same document with English-translated navigation and headings; the body content remains in French for legal accuracy. A full English translation is planned — `[À COMPLÉTER : ETA de la version EN complète]`.
+This Privacy Policy is available in French as the legally binding version. An English summary is available on request to `dpo@designedtrust.com`. The English routing `/en/legal/politique-confidentialite` renders this same document with English-translated navigation and headings; the body content remains in French for legal accuracy. A full English translation is planned.
 
 ---
 
-> Document validé le `[À COMPLÉTER : date]` par `[À COMPLÉTER : représentant légal]`, en cohérence avec le registre des traitements (`legal/registre.md`) et l'analyse d'impact (`legal/aipd.md`).
+> Document tenu par Hassad SMARA (éditeur), en cohérence avec le registre des traitements (`legal/registre.md`) et l'analyse d'impact (`legal/aipd.md`). Dernière revue : 17 mai 2026.

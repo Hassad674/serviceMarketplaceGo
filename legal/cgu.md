@@ -3,7 +3,7 @@
 > Version : 1.0
 > Dernière mise à jour : 2026-05-11
 > Référence : `legal/cgu.md`
-> Statut : **Base à valider par un conseil juridique** — `[À COMPLÉTER : validation cabinet d'avocats]` avant déploiement public.
+> Statut : **Base contractuelle rédigée par l'éditeur.** Une revue par un conseil juridique est recommandée mais non bloquante pour une micro-entreprise au lancement ; le présent document reflète l'état réel du service.
 > Audience : tous les utilisateurs et visiteurs de `services.designedtrust.com`
 
 ---
@@ -41,7 +41,7 @@ L'éditeur (cf. `legal/registre.md` et `/legal` Mentions légales) se réserve l
 | **Contrat** | Engagement contractuel résultant de l'acceptation d'une proposal entre une entreprise et un prestataire. |
 | **Apporteur d'affaires** | Utilisateur ayant activé le toggle `referrer_enabled` et qui met en relation une entreprise et un prestataire en contrepartie d'une commission. |
 | **Contenu** | Toute information textuelle, photographique, audio ou vidéo publiée par un Utilisateur. |
-| **Éditeur** | `[À COMPLÉTER : raison sociale]`, opérateur du Service. |
+| **Éditeur** | Hassad SMARA — Entrepreneur Individuel (EI), exploitant sous le nom commercial DesignedTrust Services — micro-entreprise, SIRET 87891296300021, SIREN 878912963, TVA FR26878912963, code APE 6201Z, 254 rue Vendôme, 69003 Lyon, France. Dispensé d'immatriculation au RCS et au RM (art. L.123-1-1 du Code de commerce). Contact : hassadsmara@designedtrust.com. |
 
 ---
 
@@ -91,7 +91,7 @@ L'Utilisateur est responsable de la confidentialité de ses identifiants. Toute 
 
 ### 4.2 Disponibilité
 
-Le Service est conçu pour être accessible 24/7. L'Éditeur s'engage à un effort de continuité de service mais ne garantit pas une disponibilité absolue. Une interruption planifiée peut survenir pour maintenance, mise à jour ou correction d'incident. Les incidents majeurs sont reportés sur la page de statut (`[À COMPLÉTER : URL page de statut publique]`).
+Le Service est conçu pour être accessible 24/7. L'Éditeur s'engage à un effort de continuité de service mais ne garantit pas une disponibilité absolue. Une interruption planifiée peut survenir pour maintenance, mise à jour ou correction d'incident. Les incidents majeurs sont reportés sur la page de statut .
 
 ### 4.3 Évolution
 
@@ -127,7 +127,7 @@ L'Éditeur met en œuvre une **modération automatique** (OpenAI omni-moderation
 
 ### 5.3 Signalement
 
-Tout Utilisateur peut signaler un contenu ou un comportement contraire aux CGU via le bouton « Signaler » présent dans l'interface ou par email à `support@designedtrust.com` (`[À COMPLÉTER : email opérationnel support]`).
+Tout Utilisateur peut signaler un contenu ou un comportement contraire aux CGU via le bouton « Signaler » présent dans l'interface ou par email à `hassadsmara@designedtrust.com` ().
 
 ---
 
@@ -204,7 +204,7 @@ L'Éditeur ne saurait être tenu responsable :
 - des dommages résultant d'une utilisation non conforme du Service ;
 - des dommages résultant de la défaillance d'un sous-traitant externe (hors faute de l'Éditeur dans le choix ou la supervision dudit sous-traitant).
 
-Dans les limites permises par la loi, la responsabilité totale de l'Éditeur envers un Utilisateur, toutes causes confondues, est plafonnée au montant des commissions perçues sur les 12 derniers mois auprès dudit Utilisateur, et en tout état de cause à un plafond de `[À COMPLÉTER : ex. 10 000 €]`.
+Dans les limites permises par la loi, la responsabilité totale de l'Éditeur envers un Utilisateur, toutes causes confondues, est plafonnée au montant des commissions perçues sur les 12 derniers mois auprès dudit Utilisateur, et en tout état de cause à un plafond de dix mille (10 000) euros.
 
 ### 9.4 Garanties LCEN
 
@@ -237,7 +237,7 @@ Les manquements graves (contenus pédopornographiques, terrorisme, fraude) entra
 
 ### 10.3 Procédure d'appel
 
-L'Utilisateur sanctionné peut contester la décision en écrivant à `support@designedtrust.com` dans un délai de 30 jours. Une réponse motivée lui est apportée sous 30 jours (art. 12-3 RGPD pour les décisions automatisées).
+L'Utilisateur sanctionné peut contester la décision en écrivant à `hassadsmara@designedtrust.com` dans un délai de 30 jours. Une réponse motivée lui est apportée sous 30 jours (art. 12-3 RGPD pour les décisions automatisées).
 
 ---
 
@@ -273,7 +273,7 @@ Les présentes CGU sont régies par le **droit français**. Tout litige relatif 
 
 ## Article 15 — Médiation
 
-Conformément à l'article L.612-1 du Code de la consommation et à l'article L.611-1, en cas de litige et après échec de la résolution amiable directe entre l'Éditeur et un Utilisateur agissant à titre non professionnel, l'Utilisateur peut saisir gratuitement un médiateur de la consommation : `[À COMPLÉTER : nom + URL du médiateur agréé]`.
+Conformément à l'article L.612-1 du Code de la consommation et à l'article L.611-1, en cas de litige et après échec de la résolution amiable directe entre l'Éditeur et un Utilisateur agissant à titre non professionnel, l'Utilisateur peut saisir gratuitement un médiateur de la consommation : non applicable — la Plateforme est strictement réservée aux professionnels (B2B), la médiation de la consommation (art. L.611-1 du Code de la consommation) n'a pas vocation à s'appliquer.
 
 Pour les utilisateurs professionnels, la médiation conventionnelle reste ouverte sur accord des Parties.
 
@@ -301,5 +301,5 @@ Les mentions légales de l'Éditeur (raison sociale, siège, RCS, capital, direc
 
 ---
 
-**Date d'entrée en vigueur des présentes CGU :** `[À COMPLÉTER : date]`
-**Validation juridique :** `[À COMPLÉTER : nom du conseil + date]`
+**Date d'entrée en vigueur des présentes CGU :** 17 mai 2026
+**Rédaction :** Hassad SMARA (éditeur), 17 mai 2026

@@ -14,23 +14,23 @@
 
 | Champ | Valeur |
 |---|---|
-| Raison sociale | `[À COMPLÉTER : Marketplace Service raison sociale]` |
-| Forme juridique | `[À COMPLÉTER]` |
-| Siège social | `[À COMPLÉTER]` |
-| RCS / SIREN | `[À COMPLÉTER]` |
-| Représentant légal | `[À COMPLÉTER : nom, prénom, fonction]` |
+| Raison sociale | Hassad SMARA — Entrepreneur Individuel (EI) |
+| Forme juridique | Micro-entreprise (entrepreneur individuel) |
+| Établissement | 254 rue Vendôme, 69003 Lyon, France |
+| SIREN / SIRET | 878912963 / 87891296300021 — dispensé d'immatriculation au RCS et au RM (micro-entreprise) |
+| Représentant légal | Hassad SMARA, entrepreneur individuel |
 | Adresse RGPD | `dpo@designedtrust.com` |
 
 ### Le Sous-traitant (« le Sous-traitant »)
 
 | Champ | Valeur |
 |---|---|
-| Raison sociale | `[À COMPLÉTER]` |
-| Forme juridique | `[À COMPLÉTER]` |
-| Siège social | `[À COMPLÉTER]` |
-| Numéro d'identification | `[À COMPLÉTER]` |
-| Représentant légal | `[À COMPLÉTER]` |
-| Contact RGPD | `[À COMPLÉTER]` |
+| Raison sociale | «  …  » *(à renseigner au contrat)* |
+| Forme juridique | Micro-entreprise (entrepreneur individuel) |
+| Établissement | 254 rue Vendôme, 69003 Lyon, France |
+| Numéro d'identification | SIREN 878912963 / SIRET 87891296300021 |
+| Représentant légal | Hassad SMARA, entrepreneur individuel |
+| Contact RGPD | dpo@designedtrust.com |
 
 Ci-après collectivement désignées « les Parties ».
 
@@ -51,7 +51,7 @@ Le présent contrat (« DPA ») a pour objet de définir les conditions dans les
 Le DPA est conclu en application :
 
 - de l'article 28 du RGPD ;
-- du contrat principal de prestation de services conclu entre les Parties le `[À COMPLÉTER : date du contrat principal]` (« le Contrat Principal »).
+- du contrat principal de prestation de services conclu entre les Parties le «  …  » *(à renseigner au contrat)* (« le Contrat Principal »).
 
 En cas de contradiction entre le DPA et le Contrat Principal sur les questions de protection des données, le DPA prévaut.
 
@@ -61,12 +61,12 @@ En cas de contradiction entre le DPA et le Contrat Principal sur les questions d
 
 | Élément | Détail |
 |---|---|
-| **Nature du traitement** | `[À COMPLÉTER : ex. hébergement de bases de données / envoi d'emails / stockage objet]` |
-| **Finalité(s)** | `[À COMPLÉTER : ex. fournir l'infrastructure d'hébergement nécessaire à l'exécution du Contrat Principal]` |
-| **Catégories de données traitées** | `[À COMPLÉTER : ex. identité, contact, contenu généré par les utilisateurs]` |
+| **Nature du traitement** | «  …  » *(à renseigner au contrat)* |
+| **Finalité(s)** | «  …  » *(à renseigner au contrat)* |
+| **Catégories de données traitées** | «  …  » *(à renseigner au contrat)* |
 | **Catégories de personnes concernées** | Utilisateurs du service Marketplace Service (rôles `agency`, `enterprise`, `provider`, `referrer`, `admin`) et visiteurs anonymes. |
 | **Durée du traitement** | Durée du Contrat Principal + durée de conservation prévue à l'article 8. |
-| **Type d'opérations effectuées** | `[À COMPLÉTER : collecte, enregistrement, stockage, transmission, consultation, etc.]` |
+| **Type d'opérations effectuées** | «  …  » *(à renseigner au contrat)* |
 
 ---
 
@@ -105,7 +105,7 @@ Le Sous-traitant s'engage à :
 
 ## Article 4 — Notification des violations de données
 
-Le Sous-traitant notifie au Client toute violation de données à caractère personnel **dans les 48 heures** suivant la prise de connaissance de la violation, par écrit à `dpo@designedtrust.com` et à `[À COMPLÉTER : adresse opérationnelle Marketplace Service]`.
+Le Sous-traitant notifie au Client toute violation de données à caractère personnel **dans les 48 heures** suivant la prise de connaissance de la violation, par écrit à `dpo@designedtrust.com` et à «  …  » *(à renseigner au contrat)*.
 
 La notification contient au minimum :
 
@@ -172,7 +172,7 @@ Le Sous-traitant met en œuvre, au regard de l'état de l'art et des coûts de m
 
 Le Sous-traitant peut produire sur demande sa **politique de sécurité de l'information** et ses certifications (ISO/IEC 27001, SOC 2 Type II, HDS, etc.).
 
-`[À COMPLÉTER : liste détaillée des mesures spécifiques au Sous-traitant — annexer en appendice 1]`
+«  …  » *(à renseigner au contrat)*
 
 ---
 
@@ -181,8 +181,8 @@ Le Sous-traitant peut produire sur demande sa **politique de sécurité de l'inf
 Le Sous-traitant ne conserve les données à caractère personnel que pour la durée strictement nécessaire à l'exécution de ses prestations.
 
 - **Durée principale** : durée du Contrat Principal.
-- **Durée résiduelle** : `[À COMPLÉTER : ex. 30 jours après la fin du Contrat pour permettre la restitution]`.
-- **Données sauvegardées (back-ups)** : `[À COMPLÉTER : durée du cycle de rotation de back-ups, max. 90 jours sauf obligation légale]`.
+- **Durée résiduelle** : «  …  » *(à renseigner au contrat)*.
+- **Données sauvegardées (back-ups)** : «  …  » *(à renseigner au contrat)*.
 
 Au terme de ces durées, le Sous-traitant procède à la suppression définitive des données dans les conditions prévues à l'article 11.
 
@@ -199,7 +199,7 @@ Lorsque le traitement implique un transfert de données à caractère personnel 
 
 Le Sous-traitant fournit au Client la documentation complète des garanties applicables à chaque transfert, sur simple demande.
 
-`[À COMPLÉTER : indication précise du pays de destination + cadre juridique applicable]`
+«  …  » *(à renseigner au contrat)*
 
 ---
 
@@ -241,7 +241,7 @@ Le présent article ne limite pas la responsabilité prévue à l'article 82 du 
 
 ## Article 13 — Droit applicable et juridiction compétente
 
-Le présent DPA est soumis au droit français. Tout litige relatif à son interprétation, son exécution ou sa fin sera, à défaut de résolution amiable préalable, porté devant les tribunaux compétents du `[À COMPLÉTER : ressort à préciser]`.
+Le présent DPA est soumis au droit français. Tout litige relatif à son interprétation, son exécution ou sa fin sera, à défaut de résolution amiable préalable, porté devant les tribunaux compétents du «  …  » *(à renseigner au contrat)*.
 
 ---
 
@@ -257,8 +257,8 @@ Les obligations du Sous-traitant relatives à la confidentialité, à la sécuri
 
 | Partie | Représentant | Date | Signature |
 |---|---|---|---|
-| **Client — Marketplace Service** | `[À COMPLÉTER : nom + fonction]` | `[À COMPLÉTER]` | `[À COMPLÉTER]` |
-| **Sous-traitant** | `[À COMPLÉTER : nom + fonction]` | `[À COMPLÉTER]` | `[À COMPLÉTER]` |
+| **Client — Marketplace Service** | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* |
+| **Sous-traitant** | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* |
 
 ---
 
@@ -271,9 +271,9 @@ Lorsque le DPA encadre un transfert de données vers un pays tiers non couvert p
 - **Annexe I.B — Description du transfert** : reprise des informations de l'article 2 du DPA + pays de destination.
 - **Annexe I.C — Autorité de contrôle compétente** : Commission Nationale de l'Informatique et des Libertés (CNIL — France).
 - **Annexe II — Mesures techniques et organisationnelles** : reprise détaillée de l'article 7 du DPA + annexe spécifique du Sous-traitant.
-- **Annexe III — Liste des sous-sous-traitants** : `[À COMPLÉTER : URL publique tenue à jour par le Sous-traitant]`.
+- **Annexe III — Liste des sous-sous-traitants** : «  …  » *(à renseigner au contrat)*.
 
-`[À COMPLÉTER : insertion ou référence aux CCT 2021/914 intégrales]`
+«  …  » *(à renseigner au contrat)*
 
 ---
 
@@ -281,12 +281,12 @@ Lorsque le DPA encadre un transfert de données vers un pays tiers non couvert p
 
 | Sous-sous-traitant | Pays | Rôle | Cadre du transfert |
 |---|---|---|---|
-| `[À COMPLÉTER]` | `[À COMPLÉTER]` | `[À COMPLÉTER]` | `[À COMPLÉTER]` |
+| «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* | «  …  » *(à renseigner au contrat)* |
 
-La liste est tenue à jour par le Sous-traitant et publiée à l'URL `[À COMPLÉTER]`. Toute modification est notifiée au Client conformément à l'article 5.
+La liste est tenue à jour par le Sous-traitant et publiée à l'URL «  …  » *(à renseigner au contrat)*. Toute modification est notifiée au Client conformément à l'article 5.
 
 ---
 
 ## Annexe III — Mesures techniques et organisationnelles spécifiques
 
-`[À COMPLÉTER : annexe détaillée par le Sous-traitant — chiffrement, sauvegardes, certifications, processus de gestion d'incident, etc.]`
+«  …  » *(à renseigner au contrat)*

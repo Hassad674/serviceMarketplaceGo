@@ -3,7 +3,7 @@
 > Version : 1.0
 > Dernière mise à jour : 2026-05-11
 > Référence : `legal/cgv.md`
-> Statut : **Base à valider par un conseil juridique** — `[À COMPLÉTER : validation cabinet d'avocats + commissaire aux comptes]` avant déploiement public.
+> Statut : **Base contractuelle rédigée par l'éditeur.** Une revue par un conseil juridique est recommandée mais non bloquante pour une micro-entreprise au lancement ; le présent document reflète l'état réel du service.
 > Audience : tous les utilisateurs effectuant ou recevant un paiement via Marketplace Service.
 
 ---
@@ -22,7 +22,7 @@ Le Service est une **marketplace B2B** dont la finalité est exclusivement profe
 
 | Terme | Définition |
 |---|---|
-| **Éditeur** | `[À COMPLÉTER : raison sociale]`, opérateur du Service. |
+| **Éditeur** | Hassad SMARA — Entrepreneur Individuel (EI), exploitant sous le nom commercial DesignedTrust Services — micro-entreprise, SIRET 87891296300021, SIREN 878912963, TVA FR26878912963, code APE 6201Z, 254 rue Vendôme, 69003 Lyon, France. Dispensé d'immatriculation au RCS et au RM (art. L.123-1-1 du Code de commerce). Contact : hassadsmara@designedtrust.com. |
 | **Utilisateur** | Toute personne ayant créé un compte sur le Service, agissant à titre professionnel. |
 | **Client** | Utilisateur de rôle `enterprise` qui publie une mission et engage un prestataire. |
 | **Prestataire** | Utilisateur de rôle `agency` ou `provider` qui exécute une mission pour un Client. |
@@ -47,10 +47,10 @@ La rémunération de l'Éditeur provient d'une **commission prélevée sur chaqu
 
 | Élément | Taux par défaut | Notes |
 |---|---|---|
-| Commission Plateforme (côté Client) | `[À COMPLÉTER : ex. 5 % HT]` | Ajoutée au montant facturé par le Prestataire |
-| Commission Plateforme (côté Prestataire) | `[À COMPLÉTER : ex. 10 % HT]` | Prélevée sur le montant brut versé |
-| Commission Apporteur d'affaires (le cas échéant) | `[À COMPLÉTER : ex. 5 % du HT après commission Plateforme]` | Prélevée sur la part Prestataire |
-| Frais Stripe (paiement carte) | Refacturés au coût | `[À COMPLÉTER : voir grille Stripe]` |
+| Frais de service par mission | Montant fixe, indépendant du montant de la prestation | Aucun pourcentage prélevé ; montant exact affiché avant tout engagement |
+| Abonnement optionnel | Exonère des frais de service fixes | Prix affiché avant souscription |
+| Rémunération apporteur d'affaires (le cas échéant) | Définie d'un commun accord (aucun barème imposé) | Accord exprès tripartite matérialisé en plateforme avant tout versement |
+| Frais Stripe (paiement carte) | Refacturés au coût exclusivement au Client | Selon la grille Stripe applicable à la transaction |
 
 Les taux ci-dessus sont indicatifs et peuvent être ajustés par formules promotionnelles ou abonnements premium. **Le taux applicable à une transaction est celui affiché à l'utilisateur au moment de la signature de la proposal**.
 
@@ -62,7 +62,7 @@ L'Éditeur peut proposer des abonnements premium (`subscriptions`) à destinatio
 - la suppression de la commission Plateforme côté Prestataire au-delà d'un seuil de chiffre d'affaires ;
 - des fonctionnalités avancées (statistiques, supports prioritaire).
 
-Les modalités, les tarifs et les conditions de résiliation sont définis dans le `[À COMPLÉTER : annexe Premium]` et publiés sur `/pricing`.
+Les modalités, les tarifs et les conditions de résiliation sont définis dans le l'offre Premium présentée sur la Plateforme et publiés sur `/pricing`.
 
 ### 3.4 Transparence
 
@@ -91,7 +91,7 @@ La validation KYC est traitée sous **5 jours ouvrés** maximum après transmiss
 
 ### 4.4 Refus
 
-En cas de refus, l'Utilisateur peut former un recours documenté auprès de `support@designedtrust.com`. Le recours est traité sous 30 jours. En cas de refus définitif, l'Utilisateur reste libre d'utiliser le Service pour les fonctionnalités gratuites mais ne peut pas être destinataire d'un transfert financier.
+En cas de refus, l'Utilisateur peut former un recours documenté auprès de `hassadsmara@designedtrust.com`. Le recours est traité sous 30 jours. En cas de refus définitif, l'Utilisateur reste libre d'utiliser le Service pour les fonctionnalités gratuites mais ne peut pas être destinataire d'un transfert financier.
 
 ---
 
@@ -134,7 +134,7 @@ Le Client provisionne intégralement la transaction au moment de l'acceptation. 
 Moyens acceptés (selon la grille Stripe et la situation du Client) :
 
 - carte bancaire (Visa, Mastercard, American Express selon Stripe) ;
-- virement SEPA (`[À COMPLÉTER : seuils SEPA applicables]`) ;
+- virement SEPA  ;
 - débit direct SEPA pour les contrats récurrents.
 
 ### 6.2 Validation et délai d'opposition
@@ -183,7 +183,7 @@ La décision de l'Éditeur ne préjuge pas du droit pour chacune des Parties de 
 
 ### 7.4 Médiation conventionnelle
 
-Les Parties peuvent recourir à une médiation conventionnelle (`[À COMPLÉTER : référence médiateur]`). Les frais sont en principe partagés à parts égales.
+Les Parties peuvent recourir à une médiation conventionnelle (non applicable (Plateforme strictement B2B)). Les frais sont en principe partagés à parts égales.
 
 ---
 
@@ -196,7 +196,7 @@ Un Utilisateur disposant du toggle `referrer_enabled` peut être désigné appor
 ### 8.2 Modalités
 
 - L'apport est **formalisé dans la conversation initiale** entre le Client et le Prestataire, avec accord exprès des trois Parties.
-- La commission d'apport est fixée par défaut à `[À COMPLÉTER : ex. 5 % HT]` du montant facturé HT après commission Plateforme, sauf accord particulier consigné dans la proposal.
+- La rémunération de l'apporteur d'affaires est définie d'un commun accord entre les Parties (aucun barème proportionnel n'est imposé par la Plateforme) et consignée dans la proposal avant tout versement.
 - La commission est prélevée automatiquement au moment du reversement au Prestataire.
 - L'apporteur d'affaires reçoit une facture détaillée mentionnant son rôle et la commission perçue.
 
@@ -295,7 +295,7 @@ L'Éditeur peut faire évoluer les présentes CGV. Toute modification substantie
 
 Les présentes CGV sont régies par le **droit français**. Tout litige relatif à leur interprétation, leur exécution ou leur fin sera, à défaut de résolution amiable préalable, porté devant les juridictions compétentes du ressort du siège social de l'Éditeur.
 
-Les Utilisateurs professionnels peuvent recourir, à leur initiative, à une médiation conventionnelle. `[À COMPLÉTER : référence médiateur agréé]`
+Les Utilisateurs professionnels peuvent recourir, à leur initiative, à une médiation conventionnelle. non applicable (Plateforme strictement B2B)
 
 ---
 
@@ -308,6 +308,6 @@ Les Utilisateurs professionnels peuvent recourir, à leur initiative, à une mé
 
 ---
 
-**Date d'entrée en vigueur des présentes CGV :** `[À COMPLÉTER : date]`
-**Validation juridique :** `[À COMPLÉTER : nom du conseil + date]`
-**Référence comptable :** `[À COMPLÉTER : commissaire aux comptes + date]`
+**Date d'entrée en vigueur des présentes CGV :** 17 mai 2026
+**Rédaction :** Hassad SMARA (éditeur), 17 mai 2026
+**Régime comptable :** micro-entreprise (comptabilité allégée, non soumise à commissaire aux comptes).

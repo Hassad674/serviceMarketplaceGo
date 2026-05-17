@@ -2,7 +2,7 @@
 
 > **Statut du document** : version initiale auto-générée à partir du code (`.env.example`, `go.mod`, `package.json`, `pubspec.yaml`) le **2026-05-11**.
 > **Responsable de traitement** : Hassad SMARA (Marketplace Service).
-> **Contact RGPD** : `hassad.smara69@gmail.com` (à mettre à jour avec une adresse `dpo@…` ou `privacy@…` une fois le domaine arrêté — variable `GDPR_CONTACT_EMAIL`).
+> **Contact RGPD** : `hassadsmara@designedtrust.com` (à mettre à jour avec une adresse `dpo@…` ou `privacy@…` une fois le domaine arrêté — variable `GDPR_CONTACT_EMAIL`).
 > **Référence transverse** : audit RGPD interne (transferts extra-UE / Schrems II) + planning RGPD interne.
 
 L'app traite des données personnelles à travers les sous-processeurs listés ci-dessous. Chaque ligne correspond à un fournisseur **réellement intégré** (présence vérifiée dans `backend/go.mod`, `web/package.json`, `mobile/pubspec.yaml`, `backend/internal/config/config.go` ou `backend/.env.example`). Les fournisseurs absents du code ne sont pas listés — la liste évolue avec le code.

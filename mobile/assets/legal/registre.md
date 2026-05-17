@@ -4,7 +4,7 @@
 > Responsable de traitement : **Marketplace Service** — `services.designedtrust.com`
 > Dernière mise à jour : 2026-05-11
 > Version : 1.0
-> Statut : `[À COMPLÉTER : validation finale par DPO + responsable légal]`
+> Statut : registre tenu et arrêté par Hassad SMARA, responsable de traitement (entrepreneur individuel). Micro-entreprise non soumise à l'obligation de désigner un DPO (art. 37 RGPD). Dernière revue : 17 mai 2026.
 
 ---
 
@@ -34,12 +34,12 @@
 |---|---|
 | Nom commercial | Marketplace Service |
 | URL de production | `https://services.designedtrust.com` |
-| Raison sociale | `[À COMPLÉTER : raison sociale enregistrée]` |
-| Forme juridique | `[À COMPLÉTER : SAS / SARL / autre]` |
-| Numéro RCS / SIREN | `[À COMPLÉTER]` |
-| Adresse postale du siège | `[À COMPLÉTER]` |
-| Représentant légal | `[À COMPLÉTER : nom, prénom, fonction]` |
-| Délégué à la Protection des Données (DPO) | `[À COMPLÉTER : DPO interne ou externe]` |
+| Raison sociale | Hassad SMARA — Entrepreneur Individuel (EI) |
+| Forme juridique | Micro-entreprise (entrepreneur individuel) |
+| SIREN / SIRET | 878912963 / 87891296300021 — dispensé d'immatriculation au RCS et au RM (micro-entreprise) |
+| Adresse de l'établissement | 254 rue Vendôme, 69003 Lyon, France |
+| Représentant légal | Hassad SMARA, entrepreneur individuel |
+| Contact protection des données | dpo@designedtrust.com — micro-entreprise non tenue de désigner un DPO (art. 37 RGPD) ; point de contact dédié maintenu |
 | Adresse de contact RGPD | `dpo@designedtrust.com` (variable `NEXT_PUBLIC_DPO_EMAIL`) |
 
 Le présent registre est tenu en application de l'article 30 du Règlement (UE) 2016/679 (RGPD). Il décrit, pour chaque traitement, la finalité, la base légale, les catégories de données, les destinataires, la durée de conservation et les mesures de sécurité associées.
@@ -320,11 +320,11 @@ Le présent registre est tenu en application de l'article 30 du Règlement (UE) 
 
 ### 15.2 Mesures organisationnelles
 
-- **Politique de sécurité de l'information** : `[À COMPLÉTER : politique formelle signée]`.
+- **Politique de sécurité de l'information** : mesures techniques et organisationnelles décrites dans le présent registre et appliquées par l'éditeur (chiffrement en transit et au repos, contrôle d'accès, journalisation d'audit, sauvegardes).
 - **Accès aux données** : principe du moindre privilège, revue trimestrielle des accès `admin`.
-- **Sensibilisation** : `[À COMPLÉTER : formation annuelle RGPD obligatoire pour l'équipe]`.
+- **Sensibilisation** : l'éditeur étant entrepreneur individuel (équipe d'une personne), la sensibilisation RGPD relève de la veille réglementaire continue du responsable de traitement.
 - **Gestion des incidents** : processus de notification à la CNIL sous 72h en cas de violation (`SECURITY.md`).
-- **Audit** : audit annuel interne, audit externe `[À COMPLÉTER : périodicité à définir avec DPO]`.
+- **Audit** : revue interne au moins annuelle et à chaque évolution des traitements par le responsable de traitement.
 - **Sous-traitants** : revue annuelle des DPA, notification J-30 en cas d'ajout d'un sous-traitant (cf. `/sous-processeurs`).
 - **Continuité d'activité** : plan de continuité en place pour les services critiques (Auth, Paiements, Messagerie).
 
@@ -344,5 +344,5 @@ Le présent registre est tenu en application de l'article 30 du Règlement (UE) 
 
 ---
 
-**Signature du registre — `[À COMPLÉTER : nom, fonction, date]`**
-**Validation DPO — `[À COMPLÉTER : nom du DPO, date]`**
+**Registre arrêté par Hassad SMARA, responsable de traitement (entrepreneur individuel) — 17 mai 2026.**
+**Aucun DPO requis (micro-entreprise, art. 37 RGPD) — point de contact : dpo@designedtrust.com.**

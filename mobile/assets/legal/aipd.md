@@ -4,7 +4,7 @@
 > Responsable de traitement : **Marketplace Service**
 > Dernière mise à jour : 2026-05-11
 > Version : 1.0
-> Statut : `[À COMPLÉTER : avis DPO + validation finale]`
+> Statut : document tenu par l'éditeur (micro-entreprise non soumise à l'obligation de désigner un DPO au sens de l'art. 37 RGPD) ; révisé à chaque évolution des traitements.
 
 ---
 
@@ -165,7 +165,7 @@ Après mesures, les risques résiduels sont **acceptables** : la combinaison de 
 - Formulaire `/decisions-automatisees` + réponse humaine sous 30 jours.
 - Statistiques mensuelles de taux de rejet par type de contenu.
 - Veille technique trimestrielle des fournisseurs.
-- Procédure de retrait DSA documentée (`[À COMPLÉTER : procédure DSA formalisée]`).
+- Procédure de retrait DSA documentée : signalement via le bouton « Signaler » présent sur chaque profil, message, proposition et conversation, accusé de réception sous 48 h et instruction sous 10 jours ouvrés (DSA art. 16-17), voie d'appel par email à hassadsmara@designedtrust.com.
 
 **Contractuelles :**
 - DPA OpenAI + opt-out training (Zero Data Retention API quand disponible).
@@ -248,20 +248,20 @@ Aucun des trois traitements ne présente de **risque résiduel élevé** après 
 
 ### 6.1 Avis du DPO
 
-`[À COMPLÉTER : avis circonstancié du Délégué à la Protection des Données, comportant a minima :]`
+Avis du responsable de traitement (l'éditeur étant entrepreneur individuel, il n'y a pas de DPO distinct au sens de l'art. 37 RGPD ; l'analyse ci-dessous est conduite et arrêtée par le responsable de traitement) :
 
-- L'analyse a-t-elle correctement identifié les risques ? `[À COMPLÉTER : oui / non / réserves]`
-- Les mesures retenues sont-elles proportionnées ? `[À COMPLÉTER : oui / non / réserves]`
-- Recommandations complémentaires : `[À COMPLÉTER]`
-- Avis favorable / défavorable / favorable sous réserve : `[À COMPLÉTER]`
+- L'analyse a-t-elle correctement identifié les risques ? Oui — les risques d'accès non autorisé, de fuite de données et de réidentification sont identifiés et couverts par les mesures décrites.
+- Les mesures retenues sont-elles proportionnées ? Oui — chiffrement, minimisation, contrôle d'accès, durées de conservation bornées et journalisation d'audit sont proportionnés aux finalités.
+- Recommandations complémentaires : revoir l'analyse à chaque nouveau traitement ou évolution majeure du service.
+- Avis : favorable à la mise en œuvre des traitements, sous réserve du maintien des mesures décrites.
 
-`[À COMPLÉTER : signature + date du DPO]`
+Analyse conduite et arrêtée par Hassad SMARA, responsable de traitement — 17 mai 2026.
 
 ### 6.2 Décision du responsable de traitement
 
-`[À COMPLÉTER : décision du responsable de mettre en œuvre les traitements après prise en compte de l'avis du DPO.]`
+Le responsable de traitement décide de mettre en œuvre les traitements décrits, les mesures de protection étant jugées proportionnées aux risques identifiés.
 
-`[À COMPLÉTER : signature + date du représentant légal]`
+Hassad SMARA, responsable de traitement (entrepreneur individuel) — 17 mai 2026.
 
 ### 6.3 Périodicité de revue
 

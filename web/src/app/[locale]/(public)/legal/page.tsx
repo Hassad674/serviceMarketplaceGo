@@ -4,6 +4,10 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { LegalShell } from "@/shared/components/legal/legal-shell"
 import { CookieConsentManageButton } from "@/shared/components/analytics/cookie-consent-manage-button"
+import {
+  legalIssuer,
+  legalIssuerDisplay,
+} from "@/config/legal-issuer"
 
 // /legal — Mentions légales (LCEN art. 6-III) + sommaire des documents
 // de conformité RGPD D4. Indexable (Stripe Restricted Businesses + DSA
@@ -117,40 +121,43 @@ function EditorBlock() {
         <dt className="font-medium text-foreground">
           {t("editorCompanyLabel")}
         </dt>
-        <dd>{t("editorCompany")}</dd>
-        <dt className="font-medium text-foreground">{t("editorFormLabel")}</dt>
-        <dd>{t("editorForm")}</dd>
+        <dd>{legalIssuer.legalName}</dd>
         <dt className="font-medium text-foreground">
-          {t("editorCapitalLabel")}
+          {t("editorTradingNameLabel")}
         </dt>
-        <dd>{t("editorCapital")}</dd>
+        <dd>{legalIssuer.tradingName}</dd>
+        <dt className="font-medium text-foreground">{t("editorFormLabel")}</dt>
+        <dd>{legalIssuer.legalForm}</dd>
         <dt className="font-medium text-foreground">{t("editorRcsLabel")}</dt>
-        <dd>{t("editorRcs")}</dd>
+        <dd>{legalIssuerDisplay.registration}</dd>
+        <dt className="font-medium text-foreground">
+          {t("editorRcsMentionLabel")}
+        </dt>
+        <dd>{legalIssuer.rcsMention}</dd>
+        <dt className="font-medium text-foreground">{t("editorApeLabel")}</dt>
+        <dd>{legalIssuerDisplay.apeLine}</dd>
         <dt className="font-medium text-foreground">{t("editorVatLabel")}</dt>
-        <dd>{t("editorVat")}</dd>
+        <dd>{legalIssuerDisplay.vatLine}</dd>
         <dt className="font-medium text-foreground">
           {t("editorAddressLabel")}
         </dt>
-        <dd>{t("editorAddress")}</dd>
+        <dd>{legalIssuerDisplay.fullAddress}</dd>
         <dt className="font-medium text-foreground">
           {t("editorDirectorLabel")}
         </dt>
-        <dd>{t("editorDirector")}</dd>
+        <dd>{t("editorDirectorValue", { name: legalIssuer.legalName })}</dd>
         <dt className="font-medium text-foreground">
           {t("editorContactLabel")}
         </dt>
         <dd>
           <a
-            href="mailto:contact@designedtrust.com"
+            href={`mailto:${legalIssuer.contactEmail}`}
             className="text-accent underline-offset-4 hover:underline"
           >
-            contact@designedtrust.com
+            {legalIssuer.contactEmail}
           </a>
         </dd>
       </dl>
-      <p className="text-xs text-muted-foreground italic">
-        {t("editorFallback")}
-      </p>
     </div>
   )
 }
@@ -164,10 +171,10 @@ function DpoBlock() {
         {t.rich("dpoBody", {
           email: () => (
             <a
-              href="mailto:dpo@designedtrust.com"
+              href={`mailto:${legalIssuer.dpoEmail}`}
               className="text-accent underline-offset-4 hover:underline"
             >
-              dpo@designedtrust.com
+              {legalIssuer.dpoEmail}
             </a>
           ),
           cnil: () => (
@@ -222,10 +229,10 @@ function ContactBlock() {
         {t.rich("contactBody", {
           email: () => (
             <a
-              href="mailto:support@designedtrust.com"
+              href={`mailto:${legalIssuer.contactEmail}`}
               className="text-accent underline-offset-4 hover:underline"
             >
-              support@designedtrust.com
+              {legalIssuer.contactEmail}
             </a>
           ),
         })}

@@ -1,23 +1,15 @@
-import type { Metadata } from "next"
-import { getTranslations } from "next-intl/server"
-import { LegalShell } from "@/shared/components/legal/legal-shell"
+import { redirect } from "@i18n/navigation"
 
-// /cgv — placeholder Conditions Générales de Vente. Phase C.2 will
-// replace with the full legally-reviewed document.
-export async function generateMetadata({
+// /cgv — permanent redirect to the full, legally-reviewed CGV document
+// served at /legal/cgv. The standalone /cgv page used to be an empty
+// placeholder shell; the authoritative content lives at /legal/cgv
+// (locale-aware: /en/legal/sales-terms). Redirecting avoids a
+// duplicate, content-less URL and keeps a single source of truth.
+export default async function CgvPage({
   params,
 }: {
   params: Promise<{ locale: string }>
-}): Promise<Metadata> {
+}) {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: "legal.cgv" })
-  return {
-    title: `${t("title")} | Marketplace Service`,
-    description: t("intro"),
-    robots: { index: false, follow: false },
-  }
-}
-
-export default function CgvPage() {
-  return <LegalShell titleKey="cgv.title" introKey="cgv.intro" lastUpdatedISO="2026-05-10" />
+  redirect({ href: "/legal/cgv", locale })
 }

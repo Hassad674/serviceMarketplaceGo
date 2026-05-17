@@ -30,8 +30,10 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+const redirectMock = vi.fn()
 vi.mock("@i18n/navigation", () => ({
   Link: ({ children }: { children: React.ReactNode }) => children,
+  redirect: (...args: unknown[]) => redirectMock(...args),
 }))
 
 import * as Cookies from "@/app/[locale]/(public)/cookies/page"
@@ -58,11 +60,10 @@ const CASES = [
     label: "legal",
     indexable: true,
   },
-  // Short /cgu and /cgv are legacy placeholder shells — the canonical
-  // CGU/CGV content lives under /legal/cgu and /legal/cgv (indexable).
-  // Keep these noindex so they do not generate duplicate content.
-  { mod: Cgu, namespace: "legal.cgu", label: "cgu", indexable: false },
-  { mod: Cgv, namespace: "legal.cgv", label: "cgv", indexable: false },
+  // /cgu and /cgv are no longer placeholder shells: they now
+  // permanently redirect to the canonical full documents under
+  // /legal/cgu and /legal/cgv (locale-aware). They are asserted
+  // separately below — they intentionally export no generateMetadata.
   // /sous-processeurs MUST be crawlable — RGPD art. 28 transparency
   // + DSA art. 14 require visitors and auditors to access the
   // sub-processors list without authentication.
@@ -92,6 +93,37 @@ describe("legal placeholder pages metadata", () => {
       } else {
         expect(meta.robots).toEqual({ index: false, follow: false })
       }
+    })
+  }
+})
+
+// /cgu and /cgv used to be empty placeholder shells that only rendered
+// a "this page will be completed soon" banner. They now permanently
+// redirect to the canonical, legally-reviewed full documents so there
+// is a single source of truth and zero content-less duplicate URL.
+describe("/cgu and /cgv redirect to the canonical full documents", () => {
+  const REDIRECTS = [
+    { mod: Cgu, label: "cgu", target: "/legal/cgu" },
+    { mod: Cgv, label: "cgv", target: "/legal/cgv" },
+  ] as const
+
+  for (const r of REDIRECTS) {
+    it(`${r.label}: redirects to ${r.target} (no metadata, no placeholder shell)`, async () => {
+      redirectMock.mockClear()
+      // These pages intentionally export no generateMetadata.
+      expect(
+        (r.mod as { generateMetadata?: unknown }).generateMetadata,
+      ).toBeUndefined()
+
+      const Page = (r.mod as { default: unknown }).default as (args: {
+        params: Promise<{ locale: string }>
+      }) => Promise<unknown>
+      await Page({ params: Promise.resolve({ locale: "fr" }) })
+
+      expect(redirectMock).toHaveBeenCalledWith({
+        href: r.target,
+        locale: "fr",
+      })
     })
   }
 })
