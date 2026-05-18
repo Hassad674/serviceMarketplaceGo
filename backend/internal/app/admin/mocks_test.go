@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/audit"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
@@ -227,4 +228,71 @@ func (m *mockBroadcaster) BroadcastAccountSuspended(_ context.Context, userID uu
 }
 func (m *mockBroadcaster) BroadcastAdminNotification(_ context.Context, _ []uuid.UUID) error {
 	return nil
+}
+
+// --- mockActorSearchIndexer ---
+//
+// Satisfies admin.ActorSearchIndexer. Records every RemoveActor /
+// ReindexActor call (org id, in order) and can be programmed to fail
+// so the "search failure must not fail the admin action" invariant is
+// exercised.
+
+var _ ActorSearchIndexer = (*mockActorSearchIndexer)(nil)
+
+type mockActorSearchIndexer struct {
+	mu sync.Mutex
+
+	removeErr   error
+	reindexErr  error
+	removeCalls  []uuid.UUID
+	reindexCalls []uuid.UUID
+}
+
+func (m *mockActorSearchIndexer) RemoveActor(_ context.Context, orgID uuid.UUID) error {
+	m.mu.Lock()
+	m.removeCalls = append(m.removeCalls, orgID)
+	m.mu.Unlock()
+	return m.removeErr
+}
+
+func (m *mockActorSearchIndexer) ReindexActor(_ context.Context, orgID uuid.UUID) error {
+	m.mu.Lock()
+	m.reindexCalls = append(m.reindexCalls, orgID)
+	m.mu.Unlock()
+	return m.reindexErr
+}
+
+func (m *mockActorSearchIndexer) snapshotRemoveCalls() []uuid.UUID {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]uuid.UUID, len(m.removeCalls))
+	copy(out, m.removeCalls)
+	return out
+}
+
+func (m *mockActorSearchIndexer) snapshotReindexCalls() []uuid.UUID {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]uuid.UUID, len(m.reindexCalls))
+	copy(out, m.reindexCalls)
+	return out
+}
+
+// --- mockOrgResolver ---
+//
+// Satisfies admin.adminOrgResolver. Maps an owner user id to an org
+// (or an error) so the moderation-search-sync tests can drive the
+// "user owns an org", "user owns no org", and "lookup failed" paths.
+
+var _ adminOrgResolver = (*mockOrgResolver)(nil)
+
+type mockOrgResolver struct {
+	findFn func(ctx context.Context, ownerUserID uuid.UUID) (*organization.Organization, error)
+}
+
+func (m *mockOrgResolver) FindByOwnerUserID(ctx context.Context, ownerUserID uuid.UUID) (*organization.Organization, error) {
+	if m.findFn != nil {
+		return m.findFn(ctx, ownerUserID)
+	}
+	return nil, organization.ErrOrgNotFound
 }

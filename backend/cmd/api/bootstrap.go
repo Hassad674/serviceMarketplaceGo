@@ -350,6 +350,10 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*App, error) {
 		OrganizationInvites: infra.OrganizationInvitationRepo,
 		Membership:          membershipSvc,
 		Invitation:          invitationSvc,
+		// Moderation ↔ Typesense sync: deindex on suspend/ban,
+		// reindex on unsuspend/unban. Nil-safe — nil publisher
+		// (Typesense not configured) disables the sync cleanly.
+		SearchPublisher:     searchPublisher,
 	})
 
 	httpRateLimiter := wireRateLimiter(rateLimiterDeps{Cfg: cfg, Redis: infra.Redis})

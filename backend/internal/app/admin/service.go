@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	organizationapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/audit"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -25,6 +27,17 @@ type adminUsers interface {
 	repository.UserReader
 	repository.UserWriter
 	repository.UserAuthStore
+}
+
+// adminOrgResolver is the minimal slice of OrganizationReader the
+// admin moderation flow needs: given a moderated user, resolve the
+// organization they own so the search index can be kept consistent.
+// The actor document in Typesense is org-scoped (organization_id is
+// the key for every persona variant), so a user-status change must be
+// reflected on the org the user owns. Narrowed to one method (ISP) —
+// admin moderation never reads any other org field.
+type adminOrgResolver interface {
+	FindByOwnerUserID(ctx context.Context, ownerUserID uuid.UUID) (*organization.Organization, error)
 }
 
 // DashboardStats holds aggregated statistics for the admin dashboard.
@@ -105,6 +118,20 @@ type Service struct {
 	orgInvitations repository.OrganizationInvitationRepository
 	membership     *organizationapp.MembershipService
 	invitation     *organizationapp.InvitationService
+
+	// searchIndexer keeps the Typesense actor index consistent with a
+	// user's moderation status: removed on suspend / ban, reindexed on
+	// unsuspend / unban (when the user is active again). Optional —
+	// nil makes every sync call a no-op so the admin service stays
+	// bootable without the search engine. A failure NEVER fails the
+	// admin action; it is logged and the outbox worker reconciles.
+	searchIndexer ActorSearchIndexer
+
+	// orgResolver resolves the org a moderated user owns so the
+	// search index (org-scoped) can be kept consistent. Set together
+	// with searchIndexer via WithActorSearchIndexer — both nil =
+	// search sync disabled.
+	orgResolver adminOrgResolver
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -130,6 +157,21 @@ func NewService(deps ServiceDeps) *Service {
 		membership:         deps.Membership,
 		invitation:         deps.Invitation,
 	}
+}
+
+// WithActorSearchIndexer attaches the optional Typesense actor-index
+// sync used by the moderation flow. The indexer removes a moderated
+// user's actor on suspend / ban and reindexes it on unsuspend /
+// unban. The resolver maps the moderated user to the organization
+// they own (the search index is org-scoped). Returns the same
+// service for fluent wiring in cmd/api. Passing a nil indexer OR a
+// nil resolver disables the sync entirely (search drift is then left
+// to the operator) — both must be non-nil for the sync to run, and
+// even then a failure never blocks the moderation action.
+func (s *Service) WithActorSearchIndexer(indexer ActorSearchIndexer, resolver adminOrgResolver) *Service {
+	s.searchIndexer = indexer
+	s.orgResolver = resolver
+	return s
 }
 
 // GetNotificationCounters returns all notification counters for the given admin.
@@ -267,6 +309,7 @@ func (s *Service) SuspendUser(ctx context.Context, adminUserID, userID uuid.UUID
 	}
 
 	s.invalidateAndNotify(ctx, userID, reason)
+	s.removeActorFromIndex(ctx, userID, "suspend")
 
 	s.logAudit(ctx, audit.NewEntryInput{
 		UserID:       actorPtr(adminUserID),
@@ -295,6 +338,8 @@ func (s *Service) UnsuspendUser(ctx context.Context, adminUserID, userID uuid.UU
 		return fmt.Errorf("unsuspend user: save: %w", err)
 	}
 
+	s.reindexActorIfActive(ctx, u, "unsuspend")
+
 	s.logAudit(ctx, audit.NewEntryInput{
 		UserID:       actorPtr(adminUserID),
 		Action:       audit.ActionAdminUserUnsuspend,
@@ -320,6 +365,7 @@ func (s *Service) BanUser(ctx context.Context, adminUserID, userID uuid.UUID, re
 	}
 
 	s.invalidateAndNotify(ctx, userID, reason)
+	s.removeActorFromIndex(ctx, userID, "ban")
 
 	s.logAudit(ctx, audit.NewEntryInput{
 		UserID:       actorPtr(adminUserID),
@@ -370,6 +416,70 @@ func (s *Service) invalidateAndNotify(ctx context.Context, userID uuid.UUID, rea
 	}
 }
 
+// resolveModeratedOrg resolves the organization the moderated user
+// owns. Returns uuid.Nil + false when the sync is disabled (nil
+// indexer/resolver), when the user owns no org, or when the lookup
+// fails — every non-fatal case is logged at WARN and the caller skips
+// the sync. The moderation action itself must already have committed
+// before this is called, so a failure here only delays index
+// convergence (the outbox / a later moderation toggle reconciles it).
+func (s *Service) resolveModeratedOrg(ctx context.Context, userID uuid.UUID, op string) (uuid.UUID, bool) {
+	if s.searchIndexer == nil || s.orgResolver == nil {
+		return uuid.Nil, false
+	}
+	org, err := s.orgResolver.FindByOwnerUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, organization.ErrOrgNotFound) {
+			// A user with no owned org has no actor document — nothing
+			// to sync. Not an error.
+			return uuid.Nil, false
+		}
+		slog.Warn("admin: resolve org for search sync failed",
+			"op", op, "user_id", userID, "error", err)
+		return uuid.Nil, false
+	}
+	if org == nil || org.ID == uuid.Nil {
+		return uuid.Nil, false
+	}
+	return org.ID, true
+}
+
+// removeActorFromIndex deindexes the moderated user's actor on suspend
+// / ban. Best-effort by design: a Typesense failure is logged at
+// ERROR and swallowed so the DB suspension/ban (the source of truth)
+// is never rolled back. The Typesense client treats a 404 DELETE as
+// success, so a double-suspend is idempotent.
+func (s *Service) removeActorFromIndex(ctx context.Context, userID uuid.UUID, op string) {
+	orgID, ok := s.resolveModeratedOrg(ctx, userID, op)
+	if !ok {
+		return
+	}
+	if err := s.searchIndexer.RemoveActor(ctx, orgID); err != nil {
+		slog.Error("admin: search deindex after "+op+" failed",
+			"user_id", userID, "org_id", orgID, "error", err)
+	}
+}
+
+// reindexActorIfActive re-upserts the moderated user's actor on
+// unsuspend / unban — but ONLY when the user is genuinely active
+// again. Guarding on StatusActive prevents an unban from resurrecting
+// an actor that is still suspended (or vice-versa). Best-effort: an
+// indexing failure is logged and swallowed; the upsert is idempotent
+// (keyed by id) so the outbox / a later toggle still converges.
+func (s *Service) reindexActorIfActive(ctx context.Context, u *user.User, op string) {
+	if u == nil || u.Status != user.StatusActive {
+		return
+	}
+	orgID, ok := s.resolveModeratedOrg(ctx, u.ID, op)
+	if !ok {
+		return
+	}
+	if err := s.searchIndexer.ReindexActor(ctx, orgID); err != nil {
+		slog.Error("admin: search reindex after "+op+" failed",
+			"user_id", u.ID, "org_id", orgID, "error", err)
+	}
+}
+
 // UnbanUser lifts a ban. BUG-NEW-09 fix: actor=admin, resource=target.
 func (s *Service) UnbanUser(ctx context.Context, adminUserID, userID uuid.UUID) error {
 	u, err := s.users.GetByID(ctx, userID)
@@ -382,6 +492,8 @@ func (s *Service) UnbanUser(ctx context.Context, adminUserID, userID uuid.UUID) 
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("unban user: save: %w", err)
 	}
+
+	s.reindexActorIfActive(ctx, u, "unban")
 
 	s.logAudit(ctx, audit.NewEntryInput{
 		UserID:       actorPtr(adminUserID),
