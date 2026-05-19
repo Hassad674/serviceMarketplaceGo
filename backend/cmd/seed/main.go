@@ -75,6 +75,7 @@ func seedAdmin(ctx context.Context, userRepo *postgres.UserRepository, hasher *c
 		LastName:       "User",
 		DisplayName:    "Admin",
 		Role:           user.RoleProvider,
+		Status:         user.StatusActive,
 		IsAdmin:        true,
 		EmailVerified:  true,
 		CreatedAt:      time.Now(),
