@@ -240,9 +240,22 @@ func (h *StripeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 // continue to drive the dispatcher directly.
 func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	enqueueStart := time.Now()
-	body, err := io.ReadAll(io.LimitReader(r.Body, 65536))
+	// Stripe webhook payloads — especially invoice.* and
+	// customer.subscription.* on recent API versions (2026-xx dahlia
+	// expands subscription_details / price_details / line items) —
+	// routinely exceed 64 KiB. io.LimitReader SILENTLY truncates at the
+	// cap (no error), which corrupts the body so the HMAC computed over
+	// the truncated bytes never matches Stripe's signature: every large
+	// event 400s and Stripe retries it forever, so subscriptions never
+	// activate. Use http.MaxBytesReader (fails loudly with 413 instead
+	// of silently truncating) with a generous 1 MiB cap that still
+	// guards against unbounded bodies but is far above any real Stripe
+	// event.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "read_error", "cannot read request body")
+		res.Error(w, http.StatusRequestEntityTooLarge, "body_too_large",
+			"request body exceeds the 1 MiB webhook limit")
 		return
 	}
 
