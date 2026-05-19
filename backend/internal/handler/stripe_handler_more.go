@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -74,6 +75,25 @@ func (h *StripeHandler) handleSubscriptionCreated(ctx context.Context, event *po
 		snap.CustomerID,
 		snap,
 	); err != nil {
+		// Orphan organization_id: the Stripe subscription's
+		// metadata.organization_id points at an org that does not
+		// exist in this database (stale data from a prior environment,
+		// a wiped/migrated DB, or test-mode pollution). The FK insert
+		// can NEVER succeed — the org will never materialise — so a
+		// 5xx here just makes Stripe retry for 3 days and permanently
+		// poisons the pending-events queue. Acknowledge it (log loudly,
+		// return nil so the worker marks it done) instead of retrying.
+		// Genuine users always have a valid org and never hit this;
+		// transient errors (DB down, etc.) are NOT FK violations and
+		// still surface below for a legitimate retry.
+		if strings.Contains(err.Error(), "subscriptions_organization_id_fkey") ||
+			(strings.Contains(err.Error(), "foreign key constraint") &&
+				strings.Contains(err.Error(), "organization")) {
+			slog.Error("stripe webhook: subscription references a non-existent organization — acking unprocessable event without retry",
+				"event_id", event.EventID, "organization_id", orgID,
+				"stripe_sub_id", snap.ID, "error", err)
+			return nil
+		}
 		slog.Error("stripe webhook: register subscription failed",
 			"event_id", event.EventID, "organization_id", orgID, "error", err)
 		// BUG-NEW-06 — surface the error so the dispatcher releases
